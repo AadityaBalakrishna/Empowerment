@@ -1,0 +1,56 @@
+02/09/2024
+
+What is spring, spring core(dependency injection, inversion of control)
+
+We need to understand what is bean?
+  a java bean is a java code that is re-usable, is independant of the typeof project(console, web, windows, web service) , that code must not contain something specific to a particular type of 
+  project. System.out.println, scanner are usefull for console applications only
+  ideally java beans has a class, methods, properties, thats all
+
+EJB - Enterprise Java Beans
+Scalability: ability of the application/component to aapt to increasing or decreasing needs/req
+elasticity : ability to provision more or infra to scale
+Life cycle management
+persistance
+transaction management
+security
+
+EJB was cosidered as winter season for programmers
+the simplied version of ejb was introduced as Spring Season for programmers
+
+spring provides env for programmers that they can use beans as POJO classes
+EJB interfaces forced the beans to implement
+  ejbCreate(), ejbDestroy(), ejbActivate(), ejbPassivate()
+
+A bean management system is expected to handle the life cycle of the bean
+
+"container" is a spl jvm that provides generic services
+Generic services are common requirements for any application
+app specific services are to be focused by the bean developer
+
+configuartion system in spring f/w:
+  xml based configuration
+  annotation based configuration
+
+Spring modules:
+  spring core
+  spring 
+
+
+Core:
+Dependency injection
+autowiring
+
+maven is a project build too, that effectively manages .jar files
+
+IOC - inversion of control
+
+interface Audio
+{
+  void play();
+}
+class Sony implements Audio
+{
+public void play()
+{
+system.out.println("sony

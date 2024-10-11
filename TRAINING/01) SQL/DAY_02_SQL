@@ -1,0 +1,127 @@
+20/08/2024
+
+DQL - DATA QUERY LANGUAGE / DATA RETRIVAL LANGUAGE
+
+SELECT <COLUMN(S)> FROM <TABLE(S)> WHERE [CONDITION1 AND|OR CONDITION2];
+                                   [GROUP BY EXP] HAVING EXP]
+                                   [ORDER BY EXP];
+RELATIONAL OPERATIONS
+- PROJECTION
+- SELECTION
+- UNION
+- UNION ALL
+- PRODUCT
+- MINUS
+- INTERSECT
+
+OPERATORS IN SQL
+- Precedence Level	SQL Operator
+           1           Unary + - arithmetic operators, PRIOR operator
+           2           * / arithmetic operators
+           3           Binary + - arithmetic operators, || character operators
+           4           All comparison operators
+           5           NOT logical operator
+           6           AND logical operator
+           7           OR logical operator
+
+- UNARY OPERATORS
+- BINARY OPERATORS
+- SET OPERATORS 
+           [UNION, UNION ALL, INTERSECT, MINUS]
+- ARITHMETIC OPERATORS
+           [+(UNARY), -(UNARY), / , *, + , - ]
+- CHARACTER OPERATORS
+           [ || (CONCATENATING) ]
+- COMPARISON OPERATORS
+           [ + , 
+             != ( <> IS ALSO NOT EQUAL TO), ^=, <> ,
+             > ,
+             < ,
+             IN, NOT IN, 
+             LIKE,
+- LOGICAL OPERATORS
+           [ AND, OR, NOT ]
+
+FUNCTIONS
+- NVL - IF THE FIRST ARG IS NULL, THEN SECOND ARG WILL BE EXECUTED
+- NVL2 - (ARG1, ARG2, ARG3); IF ARG1 != NULL, OP = ARG2, IF ARG = NULL, OP = ARG3
+- COALESCE - MULTIPLE ARGS
+- TO_CHAR [ NUM OR DATE -> CHAR ]
+- TO_DATE [ CHAR -> DATE ]
+- TO_NUMBER [ CHAR -> NUM ]
+- MOD
+
+FUNCTIONS CAN BE: 
+           SINGLE ROW FUNCTIONS OR
+           AGGREGATE FUNCTION [MIN, MAX, SUM, AVG, COUNT]
+SELECT SUM(ATTRIBUTE) FROM <TABLE>;
+
+WHERE VS HAVING
+
+DISTINCT
+
+JOIN 
+- COMBINING 
+
+----------------------------------------------------------------------------------------------------------
+SUBQUERY 
+
+SELECT * FROM CUSTOMER C WHERE EXISTS (SELECT * FROM LOAN L WHERE L.CUSTID = C.CUSTID);
+
+RULES:
+1) paranthesis are used for sub queries
+2) used in the right side of the expression with the outer query
+3) subquery returning more than one row must be used with 
+  IN
+  NOT IN
+  EXISTS
+  ANY
+  ALL
+4) the sub query select column must match with the ouer query condition except when exists operator used
+5) sub query need not use ORDER BY except TOP N analysis
+
+
+CHALLENGE : Display the department which spend maximum amount for salary, display department ID and sum of salary.
+
+SOLUTION 1:
+SELECT DEPARTMENT_ID, SUM(SALARY) AS SAL 
+FROM HR.EMPLOYEES
+GROUP BY DEPARTMENT_ID
+HAVING SUM(SALARY) = (
+    SELECT MAX(SUM_SAL)
+    FROM (
+        SELECT SUM(SALARY) AS SUM_SAL
+        FROM HR.EMPLOYEES
+        GROUP BY DEPARTMENT_ID
+    )
+);
+
+SOLUTION 2:
+SELECT DEPARTMENT_ID, SUM(SALARY) AS SAL 
+FROM HR.EMPLOYEES
+GROUP BY DEPARTMENT_ID
+HAVING SUM(SALARY) >= ALL (
+        SELECT SUM(SALARY)
+        FROM HR.EMPLOYEES
+        GROUP BY DEPARTMENT_ID
+);
+
+
+TYPES OF JOIN
+1) INNER
+2) OUTER - FULL, LEFT, RIGHT
+3) NATURAL
+4) CROSS
+5) SELF
+
+NATURAL JOIN IS WHEN TWO TABLES HAVE A NATURALLY OCCURING COMMON COLUMN
+
+SELECT * FROM ACCOUNT A NATURAL JOIN CUSTOMER C;
+SELECT * FROM ACCOUNT A JOIN CUSTOMER C USING (CUSTID);
+
+
+SELECT EMPLOYEE_ID, FIRST_NAME, MANAGER_ID FROM HR.EMPLOYEES
+EMPLOYEE_ID	FIRST_NAME	MANAGER_ID
+100	Steven	 - 
+101	Neena	100
+102	Lex	100

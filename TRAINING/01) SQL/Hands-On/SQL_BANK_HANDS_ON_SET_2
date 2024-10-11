@@ -1,0 +1,141 @@
+-- Problem #1:
+-- Write a query to display the total number of withdrawals and total number of deposits being done by customer whose registration is C00001. Give the count an alias name of Trans_Count. 
+
+-- SOLUTION:
+-- SELECT 
+--     TRANSACTION_TYPE, 
+--     COUNT(*) AS Trans_Count
+-- FROM 
+--     TRANDETAILS TD
+-- WHERE 
+--     TD.ACNUMBER IN (
+--         SELECT A.ACNUMBER
+--         FROM CUSTOMER C 
+--         JOIN ACCOUNT A ON C.CUSTID = A.CUSTID
+--         WHERE C.CUSTID = 'C00001'
+--     )
+-- GROUP BY 
+--     TRANSACTION_TYPE;
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- Problem #2:
+-- Write a query to display the customer’s number, customer’s firstname, customer’s city and branch city where the city of the customer and city of the branch is different. 
+
+--SOLUTION:
+-- SELECT C.CUSTID, C.FNAME, C.CITY, B.BCITY
+--     FROM CUSTOMER C 
+--     JOIN ACCOUNT A
+-- 	ON C.CUSTID = A.CUSTID
+-- 	JOIN BRANCH B
+-- 	ON B.BID = A.BID
+--     WHERE C.CITY <> B.BCITY;
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- Problem # 3:
+-- Write a query to display the customer number, customer firstname, customer lastname who has taken loan from more then 1 bank.
+-- SOLUTION:
+-- SELECT 
+--     C.CUSTID, 
+--     C.FNAME, 
+--     C.LTNAME, 
+--     COUNT(L.CUSTID) AS NUM 
+-- FROM 
+--     LOAN L 
+-- JOIN 
+--     CUSTOMER C ON C.CUSTID = L.CUSTID
+-- GROUP BY 
+--     C.CUSTID, C.FNAME, C.LTNAME
+-- HAVING 
+--     COUNT(L.CUSTID) > 1;
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- Problem # 4:
+-- Write a query to display the number of client who have asked for loans but they don’t have any account in the bank though they are registered customers. Give the count an alias name of Count.
+
+-- SOLUTION: 
+SELECT COUNT(L.BID)-COUNT(A.CUSTID) AS Count
+    FROM 
+    LOAN L LEFT JOIN ACCOUNT A 
+	ON A.CUSTID = L.CUSTID
+    ;
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- Problem # 5:
+-- Write a query to display account id, and total amount deposited by each account holder ( Including the opening balance ). Give the total amount deposited an alias name of Deposit_Amount.
+SELECT 
+    A.ACNUMBER AS Account_ID, 
+    (A.OPENING_BALANCE + COALESCE(SUM(T.TRANSACTION_AMOUNT), 0)) AS Deposit_Amount
+FROM 
+    ACCOUNT A
+LEFT JOIN 
+    TRANDETAILS T ON A.ACNUMBER = T.ACNUMBER AND T.TRANSACTION_TYPE = 'Deposit'
+GROUP BY 
+    A.ACNUMBER, A.OPENING_BALANCE;
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- Problem # 6:
+-- Write a query to the count the number of customers who have registration but no account in the bank.
+-- Give the alias name as Count_Customer.
+
+SELECT COUNT(DISTINCT C.CUSTID) AS COUNT_CUSTOMER FROM
+CUSTOMER C LEFT JOIN ACCOUNT A
+ON C.CUSTID = A.CUSTID
+    WHERE A.ACNUMBER IS NULL;
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- Problem # 7:
+-- Write a query to display citywise, branchwise count of accounts. For the branch where we don’t have any records display 0.
+SELECT 
+    B.BCITY AS Branch_City, 
+    B.BNAME AS Branch_Name, 
+    COUNT(A.ACNUMBER) AS Account_Count
+FROM 
+    BRANCH B
+LEFT JOIN 
+    ACCOUNT A ON B.BID = A.BID
+GROUP BY 
+    B.BCITY, B.BNAME
+ORDER BY 
+    B.BCITY, B.BNAME;
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- Problem # 8:
+-- Write  a query to display the customer’s firstname who have more then 1 account.
+SELECT 
+    C.FNAME AS Firstname
+FROM 
+    CUSTOMER C
+JOIN 
+    ACCOUNT A ON C.CUSTID = A.CUSTID
+GROUP BY 
+    C.FNAME
+HAVING 
+    COUNT(A.ACNUMBER) > 1;
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Problem # 9:
+Write a query to display the customer’s firstname who have multiple accounts atleast in 2 banks.
+SELECT 
+    C.FNAME AS Firstname
+FROM 
+    CUSTOMER C
+JOIN 
+    ACCOUNT A ON C.CUSTID = A.CUSTID
+GROUP BY 
+    C.FNAME
+HAVING 
+    COUNT(DISTINCT A.BID) >= 2;
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- Problem # 10:  
+-- Display the customer number, customer name, account number and number of transactions  
+-- being made by a customer. Give the alias name for number of transactions as Count_Trans
+
+SELECT 
+    C.CUSTID AS Customer_Number, 
+    C.FNAME || ' ' || C.LTNAME AS Customer_Name, 
+    A.ACNUMBER AS Account_Number, 
+    COUNT(T.TNUMBER) AS Count_Trans
+FROM 
+    CUSTOMER C
+JOIN 
+    ACCOUNT A ON C.CUSTID = A.CUSTID
+JOIN 
+    TRANDETAILS T ON A.ACNUMBER = T.ACNUMBER
+GROUP BY 
+    C.CUSTID, C.FNAME, C.LTNAME, A.ACNUMBER
+HAVING 
+    COUNT(T.TNUMBER) > 0;
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+

@@ -1,0 +1,373 @@
+ Mileage Calculation
+
+    Raju is fond of bikes.He convinced his parents and bought a new bike.Now he wants to check the mileage of his bike.
+He is weak in mathematics,so help him to find out the mileage.
+Petrol price(X),Distance covered in kilometres(Y) and Amount(Z) for which he has filled the petrol is given as inputs.
+Write a program to find out the mileage of the bike.
+
+Input Format:
+First input is a double value that corresponds to the X value.
+Second input is a double value that corresponds to the Y value.
+Third input is a integer value that corresponds to the Z value.
+
+Output Format:
+Output is a double value that denotes the mileage of the bike(rounded off to two decimal places).
+    
+Sample Input 1:
+70.77
+280.50
+500
+
+Sample Output 1:
+39.70
+
+Sample Input 2:
+55.90
+320.25
+400
+
+Sample Output 2:
+44.75
+
+import java.util.Scanner;
+
+public class MileageCalculation {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+
+        double petrolPrice = sc.nextDouble();
+        double distance = sc.nextDouble();
+        int amount = sc.nextInt();
+
+        double mileage = distance / (amount / petrolPrice);
+        System.out.printf("%.2f%n", mileage);
+
+        sc.close();
+    }
+}
+
+ Historical Era
+
+Mohan came across many ancient people while reading a book . He was curious to know at what era they all would have lived .  Given a year(X) as input , Write a program to help Mohan find which century they belong to and categorize them into one of the following periods : " Prehistorical period " , " Vedic Period " , "Second Urbanisation " , " Early Modern Period " , " Modern Period " .
+
+Note:
+Prehistorical period       -    0-2nd
+Vedic Period                      -    3rd-6th
+Second Urbanisation    -    7th-13th
+Early Modern Period      -    14th-18th
+Modern Period                  -    19th-present
+
+Input format:
+First input is an integer that denotes the year value X.
+
+Output format:
+First line of output is an integer that denotes the century value.
+Second line consists of a string that denotes the Prehistorical period/Vedic Period/Second Urbanisation/Early Modern Period/Modern Period.
+
+Sample Input 1:
+1222
+
+Sample Output 1:
+13
+Second Urbanisation
+
+Sample Input 1:
+1947
+
+Sample Output 1:
+20
+Modern Period 
+ 
+Last Character
+
+Rahul was tired after studying for so long , so he thought to play a small game with the words from his book . He opens a random page and selects a random word from it , and also  chooses the last digit of that page number n . Given an array of characters,Write a program to help Rahul find the last character that occurs n(last digit of the page number) times in the array . If no such character exists,then print -1.
+
+Input Format:
+First input is an integer that denotes the size of the array.
+Second line consists of  series of characters  seperated by a space that denotes the array values.
+Third input is an integer that denotes the n value.
+
+Output Format:
+Output is a character that denotes the last character which occurs n times.
+
+Sample Input 1:
+8
+a a b c n s d n
+2
+
+Sample Output 1:
+n
+
+Explanation:
+    In the given array 'a' and 'n' occurs 2 times which is equal to the n value . Even though 'a' occurs twice ,'n' is the one that occurs last.    
+    
+Sample Input 2:
+5
+a b c d e
+3
+
+Sample Output 2:
+-1 
+ 
+Masked Numbers
+
+Vignesh was a mischievous boy and due to his rude behaviour at class , his teacher gave him an assignment as punishment and told him to complete it within one day . His assignment was to find the masked numbers . A masked number is a string that consists of digits and one X that should be replaced by exactly one digit.Given a string  N as input  ,Write a program to help Vignesh find all the possible solutions to replace the X with a digit so as to get a value that is divisible by Y.If no number is found then print "-1". 
+
+Input format: 
+First input is a string that denotes the string value N (only 3 digits and X will always be in the center). 
+Second input is an integer that denotes the Y value. 
+
+Output format: 
+Output is a series of integers that satisfies the condition seperated by a comma. 
+The integers are displayed sorted in ascending order. 
+If the condition is not satisfied, print "-1" 
+
+Sample Input 1: 
+1X0 
+6 
+Sample Output 1: 
+120,150,180 
+
+Sample Input 2: 
+5X3 
+23 
+Sample Output 2: 
+-1 
+ 
+N-smallest Elements
+
+Shreya was attending a coding competition and she was progressing good . Suddenly she got stuck in a problem where she needs to find the n-smallest elements in an array . Given an array of integers of size N and n value as inputs , Write a program to help Shreya find the first - n smallest elements from the array but they must be in the same order as they are in given array.
+
+Input Format :
+First input is an integer that denotes the size of the array, N.
+Second line consists of series of integers seperated by a space that denotes the array values.
+Third input is an integer that denotes the n value.
+
+Output Format:
+Output is a series of integers seperated by a space that denotes the n smallest elements.
+
+Sample Input 1:
+5
+4 8 2 5 9
+3
+
+Sample Output 1:
+4 2 5
+
+Sample Input 2:
+10
+7 3 8 11 55 22 1 6 13 2
+5
+
+Sample Output 2:
+7 3 1 6 2 
+ 
+Tic-Tac Toe Game
+
+Meyyappan and Roshan are playing tic tac toe game. A tic tac toe game is won only if any of X or O is consecutively marked in a straight line, either row-wise or column-wise or diagonally. Given a 2D matrix with only X and O, where X represents Meyyappan's game and O represents Roshan's game, determine who won the game. If no one has won it, then print "Draw".
+
+Input Format:
+Input consists of a 3x3 character matrix (only X and O).
+
+Output Format:
+Output is a string that denotes the winner of the game , Meyyappan/Roshan/Draw.
+
+Sample Input 1:
+X O O
+X O X
+O X X
+
+Sample Output 1:
+Roshan
+
+Sample Input 2:
+X X O
+O O X
+X O X
+
+Sample Output 2:
+Draw 
+==========================================================================================================
+Here are the Java 17 solutions for each of the problems:
+
+### 1. Mileage Calculation
+```java
+
+```
+
+### 2. Historical Era
+```java
+import java.util.Scanner;
+
+public class HistoricalEra {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+
+        int year = sc.nextInt();
+        int century = (year + 99) / 100;
+
+        String period;
+        if (year <= 200) period = "Prehistorical period";
+        else if (year <= 600) period = "Vedic Period";
+        else if (year <= 1300) period = "Second Urbanisation";
+        else if (year <= 1800) period = "Early Modern Period";
+        else period = "Modern Period";
+
+        System.out.println(century);
+        System.out.println(period);
+
+        sc.close();
+    }
+}
+```
+
+### 3. Last Character
+```java
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Scanner;
+
+public class LastCharacter {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+
+        int size = sc.nextInt();
+        sc.nextLine(); // consume newline
+        String[] characters = sc.nextLine().split(" ");
+        int n = sc.nextInt();
+
+        Map<Character, Integer> countMap = new HashMap<>();
+        for (String s : characters) {
+            char c = s.charAt(0);
+            countMap.put(c, countMap.getOrDefault(c, 0) + 1);
+        }
+
+        char result = '\0';
+        for (int i = size - 1; i >= 0; i--) {
+            char c = characters[i].charAt(0);
+            if (countMap.get(c) == n) {
+                result = c;
+                break;
+            }
+        }
+
+        System.out.println(result == '\0' ? "-1" : result);
+
+        sc.close();
+    }
+}
+```
+
+### 4. Masked Numbers
+```java
+import java.util.Scanner;
+import java.util.ArrayList;
+import java.util.List;
+
+public class MaskedNumbers {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+
+        String maskedNumber = sc.next();
+        int divisor = sc.nextInt();
+
+        List<Integer> results = new ArrayList<>();
+        for (int i = 0; i <= 9; i++) {
+            String number = maskedNumber.replace('X', (char) ('0' + i));
+            if (Integer.parseInt(number) % divisor == 0) {
+                results.add(Integer.parseInt(number));
+            }
+        }
+
+        if (results.isEmpty()) {
+            System.out.println("-1");
+        } else {
+            results.sort(null);
+            System.out.println(String.join(",", results.toString().replaceAll("[\\[\\] ]", "")));
+        }
+
+        sc.close();
+    }
+}
+```
+
+### 5. N-smallest Elements
+```java
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Scanner;
+import java.util.PriorityQueue;
+
+public class NSmallestElements {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+
+        int size = sc.nextInt();
+        List<Integer> array = new ArrayList<>();
+        for (int i = 0; i < size; i++) {
+            array.add(sc.nextInt());
+        }
+        int n = sc.nextInt();
+
+        if (n > size) {
+            System.out.println("Invalid");
+            sc.close();
+            return;
+        }
+
+        PriorityQueue<Integer> minHeap = new PriorityQueue<>();
+        for (int num : array) {
+            minHeap.add(num);
+        }
+
+        List<Integer> result = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            result.add(minHeap.poll());
+        }
+
+        System.out.println(String.join(" ", result.stream().map(String::valueOf).toArray(String[]::new)));
+
+        sc.close();
+    }
+}
+```
+
+### 6. Tic-Tac Toe Game
+```java
+import java.util.Scanner;
+
+public class TicTacToeGame {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+
+        char[][] board = new char[3][3];
+        for (int i = 0; i < 3; i++) {
+            String line = sc.nextLine();
+            for (int j = 0; j < 3; j++) {
+                board[i][j] = line.charAt(j * 2);
+            }
+        }
+
+        String result = "Draw";
+        if (checkWin(board, 'X')) result = "Meyyappan";
+        else if (checkWin(board, 'O')) result = "Roshan";
+
+        System.out.println(result);
+
+        sc.close();
+    }
+
+    private static boolean checkWin(char[][] board, char player) {
+        for (int i = 0; i < 3; i++) {
+            if (board[i][0] == player && board[i][1] == player && board[i][2] == player) return true;
+            if (board[0][i] == player && board[1][i] == player && board[2][i] == player) return true;
+        }
+        if (board[0][0] == player && board[1][1] == player && board[2][2] == player) return true;
+        if (board[0][2] == player && board[1][1] == player && board[2][0] == player) return true;
+        return false;
+    }
+}
+```
+
+These solutions are designed to be simple and straightforward, using Java 17 features and keeping the code as clear as possible. Let me know if you need any adjustments or further explanations!
+

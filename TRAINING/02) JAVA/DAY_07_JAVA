@@ -1,0 +1,530 @@
+27/08/2024
+
+Generics vs non-generic collections
+-------------------------------------------------------------------------------------------------------
+List is an interface in collections. This interface is implemented by the following classes
+
+	Vector		    legacy class and synchronized
+	Stack		    legacy class and LIFO
+	LinkedList		not contiguous memory	
+	ArrayList		contiguous memory
+
+all list category classes have index
+
+Set
+	HashSet		
+	TreeSet
+	LinkedHashSet
+
+Map
+	HashMap
+	TreeMap
+	LinkedHashMap
+
+Demo:
+--------
+How to sort an array?
+-> Arrays.sort method
+
+		int arr[]= {19,92,39,94,59,16,71,18};
+		Arrays.sort(arr);            //Ascending Order
+        Arrays.sort(arr,(a,b)->b-a); //Descending Order
+		System.out.println(Arrays.toString(arr));
+
+
+How to sort a collection?
+-> Collections.sort method
+
+DEMO - 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+public class ArrayListDemo1
+{
+	public static void main(String[] args) {
+		List<Integer> marks=new ArrayList<>();
+		marks.add(610);
+		marks.add(120);
+		marks.add(210);
+		marks.add(101);
+		marks.add(310);
+		marks.add(18);
+		marks.add(190);
+		marks.add(1010);
+		marks.add(111);
+		marks.add(127);
+		
+		//how to sort a List?
+		Collections.sort(marks);	//works only with List
+		System.out.println(marks);
+	}
+}
+
+
+
+
+
+import java.util.Date;
+
+public class Employee {
+	private Integer id;
+	private String name;
+	private Date dob;
+	private Double salary;
+	
+	public Employee() {}
+
+	public Employee(Integer id, String name, Date dob, Double salary) {
+		super();
+		this.id = id;
+		this.name = name;
+		this.dob = dob;
+		this.salary = salary;
+	}
+
+	public Integer getId() {
+		return id;
+	}
+
+	public void setId(Integer id) {
+		this.id = id;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public Date getDob() {
+		return dob;
+	}
+
+	public void setDob(Date dob) {
+		this.dob = dob;
+	}
+
+	public Double getSalary() {
+		return salary;
+	}
+
+	public void setSalary(Double salary) {
+		this.salary = salary;
+	}
+
+	@Override
+	public String toString() {
+		return "Employee [id=" + id + ", name=" + name + ", dob=" + sdf.format(dob) + ", salary=" + salary + "]";
+	}
+	
+}
+
+
+
+
+
+6
+24,Rida,01-Sep-2002,123456.0
+12,Arun,12-Nov-2000,12345.0
+33,Ankit,08-Sep-2003,183456.0
+18,Suresh,01-Jan-2002,223456.0
+22,Nitin,01-Feb-2004,823456.0
+17,Arjun,01-Jan-2002,223456.0
+
+
+List<Employee> is not comparable so it is not sortable also.
+
+So, Employee class must implement Comparable
+
+
+Task:
+you already have a college class.
+
+create an arraylist of college
+and sort the list by name
+asc and then change the code to sort by name desc
+
+
+when we want to sort based on different criteria,
+we can create multiple comparators for an entity		(Employee)	College
+
+
+Comparator		(external class)
+
+	EmployeeNameComparator
+
+
+
+Employee class itself implements means, we use Comparable
+If we create an external class then it uses Comparator
+
+
+
+1: Sort by Id
+2: Sort by Name
+3: Sort by Dob
+4: Sort by Salary
+5: Exit
+
+Task:
+------
+Create the following comparators for college
+
+	CollegeWebsiteComparator
+	CollegeFounderComparator
+	CollegeLocationComparator
+
+College itself implements Comparable to compare by name
+
+use Collections.sort like
+	Collections.sort(list);		//sorts by name
+	Collections.sort(list, new CollegeWebsiteComparator());		//sorts by website
+	Collections.sort(list, new CollegeFounderComparator());		//sorts by Founder
+	Collections.sort(list, new CollegeLocationComparator());		//sorts by Location
+
+--------------------------------------------------------------
+Set
+
+HashSet
+	like other sets, HashSet also rejects duplicate entries.
+
+
+Set<College> collegeSet=new HashSet<>();
+
+
+HashSet
+	identifies duplicates with the help of 	hashCode() and equals() method
+
+-------------------------
+Treeset
+
+	maintains elements in sorted manner
+	sorting is based on Comparable or Comparator
+
+
+--------------
+LinkedHashSet
+	maintains the order in which the elements are added	(similar to list, but rejects duplicates)
+	
+
+
+
+Task:
+1) create a hashset of Employee
+	set should reject duplicates based on
+		same employee id is duplicate
+
+2) create a treeset of employee
+	Employee implements comparable and compare by id
+	EmployeeNameComparator 
+
+in main method,
+	use Comparator to the constructor of TreeSet
+
+3) LinkedHashSet
+	add elements in random order and print the elements
+	observe that duplicates are eliminated but order is maintained
+
+
+
+-----------------------------------------------------------------
+Map
+-----
+	is a key - value pair
+	2 dimensions	-	Key	-	Value			K,V
+
+HashMap
+TreeMap
+LinkedHashMap
+
+in each map, 
+	the key is a Set
+
+
+
+List, Set are collections. We add elements to the collections.
+But in Map, we add, "entry" to the collection
+
+what is an entry
+	key, value is called as entry
+
+how can we add an entry to a Map?
+	put(k,v)
+	get(k)	returns v
+
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+
+public class App {
+
+	public static void main(String[] args) {
+		Map<Integer, String> cm=new LinkedHashMap<>();
+		cm.put(5, "Australia");
+		cm.put(1, "India");
+		cm.put(2, "Japan");
+		cm.put(2, "China");
+		cm.put(4, "Pakistan");
+		
+		//there are several ways we can iterate a map
+		//1) using iterator. There is no iterator for map.
+		//but all keys can be obtained using keyset() method
+		
+//		Set<Integer> keys = cm.keySet();
+//		Iterator<Integer> it = keys.iterator();
+//		while(it.hasNext())
+//		{
+//			Integer key = it.next();
+//			System.out.println(key+"\t"+cm.get(key));
+//		}
+		
+		
+		//using entrySet
+		
+//		Set<Entry<Integer, String>> entries = cm.entrySet();
+//		Iterator<Entry<Integer, String>> it = entries.iterator();
+//		while(it.hasNext())
+//		{
+//			Entry<Integer, String> entry = it.next();
+//			System.out.println(entry.getKey()+"\t"+entry.getValue());
+//		}
+		
+		
+		
+		//3) using for each loop
+		//for each loop not possible on map. but get entries as a set
+		for(Entry<Integer, String> entry:cm.entrySet())
+		{
+			System.out.println(entry.getKey()+'\t'+entry.getValue());
+		}
+		
+	}
+
+}
+
+
+Task:
+Accept a sentence from the user as input.
+for example the input is:
+	this sentence is typed by the user
+
+the output should be each character and its occurrence
+
+t	4
+h	2
+i	2
+s	4
+ 	6
+e	5
+n	2
+c	1
+y	2
+p	1
+d	1
+b	1
+u	1
+r	1
+
+
+Demo of the above task:
+--------------------------------
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Scanner;
+
+public class AppCharCount {
+
+	public static void main(String[] args) {
+		Scanner sc=new Scanner(System.in);
+		String input=sc.nextLine();
+		Map<Character, Integer> map=new LinkedHashMap<>();
+		for(int i=0;i<input.length();i++)
+		{
+			char c=input.charAt(i);
+			map.put(c, map.getOrDefault(c, 0)+1);
+		}
+		
+		for(Entry<Character, Integer> e:map.entrySet())
+		{
+			System.out.println(e.getKey()+"\t"+e.getValue());
+		}
+		
+	}
+
+}
+
+
+--------------------------------------------------
+Lambda
+---------
+	is used to provide quick implementation of a functional interface
+
+What is functional interface
+-------------------------------
+	an interface that contains only 1 abstract method is called as functional interface
+	ex:
+		Runnable (run), Comparator (compare) 
+
+what is marker interface
+----------------------------
+	an interface that contains no abstract method is called as marker interface
+
+	ex:	Serializable
+
+
+
+Stream API
+-------------
+	is used to work with collections
+	just like we use SELECT query for tables, 		WHERE, ORDER BY, GROUP BY
+	we can do those operations on collections in java
+
+	
+why it is called as stream?
+	stream means cascading
+	every operation, returns another stream
+
+there are 
+	intermediate operations		return another stream
+	terminal operations			either, we collect the output or display the output or iterate the output
+
+
+
+
+
+
+converting List int Set and vice versa
+
+List<String> list=new ArrayList();
+//convert this list into set
+
+Set<String> set=new HashSet<>(list);
+
+
+
+
+
+Demo:
+		List<Employee> empList=new ArrayList<>();
+		empList.add(new Employee(8, "Raja", "ECE", 100000));
+		empList.add(new Employee(4, "Ankit", "AIML", 100000));
+		empList.add(new Employee(7, "Zaheer", "AIML", 100000));
+		empList.add(new Employee(9, "Sachin", "AIDS", 100000));
+		empList.add(new Employee(1, "Vishnu", "AIDS", 100000));
+		empList.add(new Employee(5, "Dravid", "AIML", 100000));
+		empList.add(new Employee(6, "Bumrah", "CSE", 100000));
+		empList.add(new Employee(3, "Chahal", "ECE", 100000));
+		empList.add(new Employee(10, "Siraj", "ECE", 100000));
+		empList.add(new Employee(2, "Kohli", "CSE", 100000));
+from this list,
+display the department and the sum of salary for each department
+
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.stream.Collectors;
+
+public class AppEmployees {
+
+	public static void main(String[] args) {
+		List<Employee> empList=new ArrayList<>();
+		empList.add(new Employee(8, "Raja", "ECE", 100000));
+		empList.add(new Employee(4, "Ankit", "AIML", 100000));
+		empList.add(new Employee(7, "Zaheer", "AIML", 100000));
+		empList.add(new Employee(9, "Sachin", "AIDS", 100000));
+		empList.add(new Employee(1, "Vishnu", "AIDS", 100000));
+		empList.add(new Employee(5, "Dravid", "AIML", 100000));
+		empList.add(new Employee(6, "Bumrah", "CSE", 100000));
+		empList.add(new Employee(3, "Chahal", "ECE", 100000));
+		empList.add(new Employee(10, "Siraj", "ECE", 100000));
+		empList.add(new Employee(2, "Kohli", "CSE", 100000));
+		
+//		empList.stream()
+//		.filter((t)->t.getDepartment().equals("ECE"))
+//		.sorted((a,b)->a.getName().compareTo(b.getName()))
+//		.map((e)->e.getName().length())
+//		.forEach(System.out::println);
+
+		Map<String, Integer> result = empList.stream()
+		.collect(Collectors.groupingBy(Employee::getDepartment, Collectors.summingInt(Employee::getSalary)));;
+	
+		for(Entry<String, Integer> e:result.entrySet())
+			System.out.println(e.getKey()+"\t"+e.getValue());
+	
+	}
+
+}
+
+
+
+-----------------------------
+Method reference
+------------------------
+	::
+
+
+
+interface Person
+{
+	void speak();
+}
+
+class Employee
+{
+	public void talk()
+	{
+		System.out.println("Employee talks");
+	}
+	
+	public static void read()
+	{
+		System.out.println("Employee reads it louder");
+	}
+}
+
+public class App {
+
+	public static void main(String[] args) {		
+		Employee emp=new Employee();
+//		Person raja=emp::talk;
+		Person raja=Employee::read;
+
+		raja.speak();
+	}
+
+}
+
+
+
+in Collections
+
+Reminder:
+	Lambda
+	Stream API
+	::		method reference
+
+List
+	iterators
+		Iterator
+		ListIterator
+	Collections.sort
+		sorting asc, desc
+		Comparable, Comparator
+
+Set
+	HashSet
+	TreeSet
+	LinkedHashSet
+
+Map
+	HashMap
+	TreeMap
+	LinkedHashMap

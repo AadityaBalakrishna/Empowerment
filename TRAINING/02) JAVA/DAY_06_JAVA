@@ -1,0 +1,186 @@
+26/08/2024
+
+1) Abstract class cannot be instantiated
+  create an oject is called Instantiated
+2) only abstract class/interface can contain abstract methods
+3) abstract class can contain methods with body also.
+4) If a subclass does not override the abstract method of suoer class, then sub class must be declared
+
+INTERFACE
+---------
+- Provide highest level of abstraction
+- upto 1.7 v of Java, interfaces never allowed methods with body
+- from 1.8 v onwards, interface can have
+    abstract methods
+    static methods with body
+- you cannot create object of interface
+    but create objects of class that implements interfaces
+- contains only PUBLIC members, even if not mentioned by default
+- the implementing class should mention it as public only
+- when it comes to data members, it can be only constants (PUBLIC STATIC FINAL), and they must be initialized wiht a value
+- mehtods, data members, all are public only.
+
+
+Abstract class Vs Interface
+
+
+Overriding Rules
+- Super class method and sub class method are same nature
+- super class methd and sub classs
+
+Interfaces can contain:
+    constants, in all CAPS, never variables
+
+Activity:
+- Abstract Class
+- Interface
+- Difference between abstract class and interface
+- overriding rules
+- access specifier
+
+===============================================================================================================================================================
+Task:
+-------
+create an Employee class
+	id Integer
+	name String
+	dob java.util.Date
+
+the setter methods validate the data and throw apporpriate exceptions
+
+rules:
+	id must be 6 digit number
+		if not, InvalidIdException
+	name must begin with upper case and followed by lower case
+		minimum 4 characters
+		if not, InvalidNameException
+	dob must be past tense only
+		if not, InvalidDobException
+
+while throwing exception, 
+	mention the invalid value also in the message.
+	ex:
+		The id "121" is not valid
+
+
+in App.java
+	main method
+		create the object of Employee and set the values and 
+		at runtime, the exceptions must be handled
+
+
+Solution 
+Here's the updated code using `java.time.LocalDate` with Java 17 syntax.
+
+### Employee.java
+```java
+import java.time.LocalDate;
+
+// Custom Exceptions
+class InvalidIdException extends Exception {
+    public InvalidIdException(String message) {
+        super(message);
+    }
+}
+
+class InvalidNameException extends Exception {
+    public InvalidNameException(String message) {
+        super(message);
+    }
+}
+
+class InvalidDobException extends Exception {
+    public InvalidDobException(String message) {
+        super(message);
+    }
+}
+
+public class Employee {
+    private int id;
+    private String name;
+    private LocalDate dob;
+
+    // Setter for id
+    public void setId(int id) throws InvalidIdException {
+        if (String.valueOf(id).length() != 6) {
+            throw new InvalidIdException("The id \"" + id + "\" is not valid. It must be a 6-digit number.");
+        }
+        this.id = id;
+    }
+
+    // Setter for name
+    public void setName(String name) throws InvalidNameException {
+        if (name == null || name.length() < 4 || !Character.isUpperCase(name.charAt(0)) || !name.substring(1).matches("[a-z]*")) {
+            throw new InvalidNameException("The name \"" + name + "\" is not valid. It must start with an uppercase letter followed by lowercase letters, and must be at least 4 characters long.");
+        }
+        this.name = name;
+    }
+
+    // Setter for dob
+    public void setDob(LocalDate dob) throws InvalidDobException {
+        LocalDate today = LocalDate.now();
+        if (dob.isAfter(today)) {
+            throw new InvalidDobException("The date of birth \"" + dob + "\" is not valid. It must be a past date.");
+        }
+        this.dob = dob;
+    }
+
+    // Getters
+    public int getId() {
+        return id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public LocalDate getDob() {
+        return dob;
+    }
+}
+```
+
+### App.java
+```java
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+
+public class App {
+    public static void main(String[] args) {
+        try {
+            Employee emp = new Employee();
+            emp.setId(123456); // Valid ID
+            emp.setName("John"); // Valid Name
+
+            // Valid date of birth
+            String dobStr = "1995-08-25";
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            LocalDate dob = LocalDate.parse(dobStr, formatter);
+            emp.setDob(dob);
+
+            System.out.println("Employee created successfully with ID: " + emp.getId());
+            System.out.println("Name: " + emp.getName());
+            System.out.println("Date of Birth: " + emp.getDob());
+
+        } catch (InvalidIdException e) {
+            System.err.println(e.getMessage());
+        } catch (InvalidNameException e) {
+            System.err.println(e.getMessage());
+        } catch (InvalidDobException e) {
+            System.err.println(e.getMessage());
+        } catch (DateTimeParseException e) {
+            System.err.println("The date format is incorrect: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("An unexpected error occurred: " + e.getMessage());
+        }
+    }
+}
+```
+
+### Explanation:
+- **`LocalDate` and `DateTimeFormatter`**: These classes from the `java.time` package are used to handle dates in a modern and type-safe way.
+- **Exceptions**: Custom exceptions (`InvalidIdException`, `InvalidNameException`, `InvalidDobException`) are thrown when the data does not meet the specified validation rules.
+- **Handling in `App` Class**: The `App` class's `main` method demonstrates how to create an `Employee` object and handle any exceptions that may be thrown due to invalid input.
+
+This code is fully compatible with Java 17 and follows best practices for handling dates and exceptions in modern Java.

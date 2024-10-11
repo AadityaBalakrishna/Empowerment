@@ -1,0 +1,372 @@
+Percentage of Runs
+------------------
+Sam is a cricket freak, who loves to collect statistics about the matches. Suppose, a batsman scored X runs which included Y fours and Z sixes, 
+Sam wants to calculate the  percentage of the total score he made by running between the wickets.
+Write a program to help Sam .
+
+Input Format:
+First input is an integer X that denotes the total runs scored.
+Second input is an integer Y that denotes the  number of fours he has scored.
+Third input is an integer Z that denotes the  number of sixes he has scored.
+[Note: Assume all inputs are valid.] 
+Output Format:
+Output is a double value that denotes the percentage of runs he made by running between the wickets(rounded off to 2 decimal places).
+Sample Input 1:
+110
+3
+8
+Sample Output 1:
+45.45
+Sample Input 2:
+60
+2
+1
+Sample Output 2:
+76.66
+
+Explanation for sample 1:
+Total Runs = 110
+No. of Fours = 3
+No. of sixes = 8
+Total runs scored by boundaries = 4*3 + 8*6 = 60
+Therefore, runs scored by running between the wickets = 110 - 60 = 50
+Percentage scored by running =(50/110)*100 =  45.45 
+
+SOLUTION:
+import java.util.Scanner;
+
+public class PercentageOfRuns {
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+
+        int totalRuns = scanner.nextInt();
+        int fours = scanner.nextInt();
+        int sixes = scanner.nextInt();
+
+        int runsByBoundaries = (fours * 4) + (sixes * 6);
+        int runsByRunning = totalRuns - runsByBoundaries;
+        
+        double percentageByRunning = ((double) runsByRunning / totalRuns) * 100;
+        
+        System.out.printf("%.2f", percentageByRunning);
+        
+        scanner.close();
+    }
+}
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Maximum Product
+---------------
+Playing with arrays has become a hobby for Arun. This time Arun wants to find the greatest number in the array such that it is the product of any two numbers in the array.
+Write a program to help Arun to the do the task. If no such number exists, then print -1.
+[Note: The two number that are used to find the product can be the number itself.  For example, if the array elements are [1,2,3] , 
+then 1*3 = 3 will be the solution for this array.]
+
+Input Format :
+First input is an integer value that denotes the size of the array.
+Second input is a series of integers separated by space that denotes the array values.
+
+Output Format :
+Output is an  integer that denotes the maximum product.
+
+Sample Input 1:
+5
+35 30 7 6 5
+Sample Output 1:
+35
+
+Sample Input 2:
+5
+2 4 6 89 78
+Sample Output 2:
+-1
+
+SOLUTION:
+import java.util.Arrays;
+import java.util.Scanner;
+
+public class MaximumProduct {
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+        
+        int n = scanner.nextInt();
+        int[] array = new int[n];
+        for (int i = 0; i < n; i++) {
+            array[i] = scanner.nextInt();
+        }
+        
+        Arrays.sort(array);
+        int maxProduct = -1;
+        
+        for (int i = n - 1; i >= 0; i--) {
+            for (int j = 0; j <= i; j++) {
+                if (i != j && array[i] % array[j] == 0) {
+                    int potentialFactor = array[i] / array[j];
+                    if (Arrays.binarySearch(array, potentialFactor) >= 0) {
+                        maxProduct = array[i];
+                        break;
+                    }
+                }
+            }
+            if (maxProduct != -1) break;
+        }
+        
+        System.out.println(maxProduct);
+        
+        scanner.close();
+    }
+}
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Arithmetic Expression
+Ram is in his second grade, and his maths teacher has taught him about the arithmetic operations. He is more interested in solving tough assignments. One such assignment is given below.
+Given a Arithmetic Expression in the pattern A#B=C, Check whether it is possible to replace the # with one of the following signs +,-,*,/,% to obtain the result C.
+Write a program to help Ram in solving the assignment. 
+Input Format:
+First input is an integer that denotes the A value.
+Second input is an integer that denotes the B value.
+Third input is an integer that denotes the C value.
+Output Format:
+Output is the operator(in words) that can be replaced with #, if C can be obtained from the expression or "Not Possible" if C can't be obtained from the expression.
+[Note: 
+The following should be printed for operators.
+"Add" for '+'
+"Subtract" for '-' 
+"Multiply" for '*' 
+"Divide" for '/' 
+"Modulo" for '%' 
+]
+[Note: If there are multiple answers, print the output in the order mentioned above.] 
+Sample Input 1:
+10
+3
+7
+Sample Output 1:
+Subtract
+Sample Input 2:
+3
+5
+13
+Sample Output 2:
+Not Possible
+Sample Input 3:
+2
+2
+4
+Sample Output 3:
+Add
+Multiply 
+
+SOLUTION:
+import java.util.Scanner;
+
+public class ArithmeticExpression {
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+        
+        int A = scanner.nextInt();
+        int B = scanner.nextInt();
+        int C = scanner.nextInt();
+        
+        if (A + B == C) {
+            System.out.println("Add");
+        } else if (A - B == C) {
+            System.out.println("Subtract");
+        } else if (A * B == C) {
+            System.out.println("Multiply");
+        } else if (B != 0 && A / B == C) {
+            System.out.println("Divide");
+        } else if (B != 0 && A % B == C) {
+            System.out.println("Modulo");
+        } else {
+            System.out.println("Not Possible");
+        }
+        
+        scanner.close();
+    }
+}
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Friend's Interest
+Your friend has deposited a specific amount  into his bank account. Every year his balance increases at the same rate. Write a program to find how long it would take for his balance to reach a specific threshold amount, with the assumption that he doesn't make any additional deposits.
+
+Input Format :
+First input is a  float value that denotes the deposit amount.
+Second input is an integer that denotes the rate of interest.
+Third input is an integer that denotes the threshold value.
+
+Output Format :
+Output is an integer that denotes the number of years needed to reach the given value.
+
+Sample Input 1:
+100.0
+ 20
+170
+
+Sample Output 1:
+3
+
+Sample Explanation:
+For deposit = 100.0 ,
+rate = 20 and
+threshold = 170, the output should be
+3.
+
+Each year the amount of money on his account increases by 20%. It means that throughout the years his balance would be:
+
+    year 0: 100.0;
+    year 1: 120.0;
+    year 2: 144.0;
+    year 3: 172.8;
+
+Thus, it will take 3 years for his balance to reach the threshold, which is the answer.
+
+SOLUTION:
+import java.util.Scanner;
+
+public class FriendsInterest {
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+        
+        double deposit = scanner.nextDouble();
+        int rate = scanner.nextInt();
+        int threshold = scanner.nextInt();
+        
+        int years = 0;
+        while (deposit < threshold) {
+            deposit += deposit * rate / 100;
+            years++;
+        }
+        
+        System.out.println(years);
+        
+        scanner.close();
+    }
+}
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Common Element In a Matrix
+Madhan went for Jimesh's wedding. Since Jimesh is Gujarathi boy, there were 16 varieties of sweets kept in the dinner party. The sweets were arranged in the square matrix format. 
+Since Madhan wants to taste most of the sweets, he did not want to taste the same sweet again. So, he wanted to eliminate the sweet that is common in all the rows.
+Given an integer 4x4 matrix, where each element represents an item, find a common item in all rows. Write a program to help Madhan. If there is no common element, then print -1.
+[Note: All the elements are sorted in increasing order row-wise.]
+
+[Assume : There will be only one common element in the input.]
+Note:
+Input matrix will always be 4*4.
+
+Input Format :
+Input is a 4x4 matrix with integer elements.
+
+Output Format :
+Output is an integer that denotes the  common  element. Print -1, if there are no common elements.
+
+Sample Input 1:
+1 2 3 5
+2 4 5 8
+3 5 7 9
+1 3 5 7
+
+Sample Output 1:
+5
+
+Sample Input 2:
+1 2 3 4
+1 2 3 5
+2 3 4 5
+6 7 8 9
+
+Sample Output 2:
+-1
+
+SOLUTION:
+import java.util.Scanner;
+
+public class CommonElementInMatrix {
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+        int[][] matrix = new int[4][4];
+
+        for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < 4; j++) {
+                matrix[i][j] = scanner.nextInt();
+            }
+        }
+
+        int commonElement = findCommonElement(matrix);
+        System.out.println(commonElement);
+
+        scanner.close();
+    }
+
+    public static int findCommonElement(int[][] matrix) {
+        for (int i = 0; i < 4; i++) {
+            boolean isCommon = true;
+            int element = matrix[0][i];
+
+            for (int j = 1; j < 4; j++) {
+                if (Arrays.binarySearch(matrix[j], element) < 0) {
+                    isCommon = false;
+                    break;
+                }
+            }
+
+            if (isCommon) {
+                return element;
+            }
+        }
+        return -1;
+    }
+}
+-------------------------------------------------------------------------------------------------------------------------------
+Check isIdentifier
+Hari is new to programming. He wants to  check whether the given string X is a valid variable name.
+Variable names consist only of letters, digits and underscores and they can't start with a digit.
+Write a program to help Hari, to print the Error number.
+
+Error 1: Not Starting with an alphabet.
+Error 2: Contains special Characters.
+
+Input Format:
+ First input is String that corresponds to the X value.
+
+Output Format:
+ Output is a string as follows:
+  1) "No Error" - if it's a valid variable name.
+  2) "Error1" - if the variable name is not Starting with an alphabet
+  3) "Error 2" - if the variable name contains special Characters.
+  4) "Error1
+Error 2" - if the variable name is not starting with an alphabet and contains special characters. (Refer sample 2 for more clarification).
+
+
+Sample input 1:
+ var_1__Int
+Sample Output 1:
+ No Error
+
+Sample Input 2:   
+1qq-q
+Sample Output 2:
+Error 1
+Error 2 
+
+SOLUTION:
+import java.util.Scanner;
+
+public class CheckIdentifier {
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+        String identifier = scanner.nextLine();
+
+        boolean startsWithAlphabet = Character.isLetter(identifier.charAt(0));
+        boolean containsSpecialCharacter = !identifier.matches("[A-Za-z0-9_]+");
+
+        if (!startsWithAlphabet && containsSpecialCharacter) {
+            System.out.println("Error 1\nError 2");
+        } else if (!startsWithAlphabet) {
+            System.out.println("Error 1");
+        } else if (containsSpecialCharacter) {
+            System.out.println("Error 2");
+        } else {
+            System.out.println("No Error");
+        }
+
+        scanner.close();
+    }
+}

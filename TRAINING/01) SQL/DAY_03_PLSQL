@@ -1,0 +1,591 @@
+21/08/2024
+
+NORMALIZATION
+- Aims to reduce redundancy
+- unnecessary repitition of data
+- Table once we arrived from E-R Diagram can be found as large table , that can be moved to 1NF
+  when every row has only 1 data, every data is atomic
+- 2NF, already the table should be in 1NF and then all attributes aew functionally dependent on
+  whole table
+- 1NF, 2NF, 3NF, BCNF
+
+NOTE: Master table has no foriegn key
+
+INDEX
+- Enforces uniqueness
+- useful only when we use select statementusing condition on indexed column
+- eg : SELECT * FROM HR.EMPLOYEES WHERE JOB_ID='HR_EXEC';
+- enemy for DML.
+- Useful for only SELECT statement
+- CREATE INDEX IDX1 ON CUSTOMER(CID, FNAME); - Composite index
+
+VIEWS
+- Query is not a DB object
+- Views are like stored queries
+- 
+CREATE VIEW vw1
+AS
+SELECT * FROM HR.EMPLOYEES WHERE DEPARTMENT_ID = 90;
+SELECT * FROM vw1
+SELECT * FROM vw1 WHERE MANAGER_ID IS NULL;
+SELECT EMAIL, JOB_ID FROM vw1 WHERE MANAGER_ID IS NULL;
+
+- Memory is virtual, Storage is permanent
+- VIEW can have a computed column too.
+- DML ON VIEWS 
+    are allowed if it affects columns of only 1 table.
+    are not allowed if it affects computed column or derieved column
+    are not allowed if views uses group by
+
+DAY 2 : Problem solution
+SELECT DEPARTMENT_ID, SUM(SALARY)
+    FROM HR.EMPLOYEES
+    GROUP BY DEPARTMENT_ID
+    HAVING SUM(SALARY) = (
+    	SELECT MAX(T1.TOTAL) FROM (SELECT DEPARTMENT_ID DID, SUM(SALARY) TOTAL 
+    	FROM HR.EMPLOYEES GROUP BY DEPARTMENT_ID) T1
+    );
+
+TASK:
+Create a view that returns the total number of employees in each department(vwNoOfEmps)
+CREATE VIEW vwNoOfEmps
+AS
+SELECT DEPARTMENT_ID, COUNT(EMPLOYEE_ID) COUNT FROM HR.EMPLOYEES GROUP BY DEPARTMENT_ID; 
+
+Create a query that returns the department which has the highest number of employees
+SELECT DEPARTMENT_ID, COUNT
+    FROM vwNoOfEmps
+    WHERE COUNT = (SELECT MAX(COUNT) FROM vwNoOfEmps
+    );
+
+CREATE VIEW HEAD_COUNT
+AS
+SELECT D.DEPARTMENT_ID, D.DEPARTMENT_NAME, COUNT(EMPLOYEE_ID) TOTAL
+    FROM HR.EMPLOYEES E JOIN HR.DEPARTMENTS D
+    ON E.DEPARTMENT_ID = D.DEPARTMENT_ID
+    GROUP BY D.DEPARTMENT_ID, D.DEPARTMENT_NAME;
+
+SELECT DEPARTMENT_ID, DEPARTMENT_NAME, TOTAL
+    FROM HEAD_COUNT
+    WHERE TOTAL = (SELECT MAX(TOTAL) FROM HEAD_COUNT
+    );
+-------------------------------------------------------------------------------------------
+PL/SQL - Procedural Language Extension on SQL
+- SQL Limitations:
+    1) Increase traffic when multiple statements are sent to oracle server
+    2) procedural capabilities like CONDITIONS< LOOPS< VARIABLES< EXCEPTION HANDLING are mising 
+    in SQL
+
+- BLock structure of PLSQL :
+        DECLARE    //OPTIONAL BLOCK
+        BEGIN
+        EXCEPTION  //OPTIONAL BLOCK
+        END;
+
+(SET SERVEROUTPUT ON - IN OTHER ORACLE SERVERS)
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('Heloo World');
+END
+
+- DBMS_OUTPUT : is a package that contains functions and procedures related to output
+- we use a procedure PUT_LINE which is present in this package
+- DECLARE is used to assign variables
+- in PLSQL, '=' is comparison oparator, and ':=' is assigning operator
+
+DECLARE
+    X INT; ---> BETTER OPTION : X HR.EMPLOYEES.SALARY%TYPE;
+BEGIN
+    SELECT SALARY INTO X FROM HR.EMPLOYEES WHERE EMPLOYEE_ID = 100;
+	DBMS_OUTPUT.PUT_LINE(X);
+END;
+
+To retrive an entire row and store it in a variable
+DECLARE
+    X HR.EMPLOYEES %ROWTYPE;
+BEGIN
+    SELECT * INTO X FROM HR.EMPLOYEES WHERE EMPLOYEE_ID = 100;
+	DBMS_OUTPUT.PUT_LINE(X.FIRST_NAME || ' ' || X.SALARY) ;
+END;
+--------------------------------------------------------------------------
+DECLARE
+    EID INT;
+	FNAME VARCHAR2(45);
+	SALARY INT;
+BEGIN
+    SELECT EMPLOYEE_ID, FIRST_NAME, SALARY 
+    INTO EID, FNAME, SALARY 
+    FROM HR.EMPLOYEES 
+    WHERE EMPLOYEE_ID = 100;
+	DBMS_OUTPUT.PUT_LINE(EID) ;
+    DBMS_OUTPUT.PUT_LINE(FNAME) ;
+    DBMS_OUTPUT.PUT_LINE(SALARY) ;
+END;
+--------------------------------------------------------------------------
+DECLARE
+    TYPE EMPREC IS RECORD (
+    EID INT,
+	FNAME VARCHAR2(45),
+	SALARY INT
+	);
+	X EMPREC;
+BEGIN
+    SELECT EMPLOYEE_ID, FIRST_NAME, SALARY 
+    INTO X
+    FROM HR.EMPLOYEES 
+    WHERE EMPLOYEE_ID = 100;
+	DBMS_OUTPUT.PUT_LINE(X.EID) ;
+    DBMS_OUTPUT.PUT_LINE(X.FNAME) ;
+    DBMS_OUTPUT.PUT_LINE(X.SALARY) ;
+END;
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+TASK 
+----
+1) Write a plsql program to find the number of employees in department 90.
+Store the result in a variable and print it.
+
+DECLARE
+     X INT;
+BEGIN
+    SELECT COUNT(*) INTO X FROM HR.EMPLOYEES WHERE DEPARTMENT_ID = 90;
+	DBMS_OUTPUT.PUT_LINE(X) ;
+END;
+--------------------------------------------------------------------------
+2) Write a plsql program to find the manager of employee whose id is 110.
+Display the manager name.
+
+DECLARE
+     X VARCHAR2(50);
+BEGIN
+    SELECT M.FIRST_NAME INTO X
+    FROM HR.EMPLOYEES E LEFT JOIN HR.EMPLOYEES M
+    ON E.MANAGER_ID=M.EMPLOYEE_ID
+    WHERE E.EMPLOYEE_ID = 110;
+	DBMS_OUTPUT.PUT_LINE(X);
+END;
+
+SIR'S SOLUTION:
+DECLARE
+    MID HR.EMPLOYEES.EMPLOYEE_ID%TYPE;
+    MNAME HR.EMPLOYEES.FIRST_NAME%TYPE;
+BEGIN
+    SELECT MANAGER_ID INTO MID
+    FROM HR.EMPLOYEES
+    WHERE EMPLOYEE_ID=110;
+	SELECT FIRST_NAME INTO MNAME
+        FROM HR.EMPLOYEES 
+        WHERE EMPLOYEE_ID=MID;
+	DBMS_OUTPUT.PUT_LINE(MNAME);
+END;
+
+--------------------------------------------------------------------------
+3) Write a plsql program to store the 
+	employee first name
+	department name
+	salary
+where the employee id =111
+hint:	
+	use user defined record type
+
+DECLARE
+    TYPE EMPREC IS RECORD (
+	FNAME VARCHAR2(45),
+    	DNAME VARCHAR2(45),
+	SALARY INT
+	);
+	X EMPREC;
+BEGIN
+    SELECT E.FIRST_NAME, D.DEPARTMENT_NAME, E.SALARY INTO X
+    FROM HR.EMPLOYEES E JOIN HR.DEPARTMENTS D
+    ON E.DEPARTMENT_ID = D.DEPARTMENT_ID
+    WHERE E.EMPLOYEE_ID = 111;
+    
+    DBMS_OUTPUT.PUT_LINE(X.FNAME) ;
+    DBMS_OUTPUT.PUT_LINE(X.DNAME) ;
+    DBMS_OUTPUT.PUT_LINE(X.SALARY) ;
+END;
+
+--------------------------------------------------------------------------
+4) retrieve the row based on employee id 112 and store it in a row type variable
+	and display only the firstname and salary
+
+DECLARE
+    X HR.EMPLOYEES %ROWTYPE;
+BEGIN
+    SELECT * INTO X FROM HR.EMPLOYEES WHERE EMPLOYEE_ID = 112;
+	DBMS_OUTPUT.PUT_LINE(X.FIRST_NAME) ;
+	DBMS_OUTPUT.PUT_LINE(X.SALARY) ;
+END;
+------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------
+CONDITIONAL STATEMENTS
+
+- IF
+- IF ELSE
+- IF ELSIF
+
+DECLARE
+	X INT := 50;
+BEGIN
+	IF X > 50 THEN
+		DBMS_OUTPUT.PUT_LINE('Higher');
+	ELSE
+		DBMS_OUTPUT.PUT_LINE('Lower');
+	END IF;
+END;
+------------------------------------------------------------------------------------------------
+TASK: SALARY GRADE
+
+DECLARE
+	S1 INT := 50000;
+BEGIN
+	IF S1 > 20000 THEN
+		DBMS_OUTPUT.PUT_LINE('A');
+	ELSIF S1>10000 AND S1<=20000 THEN
+		DBMS_OUTPUT.PUT_LINE('B');
+	ELSIF S1 > 5000 AND S1<= 10000 THEN
+		DBMS_OUTPUT.PUT_LINE('C');
+	ELSE
+		DBMS_OUTPUT.PUT_LINE('D');
+	END IF;
+END;
+------------------------------------------------------------------------------------------------
+CASE STATEMENTS
+----------------
+PLSQL SYNTAX
+
+DECLARE
+X CHAR :='B';
+BEGIN
+CASE X
+WHEN 'A' THEN
+	DBMS_OUTPUT.PUT_LINE ('E');
+WHEN 'B' THEN
+	DBMS_OUTPUT.PUT_LINE ('G');
+END CASE;
+END;
+
+DECLARE
+X CHAR :='A';
+BEGIN
+CASE 
+WHEN X = 'A' THEN
+	DBMS_OUTPUT.PUT_LINE ('E');
+WHEN X = 'B' THEN
+	DBMSC_OUTPUT.PUT_LIN ('G');
+END CASE;
+END;
+------------------------------------------------------------------------------------------------
+CHALLENGE:
+----------
+SQL - 
+----
+SELECT T1.ACNUMBER, SUM(AMT) FROM 
+    (SELECT ACNUMBER, TRANSACTION_TYPE, TRANSACTION_AMOUNT, 
+	CASE TRANSACTION_TYPE
+    WHEN 'Deposit' THEN TRANSACTION_AMOUNT
+	WHEN 'Withdrawal' THEN TRANSACTION_AMOUNT*-1
+    END AMT
+	FROM TRANDETAILS) T1
+    GROUP BY T1.ACNUMBER;
+
+PLSQL - 
+--------
+DECLARE
+    deposits int;
+	withdrawals int;
+	ano char(6):='A00001';
+BEGIN
+    SELECT SUM(TRANSACTION_AMOUNT) INTO deposits
+    FROM TRANDETAILS WHERE ACNUMBER=ano
+    AND TRANSACTION_TYPE='Deposit';
+    SELECT SUM(TRANSACTION_AMOUNT) INTO withdrawals
+    FROM TRANDETAILS WHERE ACNUMBER=ano
+    AND TRANSACTION_TYPE='Withdrawal';
+	DBMS_OUTPUT.PUT_LINE(deposits-withdrawals);
+END;
+
+------------------------------------------------------------------------------------------------
+-----------------------------------------
+Basic Loop in PLSQL
+---------------------------
+DECLARE
+	X INT:=1;
+BEGIN
+    LOOP
+    	DBMS_OUTPUT.PUT_LINE(X);
+		X:=X+1;
+		EXIT WHEN X=10;
+    END LOOP;
+END;
+
+
+What is WHILE LOOP?
+DECLARE
+	X INT:=1;
+BEGIN
+    WHILE X<10
+    LOOP
+    	DBMS_OUTPUT.PUT_LINE(X);
+		X:=X+1;
+    END LOOP;
+END;
+
+---------------------------
+FOR LOOP
+---------------
+DECLARE
+	X INT;
+BEGIN
+	FOR X IN 1 .. 9
+    LOOP
+    	DBMS_OUTPUT.PUT_LINE(X);
+    END LOOP;
+END;
+
+---------------------------------------------------------------------------------------------------
+Task:
+-------
+Write a plsql program to display the 
+	FIRST_NAME
+	SALARY
+of employees whose ID between 
+	100 and 200
+
+you can use
+	basic loop
+	while loop
+	for loop
+
+SOLUTION: BASIC LOOP
+DECLARE
+	X INT:=100;
+	Y HR.EMPLOYEES %ROWTYPE;
+BEGIN
+    LOOP
+    	SELECT * INTO Y FROM HR.EMPLOYEES WHERE EMPLOYEE_ID = X;
+    	DBMS_OUTPUT.PUT_LINE(Y.FIRST_NAME || ' ' || Y.SALARY);
+		X:=X+1;
+		EXIT WHEN X=201;
+    END LOOP;
+END;
+---------------------------
+SOLUTION: FOR LOOP
+DECLARE
+	X INT:=100;
+	Y HR.EMPLOYEES %ROWTYPE;
+BEGIN
+    FOR X IN 100 .. 200
+    LOOP
+    	SELECT * INTO Y FROM HR.EMPLOYEES WHERE EMPLOYEE_ID = X;
+    	DBMS_OUTPUT.PUT_LINE(Y.FIRST_NAME || ' ' || Y.SALARY);
+    END LOOP;
+END;
+---------------------------
+SOLUTION: WHILE LOOP
+DECLARE
+	X INT:=100;
+	Y HR.EMPLOYEES %ROWTYPE;
+BEGIN
+    WHILE X < 201
+    LOOP
+    	SELECT * INTO Y FROM HR.EMPLOYEES WHERE EMPLOYEE_ID = X;
+    	DBMS_OUTPUT.PUT_LINE(Y.FIRST_NAME || ' ' || Y.SALARY);
+		X:=X+1;
+    END LOOP;
+END;
+---------------------------------------------------------------------------------------------------
+So far these PLSQL programs are not stored in the database as objects, 
+hence they are called "ANONYMOUS BLOCKS"
+
+then, NAMED BLOCKS are stored in the database as objects and they have name, 
+ex: PROCEDUREs and FUNCTIONs and plsql named blocks
+
+PROCEDURES
+-----------
+Procedures in plsql are db objects and they are stored plsql programs
+also called as Stored Procedures
+- CREATE PROCEDURE
+
+CREATE PROCEDURE PRC1
+AS
+BEGIN
+DBMS_OUTPUT.PUT_LINE('HI TSK TSK');
+END;
+
+FOR OUTPUT:
+BEGIN
+	PRC1;
+END;
+------------------------------
+YOU CAN CALL A PROCEDURE FROM 
+	- A PLSQL BLOCK
+	- A PROCEDURE
+	- A FUNCTION
+	- A TRIGGER
+-------------------------------------------
+CREATE OR REPLACE PROCEDURE PRC10(X INT, Y OUT INT)
+AS
+BEGIN
+	Y:= X*X;
+END;
+--------
+DECLARE
+	RESULT INT;
+BEGIN
+	PRC10(2,RESULT);
+	DBMS_OUTPUT.PUT_LINE(RESULT);
+END;
+------------------------------------------------------------------------------------------------------
+CHALLENGE:
+Create a plsql procedure to accept employee_id and return the full name  
+(combination of first and last name) and salary the outputs must be stored in output parameters
+call the procedure from a plsql program and display the outputs obtained while calling the 
+procedure
+
+SOLUTION:
+CREATE OR REPLACE PROCEDURE CHA1(X INT, Y OUT HR.EMPLOYEES %ROWTYPE)
+AS
+BEGIN
+    SELECT * INTO Y FROM HR.EMPLOYEES WHERE EMPLOYEE_ID = X;
+END;
+
+DECLARE
+    Y HR.EMPLOYEES %ROWTYPE;
+BEGIN
+	CHA1(100, Y);
+	DBMS_OUTPUT.PUT_LINE(Y.FIRST_NAME || ' ' || Y.LAST_NAME || ' ' || Y.SALARY);
+END;
+==================================================================================================
+FUNCTIONS
+---------
+- Must always return a single value
+- ex:
+CREATE OR REPLACE FUNCTION F1
+RETURN NUMBER
+AS
+BEGIN
+RETURN 100;
+END;
+
+TASK:
+-----
+CREATE OR REPLACE FUNCTION F1 (EID INT)
+RETURN NUMBER
+AS
+    BONUS NUMBER(6,2);
+BEGIN
+    SELECT SALARY * 0.1 INTO BONUS
+    FROM HR.EMPLOYEES WHERE EMPLOYEE_ID = EID;
+    RETURN BONUS;
+END;
+
+SELECT EMPLOYEE_ID, SALARY, F1(EMPLOYEE_ID)
+FROM HR.EMPLOYEES
+--------------------------------------------------------------------------
+CHALLENGE:
+----------
+Create a function fnName, that accepts employee id as input and returns the full name as output.
+call this function as follows
+
+select employee_id, fnName(employee_id)
+from hr.employees.
+
+SOLUTION:
+CREATE OR REPLACE FUNCTION F2 (EID INT)
+RETURN HR.EMPLOYEES.FIRST_NAME%TYPE
+AS
+    FN HR.EMPLOYEES.FIRST_NAME%TYPE;
+BEGIN
+    SELECT FIRST_NAME || ' ' || LAST_NAME INTO FN
+    FROM HR.EMPLOYEES WHERE EMPLOYEE_ID = EID;
+    RETURN FN;
+END;
+
+SELECT EMPLOYEE_ID, F2(EMPLOYEE_ID)
+FROM HR.EMPLOYEES
+==================================================================================================
+CURSOR :
+---------
+SQL - is the name of the implicit cursor
+Attributes of the cursor:
+	FOUND
+	NOTFOUND
+	ROWCOUNT
+Syntax - SQL%<ATRIBUTES>
+
+CURSOR LIFE CYCLE
+	DEFINE
+	OPEN
+	FETCH
+	CLOSE
+--------------------
+DECLARE
+	CURSOR CUR1 IS SELECT * FROM HR.EMPLOYEES;
+	X HR.EMPLOYEES%ROWTYPE;
+BEGIN
+	OPEN CUR1;
+	LOOP
+        FETCH CUR1 INTO X;
+		EXIT WHEN CUR1%NOTFOUND;
+		DBMS_OUTPUT.PUT_LINE(X.FIRST_NAME);
+	END LOOP;
+	DBMS_OUTPUT.PUT_LINE(CUR1%ROWCOUNT ||' '|| 'NAMES DISPLAYED');
+CLOSE CUR1;    
+END;
+---------------------------------------------------------------------------------------------------
+NOTE - "WHAT IS OPENING A FILE?", it is creating the oject representation of the file in the memory
+DECLARE
+----------------------------------------------------------------------------------------------------
+CHALLENGE:
+--------------
+DECLARE
+    AVG_SALARY NUMBER;
+	CURSOR CUR1 IS SELECT FIRST_NAME, SALARY FROM HR.EMPLOYEES WHERE SALARY > (SELECT AVG(SALARY) FROM HR.EMPLOYEES);
+	FNAME HR.EMPLOYEES.FIRST_NAME%TYPE;
+	SALARY HR.EMPLOYEES.SALARY%TYPE;
+BEGIN
+    OPEN CUR1;
+        LOOP
+            FETCH CUR1 INTO FNAME, 	SALARY;
+            EXIT WHEN CUR1%NOTFOUND;
+            DBMS_OUTPUT.PUT_LINE(FNAME || ' ' || SALARY);
+        END LOOP;
+	DBMS_OUTPUT.PUT_LINE(CUR1%ROWCOUNT || ' ARE ABOVE THE AVERAGE ');
+    CLOSE CUR1;
+END;
+=========================================================================================================
+EXCEPTION HANDLING:
+	DECLINE
+	BEGIN
+	EXCEPTION
+	EN
+===================================================================================================
+TRIGGER
+- is also a PLSQL orocedure, but executed during an event
+- Types - System and Object
+
+SYSTEM TRIGGER:
+CREATE OR REPLACE TRIGGER PROGRAM_RESTRICT
+AFTER LOGON ON DATABASE
+BEGIN
+	INSERT INTO JAGLOG VALUES('AN USER LOGGED ON');
+END;
+
+OBJECT TRIGGER:
+	BEFORE
+	AFTER 
+	INTEAD OF
+
+DML TRIGGERS:
+	BEFORE INSERT ON HR.EMPLOYEES
+	AFTER INSERT ON HR.DEPARTMENT
+
+BEFORE INSERT
+BEFORE UPDATE
+BEFORE DELETE
+
+MAGIC TABLE IN ORACLE TRIGGERS
+:NEW
+:OLD
+

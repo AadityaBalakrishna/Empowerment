@@ -1,0 +1,259 @@
+23/08/2024
+
+What is class and what is object?
+  Scanner sc = new Scanner(System.in);
+  // here, Scanner is a class
+  // sc is an object of Scanner class
+
+we can create several objects of a class
+then what is class?
+  class is a blueprint of objects
+what is object?
+  object is an instance of a class
+
+Static
+  Static member of a class can be accesed without need of an object of the class
+  static members are class members(not object members)
+  tatic members of a class does not belong to any particular instance(object) of the class.
+
+IN C++: 
+void count()
+{
+  static int i = 0;
+  i++;
+}
+
+IN JAVA, you cannot declare static variables inside a method(function)
+
+class Employee
+{
+  int id;
+  String name;
+  static String company;
+}
+
+example:
+Employee nitin=new Employee();
+nitin.id=1212;
+nitin.name="Nitin";
+Employee.company="Empower";
+nitin.company="Empower";		//not good idea
+
+
+static variable (class member)
+static method (class member)
+    we can call a static method, even before creating, any object of the class
+    we dont need to call
+      objname.staticmethodname
+      classname.staticmethodname
+static block
+  is executed very early, even before 1st line of the main method
+
+static method cannot access instance variable or instance methods
+instance methods can access static variables and methods
+
+FINAL
+  final class
+  final method
+  final data member
+
+final class cannot be inherited
+final method cannot be overriddent
+final data member should be assigned a value during declaration itself, which cannot be modified later
+--------------------------------------------------------------------------------------------------------------
+INTERVIEW Q: WHY SHOULD WE DECLARE A FINAL DATA MEMBER AS STATIC?
+--------------------------------------------------------------------------------------------------------------------
+Property
+  Property of class?
+    a data member of a class which is non public, and has getter or setter or both, is a property
+
+Array
+Java Arrays are jagged arrays
+int [][]arr = new int [3][0]
+arr[0] is first row
+arr[1] = new int[3];
+arr[2] = new int[5];
+---------------------------------------------------------------------------------------------------------
+Task:
+-----
+	create an array of x and y size
+	you get value of x and y from the user
+	and create the array like
+		arr[x][y]
+
+then get input for all elements of array
+and store them in array
+
+then display the values of array as output.
+
+SOLUTION:
+import java.util.Arrays;
+import java.util.Scanner;
+
+public class ArrayDemo1 {
+
+	public static void main(String[] args) {
+		int arr[][];
+		Scanner sc=new Scanner(System.in);
+		System.out.println("Enter value for x:");
+		int x=sc.nextInt();
+		System.out.println("Enter value for y:");
+		int y=sc.nextInt();
+		arr=new int[x][y];
+		
+		//get input for array elements
+		for(int i=0;i<arr.length;i++)
+		{
+			for(int j=0;j<arr[i].length;j++)
+			{
+				System.out.printf("arr[%d][%d]",i,j);
+				arr[i][j]=sc.nextInt();
+			}
+		}
+		//lets display the array
+		System.out.println();
+		System.out.println("Displaying the array values now:");
+		for(int i=0;i<arr.length;i++)
+		{
+			for(int j=0;j<arr[i].length;j++)
+			{
+				System.out.print(arr[i][j]+"\t");
+			}
+			System.out.println();
+		}
+	}
+
+}
+
+run with a test case:
+
+3
+4
+12	22	32	45	31
+42	52	26	77	85
+27	82	29	34	90
+
+=================================================================================================================================================================================================
+OOP - OBJECT ORIENTED PROGRAMMING
+4 Pillars of OOPs
+          Abstraction
+          Inheritance
+          Encapsulation
+          Polymorphism
+===========================================================================================================================================================
+Compliler creates a default constructor if yyour class has no constructor, 
+.{
+public a (int i)
+{
+}
+}
+
+
+Ctrl+1 enter
+-------------------------------------------------------------------------
+
+in java how can we work on Date?
+there are some types for date in java
+	java.util.Date
+	java.sql.Date
+	java.time.LocalDate
+	java.time.LocalTime
+
+we will use java.util.Date now
+
+Date is a class
+	every millisecond, is represented as a long data type value
+
+how to convert a String into Date?
+	java.text.SimpleDateFormat
+		use object of this class to 
+			convert String into Date		Date dt=sdf.parse(str);
+			convert Date into String		String str=sdf.format(dt);
+
+
+
+
+
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
+public class DateDemo {
+
+	public static void main(String[] args) throws ParseException {
+		String str="23/Aug/2000";
+		SimpleDateFormat sdf=new SimpleDateFormat("dd/MMM/yyyy");
+		Date dt=sdf.parse(str);
+		System.out.println(sdf.format(dt));
+	}
+
+}
+
+
+
+
+
+
+dd	2 digit day
+MM	2 digit month
+mm	2 digit minutes
+yy	2 digit year
+yyyy	4 digit year
+EEE	week day	ex:		Fri
+EEEE	week day	ex:		Friday
+
+
+
+System.out.printf("%d",20);
+System.out.format("%d",20);
+-------------------------------------
+String.format("%d",20);
+
+
+
+
+Pending
+casting			
+conversion
+
+
+Integer.parseInt("");		converts String into int
+Integer.valueOf("");		converts String into Integer
+
+
+Example for polymorphism?
+	Method overloading
+	Method overriding
+
+What is method overloading?
+	is a feature of oop language that allows us to create multiple methods with same name but
+		different signature
+
+what  is a signature?
+	number of arguments
+	type of arguments
+	order of type of arguments
+
+the return type is not part of signature.
+
+if 2 methods (functions) have same name, then there must be a difference in signature.
+if return type is the only difference, then it is not allowed.
+
+----------------------------------------
+Method overloading is used to exihibit static polymorphism
+
+Method overriding is used to exihibit dynamic polymorphism
+
+
+Employee raja;
+raja=new Programmer();
+raja=new Developer();
+raja=new ProjectManager();
+
+
+1) inheritance
+2) overloading
+3) overriding
+4) abstract class
+5) abstract method
+6) interface

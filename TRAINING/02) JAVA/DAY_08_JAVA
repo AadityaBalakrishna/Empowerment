@@ -1,0 +1,27 @@
+28/08/2024
+
+File Read 
+FileInputStream 
+FileOutputStream
+working on Bytes
+
+File F1 = new File("Location");
+File f2 = new File("gagan.jpg");
+FileInputStream fis = new File InputStream(f1);
+FileOutputStream fos = new FileOutputStream(f2);
+
+int data = -1;
+
+while((data = fis.read())!=-1)
+{
+fos.write(data);
+fos.flush();  // data grows gradually
+
+//Intentional Delay
+Thread.sleep(10);
+}
+SOP("Done");
+
+
+DataInputStream
+DataOutputStream

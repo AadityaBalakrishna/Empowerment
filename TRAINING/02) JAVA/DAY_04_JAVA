@@ -1,0 +1,408 @@
+22/08/2024
+
+JAVA
+=====
+
+How to check java installed version in our computer?
+in cmd:
+  java -version
+-
+openjdk version "21.0.3" 2024-04-16 LTS
+OpenJDK Runtime Environment Corretto-21.0.3.9.1 (build 21.0.3+9-LTS)
+OpenJDK 64-Bit Server VM Corretto-21.0.3.9.1 (build 21.0.3+9-LTS, mixed mode, sharing)
+
+Java Compilation
+i) Java compiler (javac) translates java code into byte code
+ii) at runtime, java runtime environment has another compiler called JIT(Just In Time) compiler that will convert byte code into machine specific machine language code
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Data Types
+----------
+- 8 data types in java.
+          ----------Integer family
+            BYTE  [ -128 to 127 ]
+            SHORT [ -32768 to 32767 ]
+            INT   [ -2147483648 to 2147483647 ]
+            LONG  [ -9223372036854775808 to 9223372036854775807 ]
+          ----------Boolean
+            BOOLEAN [ 0 (false) or 1 (true) ]
+          ----------Character
+            CHAR  [ 0 ('\u0000') to 65535 ('\uffff') ]
+          ----------Floating Point Numbers
+            DOUBLE [ 4.94065645841246544e-324 to 1.79769313486231570e+308 ]
+            FLOAT  [ 1.40239846e-45f to 3.40282347e+38f ]
+
+- data type = primitive data type only
+- all others are "types"
+- System.out.println(Integer.MIN_VALUE+" to "+Integer.MAX_VALUE+"  has "+ Interger.MAX_VALUES-Integer.MIN_VALUES +" Values.");
+--------------------------------------------------------------------------------
+int i = 011; => 9 ( because anything with 0 in the beginning, it's octal number )
+int i = 07;  => 7
+int i = 0x11;  => 17
+---------------------------------------------------------------------------------
+IDE - Integreated Development Environment
+- to write, build, debug java codes
+- Netbeans, Eclipse, Spring Tool Suite, intelliJ, Visual Studio Code, etc
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Java Language Features:
+	if
+	if else
+	if else if else
+	switch case
+	while loop
+	do while loop
+	for loop
+	for each  - for arrays and collections
+
+--------------------------------------------------
+OPERATORS IN JAVA:
+
+---------------------------------------------------
+NOTE:
+-----
+in c, c++ language, the following is allowed
+	int i=0;
+	if(i)
+		//true portion
+	else
+		//false portion
+
+But IN JAVA, THE ABOVE IS NOT ALLOWED
+if statement requires a valid boolean expression that returns true or false
+	0 is not considered as false in java
+-------------------------------------------------------------------------------
+How can you get input from the user as a character input?
+	sc.next().charAt(0);
+
+lets decode this
+	sc.next()	returns a String. -> String class has instance methods like charAt(index) to retrieve a character at a particular index
+
+old:
+-----
+String str=sc.next();
+char c=str.charAt(0);
+
+new:
+-------
+the above 2 lines are shortened as:
+	char c=sc.next().charAt(0);
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+import java.util.Scanner;
+
+public class App {
+
+	public static void main(String[] args) {
+		Scanner sc=new Scanner(System.in);
+		int x=sc.nextInt();
+		
+		System.out.println("Your input was: ");
+		System.out.println(x);
+		
+	}
+
+}
+
+Task 1:
+-------
+Dice Game I
+
+Each player will be allowed to throw  a dice 2 times. The points for each player will be calculated as follows :
+If the values thrown are different, the points scored is equal to the sum of the 2 values.
+If the values thrown are the same, the points scored is equal to double the sum of the 2 values.
+Write a program to calculate the points scored by a player.
+
+Input and Output Format:
+Input consists of 2 integers. The valid range of inputs is from 0 to 6. [ Both 0 and 6 inclusive]
+Output the points scored. In case of invalid inputs, print “Invalid Input”.
+
+SOLUTION:
+package javafirstproj;
+import java.util.Scanner;
+public class App {
+	public static void main(String[] args) 
+	{
+		// TODO Auto-generated method stub
+		Scanner in = new Scanner(System.in);
+		int t1 = in.nextInt();
+		int t2 = in.nextInt();
+		int p;
+		
+		if(t1>6||t2>6||t1<0||t2<0)
+		{
+			System.out.println("Invalid Input");
+		}		
+		else if (t1!=t2){
+			p = t1 + t2;
+			System.out.println("The points scored is "+p);
+		}
+		else {
+			p = 2*(t1 + t2);
+			System.out.println("The points scored is "+p);
+		}
+	}
+}
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Scanner Methods:
+- How to get input in java? Scanner is from java.util package
+- nextInt, nextLine, nextLong, nextFloat, nextDouble, nextBoolean, next
+- Scanner sc = new Scanner(System.in);
+- among these methods, nextLine() is the only method that accepts input until "newline" character is found., ie. (return/enter button)
+  all other methods of Scanner, accepts inupt until any delimiter is found.
+- Scanner class provides lot of methods including
+		nextInt
+		nextLine
+		nextLong
+		nextFloat
+		nextDouble
+		nextBoolean
+		nexT
+- among these methods, nextLine() is the only method that accepts input until "newline" character is found
+  (return/ enter button), all other methods of Scanner, accepts input until any delimiter is found.
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+How can you get input from the user as a character input?
+	sc.next().charAt(0);
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Conventions to be followed while naming:
+----------------------------------------
+Package - Group of classes and interfaces
+	  Name of the package must be in small letters only
+
+Class - a class is an user defined type
+	or a container for a program that contains methods and data members
+	class name
+		must start with upper case only
+		must be a noun (not a verb)
+		multiple words can be identified by each word starting in upper case
+
+Variable - first letter is in lower case
+
+Constant - all UPPER case separted by _
+
+Method -  method names must be a combination of verb and noun
+		ex: calculateSimpleInterest --> it sounds like: doThis
+
+Conclusion - if condition can be used in the following ways:
+		nested if
+		if with logical operators
+
+
+- Simple If can be done using ternary operator also
+- every variable declared, must be initialized
+- unused variables must be removed
+- if true pasrt and else part shall have {} even if there is a single statement
+- comments:
+	// single comment
+	/*
+	multi line comment
+	*/
+- functions must return only once
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Task 2:
+-----
+
+SOLUTION:
+package javafirstproj;
+import java.util.Scanner;
+public class App{
+	public static void main(String[] args) 
+	{
+		// TODO Auto-generated method stub
+		Scanner in = new Scanner(System.in);
+		// for next line
+		Scanner in2 = new Scanner(System.in);
+		int rn;
+		String name;
+		double salary;
+		
+		rn = in.nextInt();
+		name = in2.nextLine();
+//		if(name.equals(""));
+//		{
+//			name = in.nextLine();
+//		}
+		salary = in.nextDouble();
+		
+		System.out.println("Nithini");
+		System.out.println(rn);
+		System.out.println(name);
+		System.out.println(salary);
+	}
+}
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------
+TASK 3:
+-------
+Introductory Algebra I
+One of the assignments given to the kids in the Introductory Algebra class is to write one 2-digit positive number and one 2-digit negative number. They can write the numbers in any order.
+All the kids have written 2 numbers each.
+Can you write a program to ease out the teacher's task?
+Input and Output Format:
+Input consists of 2 integers. A valid input should contain only 2 digits. If any of the integers is not a 2-digit number, then the input is invalid.
+Output is a string.  Output is either “Correct” or “Incorrect” or “Invalid Input”.
+
+SOLUTION 1:
+package javafirstproj;
+import java.util.Scanner;
+public class App{
+	public static void main(String[] args) 
+	{
+		Scanner in = new Scanner(System.in);
+		int n1;
+		int n2;	
+		
+		System.out.println("Enter Value 1");
+		n1 = in.nextInt();
+		System.out.println("Enter Value 2");
+		n2 = in.nextInt();
+
+		if(((n1>=10 && n1<=99) && (n2>=-99 && n2<=-10)) || ((n2>=10 && n2<=99) && (n1>=-99 && n1<=-10)))
+		{
+			System.out.println("correct");
+		}
+		else if (((n1>=10 && n1<=99) && (n2>=10 && n2<=99)) || ((n2>=-99 && n2<=-10) && (n1>=-99 && n1<=-10)))
+		{
+			System.out.println("incorrect");
+		}
+		else
+		{
+			System.out.println("invalid");
+		}
+	}
+}
+
+SOLUTION 2:
+import java.util.Scanner;
+
+public class IntroAlgebra1 {
+
+	public static void main(String[] args) {
+		Scanner sc=new Scanner(System.in);
+		System.out.println("Enter Value 1:");
+		int input1=sc.nextInt();
+		System.out.println("Enter Value 2:");
+		int input2=sc.nextInt();
+		
+		if(Math.abs(input1)<10 || Math.abs(input2)<10 || Math.abs(input1)>99 || Math.abs(input2)>99)
+		{
+			System.out.println("Invalid Input");
+			System.exit(0);
+		}
+		
+		boolean check1=input1<10;
+		boolean check2=input2<10;
+		
+//		if(check1 ^ check2)
+//		{
+//			System.out.println("Correct");
+//		}else
+//		{
+//			System.out.println("Incorrect");
+//		}
+		
+		System.out.println((check1 ^ check2)?"Correct":"Incorrect");
+	}
+
+}
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+TASK 4:
+Lucky Prize IV
+ 
+In all the theatres in the Amphi Multiplex, prizes will be given to few lucky winners every day.
+The lucky winners will be decided based on the ticket number and the criteria set for that day.
+The criteria set for day 4 is that prizes will be given to all ticket holders whose ticket number satisy both the conditions given below :
+1.	The ticket number is a palindrome
+2.	The sum of the digits in the ticket number is even
+
+Given a ticket number, write a program to determine whether that ticket holder will be a lucky prize winner or not. 
+Input and Output Format:
+Input consists of an integer that corresponds to the ticket number.
+Output consists of a string that is either “Winner” or “Not a winner”
+
+SOLUTION 1:
+-----------
+package javafirstproj;
+import java.util.Scanner;
+public class LuckyPrize_4 
+{
+	    public static boolean checkLucky(int n)
+	    {
+	        int reverse = 0;
+	        int sod = 0;
+	        int d;
+	        int temp = n;
+	        while (temp != 0) 
+	        {
+	        	d = temp % 10;
+	            reverse = (reverse * 10) + d ;
+	            sod = sod + d;
+	            temp = temp / 10;
+	        }
+	        return (sod%2==0 && reverse ==n);
+	    }
+
+	    // Main method (equivalent of Driver code)
+	    public static void main(String[] args)
+	    {
+	        // Sample Input
+	    	Scanner in = new Scanner(System.in);
+			int n;
+			
+			System.out.println("Enter Ticket Number");
+			n = in.nextInt();
+	        if (checkLucky(n)) 
+	        {
+	            System.out.println("Winner");
+	        }
+	        else {
+	            System.out.println("Not a Winner");
+	        }
+	    }
+}
+
+SOLUTION 2(SIR'S):
+------------------
+import java.util.Scanner;
+
+public class LuckyPrice4 {
+
+	private static boolean isPalindrome(int num)
+	{
+		int reverse=0;
+		int original=num;
+		String revStr="";
+		while(num>0)
+		{
+			int lastDigit=num%10;
+			revStr=revStr+lastDigit;
+			num/=10;
+		}
+		reverse=Integer.parseInt(revStr);
+		
+		return original==reverse;
+	}
+	
+	private static int digitSum(int num)
+	{
+		int sum=0;
+		while(num>0)
+		{
+			int digit=num%10;
+			num/=10;
+			sum+=digit;
+		}
+		return sum;
+	}
+	public static void main(String[] args) {
+		Scanner sc=new Scanner(System.in);
+		int input=sc.nextInt();
+		
+		if(isPalindrome(input) && digitSum(input)%2==0)
+		{
+			System.out.println("Winner");
+		}else
+		{
+			System.out.println("Not a winner");
+		}
+	}
+
+}
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------

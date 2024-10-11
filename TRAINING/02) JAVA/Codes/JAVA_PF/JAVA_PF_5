@@ -1,0 +1,402 @@
+Profit Share
+-------------
+Ramu, Gopu and Samu are three friends who own a fruit shop. All three have invested certain amount for starting the shop. They share the profit proportionate to the ratio of the shares they have invested. Given the Profit amount and the ratio of shares of Ramu,Gopu and Samu ,write a program to find the amount of profit that will go to Ramu, Gopu and Samu.
+
+Input Format:
+First line is an integer that denotes the Profit Amount.
+Second line consists of 3 Space separated integers that denote the ratio values of Ramu,Gopu,Samu respectively
+
+Output Format:
+A double value that denotes the Ramu's profit amount.
+A double value that denotes the  Gopu's profit amount.
+A double value that denotes the  Samu's profit amount.
+[Note : The output values are rounded off to 2 decimal places]
+
+Sample Input 1:
+10000
+2 4 4
+
+Sample Output 1:
+2000.00
+4000.00
+4000.00
+
+Sample Input 2:
+25000
+4 5 6
+
+Sample Output 2:
+6666.67
+8333.33
+10000.00 
+
+SOLUTION:
+import java.util.Scanner;
+
+public class ProfitShare {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+
+        int profit = sc.nextInt();
+        int ramuShare = sc.nextInt();
+        int gopuShare = sc.nextInt();
+        int samuShare = sc.nextInt();
+
+        int totalShares = ramuShare + gopuShare + samuShare;
+
+        double ramuProfit = profit * ((double) ramuShare / totalShares);
+        double gopuProfit = profit * ((double) gopuShare / totalShares);
+        double samuProfit = profit * ((double) samuShare / totalShares);
+
+        System.out.printf("%.2f%n", ramuProfit);
+        System.out.printf("%.2f%n", gopuProfit);
+        System.out.printf("%.2f%n", samuProfit);
+
+        sc.close();
+    }
+}
+-----------------------------------------------------------------------------------------------------------------------------
+Wildcard Operator
+------------------
+Gopu is studying in his third grade, and his maths teacher has taught him about the arithmetic operations. He is more interested in solving tough assignments. One such assignment is given below. 
+Given values of A,B and an expression A#B, find the result for the given expression. # can contain operators such as +,-,*,/.
+Write a program to help Gopu.
+
+Input Format:
+First line is an integer that denotes A's value
+Second line is an integer that denotes B's value
+Third line is a string that denotes the expression in the format  "A#B"
+
+Output Format:
+Output is an integer that denotes the Result of expression. Print only the integer value in case of division operation.
+
+Note:
+If the expression is Invalid print "Invalid".
+An Expression is Invalid if,
+1) the operator is anything other than +,-,*,/.
+2) the expression produces a divide by zero error.
+
+
+Sample Input 1:
+2
+4
+A*B
+
+Sample Output 1:
+8
+
+Sample Input 2:
+2
+2
+A=B
+
+Sample Output 2:
+Invalid 
+
+SOLUTION:
+import java.util.Scanner;
+
+public class WildcardOperator {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+
+        int A = sc.nextInt();
+        int B = sc.nextInt();
+        String expression = sc.next();
+
+        int result;
+        switch (expression.charAt(1)) {
+            case '+':
+                result = A + B;
+                break;
+            case '-':
+                result = A - B;
+                break;
+            case '*':
+                result = A * B;
+                break;
+            case '/':
+                if (B == 0) {
+                    System.out.println("Invalid");
+                    return;
+                }
+                result = A / B;
+                break;
+            default:
+                System.out.println("Invalid");
+                return;
+        }
+
+        System.out.println(result);
+        sc.close();
+    }
+}
+----------------------------------------------------------------------------------------------------------------------------
+Character at Index
+-------------------
+Somu has an excellent visualization skill using which he answers any logical and arithmetic calculation by mind calculation.
+To test his skill, Ramu gave him the following question. Given a String, s, and an integer, i, 
+find the character present at the given index, i, when the string is repeatedly concatenated.
+Write a program to  help Somu.
+
+Input Format:
+First line of the input is the string, s. Assume max length of the string is 50.
+Second line is an Integer that denotes the index value, i.
+
+Output Format:
+Output is a character present at ith index.
+
+Note:
+Print "Invalid" if the index is negative.
+
+Sample Input 1:
+Amphibian
+25
+Sample Output 1:
+a
+
+Sample Input 2:
+Java
+-1
+Sample Output 2:
+Invalid 
+
+
+Explanation for Sample1:
+input String is "Amphibian".
+After repeated concatenation, the string becomes "AmphibianAmphibianAmphibianAmphibian......"
+The character at 25 th index is 'a'. 
+
+SOLUTION:
+package javafirstproj;
+
+
+import java.util.Scanner;
+
+public class Gama {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+
+        String s = sc.next();
+        int index = sc.nextInt();
+
+        if (index < 0) {
+            System.out.println("Invalid");
+        } else {
+            int length = s.length();
+            char result = s.charAt(index % length);
+            System.out.println(result);
+        }
+
+        sc.close();
+    }
+}
+------------------------------------------------------------------------------------------------------------------------------
+House for Sale
+Ramu has bought a house for X rupees, and he has planned to sell it after n years. 
+He knows the rate at which the house value changes each year, for n years. 
+He is very eager to know the value of his house after n years. 
+Write a progam to help Ramu know the value of his house after n years.
+
+Note: The value of the house can increase as well as decrease.
+
+Input Format:
+First line of the input is an integer that corresponds the value X.
+Second line of the input is the number of years, n.
+Third line consists of n space separated integers that correspond to the rates at which the house value changes every year.
+
+Output Format:
+Output is a double value that coresponds to the value of Ramu's House after n years.(rounded off to 2 decimal places).
+
+Sample Input 1:
+150000
+3
+10 12 -10
+Sample Output 1:
+166320.00 
+
+Explanation:
+Cost of house 150000
+Value of house increaes 10 % in first year = 150000.00 + 15000.00 = 165000.00
+Value of house increaes 12 % in second year = 165000.00 +19800.00 = 184800.00
+Value of house decreases 10 % in third year = 184800.00 - 18480.00 = 166320.00
+
+After the third year the house value is 166320.00 . 
+
+Sample Input 2:
+10000
+3
+1 2 3
+Sample Output 1:
+10611.06 
+
+SOLUTION:
+import java.util.Scanner;
+
+public class HouseForSale {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+
+        double houseValue = sc.nextDouble();
+        int n = sc.nextInt();
+        for (int i = 0; i < n; i++) {
+            int rate = sc.nextInt();
+            houseValue += houseValue * rate / 100;
+        }
+
+        System.out.printf("%.2f%n", houseValue);
+        sc.close();
+    }
+}
+------------------------------------------------------------------------------------------------------------------------
+Number Addition
+ Gopu is a third grade kid, and new to numbers and the operations performed on it. 
+Parallel to that he learns computer programming. So instead of storing a number in an integer variable, A, 
+he created an array and stored the digits in that array. Now, if a second number, X, is given (as a single integer), 
+he needs to calculate the sum.
+Write a program to help Gopu in finding the sum and print the resultant value.
+
+Input format:
+First line of the input is an integer that denotes the number of digits, n, in the first number, A.
+Second line of the input consists of space separated integers(single digit each), 
+which corresponds to the n digits of the first number, A.
+Third line of the input is an integer that denotes the  second number, X.
+
+Note: The maximum value of 'n', i.e., the number of digits in A is 100.
+
+Output format:
+Space separated digits of the resultant number.
+
+Sample Input 1:
+5
+1 2 3 4 5
+1
+Sample Output 1:
+1 2 3 4 6
+
+
+Sample Input 2:
+4
+2 3 8 9
+11
+Sample Output 2:
+2 4 0 0 
+ 
+Is a Chessboard
+Somu is preparing himself to build a Chess Game app. For that he needs to learn and workout a lot problems on 2-D Arrays. 
+In the initial phase, given a 2D array with 1's and 0's , where 1 represents black color and 0 represents white color of the chess board, 
+he wants to find whether it resemples a chess board or not.
+Write a program to help Somo to determine whether the given 2-D Array resembles a Chess board or not. If it doesn't resemble, calculate the minimum number of cells that need to be changed.
+
+Assume that the board is of any dimension and need not be a square.
+
+[Note : The first cell in the chess board can either be black or white.]
+
+Input Format:
+First line of the input is an integer that denotes the Row Size.
+Second line of the input is an integer that denotes the Column Size.
+Rest of the input are colours of the board, represented in matrix format.
+
+Output Format:
+Output is a String "true", if the matrix resembles a valid chess-board. Else print "False" , along with the number of cells need to be changed.
+
+Sample Input 1:
+3
+4
+1 0 1 0
+0 1 0 1
+1 0 1 0
+
+Sample Output 1:
+true
+
+Sample Input 2 :
+3
+3
+0 1 0
+1 0 0
+0 1 0
+
+Sample Output 2:
+false 
+1 
+
+Explanation for Sample 2:
+If the element at 2nd row and 3rd col is changed to '1', it becomes a valid chess board. So the output is 1. 
+
+
+```
+
+### 5. Number Addition
+```java
+import java.util.Scanner;
+
+public class NumberAddition {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+
+        int n = sc.nextInt();
+        int[] A = new int[n];
+        for (int i = 0; i < n; i++) {
+            A[i] = sc.nextInt();
+        }
+        int X = sc.nextInt();
+
+        int carry = X;
+        for (int i = n - 1; i >= 0; i--) {
+            int sum = A[i] + carry;
+            A[i] = sum % 10;
+            carry = sum / 10;
+        }
+
+        if (carry > 0) {
+            System.out.print(carry + " ");
+        }
+        for (int digit : A) {
+            System.out.print(digit + " ");
+        }
+
+        sc.close();
+    }
+}
+```
+
+### 6. Is a Chessboard
+```java
+import java.util.Scanner;
+
+public class IsChessboard {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+
+        int rows = sc.nextInt();
+        int cols = sc.nextInt();
+        int[][] board = new int[rows][cols];
+
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                board[i][j] = sc.nextInt();
+            }
+        }
+
+        int changes1 = 0, changes2 = 0;
+
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                if ((i + j) % 2 == board[i][j]) changes1++;
+                else changes2++;
+            }
+        }
+
+        if (changes1 == 0 || changes2 == 0) {
+            System.out.println("true");
+        } else {
+            System.out.println("false " + Math.min(changes1, changes2));
+        }
+
+        sc.close();
+    }
+}
+```
+
+These solutions are written to be clear and straightforward, adhering to Java 17 syntax. Let me know if you need further simplifications or explanations!

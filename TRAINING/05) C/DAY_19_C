@@ -1,0 +1,237 @@
+12/09/2024
+---------------------------------------------
+Max Integer
+Ram aspires to become a mathematician , he just learnt the  formula for sum of n numbers. He wants to find the maximum number n,such that sum of n numbers is less than a given value.
+Given an integer bound, write a program to find the maximal integer n such that 1 + 2 + ... + n < bound.
+Help Ram with the program.
+
+Input format:
+A single integer that denotes the Integer bound
+
+Output format:
+A single integer that corresponds to  maximal integer, n.
+
+Sample Input 1:
+14
+
+Sample Output 1:
+4
+
+Explanation:
+n= 1
+Sum = 1
+n=2
+Sum = 1+2 = 3
+n=3
+Sum = 1 + 2 + 3 = 6
+n = 4
+Sum = 1 + 2 + 3 + 4 = 10
+n = 5
+Sum = 1+ 2 + 3 + 4 + 5 = 15
+
+For n = 5 The sum is greater than the bound value 14 , Maximum n value with sum below the bound is 4.
+
+Sample Input 2:
+21
+
+Sample Output 2:
+5 
+---------------------------------------------------
+Full Prime
+
+Siva always try to play with the numbers , he does so because he thinks that it will lead to some special numbers . One day he came up with an idea to know the numbers that are considered as Full Prime .  Full prime is a prime number where each of its digits is also a prime . Given a range from X to Y ,write a program to help Siva find the numbers (excluding X and Y ) that are full primes . If no such numbers exist between the given range,then print -1.
+
+Note1: Mention the maximum range of number will vary from 1 to 1000.
+
+Note2: 1 is not a prime number. 
+
+
+Input Format:
+First Input is an integer that denotes the X value.
+Second Input is an integer that denotes the Y value.
+
+Output Format:
+Output is a series of integers separated by a comma that is considered as a full prime.
+
+Sample Input 1:
+1
+50
+
+Sample Output 1:
+2,3,5,7,23,37
+
+Sample Input 2:
+8
+10
+
+Sample Output 2:
+-1 
+
+SOLUTION:
+#include <stdio.h>
+
+int isPrime(int num)
+{
+    if(num<2)
+        return 0;
+    if(num==2)
+        return 1;
+    for(int den=2;den<=num/2;den++)
+    {
+        if(num%den==0)
+            return 0;
+    }
+    return 1;
+}
+
+int main()
+{
+    int from=0;
+    int to=0;
+    scanf("%d",&from);
+    scanf("%d",&to);
+    
+    int isFirst=1;
+    
+    for(int i=from+1;i<to;i++)
+    {
+        int flag=0;
+        if(isPrime(i))
+        {
+            //check if each digit is isPrime
+            int temp=i;
+            while(temp>0)
+            {
+                int digit=temp%10;
+                
+                //check if digit is isPrime
+                if(!isPrime(digit))
+                {
+                    flag=1;
+                    break;
+                }
+                temp/=10;
+            }
+            if(flag)
+                continue;   
+            if(!isFirst)
+                printf(",");
+            printf("%d",i);
+            isFirst=0;
+        }
+    }
+    return 0;
+}
+
+
+--------------------------------
+================================
+--------------------------------
+Indices Array
+
+Raj Kumar bought an array of size N which was in sorted order. His son collapsed all the values in the array and it was modified. Given an array of integers of size N. 
+Write a program to help Raj Kumar find the indices of the array elements after which the array is sorted.
+
+Note:
+The array may also contain duplicates.In this case print the index of  the duplicate elements in sorted order.
+ 
+Input Format:
+First input is an integer that denotes the N value,size of the array.
+Second input is a series of integers seperated by a space that denotes the array values.
+
+Output format:
+Output is a series of integers seperated by space that denotes the indices of the array elements after which the array is sorted.
+
+Sample Input 1:
+6
+7 3 8 9 13 2
+
+Sample Output 1:
+2 1 3 4 5 0
+
+Explanation:
+After sorting the array elements would like [2 3 7 8 9 13],their indices in this array is [2 1 3 4 5 0].
+
+Sample Input 2:
+5
+7 1 2 7 7
+
+Sample Output 2:
+2 0 1 3 4
+---------------------------------------------------
+SOLUTION:
+#include <stdio.h>
+
+int main() {
+    int n;
+    // Read the size of the array
+    scanf("%d", &n);
+    int arr[n], oarr[n];
+    for (int i = 0; i < n; i++) {
+        scanf("%d", &arr[i]);
+    }
+    for (int i = 0; i < n; i++) {
+        oarr[i] = arr[i];
+    }
+    
+    int temp;
+    int i, j;
+    for (i = 0; i < n-1; i++) {
+        for (j = 0; j < n-i-1; j++) {
+            if (arr[j] > arr[j+1]) {
+                // Swap elements in the array
+                temp = arr[j];
+                arr[j] = arr[j+1];
+                arr[j+1] = temp;
+            }
+        }
+    }
+
+    for(int i=0;i<n;i++)
+    {
+        int current=oarr[i];
+        //find this element's position in sorted array
+        for(int j=0;j<n;j++)
+        {
+            if(current==arr[j])
+            {
+                //found. so print its index
+                printf("%d ",j);
+                arr[j]=-1;
+                break;
+            }
+        }
+    }
+    return 0;
+}
+---------------------------------------------------------------------
+=====================================================================
+#include <stdio.h>
+
+
+int main()
+{
+   printf("Enter your details: ");
+   char details[256];
+    fgets(details,sizeof(details),stdin);
+   char phno[10];
+   int j =0;
+   
+   for(int i=0;details[i]!='\0';i++)
+   {
+
+       if (details[i] == '0' ||details[i] == '1' ||details[i] == '2' ||details[i] == '3' ||details[i] == '4' ||details[i] == '5' ||details[i] == '6' ||details[i] == '7' ||details[i] == '8' ||details[i] == '9')
+       {
+           phno[j] = details[i];
+           j++;
+           if(j>=10)
+                break;
+       }
+   }
+   phno[j]='\0';
+ printf("phone number is: \n");
+ for (int i = 0; i<10;i++)
+ {
+     printf("%c", phno[i]);
+ }
+}
