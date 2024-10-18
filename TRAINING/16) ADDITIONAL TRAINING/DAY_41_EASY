@@ -9,3 +9,36 @@ Agile training
 - epic
 - user story
 - 
+
+15/10/2024 - 5:30pm
+Vijay Ramalingam
+Suresh Gangapatnam
+Hari Chintagumpala
+
+Agenda - 
+Kubernetes - Suresh
+
+Tech Stack - Hari
+- Legacy Systems
+- Used to have C core with embedded PLSQL (PRC *C)
+- Legacy Tech STack converted to modern tack selena
+- Corba
+- What is modren stack? - 
+- Jenkins for CI/CD
+
+Kubernetes(K8s) for Beginners - Vijay
+- Containerization : one container that runs on any infrastructure
+	- Portable, Speed, Flixible and Agile
+	- Micro services, CI/CD, Legacy apps to modern
+	- Challenges : Scalability, Complexity, and Management
+- K8s is an open source container orchestration/management platform for automating software developments,
+ scaling and managing container based workloads or application or services
+- Benifits : efficiency, reliability, Flexibility and portability, Security and resource management, Support for container
+technologies, open source community
+- Kubectl
+- K8s Nuts and bolts : Node, Namespace, Pod, Container, Deployment, StatefulSet, Service, Ingress, Volumes
+- Empower Leveraging EKS Arch - Shared Multi-tenant EKS Platform Building Blocks
+	- Imp addons : kube-proxy, CoreDNS, EBS CSI, VPC CNI
+
+Cloud Formation - Vijay
+- AWS managed service that simplifies managing AWS resources
