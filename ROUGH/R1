@@ -1,1 +1,191 @@
-HHsg
+I was trying to install pcinstaller, i have reached this step: > bash -c "$(curl -fsSL https://s3-us-west-2.amazonaws.com/optron-artifacts/generic/pcinstaller/latest/install)"
+
+Run pcinstaller
+pcinstaller is a tool we have developed to help engineers setup their local development environment on their first-day. If you’re interested, you can read more about it here → pcinstaller - MacOS & AWS Workstation ansible installer .
+
+Run bash -c "$(curl -fsSL https://s3-us-west-2.amazonaws.com/optron-artifacts/generic/pcinstaller/latest/install)" to begin the pcinstaller installation. You can use the pcinstaller reset features described in wiki to prompt for questions again. The [brackets] signify defaults.
+
+You will come to the following decision point: 
+
+TASK [common : Prompt for teams] **************************************************************************************************************************
+[common : Prompt for teams]
+Install tools for respective team, enter comma seperated list
+minimal - minimal set of tools to run pcapi and connect to database
+dev - minimal + standard EKS and Java apps
+data - dev + python with DB apps
+dba - dev + dba tools & full dbconnect list
+devops - dev + devopsy things
+security - dev + python
+web - dev + node
+default: [dev]
+:
+Enter team name or “Enter” for dev
+
+Git Repo ENV vars
+The following prompts will set your git repo parent directories ENV vars for tools to discover repos. Use the suggested default or another path to where you would like to keep your repos.
+
+TASK [common : Prompt for PCAP_PERSONALCAPITAL_REPOS_HOME] *********************
+[common : Prompt for PCAP_PERSONALCAPITAL_REPOS_HOME]
+PCAP_PERSONALCAPITAL_REPOS_HOME environment variable is not set
+Please enter the parent directory of personalcapital git repos
+default: [$HOME/repos/personalcapital]
+:
+Then defaults to same dir as PCAP_PERSONALCAPITAL_REPOS_HOME
+
+TASK [common : Prompt for PCAP_PCAPDEVOPS_REPOS_HOME] **************************
+[common : Prompt for PCAP_PCAPDEVOPS_REPOS_HOME]
+pcapdevops git repos can be in a different directory you can set it here
+default: [$PCAP_PERSONALCAPITAL_REPOS_HOME]
+:
+Artifactory creds - if you need to reset your creds see https://personalcapital.jira.com/wiki/spaces/DEVOPS/pages/1473150977/pcinstaller+-+MacOS+AWS+Workstation+ansible+installer#Artifactory-Credentials , your username should default correctly but can differ.
+
+TASK [common : Prompt for Artifactory user] ***************************************************************************************************************
+[common : Prompt for Artifactory user]
+https://personalcapital.jfrog.io/ui/admin/artifactory/user_profile
+Artifactory user, login to JFrog via Okta and assert your profile name.
+default: [bfranklin]
+:
+Then paste your token from jfrog website
+
+TASK [common : Prompt for Artifactory token] **************************************************************************************************************
+[common : Prompt for Artifactory token]
+https://personalcapital.jfrog.io/ui/admin/artifactory/user_profile
+Artifactory token, please Login to JFrog via Okta and create/copy the token from your profile at:
+ (output is hidden):
+You will come to the following output.
+
+YOU'RE NOT DONE!
+1. /home/fmarin/.bashrc updated, use a new Terminal or source shell
+     > source /home/fmarin/.bashrc
+2. Please re-run the bash installer in your new Terminal or after sourcing your shell.
+Source the shell config or open a new terminal an rerun installer
+
+> bash -c "$(curl -fsSL https://s3-us-west-2.amazonaws.com/optron-artifacts/generic/pcinstaller/latest/install)"
+
+once i run the last step i am getting this error:
+TASK [apps : debug] ************************************************************
+fatal: [127.0.0.1]: FAILED! => {"msg": "The task includes an option with an undefined variable. The error was: 'epbin_files' is undefined\n\nThe error appears to be in '/home/abalakrishna/pcbin/.pcinstaller/roles/apps/tasks/pcbin.yml': line 19, column 3, but may\nbe elsewhere in the file depending on the exact syntax problem.\n\nThe offending line appears to be:\n\n\n- debug:\n  ^ here\n"}
+
+the pcbin.yml file in the error is :
+# pcbin shells
+
+- name: Create pcbin dir
+  file:
+    path: ~/pcbin
+    state: directory
+    recurse: true
+
+- name: epbin stat
+  stat:
+    path: ~/epbin
+  register: epbin_result
+
+- name: epbin files
+  set_fact:
+    epbin_files: "{{ lookup('fileglob', '~/epbin/*') }}"
+  when: epbin_result.stat.exists
+
+- debug:
+    msg: "{{ epbin_files }}"
+
+- name: sync pcbin bash shells
+  synchronize:
+    src: "files/pcbin/{{ line_item.key }}"
+    dest: "~/pcbin/{{ line_item.key | regex_replace('^(.*)\\..*', '\\1') }}"
+    rsync_opts:
+      - "--chmod=+x"
+  when: app_current.value and not defined epbin_files and line_item.key | regex_replace('^(.*)\\..*', '\\1') not in epbin_files
+  with_dict: "{{ apps.pcbin.bin }}"
+  loop_control:
+    loop_var: line_item
+
+- name: sync pcbin dirs
+  synchronize:
+    src: "files/pcbin/{{ line_item.key }}"
+    dest: "~/pcbin"
+    recursive: true
+    rsync_opts:
+      - "--chmod=+x"
+  when: app_current.value
+  with_dict: "{{ apps.pcbin.dirs }}"
+  loop_control:
+    loop_var: line_item
+
+
+- name: pchelpers_bin sym links
+  file:
+    src: "/usr/bin/openssl11"
+    dest: "~/pcbin/openssl"
+    state: link
+    force: true
+  when: os_type != 'darwin'
+
+- name: init pchelpers_md5
+  set_fact:
+    pchelpers_md5_local: ""
+    pchelpers_md5_remote: "{{ lookup('url', 'https://optron-artifacts.s3-us-west-2.amazonaws.com/userdata/pchelpers/' + apps.pcbin.version + '/pchelpers.tgz.md5', split_lines=False) | trim }}"
+
+- name: Check pchelpers.tgz.md5 exists
+  stat:
+    path: "{{ pcinstaller_config + '/.pchelpers.tgz.md5' }}"
+  register: pchelpers_md5_local_stat
+
+- name: set pchelpers_md5_local
+  set_fact:
+    # this used to work in the init block but latest M1's are having issue with lookup plugin
+    pchelpers_md5_local: "{{ lookup('file', pcinstaller_config + '/.pchelpers.tgz.md5', errors='ignore') }}"
+  when: pchelpers_md5_local_stat.stat.exists
+#
+#- debug:
+#    msg="{{ pchelpers_md5_local }}=={{ pchelpers_md5_remote }}"
+#- pause:
+- name: set provision_dir - macos
+  set_fact:
+    provision_dir: "~/pcbin/.provision"
+  when: os_type == "darwin"
+
+- name: set provision_dir - linux
+  set_fact:
+    provision_dir: /opt/provision
+  when: os_type == "linux"
+
+- name: Install pchelpers
+  block:
+    - name: Clean pchelpers - macos
+      file:
+        state: absent
+        path: "~/pcbin/.provision"
+      when: os_type == "darwin"
+
+    - name: Clean pchelpers - linux
+      shell: rm -rf /opt/provision/*
+      when: os_type == "linux"
+
+    - name: Creates directory
+      file:
+        path: "{{ provision_dir }}/pchelpers"
+        state: directory
+        recurse: yes
+
+    - name: Install pchelpers {{ apps.pcbin.version }}
+      shell: curl -sS https://s3-us-west-2.amazonaws.com/optron-artifacts/userdata/pchelpers/install | sh -s -- {{ apps.pcbin.version }}
+
+    - name: copy pchelpers remote md5 to file.
+      copy:
+        content: "{{ pchelpers_md5_remote }}"
+        dest: "{{ pcinstaller_config }}/.pchelpers.tgz.md5"
+        force: true
+
+
+
+  when: pchelpers_md5_local != pchelpers_md5_remote
+
+- name: pchelpers_bin sym links
+  file:
+    src: "{{ provision_dir }}/{{ line_item.value }}"
+    dest: "~/pcbin/{{ line_item.key }}"
+    state: link
+    force: true
+  with_dict: "{{ apps.pcbin.pchelpers_bin }}"
+  loop_control:
+    loop_var: line_item
