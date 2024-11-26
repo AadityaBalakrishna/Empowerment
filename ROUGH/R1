@@ -1,191 +1,1570 @@
-I was trying to install pcinstaller, i have reached this step: > bash -c "$(curl -fsSL https://s3-us-west-2.amazonaws.com/optron-artifacts/generic/pcinstaller/latest/install)"
+pcap-config/src/main/java/com/personalcapital/config/
 
-Run pcinstaller
-pcinstaller is a tool we have developed to help engineers setup their local development environment on their first-day. If you’re interested, you can read more about it here → pcinstaller - MacOS & AWS Workstation ansible installer .
+CfgStoreLoader.java:
+package com.personalcapital.config;
 
-Run bash -c "$(curl -fsSL https://s3-us-west-2.amazonaws.com/optron-artifacts/generic/pcinstaller/latest/install)" to begin the pcinstaller installation. You can use the pcinstaller reset features described in wiki to prompt for questions again. The [brackets] signify defaults.
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
-You will come to the following decision point: 
+import org.springframework.web.client.RestTemplate;
 
-TASK [common : Prompt for teams] **************************************************************************************************************************
-[common : Prompt for teams]
-Install tools for respective team, enter comma seperated list
-minimal - minimal set of tools to run pcapi and connect to database
-dev - minimal + standard EKS and Java apps
-data - dev + python with DB apps
-dba - dev + dba tools & full dbconnect list
-devops - dev + devopsy things
-security - dev + python
-web - dev + node
-default: [dev]
-:
-Enter team name or “Enter” for dev
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+import com.personalcapital.text.util.TextUtils;
+import com.safepage.json.JSONHelper;
+import com.safepage.util.BaseUtils;
 
-Git Repo ENV vars
-The following prompts will set your git repo parent directories ENV vars for tools to discover repos. Use the suggested default or another path to where you would like to keep your repos.
+/**
+ * Fetch all non secrets stored from config store and load it into environment
+ * 
+ * @author psankaranarayanan
+ */
+class CfgStoreLoader
+{
+	private static final PcapLogger logger = PcapLoggerFactory.getPcapLogger(CfgStoreLoader.class);
+	private static final String EXTERNAL_URL = "https://pcsvc.dt.pcapqa.app/cfg-store/";
+	private static final String INTERNAL_URL = "http://cfg-store-service.cfg-store-app.svc.cluster.local:8080/cfg-store/";
+	// TODO Need to fix this non eks based SILO
+	private static final String LABEL = "pcapeks";
+	private static final String SERVICE = "pcap";
+	private static final String SHARED = "shared";
 
-TASK [common : Prompt for PCAP_PERSONALCAPITAL_REPOS_HOME] *********************
-[common : Prompt for PCAP_PERSONALCAPITAL_REPOS_HOME]
-PCAP_PERSONALCAPITAL_REPOS_HOME environment variable is not set
-Please enter the parent directory of personalcapital git repos
-default: [$HOME/repos/personalcapital]
-:
-Then defaults to same dir as PCAP_PERSONALCAPITAL_REPOS_HOME
+	private CfgStoreLoader()
+	{
 
-TASK [common : Prompt for PCAP_PCAPDEVOPS_REPOS_HOME] **************************
-[common : Prompt for PCAP_PCAPDEVOPS_REPOS_HOME]
-pcapdevops git repos can be in a different directory you can set it here
-default: [$PCAP_PERSONALCAPITAL_REPOS_HOME]
-:
-Artifactory creds - if you need to reset your creds see https://personalcapital.jira.com/wiki/spaces/DEVOPS/pages/1473150977/pcinstaller+-+MacOS+AWS+Workstation+ansible+installer#Artifactory-Credentials , your username should default correctly but can differ.
+	}
 
-TASK [common : Prompt for Artifactory user] ***************************************************************************************************************
-[common : Prompt for Artifactory user]
-https://personalcapital.jfrog.io/ui/admin/artifactory/user_profile
-Artifactory user, login to JFrog via Okta and assert your profile name.
-default: [bfranklin]
-:
-Then paste your token from jfrog website
+	public void loadProperties(Properties configStoreProperties)
+	{
+		logger.info("Started getting properties from config store");
+		try
+		{
+			String url = getURL();
+			String appName = System.getProperty("identity.serverArray");
+			if (appName == null)
+				appName = this.SERVICE;
 
-TASK [common : Prompt for Artifactory token] **************************************************************************************************************
-[common : Prompt for Artifactory token]
-https://personalcapital.jfrog.io/ui/admin/artifactory/user_profile
-Artifactory token, please Login to JFrog via Okta and create/copy the token from your profile at:
- (output is hidden):
-You will come to the following output.
+			String stage = TextUtils.stripAndTrim(getProfiles());
+			String service = this.LABEL;
 
-YOU'RE NOT DONE!
-1. /home/fmarin/.bashrc updated, use a new Terminal or source shell
-     > source /home/fmarin/.bashrc
-2. Please re-run the bash installer in your new Terminal or after sourcing your shell.
-Source the shell config or open a new terminal an rerun installer
+			String configStoreUrl = url + "/" + appName + "/" + stage + "/" + service;
 
-> bash -c "$(curl -fsSL https://s3-us-west-2.amazonaws.com/optron-artifacts/generic/pcinstaller/latest/install)"
+			logger.info("The URL for config store service is :" + configStoreUrl);
+			RestTemplate restTemplate = new RestTemplate();
+			Map nonSecretsFrmGIT = new HashMap<String, Object>();
+			String response = restTemplate.getForObject(configStoreUrl, String.class);
+			CfgStoreResponse cfgStoreResponse = (CfgStoreResponse) JSONHelper.toObject(response,
+					CfgStoreResponse.class);
+			List propertySource = cfgStoreResponse.getPropertySources();
+			Iterator it = propertySource.iterator();
 
-once i run the last step i am getting this error:
-TASK [apps : debug] ************************************************************
-fatal: [127.0.0.1]: FAILED! => {"msg": "The task includes an option with an undefined variable. The error was: 'epbin_files' is undefined\n\nThe error appears to be in '/home/abalakrishna/pcbin/.pcinstaller/roles/apps/tasks/pcbin.yml': line 19, column 3, but may\nbe elsewhere in the file depending on the exact syntax problem.\n\nThe offending line appears to be:\n\n\n- debug:\n  ^ here\n"}
+			while (it.hasNext())
+			{
+				Map propertySources = (Map) ((Map) it.next()).get("source");
 
-the pcbin.yml file in the error is :
-# pcbin shells
+				propertySources.forEach((k, v) ->
+				{
+					if (nonSecretsFrmGIT.get(k) == null)
+					{
+						nonSecretsFrmGIT.put(k, v);
+					}
+				});
+			}
+			StringBuilder builder = new StringBuilder("Keys retrieved from configstore \n");
+			nonSecretsFrmGIT.forEach((k, v) -> builder.append(k.toString())
+					.append("\n"));
+			logger.info(builder.toString());
+			configStoreProperties.putAll(nonSecretsFrmGIT);
+			logger.info("Loaded {} properties from config store", configStoreProperties.size());
+		}
+		catch (Exception exp)
+		{
+			logger.error("Error in getting properties from config store {}", exp);
+		}
 
-- name: Create pcbin dir
-  file:
-    path: ~/pcbin
-    state: directory
-    recurse: true
+	}
 
-- name: epbin stat
-  stat:
-    path: ~/epbin
-  register: epbin_result
+	private String getURL()
+	{
+		boolean isLoclEksUrl = Boolean
+				.parseBoolean(System.getProperty("pcsvc.server.useLocalEKSUrl"));
+		if (isLoclEksUrl)
+			return INTERNAL_URL;
+		else
+			return EXTERNAL_URL;
+	}
 
-- name: epbin files
-  set_fact:
-    epbin_files: "{{ lookup('fileglob', '~/epbin/*') }}"
-  when: epbin_result.stat.exists
+	private String getProfiles()
+	{
+		String awsAccount = System.getProperty("aws.account");
+		String identityStage = System.getProperty("identity.stage");
+		String identityParentStage = System.getProperty("identity.parentStage");
+		String profiles = generateProfiles(awsAccount, identityStage, identityParentStage);
+		if (BaseUtils.isNotNull(profiles))
+		{
+			return profiles;
+		}
 
-- debug:
-    msg: "{{ epbin_files }}"
+		switch (identityStage)
+		{
+			case "devtrunk":
+				return "devshared,devtrunk";
+			case "devstaging":
+				return "devshared,devstaging";
+			case "devstaging1":
+				return "devshared,devstaging,devstaging1";
+			case "devstaging2":
+				return "devshared,devstaging,devstaging2";
+			case "epprod":
+				return "epprodshared,epprod";
+			case "epqa":
+				return "epqashared,epqa";
+			case "epqa1":
+				return "epqashared,epqa1";
+			case "epstaging":
+				return "epprodshared,epstaging";
+			case "epstaging1":
+				return "epprodshared,epstaging1";
+			case "staging":
+				return "prodshared,staging";
+			case "prod":
+				return "prodshared,prod";
+			case "qatrunk":
+				return "devshared,qatrunk";
+			case "qastaging":
+				return "devshared,qastaging";
+			default:
+				return "default";
 
-- name: sync pcbin bash shells
-  synchronize:
-    src: "files/pcbin/{{ line_item.key }}"
-    dest: "~/pcbin/{{ line_item.key | regex_replace('^(.*)\\..*', '\\1') }}"
-    rsync_opts:
-      - "--chmod=+x"
-  when: app_current.value and not defined epbin_files and line_item.key | regex_replace('^(.*)\\..*', '\\1') not in epbin_files
-  with_dict: "{{ apps.pcbin.bin }}"
-  loop_control:
-    loop_var: line_item
+		}
+	}
 
-- name: sync pcbin dirs
-  synchronize:
-    src: "files/pcbin/{{ line_item.key }}"
-    dest: "~/pcbin"
-    recursive: true
-    rsync_opts:
-      - "--chmod=+x"
-  when: app_current.value
-  with_dict: "{{ apps.pcbin.dirs }}"
-  loop_control:
-    loop_var: line_item
+	public String generateProfiles(String awsAccount, String identityStage,
+			String identityParentStage)
+	{
+		final String SEPARATOR = ",";
+		if (BaseUtils.isNull(awsAccount))
+		{
+			return null;
+		}
+		if (BaseUtils.isNull(identityStage))
+		{
+			return null;
+		}
 
+		StringBuilder profiles = new StringBuilder();
 
-- name: pchelpers_bin sym links
-  file:
-    src: "/usr/bin/openssl11"
-    dest: "~/pcbin/openssl"
-    state: link
-    force: true
-  when: os_type != 'darwin'
+		profiles.append(awsAccount.trim())
+				.append(SHARED)
+				.append(SEPARATOR);
 
-- name: init pchelpers_md5
-  set_fact:
-    pchelpers_md5_local: ""
-    pchelpers_md5_remote: "{{ lookup('url', 'https://optron-artifacts.s3-us-west-2.amazonaws.com/userdata/pchelpers/' + apps.pcbin.version + '/pchelpers.tgz.md5', split_lines=False) | trim }}"
+		if (BaseUtils.isNotNull(identityParentStage))
+		{
+			profiles.append(identityParentStage.trim())
+					.append(SEPARATOR);
+		}
 
-- name: Check pchelpers.tgz.md5 exists
-  stat:
-    path: "{{ pcinstaller_config + '/.pchelpers.tgz.md5' }}"
-  register: pchelpers_md5_local_stat
+		profiles.append(identityStage.trim());
+		return profiles.toString();
+	}
 
-- name: set pchelpers_md5_local
-  set_fact:
-    # this used to work in the init block but latest M1's are having issue with lookup plugin
-    pchelpers_md5_local: "{{ lookup('file', pcinstaller_config + '/.pchelpers.tgz.md5', errors='ignore') }}"
-  when: pchelpers_md5_local_stat.stat.exists
-#
-#- debug:
-#    msg="{{ pchelpers_md5_local }}=={{ pchelpers_md5_remote }}"
-#- pause:
-- name: set provision_dir - macos
-  set_fact:
-    provision_dir: "~/pcbin/.provision"
-  when: os_type == "darwin"
+	private static class CfgStoreNonSecretsLoaderHolder
+	{
+		private static final CfgStoreLoader INSTANCE = new CfgStoreLoader();
+	}
 
-- name: set provision_dir - linux
-  set_fact:
-    provision_dir: /opt/provision
-  when: os_type == "linux"
+	public static CfgStoreLoader getInstance()
+	{
+		/*
+		 * only when someone calls the method, this class gets loaded and creates the Singleton
+		 * class instance
+		 */
+		return CfgStoreLoader.CfgStoreNonSecretsLoaderHolder.INSTANCE;
 
-- name: Install pchelpers
-  block:
-    - name: Clean pchelpers - macos
-      file:
-        state: absent
-        path: "~/pcbin/.provision"
-      when: os_type == "darwin"
+	}
 
-    - name: Clean pchelpers - linux
-      shell: rm -rf /opt/provision/*
-      when: os_type == "linux"
+}
 
-    - name: Creates directory
-      file:
-        path: "{{ provision_dir }}/pchelpers"
-        state: directory
-        recurse: yes
+CfgStoreResponse:
+package com.personalcapital.config;
 
-    - name: Install pchelpers {{ apps.pcbin.version }}
-      shell: curl -sS https://s3-us-west-2.amazonaws.com/optron-artifacts/userdata/pchelpers/install | sh -s -- {{ apps.pcbin.version }}
+import java.util.List;
 
-    - name: copy pchelpers remote md5 to file.
-      copy:
-        content: "{{ pchelpers_md5_remote }}"
-        dest: "{{ pcinstaller_config }}/.pchelpers.tgz.md5"
-        force: true
+/**
+ * Structure of JSON response from cfg store service
+ * 
+ * @author psankaranarayanan
+ */
+public class CfgStoreResponse
+{
+	private String name;
+	private List profiles;
+	private String label;
+	private List propertySources;
 
+	public String getName()
+	{
+		return name;
+	}
 
+	public void setName(String name)
+	{
+		this.name = name;
+	}
 
-  when: pchelpers_md5_local != pchelpers_md5_remote
+	public List getProfiles()
+	{
+		return profiles;
+	}
 
-- name: pchelpers_bin sym links
-  file:
-    src: "{{ provision_dir }}/{{ line_item.value }}"
-    dest: "~/pcbin/{{ line_item.key }}"
-    state: link
-    force: true
-  with_dict: "{{ apps.pcbin.pchelpers_bin }}"
-  loop_control:
-    loop_var: line_item
+	public void setProfiles(List profiles)
+	{
+		this.profiles = profiles;
+	}
+
+	public String getLabel()
+	{
+		return label;
+	}
+
+	public void setLabel(String label)
+	{
+		this.label = label;
+	}
+
+	public List getPropertySources()
+	{
+		return propertySources;
+	}
+
+	public void setPropertySources(List propertySources)
+	{
+		this.propertySources = propertySources;
+	}
+}
+
+SafePageConfigurer:
+package com.personalcapital.config;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Properties;
+import java.util.concurrent.CompletableFuture;
+
+import org.springframework.beans.factory.config.PropertyPlaceholderConfigurer;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PropertiesLoaderUtils;
+
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+import com.safepage.util.BaseUtils;
+
+/**
+ * @author Fritz
+ */
+
+/**
+ * Initial property configuration for SafePage webapp. Reads in a set of modules from
+ * safepage.properties file and uses the settings for these to drive the specific module properties
+ * to read. For example, if safepage.properties file specifies yodlee.target=test, this says use the
+ * "test" config for module "yodlee". In the WEB-INF/classes, the property files that following the
+ * naming convention {module}-{config}.properties (e.g. "yodlee-test.properties") are read in.
+ */
+public class SafePageConfigurer extends PropertyPlaceholderConfigurer
+{
+	private final static PcapLogger logger = PcapLoggerFactory
+			.getPcapLogger(SafePageConfigurer.class);
+	private static final String APPLICATION_VERSION = "TRUNK";
+	private Properties newProperties = new Properties();
+	private static final String PCAP_RETAIN_SENSITIVE_DATA = "pcap.retainSensitiveData";
+	private static final String PCAP_RETAIN_SENSITIVE_DATA_VALUE_FALSE = "false";
+	protected Boolean ssmEnabled;
+	protected Boolean testApp;
+	private String[] localModules;
+	private Properties propertiesFromSSM = new Properties();
+	/*
+	 * For EKS services, used to identify the path that needs to be read from
+	 * /pcap/pcapeks/$serviceId
+	 */
+	protected String eksServiceIdentity;
+	private SSMPropertiesVerification ssmPropertiesVerification = SSMPropertiesVerification
+			.getInstance();
+
+	public SafePageConfigurer()
+	{
+		logger.info("Starting the application with version " + APPLICATION_VERSION);
+	}
+
+	/**
+	 * Takes a list of modules that we need properties for and loads up properties files based on
+	 * higher-level configuration maintained at the level of the container that we are running in.
+	 * This method is specifically written to be used in a Tomcat context, since it assumes
+	 * catalina.home system property is set.
+	 * 
+	 * @param moduleNames
+	 *            The set of modules that we want properties for.
+	 * @throws Exception
+	 */
+	public void setModules(String[] moduleNames) throws Exception
+	{
+		Properties containerProperties = null;
+		File containerPropertiesFile = null;
+		Integer appCount = 0;
+		// See if
+		String catalinaHome = System.getProperty("catalina.home");
+		if (BaseUtils.isNull(catalinaHome))
+		{
+			logger.warn(
+					"'catalina.home' property is not set. skipping servlet container overrides");
+		}
+		else
+		{
+			File catalinaConfDir = new File(catalinaHome, "conf");
+			String catalinaConfDirPath = catalinaConfDir.getCanonicalPath();
+			containerPropertiesFile = new File(catalinaConfDir, "safepage.properties");
+			if (catalinaConfDir.exists() && containerPropertiesFile.exists())
+			{
+				logger.info("Using safepage.properties file from: " + catalinaConfDirPath);
+				try (InputStream confInput = new FileInputStream(containerPropertiesFile);)
+				{
+					containerProperties = new Properties();
+					containerProperties.load(confInput);
+					for (Map.Entry<Object, Object> mapEntry : containerProperties.entrySet())
+					{
+						String key = (String) mapEntry.getKey();
+						if (key.equals("pcap.app.count"))
+						{
+							appCount = Integer.parseInt((String) mapEntry.getValue());
+							logger.info("Initial App Count :{}",
+									containerProperties.getProperty("pcap.app.count"));
+						}
+						if (key.endsWith(".sensitive"))
+						{
+							String value = (String) mapEntry.getValue();
+							String newKey = key.substring(0, key.lastIndexOf('.'));
+							String decryptedValue = value;// decrypt here
+							newProperties.setProperty(newKey, decryptedValue);
+						}
+					}
+				}
+				if (appCount != null)
+				{
+					try (FileOutputStream fout = new FileOutputStream(containerPropertiesFile);)
+					{
+						appCount = appCount - 1;
+						containerProperties.setProperty("pcap.app.count", String.valueOf(appCount));
+						containerProperties.store(fout, "---Changed app count---");
+						logger.info("App Count changed:{}",
+								containerProperties.getProperty("pcap.app.count"));
+					}
+				}
+
+				boolean safePagePropertyOverride = false;
+				if (appCount != null && appCount == 0)
+				{
+					safePagePropertyOverride = true;
+				}
+
+				if (containerProperties.get(PCAP_RETAIN_SENSITIVE_DATA) == null
+						|| (containerProperties.get(PCAP_RETAIN_SENSITIVE_DATA) != null
+								&& ((PCAP_RETAIN_SENSITIVE_DATA_VALUE_FALSE)
+										.equals(containerProperties
+												.getProperty(PCAP_RETAIN_SENSITIVE_DATA)))))
+				{
+					if (safePagePropertyOverride && !newProperties.isEmpty())
+					{
+						try (FileOutputStream fout = new FileOutputStream(containerPropertiesFile);)
+						{
+							for (Map.Entry<Object, Object> mapEntry : newProperties.entrySet())
+							{
+								String key = (String) mapEntry.getKey();
+								containerProperties.remove(key + ".sensitive");
+							}
+							containerProperties.store(fout, "---Removed sensitive details---");
+						}
+					}
+				}
+				// PLAT-765; 1.At this point all safepage properties are loaded, copy them for
+				// compare
+				if (!isTestApp())
+				{
+					ssmPropertiesVerification.setSafepageProperties(containerProperties);
+				}
+			}
+			else
+			{
+				logger.warn("No safepage.properties found in: " + catalinaConfDirPath);
+			}
+		}
+
+		List<Resource> resources = new ArrayList<Resource>(moduleNames.length + 1);
+		for (int i = 0; i < moduleNames.length; i++)
+		{
+			String moduleName = moduleNames[i];
+			addClassPathResource(resources, moduleName + ".properties");
+			// overlay target specific properties on top
+			if (containerProperties != null)
+			{
+				String moduleTarget = containerProperties.getProperty(moduleName + ".target");
+				String modulePath = moduleName
+						+ (BaseUtils.isNotNull(moduleTarget) ? ("-" + moduleTarget) : "")
+						+ ".properties";
+				addClassPathResource(resources, modulePath);
+			}
+		}
+
+		addFileSystemResource(resources, containerPropertiesFile);
+
+		Resource[] resourceArray = resources.toArray(new Resource[resources.size()]);
+		this.setLocations(resourceArray);
+	}
+
+	@Override
+	protected void loadProperties(Properties props) throws IOException
+	{
+		Properties configStoreProperties = new Properties();
+		super.loadProperties(props);
+		if (!this.newProperties.isEmpty())
+		{
+			props.putAll(this.newProperties);
+			// PLAT-1040
+			if (!isTestApp())
+			{
+				ssmPropertiesVerification.getSafepageProperties()
+						.putAll(newProperties);
+			}
+			logger.debug("Properties loaded :" + props);
+		}
+
+		CfgStoreLoader.getInstance()
+				.loadProperties(configStoreProperties);
+
+		if (isSsmEnabled() && !isTestApp())
+		{
+			if (configStoreProperties.size() > 0)
+			{
+				props.putAll(configStoreProperties);
+			}
+			// Load properties from SSM
+			getSSMConfigurer().loadProperties(propertiesFromSSM);
+			if (propertiesFromSSM.size() > 0)
+			{
+				props.putAll(propertiesFromSSM);
+			}
+			// PLAT-765; 3. Compare properties loaded from spp and ssm
+		}
+
+		logger.info("Final App Count :{}", props.getProperty("pcap.app.count"));
+
+		/*
+		 * Get Current environment properties
+		 */
+		Properties filteredEnvironmentProperties = getFilteredEnvironmentProperties();
+		logger.info("Reading Enviroment Properties: " + filteredEnvironmentProperties);
+		// overriding the values
+		props.putAll(filteredEnvironmentProperties);
+	}
+
+	/**
+	 * Removes java and user variables
+	 * 
+	 * @return
+	 */
+	private static Properties getFilteredEnvironmentProperties()
+	{
+		Properties filteredProperties = new Properties();
+		Iterator<Object> keys = System.getProperties()
+				.keySet()
+				.iterator();
+		while (keys.hasNext())
+		{
+			String key = (String) keys.next();
+			if (key.startsWith("java") || key.startsWith("sun") || key.startsWith("user")
+					|| key.startsWith("surefire") || key.startsWith("awt"))
+			{
+				continue;
+			}
+			filteredProperties.setProperty(key, System.getProperty(key));
+		}
+		return filteredProperties;
+	}
+
+	/*
+	 * Load and initialize only once, handled by getInstance
+	 */
+	private SSMConfigurer getSSMConfigurer()
+	{
+		SSMConfigurer ssmConfigurer = SSMConfigurer.getInstance();
+		ssmConfigurer.setSsmEnabled(isSsmEnabled());
+		ssmConfigurer.setTestApp(isTestApp());
+		// only for EKS services
+		ssmConfigurer.setEksServiceIdentity(getEksServiceIdentity());
+		return ssmConfigurer;
+	}
+
+	private boolean addFileSystemResource(List<Resource> resources, File resourceFile)
+	{
+		if (resourceFile == null)
+			return false;
+
+		Resource resource = new FileSystemResource(resourceFile);
+		if (!resource.exists())
+		{
+			logger.warn("file system resource " + resourceFile.getAbsolutePath() + " not found");
+
+			return false;
+		}
+
+		resources.add(resource);
+
+		logger.info("added file system resource " + resourceFile.getAbsolutePath());
+		return true;
+	}
+
+	private Properties[] getLocalProperties()
+	{
+		Properties[] localProperties = null;
+
+		logger.info("Local Properties being initialized");
+		if (localModules == null)
+		{
+			throw new IllegalArgumentException(
+					"localModules cannot be null when isLocalOverride is true");
+		}
+
+		localProperties = Arrays.stream(localModules)
+				.map(localPropertyClassPathResource ->
+				{
+					try
+					{
+						Properties prop = PropertiesLoaderUtils
+								.loadAllProperties(localPropertyClassPathResource + ".properties");
+						return prop;
+					}
+					catch (final IOException e)
+					{
+						logger.error("Couldn't load local property file : {}, Exception: {}",
+								localPropertyClassPathResource, e.getMessage());
+						return null;
+					}
+				})
+				.filter(Objects::nonNull)
+				.toArray(Properties[]::new);
+
+		return localProperties;
+	}
+
+	private boolean addClassPathResource(List<Resource> resources, String resourcePath)
+	{
+		Resource resource = new ClassPathResource(resourcePath);
+		if (!resource.exists())
+		{
+			logger.warn("classpath resource " + resourcePath + " not found");
+
+			return false;
+		}
+		resources.add(resource);
+
+		logger.info("added classpath resource " + resourcePath);
+		return true;
+	}
+
+	public Boolean isSsmEnabled()
+	{
+		if (this.ssmEnabled == null)
+		{
+			return false;
+		}
+		return ssmEnabled;
+	}
+
+	public void setSsmEnabled(boolean ssmEnabled)
+	{
+		this.ssmEnabled = ssmEnabled;
+	}
+
+	public void setLocalModules(String[] localModules)
+	{
+		this.localModules = localModules;
+	}
+
+	public String[] getLocalModules()
+	{
+		return this.localModules;
+	}
+
+	public boolean isTestApp()
+	{
+		if (this.testApp == null)
+		{
+			return false;
+		}
+		return testApp;
+	}
+
+	public void setTestApp(boolean testApp)
+	{
+		this.testApp = testApp;
+	}
+
+	public String getEksServiceIdentity()
+	{
+		return eksServiceIdentity;
+	}
+
+	public void setEksServiceIdentity(String eksServiceIdentity)
+	{
+		this.eksServiceIdentity = eksServiceIdentity;
+	}
+
+	/**
+	 * Whether to use local files for override
+	 */
+	private static boolean isLocalOverride()
+	{
+		String profileList = System.getProperty("spring.profiles.active");
+		if (profileList != null)
+		{
+			String[] profiles = profileList.split(",");
+			for (String profile : profiles)
+			{
+				if ("local".equals(profile))
+					return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Gives SafepageConfigurer for use based on set properties
+	 * 
+	 * @param modules
+	 * @param localModules
+	 * @return
+	 * @throws Exception
+	 */
+	public static SafePageConfigurer getSafePageConfigurerForEks(String[] modules,
+			String[] localModules, String eksServiceIdentity) throws Exception
+	{
+		return getSafePageConfigurerForEks(modules, localModules, eksServiceIdentity,
+				isLocalOverride());
+	}
+
+	/**
+	 * Gives SafepageConfigurer for use based on set properties
+	 * 
+	 * @param modules
+	 * @param localModules
+	 * @return
+	 * @throws Exception
+	 */
+	public static SafePageConfigurer getSafePageConfigurerForEks(String[] modules,
+			String[] localModules, String eksServiceIdentity, boolean isLocalOverride)
+			throws Exception
+	{
+		if (BaseUtils.isNullOrNull(eksServiceIdentity))
+		{
+			throw new IllegalArgumentException("eksServiceIdentity cannot be null");
+		}
+
+		final SafePageConfigurer safePageConfigurer = new SafePageConfigurer();
+		safePageConfigurer.setTestApp(false);
+		safePageConfigurer.setSsmEnabled(true);
+		// ignore placeholders not matched
+		safePageConfigurer.setIgnoreUnresolvablePlaceholders(true);
+		safePageConfigurer.setLocalOverride(isLocalOverride);
+		// PCB-173- Read EKS SSM path for Db credentials
+		safePageConfigurer.setEksServiceIdentity(eksServiceIdentity);
+
+		if (modules == null)
+		{
+			throw new IllegalArgumentException("modules cannot be null");
+		}
+		safePageConfigurer.setModules(modules);
+
+		Properties[] localProperties = new Properties[1];
+		if (isLocalOverride)
+		{
+			logger.info("Local Properties being initialized");
+			if (localModules == null)
+			{
+				throw new IllegalArgumentException(
+						"localModules cannot be null when isLocalOverride is true");
+			}
+			localProperties = new Properties[localModules.length + 1];
+			localProperties = Arrays.stream(localModules)
+					.map(localPropertyClassPathResource ->
+					{
+						try
+						{
+							return PropertiesLoaderUtils
+									.loadAllProperties(localPropertyClassPathResource);
+						}
+						catch (final IOException e)
+						{
+							logger.error("Couldn't load local property file : {}, Exception: {}",
+									localPropertyClassPathResource, e.getMessage());
+							return null;
+						}
+					})
+					.filter(Objects::nonNull)
+					.toArray(Properties[]::new);
+		}
+
+		safePageConfigurer.setPropertiesArray(localProperties);
+		return safePageConfigurer;
+	}
+
+}
+
+SSMConfigurer:
+package com.personalcapital.config;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.stream.Collectors;
+
+import com.personalcapital.aws.SSMSecureParametersBuilder;
+import org.springframework.beans.factory.config.PropertyPlaceholderConfigurer;
+
+import com.amazonaws.services.simplesystemsmanagement.model.Parameter;
+import com.personalcapital.aws.SSMManager;
+import com.personalcapital.config.data.PcapSSMApplication;
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+import com.safepage.exception.SafePageException;
+import com.safepage.util.BaseUtils;
+
+/**
+ * Initialize properties from AWS parameter store using IAM Role/Profile credentials to authenticate
+ * access with their secret, and specify what parameters (by path) are needed for each box/machine.
+ * <br>
+ * For more Info:
+ * https://personalcapital.jira.com/wiki/spaces/PFA/pages/161716646/Migrate+to+AWS+Parameter+Store
+ * 
+ * @author dizadi
+ */
+public class SSMConfigurer extends PropertyPlaceholderConfigurer
+{
+	private static PcapLogger logger = PcapLoggerFactory.getPcapLogger(SSMConfigurer.class);
+	public static final String PCAP_APPLICATION_NAME = PcapSSMApplication.PCAP.getApplicationName();
+	public static final String PCAP_SILO_NAME = "pcap";
+	public static final String SLASH = "/";
+	public static final String SHARED = "shared";
+	public static final String TEST = "test";
+	private static final String PCAP_IDENTITY_STAGE_PARENT = "identity.parentStage";
+
+	private Properties ssmProperties = new Properties();
+	private boolean ssmEnabled = false;
+	private boolean testApp = false;
+	private String eksServiceIdentity = null;
+
+	private boolean isInitialized = false;
+
+	// private constructor
+	private SSMConfigurer()
+	{
+		/*
+		 * 1. can only be initialized using inner static class on first access.
+		 */
+		logger.info("Initialized SSMConfigurer");
+	}
+
+	/*
+	 * Bill Pugh Singleton creation using static inner class, thread safe and no synchronized block
+	 */
+	private static class SSMConfigurerHolder
+	{
+		private static final SSMConfigurer INSTANCE = new SSMConfigurer();
+	}
+
+	public static SSMConfigurer getInstance()
+	{
+		/*
+		 * only when someone calls the method, this class gets loaded and creates the Singleton
+		 * class instance
+		 */
+		return SSMConfigurerHolder.INSTANCE;
+
+	}
+
+	/**
+	 * Each box and jenkins machine should have an Instance profile, and each developers should have
+	 * an IAM Role, to be able to access parameters. Also based on the machine name each machine has
+	 * access to the corresponding environment parameters.
+	 * <p>
+	 * Roles:<br>
+	 * 1- DEVELOPER; has access to /pcap/dev/ parameters<br>
+	 * <p>
+	 * Profiles:<br>
+	 * 1- Root server with "APP" instance profile; has access to "/pcap/shared/*",
+	 * "/pcap/stageName/*", and "/pcap/stageName/root/*"<br>
+	 * 2- PcapQueue with "WORKER" instance profile; has access to "/pcap/shared/*",
+	 * "/pcap/stageName/*" and /pcap/stageName/PcapQueue/*<br>
+	 * 3- admin with "ADMIN" instance profile; has access to "/pcap/shared/*", "/pcap/stageName/*"
+	 * and "/pcap/stageName/admin/*" <br>
+	 * 4- JENKINS; has access to "/pcap/dev/*" parameters<br>
+	 * <br>
+	 * <p>
+	 * Our Parameter Store naming convention is /${silo}/${stage}/${app}/app.properties
+	 * 
+	 * @param pathList
+	 * @param identityStageParent
+	 * @throws SafePageException
+	 */
+	synchronized List<Parameter> getParametersByPath(List<String> pathList,
+			String identityStageParent) throws SafePageException
+	{
+		if (BaseUtils.isEmpty(pathList))
+		{
+			logger.error("path can't be null!");
+			return null;
+		}
+		List<Parameter> parameters = new LinkedList<>();
+		List<Parameter> stageParameters = new LinkedList<>();
+		List<Parameter> parentStageParameters = new LinkedList<>();
+		for (String path : pathList)
+		{
+			SSMSecureParametersBuilder parametersBuilder = new SSMSecureParametersBuilder(path,
+					false, null);
+			SSMManager.getInstance()
+					.setSsmSecureParametersBuilder(parametersBuilder);
+
+			List<Parameter> parametersByPathResult = SSMManager.getInstance()
+					.getParametersByPath(path, true, false);
+			if (BaseUtils.isEmpty(parametersByPathResult) && BaseUtils.isNull(identityStageParent))
+			{
+				continue;
+			}
+			if (path.contains(SHARED))
+			{
+				// no change
+				parameters.addAll(parametersByPathResult);
+				continue;
+			}
+			else
+			{
+				stageParameters.addAll(parametersByPathResult);
+			}
+
+			// check if it is found in next hierarchy
+			if (BaseUtils.isNull(identityStageParent))
+			{
+				identityStageParent = getParentStage(parametersByPathResult);
+			}
+
+			if (BaseUtils.isNotNull(identityStageParent))
+			{
+				// found identityStageParent, replace lookup stage with parent
+				String parentStagePath = path.replaceAll(getStageName(), identityStageParent);
+				parametersBuilder = new SSMSecureParametersBuilder(parentStagePath, false, null);
+				SSMManager.getInstance()
+						.setSsmSecureParametersBuilder(parametersBuilder);
+
+				List<Parameter> parentStagePathParameters = SSMManager.getInstance()
+						.getParametersByPath(parentStagePath, true, false);
+
+				if (!BaseUtils.isEmpty(parentStagePathParameters))
+				{
+					// no change
+					parentStageParameters.addAll(parentStagePathParameters);
+				}
+			}
+		}
+
+		/*
+		 * Compute override hierarchy and return
+		 */
+		if (!BaseUtils.isEmpty(parentStageParameters))
+		{
+			// 1. Add parent stage properties to override shared
+			parameters.addAll(parentStageParameters);
+		}
+		// 2. add current stage properties to override parent stage OR shared
+		parameters.addAll(stageParameters);
+		return parameters;
+	}
+
+	/**
+	 * PLAT-2706: Verifies whether /pcap/pcap/<stage>/* has identity.stageParent property
+	 * 
+	 * @param parametersByPathResult
+	 * @return
+	 */
+	private String getParentStage(List<Parameter> parametersByPathResult)
+	{
+		String identityStageParent = null;
+		String parentStageFromEnv = System.getProperty(PCAP_IDENTITY_STAGE_PARENT);
+		if (BaseUtils.isNotNull(parentStageFromEnv))
+		{
+			return parentStageFromEnv;
+		}
+
+		for (Parameter param : parametersByPathResult)
+		{
+			// strip the slash from key names
+			String paramName = (param.getName()
+					.contains("/")) ? param.getName()
+							.substring(param.getName()
+									.lastIndexOf('/') + 1)
+							: param.getName();
+			if (!BaseUtils.equalsIgnoreCase(paramName, PCAP_IDENTITY_STAGE_PARENT))
+			{
+				continue;
+			}
+			identityStageParent = param.getValue()
+					.trim();
+			logger.info("{} found as : {}", PCAP_IDENTITY_STAGE_PARENT, identityStageParent);
+			break;
+		}
+
+		if (BaseUtils.equalsIgnoreCase(identityStageParent, getStageName()))
+		{
+			// safeguard to avoid circular loop
+			return null;
+		}
+		return identityStageParent;
+	}
+
+	/**
+	 * Each EksCluster Node, Jenkins build machine should have an Instance profile and each
+	 * developer should have an IAM Role, to be able to access parameters.
+	 * <p>
+	 * Roles:<br>
+	 * 1- DEVELOPER; has access to /pcap/pcapeks/devtrunk/ parameters<br>
+	 * <p>
+	 * Profiles:<br>
+	 * 1- EKS service id "pcb" has access to "/pcap/pcapeks/shared/*", "/pcap/pcapeks/$stage/*" and
+	 * "/pcap/pcapeks/$stage/pcb/*"<br>
+	 * <br>
+	 * <p>
+	 * Our Parameter Store naming convention is /pcap/${silo}/${stage}/${app}/app.properties where
+	 * $silo example is pcap or pcapeks or pcapetl where $stag example is devtrunk or qastaging or
+	 * alqa or prodstaging etc.
+	 * 
+	 * @param identityStageParent
+	 *            - if we are inheriting properties from another stage
+	 * @throws SafePageException
+	 */
+	private synchronized List<Parameter> getEksParametersByPath(String identityStageParent)
+			throws SafePageException
+	{
+		/*
+		 * Read Shared Properties common to PCAP and EKS resources. i.e /pcap/pcap/*
+		 */
+		String stageName = getStageName();
+		if (stageName == null)
+		{
+			logger.error("stage, -Didentity.stage can't be null!");
+			return null;
+		}
+		List<String> pathList = getSSMSharedPath(PcapSSMApplication.PCAP_EKS.getApplicationName(),
+				stageName);
+
+		/*
+		 * For EKS identity services, adding /pcap/pcapeks/$stage/$serviceIdentity/*
+		 */
+		List<String> arrayPath = getSSMIdentityPath(
+				PcapSSMApplication.PCAP_EKS.getApplicationName(), getEksServiceIdentity(),
+				getStageName());
+		// overrides /pcap/pcap/shared with service specific properties
+		pathList.addAll(arrayPath);
+
+		List<Parameter> parameters = getParametersByPath(pathList, identityStageParent);
+		return parameters;
+	}
+
+	/**
+	 * -Didentity.application=pcap properties to be passed to JVM as part of startup script.
+	 * 
+	 * @return
+	 */
+	protected String getApplicationName()
+	{
+		String applicationName = System.getProperty("identity.application");
+		if (BaseUtils.isNull(applicationName))
+		{
+			logger.warn("identity.application name is null, returning \"pcap\" as default");
+			return PcapSSMApplication.PCAP.getApplicationName();
+		}
+		logger.info("identity.application name is:" + applicationName);
+		return applicationName;
+	}
+
+	/**
+	 * -Didentity.serverArray=root properties to be passed to JVM as part of startup script.
+	 * 
+	 * @return
+	 */
+	protected String getServerArrayName()
+	{
+		if (isTestApp())
+		{
+			return "pcap";
+		}
+		String serverArray = System.getProperty("identity.serverArray");
+		if (BaseUtils.isNull(serverArray))
+		{
+			logger.warn("identity.serverArray name is null!");
+			return null;
+		}
+		logger.info("identity.serverArray name is:" + serverArray);
+		return serverArray;
+	}
+
+	/**
+	 * -Didentity.stage=devtrunk properties to be passed to JVM as part of startup script.
+	 * 
+	 * @return
+	 */
+	public String getStageName()
+	{
+		if (isTestApp())
+		{
+			return "devtrunk";
+		}
+		String stage = System.getProperty("identity.stage");
+		if (BaseUtils.isNull(stage))
+		{
+			logger.warn("-Didentity.stage is missing!");
+			return null;
+		}
+		logger.info("identity.stage name is:" + stage);
+		return stage;
+	}
+
+	/**
+	 * The order of getting parameters from path is important, because the specific parameter for an
+	 * array could override the shared one, ArrayList is a sequential list, insertion and retrieval
+	 * order is the same.<br>
+	 * /silo/application/stage
+	 * 
+	 * @return
+	 */
+	private List<String> getSSMPath(String arrayName, String stageName)
+	{
+		String applicationName = getApplicationName();
+		if (BaseUtils.isNull(arrayName) || BaseUtils.isNull(stageName)
+				|| BaseUtils.isNull(applicationName))
+		{
+			logger.error("getBaseSSMPath() failed for arrayName:{}, stageName:{}, application:{}",
+					arrayName, stageName, applicationName);
+			return null;
+		}
+		/*
+		 * Read Shared Properties common to PCAP and EKS resources. i.e /pcap/pcap/*
+		 */
+		List<String> pathList = getSSMSharedPath(applicationName, stageName);
+		/*
+		 * Read identity path for given Pcap Service only
+		 */
+		if (BaseUtils.isNullOrNull(getEksServiceIdentity()))
+		{
+			List<String> arrayPath = getSSMIdentityPath(applicationName, arrayName, stageName);
+			// overrides /pcap/pcap/shared with service specific properties
+			pathList.addAll(arrayPath);
+		}
+		return pathList;
+	}
+
+	/**
+	 * The order of getting parameters from path is important, because the specific parameter for an
+	 * array could override the shared one, ArrayList is a sequential list, insertion and retrieval
+	 * order is the same.<br>
+	 * /silo/application/stage
+	 * 
+	 * @return
+	 */
+	private List<String> getSSMSharedPath(String applicationSilo, String stageName)
+	{
+		/*
+		 * No identity path is loaded as it is shared only
+		 */
+		if (BaseUtils.isNull(stageName) || BaseUtils.isNull(applicationSilo))
+		{
+			logger.error("getBaseSSMPath() failed for stageName:{}, application:{}", stageName,
+					applicationSilo);
+			return null;
+		}
+		List<String> pathList = new LinkedList<>();
+		// 1- "/pcap/pcap/shared/*"
+		pathList.add(SLASH + PCAP_SILO_NAME + SLASH + applicationSilo + SLASH + SHARED + SLASH);
+		// 2- "/pcap/pcap/stageName/*"
+		pathList.add(SLASH + PCAP_SILO_NAME + SLASH + applicationSilo + SLASH + stageName + SLASH);
+		// Identify properties path is separated to separate step to reuse code
+		return pathList;
+	}
+
+	/**
+	 * The order of getting parameters from path is important, because the specific parameter for an
+	 * array could override the shared one, ArrayList is a sequential list, insertion and retrieval
+	 * order is the same.<br>
+	 * /silo/application/stage/$arrayName
+	 * 
+	 * @param: applicatioName-
+	 *             values i.e /pcap/ OR /pcapeks/
+	 * @return
+	 */
+	private List<String> getSSMIdentityPath(String applicationName, String arrayName,
+			String stageName)
+	{
+		List<String> pathList = new LinkedList<>();
+		// for PCAP app - "/pcap/pcap/stageName/admin/*"
+		// for PCAP-EKS app - "/pcap/pcapeks/stageName/pcb/*"
+		pathList.add(SLASH + PCAP_SILO_NAME + SLASH + applicationName + SLASH + stageName + SLASH
+				+ arrayName + SLASH);
+		return pathList;
+	}
+
+	/**
+	 * We need to determine:<br>
+	 * 1- Environment name, <br>
+	 * 2- Role/Profile. <br>
+	 * We probably can have Environment by reading host name from environment variable, like:
+	 * DSTGN_ADMIN_ARRAY_289<br>
+	 * And Role will be retrieved through AWS query in the current account.
+	 * 
+	 * @throws SafePageException
+	 */
+	protected synchronized Properties readSSMProperties() throws Exception
+	{
+		Properties ssmProps = new Properties();
+		/*
+		 * Load PCAP properties - Common (shared) + Identify if non-eks
+		 */
+		List<Parameter> ssmParameters = getPcapParametersByPath();
+		if (BaseUtils.isEmpty(ssmParameters))
+		{
+			logger.warn("No PCAP parameters loaded from ssm!");
+			return new Properties();
+		}
+
+		Map<String, Object> pcapProperties = getProperties(PcapSSMApplication.PCAP, ssmParameters);
+		ssmProps.putAll(pcapProperties);
+
+		// To run only for EKS services
+		if (!BaseUtils.isNullOrNull(getEksServiceIdentity()))
+		{
+			logger.info(
+					"Initiating load of EKS SSM params for identity: " + getEksServiceIdentity());
+			// Load EKS properties if applicable
+			String parentStage = System.getProperty(PCAP_IDENTITY_STAGE_PARENT);
+
+			List<Parameter> ssmEksParameters = getEksParametersByPath(parentStage);
+			ssmProps.putAll(getProperties(PcapSSMApplication.PCAP_EKS, ssmEksParameters));
+		}
+		return ssmProps;
+	}
+
+	/*
+	 * Read Properties from ParameterList
+	 */
+	private Map<String, Object> getProperties(PcapSSMApplication pcapSsmApplication,
+			List<Parameter> ssmParameters)
+	{
+		Map<String, Object> properties = new HashMap<String, Object>(ssmParameters.size() * 2);
+		ssmParameters.forEach(param ->
+		{
+			// strip the slash from key names
+			String paramName = (param.getName()
+					.contains("/")) ? param.getName()
+							.substring(param.getName()
+									.lastIndexOf('/') + 1)
+							: param.getName();
+			String value = param.getValue()
+					.trim();
+			value = (value.equals("empty:null")) ? BaseUtils.BLANK : value;
+			if (BaseUtils.isNotNullAndNull(value))
+			{
+				if (PcapSSMApplication.PCAP_EKS == pcapSsmApplication)
+				{
+					logger.info("Read property from /pcap/pcapeks/:" + paramName);
+				}
+				properties.put(paramName, value);
+			}
+		});
+		return properties;
+	}
+
+	/**
+	 * Load All properties from /pcap/pcap/*
+	 * 
+	 * @return
+	 * @throws SafePageException
+	 */
+	private List<Parameter> getPcapParametersByPath() throws SafePageException
+	{
+		/*
+		 * If it's test, load all properties for ROOT.war -- all we need is to load up sp-data //
+		 * Since we do not test queues, we can assume it runs with ROOT.war
+		 */
+		List<String> pcapPathList = getSSMPath(getServerArrayName(), getStageName());
+		// Add timer
+		long startTime = System.currentTimeMillis();
+		//
+
+		List<Parameter> ssmPcapParameters = getParametersByPath(pcapPathList, null);
+		long elapsedTime = System.currentTimeMillis() - startTime;
+		if (BaseUtils.isEmpty(ssmPcapParameters))
+		{
+			logger.warn("No parameters loaded from ssm!");
+			return Collections.emptyList();
+		}
+		logger.info("getParametersByPath readPropertiesCount {},  took {} Seconds, for {}",
+				ssmPcapParameters.size(), elapsedTime / 1000, pcapPathList.stream()
+						.collect(Collectors.joining(",")));
+		return ssmPcapParameters;
+	}
+
+	protected synchronized void loadProperties(Properties props)
+	{
+		if (isInitialized)
+		{
+			if (!this.ssmProperties.isEmpty())
+			{
+				props.putAll(this.ssmProperties);
+				logger.info("Adding properties loaded from SSM.");
+			}
+			return;
+		}
+
+		// it's disabled for test properties
+		if (isSsmEnabled())
+		{
+			try
+			{
+				logger.info("Reading SSMProperties for SecureString");
+				Properties properties = readSSMProperties();
+				ssmProperties.putAll(properties);
+				if (!this.ssmProperties.isEmpty())
+				{
+					props.putAll(this.ssmProperties);
+					LogPropertyList();
+				}
+			}
+			catch (Exception e)
+			{
+				logger.error(
+						"Failed to loadProperties from parameter store due to:" + e.getMessage(),
+						e);
+			}
+			addLocalOverride(props);
+		}
+		// set initialization flag
+		isInitialized = true;
+	}
+
+	private void addLocalOverride(Properties props)
+	{
+		/*
+		 * Load local properties to start servers locally for actual application not test and be
+		 * able to connect to local database, local redis server, ...
+		 */
+		Properties localProperties = loadLocalOverrideIfNeeded();
+		if (localProperties != null && !localProperties.isEmpty())
+		{
+			props.putAll(localProperties);
+		}
+	}
+
+	/**
+	 * Read local override file to override ssm properties for local machines for developers, like
+	 * jdbcUrl, redis configs, etc <br>
+	 * Developers have the "identity.stage" system property set as "devtrunk" in their local, and
+	 * the purpose of this override is just for developers machines
+	 */
+	protected Properties loadLocalOverrideIfNeeded()
+	{
+		if (isTestApp() || !"devtrunk".equals(getStageName()))
+		{
+			return null;
+		}
+		try
+		{
+			String catalinaHome = System.getProperty("catalina.home");
+			File catalinaConfDir = new File(catalinaHome, "conf");
+			if (BaseUtils.isNull(catalinaHome))
+			{
+				logger.warn("'catalina.home' property is not set.");
+				return null;
+			}
+			String catalinaConfDirPath = catalinaConfDir.getCanonicalPath();
+			File localOverrdieConfig = new File(catalinaConfDir, "ssm-local-override.properties");
+			// if ssm-local-override.properties exists in catalina home path, read and load all
+			if (catalinaConfDir.exists() && localOverrdieConfig.exists())
+			{
+				logger.info(
+						"Using ssm-local-override.properties file from: " + catalinaConfDirPath);
+				try (InputStream is = new FileInputStream(localOverrdieConfig);)
+				{
+					Properties localOverrideProperties = new Properties();
+					localOverrideProperties.load(is);
+					return localOverrideProperties;
+				}
+				catch (Exception e)
+				{
+					logger.error(
+							"failed to load ssm-local-override.properties, due to" + e.getMessage(),
+							e);
+				}
+			}
+		}
+		catch (Exception ex)
+		{
+			logger.error("failed to loadLocalOverride(), due to" + ex.getMessage(), ex);
+		}
+		return null;
+	}
+
+	private void LogPropertyList()
+	{
+		if (ssmProperties.isEmpty())
+		{
+			logger.warn("Properties loaded from SSM is empty");
+			return;
+		}
+
+		StringBuilder propertyList = new StringBuilder();
+		for (String key : ssmProperties.stringPropertyNames())
+		{
+			propertyList.append(key + "\n");
+		}
+		if (isTestApp())
+		{
+			logger.info("Properties loaded from SSM in Test Mode: \n" + propertyList.toString());
+		}
+		else
+		{
+			logger.info("Properties loaded from SSM: \n" + propertyList.toString());
+		}
+	}
+
+	public boolean isSsmEnabled()
+	{
+		return ssmEnabled;
+	}
+
+	public void setSsmEnabled(boolean ssmEnabled)
+	{
+		this.ssmEnabled = ssmEnabled;
+	}
+
+	public boolean isTestApp()
+	{
+		return testApp;
+	}
+
+	public void setTestApp(boolean testApp)
+	{
+		this.testApp = testApp;
+	}
+
+	public String getEksServiceIdentity()
+	{
+		return eksServiceIdentity;
+	}
+
+	public void setEksServiceIdentity(String eksServiceIdentity)
+	{
+		this.eksServiceIdentity = eksServiceIdentity;
+	}
+
+	public boolean isInitialized()
+	{
+		return isInitialized;
+	}
+
+	public void setInitialized(boolean initialized)
+	{
+		isInitialized = initialized;
+	}
+}
+
+SSMPropertiesVerification:
+package com.personalcapital.config;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.stream.Collectors;
+
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+
+/**
+ * Singleton class to verify properties red from parameter store with properties loaded from
+ * safepage.properies to do QA for Devopos migration
+ * 
+ * @author dizadi
+ */
+public class SSMPropertiesVerification
+{
+	private static PcapLogger logger = PcapLoggerFactory
+			.getPcapLogger(SSMPropertiesVerification.class);
+
+	private SSMPropertiesVerification()
+	{
+		logger.info("Initialized the SSMPropertiesVerification bean");
+	}
+
+	/*
+	 * Bill Pugh Singleton creation using static inner class, thread safe and no synchronized block
+	 */
+	private static class SSMPropertiesVerificationHolder
+	{
+		private static final SSMPropertiesVerification INSTANCE = new SSMPropertiesVerification();
+	}
+
+	public static SSMPropertiesVerification getInstance()
+	{
+		/*
+		 * only when someone calls the method, this class gets loaded and creates the Singleton
+		 * class instance
+		 */
+		return SSMPropertiesVerificationHolder.INSTANCE;
+
+	}
+
+	protected Properties safepageProperties;
+	protected Properties parameterStoreProperties;
+	protected boolean done = false;
+
+	protected void run()
+	{
+		try
+		{
+			if (done)
+			{
+				return;
+			}
+			if (safepageProperties == null || safepageProperties.isEmpty())
+			{
+				logger.info("SSMPropertiesVerification; safepageProperties is empty");
+				return;
+			}
+
+			if (parameterStoreProperties == null || parameterStoreProperties.isEmpty())
+			{
+				logger.info("SSMPropertiesVerification; parameterStoreProperties is empty");
+				return;
+			}
+
+			logger.info(
+					"SSMPropertiesVerification; {} properties are loaded from safepage.properties",
+					safepageProperties.size());
+			logger.info(
+					"SSMPropertiesVerification; {} properties are loaded from aws ssm parameter store",
+					parameterStoreProperties.size());
+
+			List<String> missedProperties = new ArrayList<>();
+			List<String> wrongValueProperties = new ArrayList<>();
+
+			/*
+			 * Loop through safepage properties, check if 1- properies from spp are in ssm, 2- if
+			 * they have same value
+			 */
+			for (Map.Entry<Object, Object> mapEntry : safepageProperties.entrySet())
+			{
+				String key = (String) mapEntry.getKey();
+				if (parameterStoreProperties.containsKey(key))
+				{
+					String value = (String) mapEntry.getValue();
+					value = value.trim();
+					if (!parameterStoreProperties.get(key)
+							.equals(value))
+					{
+						// values are different
+						// String logKeyValues = key + "=(" + parameterStoreProperties.get(key)
+						// + "!=" + value + ")";
+						String logKeyValues = key;
+						wrongValueProperties.add(logKeyValues);
+					}
+				}
+				else
+				{
+					// key doesn't exist
+					missedProperties.add(key);
+				}
+			}
+
+			logger.info(
+					"SSMPropertiesVerification; {} properties are missing. Missing properties are: \n {}",
+					missedProperties.size(), missedProperties.stream()
+							.collect(Collectors.joining("\n")));
+
+			logger.info(
+					"SSMPropertiesVerification; {} properties with wrong values. Propetrties with wrong values are: \n {}",
+					wrongValueProperties.size(), wrongValueProperties.stream()
+							.collect(Collectors.joining("\n")));
+
+		}
+		catch (Exception e)
+		{
+			logger.error("Failed to run SSMPropertiesVerification due to:" + e.getMessage(), e);
+		}
+	}
+
+	public Properties getSafepageProperties()
+	{
+		return safepageProperties;
+	}
+
+	public void setSafepageProperties(Properties spp)
+	{
+		if (done)
+		{
+			return;
+		}
+		this.safepageProperties = new Properties();
+		this.safepageProperties.putAll(spp);
+	}
+
+	public Properties getParameterStoreProperties()
+	{
+		return parameterStoreProperties;
+	}
+
+	public void setParameterStoreProperties(Properties ssmp)
+	{
+		if (done)
+		{
+			return;
+		}
+		this.parameterStoreProperties = new Properties();
+		this.parameterStoreProperties.putAll(ssmp);
+	}
+
+	public boolean isDone()
+	{
+		return done;
+	}
+
+	public void setDone(boolean done)
+	{
+		this.done = done;
+	}
+}
+
