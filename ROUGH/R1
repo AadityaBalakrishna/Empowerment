@@ -1,15 +1,5 @@
-Example #3: Development Item Goal
-Development Item: I want to build my data analyzing and Excel skills.
-Additional Information: Learning advanced skills will help me do this work faster and allow me
-the time to do a more in-depth analysis of the data. In the long run, this will help our team
-focus on more important, impactful work. It will also help me grow skills that align to my career
-aspirations as I know that advanced Excel skills are required for a data analyst. I would also like
-to spend time with some of our data analysts to show how I run our data now and learn how to
-tell a story with the data.
-I will take the LinkedIn Learning courses on Excel and practice them over the next three months
-and meet with at least one data analyst within the next month. By May 1, I would like to present
-what I have learned to the team.
-Status Notes: (written later in the year) I have taken one Excel course and learned pivot tables. I
-also met with one of the data analysts and she showed me some ways to cut the data, so the
-context was more relevant and clearer. I am taking another Excel course on macros starting
-April 1. My next goal is to put together a compelling presentation of the data for the team.
+
+Here's a revised version of your Development Item Goal that includes both SQL, Agile, and Kubernetes:
+
+Development Item: Improve SQL, Agile, and Kubernetes Skills
+Status: I plan to improve my SQL skills by practicing writing complex queries and learning database best practices. Additionally, I aim to gain a deeper understanding of Agile methodologies by participating in team sprints and retrospectives. I will also familiarize myself with Kubernetes by working with the team to deploy applications. I will seek feedback from senior teammates to ensure I'm applying these concepts effectively.
