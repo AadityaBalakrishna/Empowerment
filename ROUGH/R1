@@ -1,1 +1,200 @@
+package com.personalcapital.config;
 
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cloud.config.client.ConfigClientProperties;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
+import org.springframework.web.client.RestTemplate;
+
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+import com.safepage.json.JSONHelper;
+import com.safepage.util.BaseUtils;
+
+/**
+ * Fetch all non secrets stored from config store and load it into environment
+ * 
+ * @author psankaranarayanan
+ */
+@Configuration
+@Import(ConfigClientProperties.class)
+class CfgStoreLoader
+{
+	private static final PcapLogger logger = PcapLoggerFactory.getPcapLogger(CfgStoreLoader.class);
+	private static final String EXTERNAL_URL = "https://pcsvc.dt.pcapqa.app/cfg-store/";
+	private static final String INTERNAL_URL = "http://cfg-store-service.cfg-store-app.svc.cluster.local:8080/cfg-store/";
+	// TODO Need to fix this non eks based SILO
+	private static final String LABEL = "pcapeks";
+	private static final String SERVICE = "pcap";
+	private static final String SHARED = "shared";
+
+	private CfgStoreLoader()
+	{
+
+	}
+
+	@Autowired
+	private ConfigClientProperties configClientProperties;
+
+	private ConfigClientProperties configClientProperties()
+	{
+		return configClientProperties;
+	}
+
+	public void loadProperties(Properties configStoreProperties)
+	{
+		logger.info("Started getting properties from config store");
+		try
+		{
+//			String url = getURL();
+//			String appName = System.getProperty("identity.serverArray");
+//			if (appName == null)
+//				appName = this.SERVICE;
+//
+//			String stage = TextUtils.stripAndTrim(getProfiles());
+//			String service = this.LABEL;
+//
+//			String configStoreUrl = url + "/" + appName + "/" + stage + "/" + service;
+
+			String configStoreUrl = String.valueOf(configClientProperties());
+			public static void main(String[] args){
+				System.out.println("hello "+ configStoreUrl);}
+
+			logger.info("The URL for config store service is :" + configStoreUrl);
+			RestTemplate restTemplate = new RestTemplate();
+			Map nonSecretsFrmGIT = new HashMap<String, Object>();
+			String response = restTemplate.getForObject(configStoreUrl, String.class);
+			CfgStoreResponse cfgStoreResponse = (CfgStoreResponse) JSONHelper.toObject(response,
+					CfgStoreResponse.class);
+			List propertySource = cfgStoreResponse.getPropertySources();
+			Iterator it = propertySource.iterator();
+
+			while (it.hasNext())
+			{
+				Map propertySources = (Map) ((Map) it.next()).get("source");
+
+				propertySources.forEach((k, v) ->
+				{
+					if (nonSecretsFrmGIT.get(k) == null)
+					{
+						nonSecretsFrmGIT.put(k, v);
+					}
+				});
+			}
+			StringBuilder builder = new StringBuilder("Keys retrieved from configstore \n");
+			nonSecretsFrmGIT.forEach((k, v) -> builder.append(k.toString())
+					.append("\n"));
+			logger.info(builder.toString());
+			configStoreProperties.putAll(nonSecretsFrmGIT);
+			logger.info("Loaded {} properties from config store", configStoreProperties.size());
+		}
+		catch (Exception exp)
+		{
+			logger.error("Error in getting properties from config store {}", exp);
+		}
+
+	}
+
+	private String getURL()
+	{
+		boolean isLoclEksUrl = Boolean
+				.parseBoolean(System.getProperty("pcsvc.server.useLocalEKSUrl"));
+		if (isLoclEksUrl)
+			return INTERNAL_URL;
+		else
+			return EXTERNAL_URL;
+	}
+
+	private String getProfiles()
+	{
+		String awsAccount = System.getProperty("aws.account");
+		String identityStage = System.getProperty("identity.stage");
+		String identityParentStage = System.getProperty("identity.parentStage");
+		return generateProfiles(awsAccount, identityStage, identityParentStage);
+	}
+
+	public String generateProfiles(String awsAccount, String identityStage,
+			String identityParentStage)
+	{
+		final String SEPARATOR = ",";
+		if (BaseUtils.isNull(awsAccount))
+		{
+			logger.error(
+					"'aws.account' is missing. Please provide a valid value: [dev, prod, epqa, epprod].");
+			throw new IllegalArgumentException(
+					"Failed to load properties: 'aws.account' is missing.");
+		}
+		if (BaseUtils.isNull(identityStage))
+		{
+			logger.error(
+					"'identity.stage' is missing. Please provide a valid value, such as 'devtrunk'.");
+			throw new IllegalArgumentException(
+					"Failed to load properties: 'identity.stage' is missing.");
+		}
+
+		StringBuilder profiles = new StringBuilder();
+
+		profiles.append(awsAccount.trim())
+				.append(SHARED)
+				.append(SEPARATOR);
+
+		if (BaseUtils.isNotNull(identityParentStage))
+		{
+			profiles.append(identityParentStage.trim())
+					.append(SEPARATOR);
+		}
+
+		profiles.append(identityStage.trim());
+		return profiles.toString();
+	}
+
+	private static class CfgStoreNonSecretsLoaderHolder
+	{
+		private static final CfgStoreLoader INSTANCE = new CfgStoreLoader();
+	}
+
+	public static CfgStoreLoader getInstance()
+	{
+		/*
+		 * only when someone calls the method, this class gets loaded and creates the Singleton
+		 * class instance
+		 */
+		return CfgStoreLoader.CfgStoreNonSecretsLoaderHolder.INSTANCE;
+
+	}
+
+}
+
+
+i want "configStoreUrl" to be printed, and also check if the autocorrect is right?
+
+this is where it's from:
+
+	@Bean
+	@Primary
+	public ConfigClientProperties configClientProperties()
+	{
+		ConfigClientProperties configClientProperties = new ConfigClientProperties(
+				this.environment);
+		configClientProperties.setProfile(inferProfiles());
+		String url;
+		Boolean isLocalEksUrl = Boolean
+				.parseBoolean(environment.getProperty("pcsvc.server.useLocalEKSUrl"));
+		if (isLocalEksUrl)
+			url = INTERNAL_URL;
+		else
+			url = EXTERNAL_URL;
+		configClientProperties.setUri(new String[]
+		{
+				url
+		});
+		configClientProperties.setLabel(LABEL);
+		System.out.println(configClientProperties);
+		return configClientProperties;
+	}
