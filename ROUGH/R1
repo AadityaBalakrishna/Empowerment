@@ -1,1 +1,1 @@
-
+Error creating bean with name 'configClientProperties' defined in class path resource [com/empower/epw/starter/config/store/EpwConfigServiceBootstrapConfiguration.class]: Failed to instantiate [org.springframework.cloud.config.client.ConfigClientProperties]: Factory method 'configClientProperties' threw exception with message: Unable to infer profiles but configs-store is enabled. Please fix properties
