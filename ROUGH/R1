@@ -14,3 +14,61 @@ batch_api_app_devstaging == user?
 String[] uris = configClientProperties.getUri();
 			String configStoreUrl = (uris != null && uris.length > 0) ? uris[0] : null;
 			System.out.println("hello " + configStoreUrl);
+
+
+@SpringBootTest(classes = EpwConfigServiceBootstrapConfiguration.class)
+public class CfgStoreLoaderTest
+{
+//	public static void main(String[] args)
+//	{
+//		CfgStoreLoader cfgStoreLoader = CfgStoreLoader.getInstance();
+//		Properties properties = new Properties();
+//		cfgStoreLoader.loadProperties(properties);
+//	}
+
+	@Value("${pcap.batch.datasource.username:defaultUser}")
+	private String user;
+	[comment- 5) why user is needed for this feature?]
+
+
+	@Autowired
+	private ConfigClientProperties configClientProperties;
+
+	@Autowired
+	private Environment environment;
+
+	@Test
+	public void loadConfigStoreProperties()
+	{
+		Assertions.assertNotNull(user);
+		Assertions.assertEquals("batch_api_app_devstaging", user);
+		[comment -6) Assertions.assertEquals("batch_api_app_devstaging", user);
+batch_api_app_devstaging == user?
+]
+		Assertions.assertEquals("batch_api_app_devstaging",
+				environment.getProperty("pcap.batch.datasource.username"));
+		System.out.println("hello " + environment.getProperty("pcap.batch.datasource.username"));
+	}
+
+	@Test
+	public void generateProfiles_whenIdentityStageDevstaging1_returnDevstaging1Profile()
+	{
+		assertEquals("devshared,devstaging,devstaging1", CfgStoreLoader.getInstance()
+				.generateProfiles("dev", "devstaging1", "devstaging"));
+	}
+
+
+bootstrap-local.properties:
+
+# Disable pulling properties from config-store and SSM. Can enable locally to test property-configuration, but not recommended.
+spring.cloud.config.enabled=false
+aws.account=dev
+identity.serverArray=batch-api
+identity.stage=devstaging
+identity.parentStage=devstaging1
+spring.application.name=${identity.serverArray}
+pcsvc.server.useLocalEKSUrl=false
+aws.paramstore.enabled=false
+spring.main.allow-bean-definition-overriding=true
+logging.level.com.empower.epw.starter.config.store=DEBUG
+logging.level.org.springframework.cloud.config=DEBUG
