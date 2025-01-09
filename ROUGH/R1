@@ -11,3 +11,6 @@
 6) Assertions.assertEquals("batch_api_app_devstaging", user);
 batch_api_app_devstaging == user?
 
+String[] uris = configClientProperties.getUri();
+			String configStoreUrl = (uris != null && uris.length > 0) ? uris[0] : null;
+			System.out.println("hello " + configStoreUrl);
