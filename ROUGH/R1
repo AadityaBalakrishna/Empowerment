@@ -1,1 +1,13 @@
-Error creating bean with name 'configClientProperties' defined in class path resource [com/empower/epw/starter/config/store/EpwConfigServiceBootstrapConfiguration.class]: Failed to instantiate [org.springframework.cloud.config.client.ConfigClientProperties]: Factory method 'configClientProperties' threw exception with message: Unable to infer profiles but configs-store is enabled. Please fix properties
+1) Why CfgStoreLoader is made as a configuration class? ConfigClientProperties is defined & loaded by Autoconfiguration from epw-config-starters, right?
+
+2) ConfigClientProperties is not a config class I remember.
+
+3) user logger.methods() for logging & pass informative texts applicable to contex. However, if u wanted to do SOP() clean b4 pushing code.
+
+4) version , add as a pom parameter defined on parent pom as a range.
+
+5) why user is needed for this feature?
+
+6) Assertions.assertEquals("batch_api_app_devstaging", user);
+batch_api_app_devstaging == user?
+
