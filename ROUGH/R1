@@ -1,1 +1,28 @@
+Scanning for projects...
+[WARNING] 
+[WARNING] Some problems were encountered while building the effective model for com.personalcapital:pcap-config:jar:release-SNAPSHOT
+[WARNING] 'build.plugins.plugin.version' for org.apache.maven.plugins:maven-enforcer-plugin is missing. @ com.safepage:pcap:release-SNAPSHOT, /home/abalakrishna/glab/pcap-server/pcap/pom.xml, line 598, column 12
+[WARNING] 
+[WARNING] It is highly recommended to fix these problems because they threaten the stability of your build.
+[WARNING] 
+[WARNING] For this reason, future Maven versions might no longer support building such malformed projects.
+[WARNING] 
+[INFO] 
+[INFO] ------------------< com.personalcapital:pcap-config >-------------------
+[INFO] Building pcap-config release-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[WARNING] The POM for com.empower.epw:epw-springockito:jar:release-SNAPSHOT is missing, no dependency information available
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  2.291 s
+[INFO] Finished at: 2025-01-10T16:16:20+05:30
+[INFO] ------------------------------------------------------------------------
+[INFO] HTML profiling report has been saved in: /home/abalakrishna/glab/pcap-server/pcap-config/.profiler/profiler-report-2025-01-10-16-16-21.html
+[ERROR] Failed to execute goal on project pcap-config: Could not collect dependencies for project com.personalcapital:pcap-config:jar:release-SNAPSHOT
+[ERROR] Failed to read artifact descriptor for com.personalcapital:pcap-common:jar:release-SNAPSHOT
+[ERROR]         Caused by: The following artifacts could not be resolved: com.safepage:pcap:pom:release-SNAPSHOT (absent): com.safepage:pcap:pom:release-SNAPSHOT was not found in https://personalcapital.jfrog.io/artifactory/pcap-virtual during a previous attempt. This failure was cached in the local repository and resolution is not reattempted until the update interval of pcap-virtual has elapsed or updates are forced
+
+
 
