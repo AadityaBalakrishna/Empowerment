@@ -1,30 +1,13 @@
-@SpringBootTest(classes = EpwConfigServiceBootstrapConfiguration.class)
-@EnableConfigurationProperties
-public class AccountAppDBConfigPropertyIT
-{
-	@Value("${epw.account.datasource.username}")
-	private String user;
+ // Safely access properties after Spring has injected the dependencies
+        String awsAccount = environment.getProperty("aws.account", "defaultAccount");
+        String identityStage = environment.getProperty("identity.stage", "defaultStage");
+        String identityParentStage = environment.getProperty("identity.parentStage", "defaultParentStage");
 
-	@Autowired
-	private Environment environment;
+        System.out.println("AWS Account: " + awsAccount);
+        System.out.println("Identity Stage: " + identityStage);
+        System.out.println("Identity Parent Stage: " + identityParentStage);
 
-	@Autowired
-	private EpwConfigServiceBootstrapConfiguration configService;
-
-//	@Autowired
-//	private ConfigClientProperties configClientProperties;
-
-	String awsAccount = this.environment.getProperty("aws.account");
-	String identityStage = this.environment.getProperty("identity.stage");
-	String identityParentStage = this.environment.getProperty("identity.parentStage");
-
-	@Test
-	public void testprofiles(){
-		ConfigClientProperties properties = configService.configClientProperties();
-		String profile = properties.getProfile();
-		System.out.println("Inferred Profile: " + profile);
-	}
-
-
-Cannot invoke "org.springframework.core.env.Environment.getProperty(String)" because "this.environment" is null
-java.lang.NullPointerException: Cannot invoke "org.springframework.core.env.Environment.getProperty(String)" because "this.environment" is null
+        // Test the inferred profiles from ConfigClientProperties
+        ConfigClientProperties properties = configService.configClientProperties();
+        String profile = properties.getProfile();
+        System.out.println("Inferred Profile: " + profile);
