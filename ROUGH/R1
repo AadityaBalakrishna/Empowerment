@@ -1,14 +1,3 @@
-	public void testprofiles()
-	{
-		String awsAccount = environment.getProperty("aws.account", "defaultAccount");
-		String identityStage = environment.getProperty("identity.stage", "defaultStage");
-		String identityParentStage = environment.getProperty("identity.parentStage",
-				"defaultParentStage");
+org.springframework.cloud.bootstrap.BootstrapConfiguration=\
+com.empower.epw.starter.config.store.EpwConfigServiceBootstrapConfiguration
 
-		System.out.println("AWS Account: " + awsAccount);
-		System.out.println("Identity Stage: " + identityStage);
-		System.out.println("Identity Parent Stage: " + identityParentStage);
-
-		String profile = configClientProperties.getProfile();
-		System.out.println("Inferred Profile: " + profile);
-	}
