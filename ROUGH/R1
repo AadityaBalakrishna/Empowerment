@@ -1,3 +1,13 @@
-org.springframework.cloud.bootstrap.BootstrapConfiguration=\
-com.empower.epw.starter.config.store.EpwConfigServiceBootstrapConfiguration
-
+	public void loadConfigStoreProperties()	
+	{    
+		Assertions.assertNotNull(user);
+		if(configClientProperties.isEnabled() == false || "local".equalsIgnoreCase(configClientProperties.getProfile()))					    	{    Assertions.assertEquals("pcap_app_2", user);
+			Assertions.assertEquals("pcap_app_2", environment.getProperty("epw.account.datasource.username"));    
+		}
+		else
+		{       
+			Assertions.assertEquals("acct_devtrunk", user);
+			Assertions.assertEquals("acct_devtrunk",
+					environment.getProperty("epw.account.datasource.username"));    
+		}
+	}
