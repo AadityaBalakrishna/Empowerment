@@ -1,16 +1,14 @@
-ConfigClientProperties 
-[enabled=false, 
-profile=local, 
-name=acct, 
-label=null, 
-username=null, 
-password=null, 
-uri=[http://localhost:8888], 
-mediaType=application/vnd.spring-cloud.config-server.v2 json, 
-discovery=org.springframework.cloud.config.client.ConfigClientProperties$Discovery@72c85d4f, 
-failFast=false, 
-token=null, 
-requestConnectTimeout=10000, 
-requestReadTimeout=185000, 
-sendState=true, 
-headers={}]
+	public void testprofiles()
+	{
+		String awsAccount = environment.getProperty("aws.account", "defaultAccount");
+		String identityStage = environment.getProperty("identity.stage", "defaultStage");
+		String identityParentStage = environment.getProperty("identity.parentStage",
+				"defaultParentStage");
+
+		System.out.println("AWS Account: " + awsAccount);
+		System.out.println("Identity Stage: " + identityStage);
+		System.out.println("Identity Parent Stage: " + identityParentStage);
+
+		String profile = configClientProperties.getProfile();
+		System.out.println("Inferred Profile: " + profile);
+	}
