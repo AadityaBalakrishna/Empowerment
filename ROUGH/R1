@@ -1,9 +1,2 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<beans xmlns="http://www.springframework.org/schema/beans"
-       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
-    <bean id="env" class="org.springframework.core.env.StandardEnvironment"/>
-    <bean id="epwconfig" class="com.empower.epw.starter.config.store.EpwConfigServiceBootstrapConfiguration">
-        <constructor-arg ref="env"/>
-    </bean>
-</beans>
+com.personalcapital.config.CfgStoreLoaderTest.loadConfigStoreProperties -- Time elapsed: 0 s <<< ERROR!
+java.lang.IllegalStateException: ApplicationContext failure threshold (1) exceeded: skipping repeated attempt to load context for [MergedContextConfiguration@7d59e968 testClass = com.personalcapital.config.CfgStoreLoaderTest, locations = ["classpath:epwconfig.xml"], classes = [], contextInitializerClasses = [], activeProfiles = [], propertySourceDescriptors = [], propertySourceProperties = ["org.springframework.boot.test.context.SpringBootTestContextBootstrapper=true"], contextCustomizers = [org.springframework.boot.test.context.filter.ExcludeFilterContextCustomizer@7e1a1da6, org.springframework.boot.test.json.DuplicateJsonObjectContextCustomizerFactory$DuplicateJsonObjectContextCustomizer@60094a13, org.springframework.boot.test.mock.mockito.MockitoContextCustomizer@0, org.springframework.boot.test.web.client.TestRestTemplateContextCustomizer@41ffaeb8, org.springframework.boot.test.context.SpringBootTestAnnotation@5ebb8411], contextLoader = org.springframework.boot.test.context.SpringBootContextLoader, parent = null]
