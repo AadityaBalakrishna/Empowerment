@@ -1,7 +1,9 @@
-java.lang.IllegalStateException: Failed to load ApplicationContext for [MergedContextConfiguration@319854f0 testClass = com.personalcapital.config.TestConfig, locations = ["classpath:pcapConfigApplicationContext.xml"], classes = [], contextInitializerClasses = [], activeProfiles = [], propertySourceDescriptors = [], propertySourceProperties = [], contextCustomizers = [org.springframework.boot.test.context.filter.ExcludeFilterContextCustomizer@5644dc81, org.springframework.boot.test.json.DuplicateJsonObjectContextCustomizerFactory$DuplicateJsonObjectContextCustomizer@5c42d2b7, org.springframework.boot.test.mock.mockito.MockitoContextCustomizer@0], contextLoader = org.springframework.test.context.support.DelegatingSmartContextLoader, parent = null]
-
-Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'configClientProperties' defined in class path resource [com/empower/epw/starter/config/store/EpwConfigServiceBootstrapConfiguration.class]: Failed to instantiate [org.springframework.cloud.config.client.ConfigClientProperties]: Factory method 'configClientProperties' threw exception with message: Unable to infer profiles but configs-store is enabled. Please fix properties
-	
-Caused by: org.springframework.beans.BeanInstantiationException: Failed to instantiate [org.springframework.cloud.config.client.ConfigClientProperties]: Factory method 'configClientProperties' threw exception with message: Unable to infer profiles but configs-store is enabled. Please fix properties
-	
-Caused by: java.lang.IllegalStateException: Unable to infer profiles but configs-store is enabled. Please fix properties
+-DTEST_CONFIG_HOME=/home/abalakrishna/glab/pcap-server/pcap
+-Dspring.main.allow-bean-definition-overriding=true
+-Didentity.stage=devtrunk
+-Didentity.serverArray=pcap
+-Didentity.application=pcap
+-Dpcap.enableConfigStore=true
+-Dpcsvc.server.useLocalEKSUrl=false
+-Daws.profile=dev
+-Dspring.profiles.active=local
