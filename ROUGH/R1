@@ -1,31 +1,22 @@
-private String inferProfiles()
+package com.personalcapital.config;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
+
+@SpringJUnitConfig(locations = "classpath:pcapConfigApplicationContext.xml")
+@ContextConfiguration(locations = "classpath:pcapConfigApplicationContext.xml")
+public class TestConfig
+{
+	@Value("${db.username}")
+	private String prop;
+
+	@Test
+	public void loadConfigStoreProperties()
 	{
-		final String awsAccount = environment.getProperty("aws.account");
-		final String identityStage = environment.getProperty("identity.stage");
-		final String identityParentStage = environment.getProperty("identity.parentStage");
-
-		// AWS Account name (e.g: dev, prod, poc, epqa, etc) and Stage (e.g: devtrunk, qastaging,
-		// devstaginguse1, etc) are required to infer profiles
-		if (isBlank(awsAccount) || isBlank(identityStage))
-		{
-			log.warn(
-					"Unable to infer profiles from system properties. Please fix properties, [aws.account={}]. [identity.parentStage={}],[identity.stage={}]",
-					awsAccount, identityParentStage, identityStage);
-			throw new IllegalStateException(
-					"Unable to infer profiles but configs-store is enabled. Please fix properties");
-		}
-
-		// If parent stage is declared, then return profiles as
-		// <awsAccount>-shared,<identityParentStage>,<identityStage>
-		// e.g : devshared,devstaging,devstaginguse1
-		if (isNotBlank(identityParentStage))
-		{
-			return String.join(",", List.of(awsAccount.trim() + SHARED, identityParentStage.trim(),
-					identityStage.trim()));
-		}
-		else
-		{
-			// Else, just return profiles as <awsAccount>-shared,<identityStage>
-			// e.g : devshared,devtrunk
-			return String.join(",", List.of(awsAccount.trim() + SHARED, identityStage.trim()));
-		}
+		Assertions.assertNotNull(prop);
+		Assertions.assertEquals("pcap_app_2", prop);
+	}
+}
