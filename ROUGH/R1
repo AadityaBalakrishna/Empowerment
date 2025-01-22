@@ -1,22 +1,11 @@
-package com.personalcapital.config;
-
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
-
-@SpringJUnitConfig(locations = "classpath:pcapConfigApplicationContext.xml")
-@ContextConfiguration(locations = "classpath:pcapConfigApplicationContext.xml")
-public class TestConfig
-{
-	@Value("${db.username}")
-	private String prop;
-
-	@Test
-	public void loadConfigStoreProperties()
-	{
-		Assertions.assertNotNull(prop);
-		Assertions.assertEquals("pcap_app_2", prop);
-	}
-}
+@Test
+//	public void testprofiles()
+//	{
+//		String awsAccount = environment.getProperty("aws.account", "defaultAccount");
+//		String identityStage = environment.getProperty("identity.stage", "defaultStage");
+//		String identityParentStage = environment.getProperty("identity.parentStage",
+//				"defaultParentStage");
+//
+//		String profile = configClientProperties.getProfile();
+//		logger.info("Inferred Profile: {}", profile);
+//	}
