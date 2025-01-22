@@ -3,7 +3,12 @@
 -Didentity.stage=devtrunk
 -Didentity.serverArray=pcap
 -Didentity.application=pcap
--Dpcap.enableConfigStore=true
+-Dpcap.enableConfigStore=true  # Change to 'false' if testing without config store
 -Dpcsvc.server.useLocalEKSUrl=false
 -Daws.profile=dev
 -Dspring.profiles.active=local
+-Dspring.cloud.config.enabled=false  # Add if Spring Cloud Config isn't required
+-Dspring.profiles.default=default
+-Dlogging.level.org.springframework.cloud=DEBUG
+-Dlogging.level.com.empower.epw=DEBUG
+-Dlogging.level.org.springframework.core.env=DEBUG
