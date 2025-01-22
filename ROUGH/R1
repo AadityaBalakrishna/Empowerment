@@ -1,2 +1,41 @@
-[ERROR] Errors: 
-[ERROR]   BaseUtilsTest.testDull » IllegalState Failed to load ApplicationContext for [MergedContextConfiguration@4303b7f0 testClass = com.safepage.util.BaseUtilsTest, locations = ["classpath:pcapConfigApplicationContext.xml"], classes = [], contextInitializerClasses = [], activeProfiles = [], propertySourceDescriptors = [], propertySourceProperties = [], contextCustomizers = [org.springframework.boot.test.context.filter.ExcludeFilterContextCustomizer@46cc127b, org.springframework.boot.test.json.DuplicateJsonObjectContextCustomizerFactory$DuplicateJsonObjectContextCustomizer@10b892d5, org.springframework.boot.test.mock.mockito.MockitoContextCustomizer@0], contextLoader = org.springframework.test.context.support.DelegatingSmartContextLoader, parent = null]
+package com.personalcapital.config;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
+
+import com.personalcapital.log.PcapLogger;
+
+@SpringJUnitConfig(locations = "classpath:pcapConfigApplicationContext.xml")
+@ContextConfiguration(locations = "classpath:pcapConfigApplicationContext.xml")
+public class TestConfig
+{
+	@Value("${db.username}")
+	private String prop;
+
+	@Autowired
+	private Environment environment;
+	private PcapLogger logger;
+
+	@Test
+	public void loadConfigStoreProperties()
+	{
+		System.out.println("Properties: " + prop);
+		logger.info("Properties {}", prop);
+	}
+}
+
+error:
+java.lang.IllegalStateException: Failed to load ApplicationContext for [MergedContextConfiguration@ecfbe91 testClass = com.personalcapital.config.TestConfig, locations = ["classpath:pcapConfigApplicationContext.xml"], classes = [], contextInitializerClasses = [], activeProfiles = [], propertySourceDescriptors = [], propertySourceProperties = [], contextCustomizers = [org.springframework.boot.test.context.filter.ExcludeFilterContextCustomizer@5b1f29fa, org.springframework.boot.test.json.DuplicateJsonObjectContextCustomizerFactory$DuplicateJsonObjectContextCustomizer@31aa3ca5, org.springframework.boot.test.mock.mockito.MockitoContextCustomizer@0], contextLoader = org.springframework.test.context.support.DelegatingSmartContextLoader, parent = null]
+ 
+Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'epwconfig' defined in class path resource [pcapConfigApplicationContext.xml]: Unsatisfied dependency expressed through constructor parameter 0: No qualifying bean of type 'org.springframework.core.env.ConfigurableEnvironment' available: expected single matching bean but found 2: env,environment
+ 
+Caused by: org.springframework.beans.factory.NoUniqueBeanDefinitionException: No qualifying bean of type 'org.springframework.core.env.ConfigurableEnvironment' available: expected single matching bean but found 2: env,environment
+
+the xml content:
+	<bean id="env" class="org.springframework.core.env.StandardEnvironment"/>
+	<bean id="epwconfig" class="com.empower.epw.starter.config.store.EpwConfigServiceBootstrapConfiguration"/>
+
