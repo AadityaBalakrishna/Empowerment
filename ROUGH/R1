@@ -1,47 +1,38 @@
 package com.personalcapital.config;
 
+import com.empower.epw.starter.config.store.EpwConfigServiceBootstrapConfiguration;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.core.env.Environment;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-
-@SpringJUnitConfig(locations = "classpath:pcapConfigApplicationContext.xml")
+@SpringJUnitConfig
 @ContextConfiguration(locations = "classpath:pcapConfigApplicationContext.xml")
 public class TestConfig {
-
-    private static final Logger logger = LoggerFactory.getLogger(TestConfig.class);
 
     @Autowired
     private Environment environment;
 
+    @Autowired
+    private EpwConfigServiceBootstrapConfiguration epwConfigService;
+
     @Test
     public void testProfiles() {
-        // Retrieve properties from the environment
-        String awsAccount = environment.getProperty("aws.account", "defaultAccount");
-        String identityStage = environment.getProperty("identity.stage", "defaultStage");
-        String identityParentStage = environment.getProperty("identity.parentStage", "defaultParentStage");
+        // Set up environment properties
+        System.setProperty("aws.account", "dev");
+        System.setProperty("identity.stage", "devtrunk");
+        System.setProperty("identity.parentStage", "devstaging");
 
-        // Assert that the environment properties are not null
-        assertNotNull(awsAccount, "AWS Account should not be null");
-        assertNotNull(identityStage, "Identity Stage should not be null");
+        // Call the method to infer profiles
+        String inferredProfiles = epwConfigService.inferProfiles();
 
-        // Infer profiles manually for testing
-        String inferredProfile;
-        if (!identityParentStage.isBlank()) {
-            inferredProfile = String.join(",", awsAccount + "-shared", identityParentStage, identityStage);
-        } else {
-            inferredProfile = String.join(",", awsAccount + "-shared", identityStage);
-        }
+        // Assert the result
+        Assertions.assertNotNull(inferredProfiles, "Inferred profiles should not be null");
+        Assertions.assertEquals("dev-shared,devstaging,devtrunk", inferredProfiles);
 
-        // Log the inferred profile
-        logger.info("Inferred Profile: {}", inferredProfile);
-
-        // Example assertion (optional, modify as needed)
-        assertNotNull(inferredProfile, "Inferred profile should not be null");
+        System.out.println("Inferred Profiles: " + inferredProfiles);
     }
 }
