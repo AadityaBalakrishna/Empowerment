@@ -1,38 +1,51 @@
+3)VM configurations:
+
+-DTEST_CONFIG_HOME=/home/abalakrishna/glab/pcap-server/pcap
+-Dspring.main.allow-bean-definition-overriding=true
+-Daws.account=dev
+-Didentity.stage=devtrunk
+-Didentity.parentStage=devshared
+-Didentity.serverArray=pcap
+-Dpcap.enableConfigStore=true
+-Dpcsvc.server.useLocalEKSUrl=false
+
 package com.personalcapital.config;
 
-import com.empower.epw.starter.config.store.EpwConfigServiceBootstrapConfiguration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationContext;
-import org.springframework.core.env.Environment;
-import org.springframework.test.context.ContextConfiguration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
-@SpringJUnitConfig
-@ContextConfiguration(locations = "classpath:pcapConfigApplicationContext.xml")
-public class TestConfig {
+@SpringJUnitConfig(locations = "classpath:pcapConfigApplicationContext.xml")
+public class TestConfig
+{
+	@Value("${db.username}")
+	private String prop;
 
-    @Autowired
-    private Environment environment;
+	@Value("${pcap.ace.datasource.username}")
+	private String user;
 
-    @Autowired
-    private EpwConfigServiceBootstrapConfiguration epwConfigService;
+	@Value("${identity.serverArray}")
+	private String configprop;
 
-    @Test
-    public void testProfiles() {
-        // Set up environment properties
-        System.setProperty("aws.account", "dev");
-        System.setProperty("identity.stage", "devtrunk");
-        System.setProperty("identity.parentStage", "devstaging");
+	@Test
+	public void loadProperties()
+	{
+		Assertions.assertNotNull(prop);
+		Assertions.assertEquals("pcap_app_2", prop);
+	}
 
-        // Call the method to infer profiles
-        String inferredProfiles = epwConfigService.inferProfiles();
+	@Test
+	public void loadusername()
+	{
+		Assertions.assertNotNull(user);
+		Assertions.assertEquals("root_app_devtrunk", user);
+	}
 
-        // Assert the result
-        Assertions.assertNotNull(inferredProfiles, "Inferred profiles should not be null");
-        Assertions.assertEquals("dev-shared,devstaging,devtrunk", inferredProfiles);
-
-        System.out.println("Inferred Profiles: " + inferredProfiles);
-    }
+	@Test
+	public void loadConfigProperties()
+	{
+		Assertions.assertNotNull(configprop);
+		Assertions.assertEquals("pcap", configprop);
+	}
 }
