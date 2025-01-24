@@ -1,159 +1,35 @@
-If you want to move completely from the VM arguments to using application.properties, bootstrap.properties, or bootstrap-local.properties, here's how you can achieve that for a cleaner configuration setup.
-
-
----
-
-1. Understanding the Property Files
-
-application.properties:
-
-Typically used for application-level configurations.
-
-Loaded during the main context initialization phase.
-
-Use this file if the configuration does not rely on Spring Cloud Config or external configuration servers.
-
-
-bootstrap.properties:
-
-Used during the bootstrap phase for Spring Cloud Config.
-
-Loaded before the main application context is initialized.
-
-Use this if you are planning to load configuration from an external Config Server.
-
-
-bootstrap-local.properties:
-
-A custom extension for local overrides during the bootstrap phase.
-
-Use this to keep local and remote configurations separate.
-
-
-
-
----
-
-2. Transition Plan
-
-Step 1: Move Properties to application.properties or bootstrap.properties
-
-1. Create a src/main/resources/application.properties file (or bootstrap.properties if using Spring Cloud Config).
-
-
-2. Move all your properties from the VM arguments to the appropriate file. Example:
-
-application.properties:
-
-aws.account=dev
-identity.stage=devtrunk
-identity.parentStage=devshared
-identity.serverArray=pcap
-pcap.enableConfigStore=true
-pcsvc.server.useLocalEKSUrl=false
-spring.main.allow-bean-definition-overriding=true
-
-
-
-
----
-
-Step 2: Update Your Tests to Use application.properties
-
-1. Add a Test Context Configuration: Update your TestConfig class to load the application.properties file directly. Replace your VM arguments with the properties defined in the file.
-
-@SpringJUnitConfig(locations = "classpath:pcapConfigApplicationContext.xml")
-@TestPropertySource("classpath:application.properties")  // Load application.properties for tests
-public class TestConfig {
-
-    @Value("${db.username}")
-    private String prop;
-
-    @Value("${identity.serverArray}")
-    private String configprop;
-
-    @Test
-    public void loadProperties() {
-        Assertions.assertNotNull(prop);
-        Assertions.assertEquals("pcap_app_2", prop);
-    }
-
-    @Test
-    public void loadConfigProperties() {
-        Assertions.assertNotNull(configprop);
-        Assertions.assertEquals("pcap", configprop);
-    }
-}
-
-
-
-
----
-
-Step 3: Verify Configuration Priority
-
-Spring has a well-defined property source priority. Ensure the properties from application.properties or bootstrap.properties are properly loaded by removing conflicting VM arguments. The priority is as follows:
-
-1. VM arguments (if still used, they override everything else).
-
-
-2. application.properties or bootstrap.properties.
-
-
-3. Default configurations in code.
-
-
-
-
----
-
-Step 4: Handling Spring Cloud Config
-
-If you're using bootstrap.properties for Spring Cloud Config, ensure the following:
-
-1. Add bootstrap.properties in src/main/resources.
-
-
-2. Include spring.cloud.config.enabled=true and point to the Config Server.
-
-bootstrap.properties:
-
-spring.cloud.config.enabled=true
-spring.cloud.config.uri=http://config-server-url
-spring.cloud.config.name=pcap
-
-
-3. In case you want a fallback for local development:
-
-Add bootstrap-local.properties for local overrides.
-
-Use a spring.profiles.active=local property to activate it.
-
-
-bootstrap-local.properties:
-
-aws.account=dev
-identity.stage=local
-identity.parentStage=localshared
-
-
-4. In your application.properties or application-local.properties, configure development-specific properties.
-
-
-
-
----
-
-3. Clean Up VM Arguments
-
-Finally, remove VM arguments from your build or runtime scripts. Spring will now fully rely on the .properties files.
-
-
----
-
-4. Testing Locally
-
-Run your application to verify it loads all properties correctly from application.properties (or bootstrap.properties if using Spring Cloud Config). You can confirm this by checking logs or writing debug statements in your TestConfig.
-
-Would you like help setting up bootstrap.properties for a Spring Cloud Config Server or running a local override for development?
-
+org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'com.empower.epw.starter.TestConfig': Injection of autowired dependencies failed
+
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor.postProcessProperties(AutowiredAnnotationBeanPostProcessor.java:514)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1419)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireBeanProperties(AbstractAutowireCapableBeanFactory.java:398)
+	at org.springframework.test.context.support.DependencyInjectionTestExecutionListener.injectDependencies(DependencyInjectionTestExecutionListener.java:143)
+	at org.springframework.test.context.support.DependencyInjectionTestExecutionListener.prepareTestInstance(DependencyInjectionTestExecutionListener.java:98)
+	at org.springframework.test.context.TestContextManager.prepareTestInstance(TestContextManager.java:260)
+	at org.springframework.test.context.junit.jupiter.SpringExtension.postProcessTestInstance(SpringExtension.java:163)
+	at java.base/java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:197)
+	at java.base/java.util.stream.ReferencePipeline$2$1.accept(ReferencePipeline.java:179)
+	at java.base/java.util.ArrayList$ArrayListSpliterator.forEachRemaining(ArrayList.java:1708)
+	at java.base/java.util.stream.AbstractPipeline.copyInto(AbstractPipeline.java:509)
+	at java.base/java.util.stream.AbstractPipeline.wrapAndCopyInto(AbstractPipeline.java:499)
+	at java.base/java.util.stream.StreamSpliterators$WrappingSpliterator.forEachRemaining(StreamSpliterators.java:310)
+	at java.base/java.util.stream.Streams$ConcatSpliterator.forEachRemaining(Streams.java:735)
+	at java.base/java.util.stream.Streams$ConcatSpliterator.forEachRemaining(Streams.java:734)
+	at java.base/java.util.stream.ReferencePipeline$Head.forEach(ReferencePipeline.java:762)
+	at java.base/java.util.Optional.orElseGet(Optional.java:364)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+Caused by: java.lang.IllegalArgumentException: Could not resolve placeholder 'rds.iam.username' in value "${rds.iam.username}"
+	at org.springframework.util.PropertyPlaceholderHelper.parseStringValue(PropertyPlaceholderHelper.java:180)
+	at org.springframework.util.PropertyPlaceholderHelper.replacePlaceholders(PropertyPlaceholderHelper.java:126)
+	at org.springframework.core.env.AbstractPropertyResolver.doResolvePlaceholders(AbstractPropertyResolver.java:239)
+	at org.springframework.core.env.AbstractPropertyResolver.resolveRequiredPlaceholders(AbstractPropertyResolver.java:210)
+	at org.springframework.context.support.PropertySourcesPlaceholderConfigurer.lambda$processProperties$0(PropertySourcesPlaceholderConfigurer.java:200)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.resolveEmbeddedValue(AbstractBeanFactory.java:953)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1374)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1353)
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:784)
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.inject(AutowiredAnnotationBeanPostProcessor.java:767)
+	at org.springframework.beans.factory.annotation.InjectionMetadata.inject(InjectionMetadata.java:145)
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor.postProcessProperties(AutowiredAnnotationBeanPostProcessor.java:508)
+	... 18 more
