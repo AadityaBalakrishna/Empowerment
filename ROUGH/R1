@@ -1,1 +1,25 @@
+i need to test the code behaviour according to this:
+-Dspring.profiles.active=test/local
+-Dspring.cloud.config.enabled=true/false
 
+
+bootstrap-local.properties							
+bootstrap-<ACTIVE-PROFILE>.properties				
+if not found falling back to bootstrap.prop
+							
+my exp:load from remote, on top override what mentioned in appl-override.prop							
+									
+profile in selecting 			
+application-<PROFILE>.prop and application-test.prop				
+							
+local			application-test-local-override.prop				
+not local			falling back to 		application-test.prop	
+
+
+these are the files in the project:
+bootstrap.properties
+bootstrap-local.properties
+application-test-local-override.prop
+application-test.prop	
+
+can you help me on how i can test and make a table on the behaviour of the code?
