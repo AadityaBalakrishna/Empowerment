@@ -1,25 +1,65 @@
-i need to test the code behaviour according to this:
--Dspring.profiles.active=test/local
--Dspring.cloud.config.enabled=true/false
+package com.personalcapital.config;
 
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
-bootstrap-local.properties							
-bootstrap-<ACTIVE-PROFILE>.properties				
-if not found falling back to bootstrap.prop
-							
-my exp:load from remote, on top override what mentioned in appl-override.prop							
-									
-profile in selecting 			
-application-<PROFILE>.prop and application-test.prop				
-							
-local			application-test-local-override.prop				
-not local			falling back to 		application-test.prop	
+@SpringJUnitConfig(classes = PropertiesLoader.class)
+public class SafePageConfigurerITTest
+{
+	@Value("${db.username}")
+	private String dbUsername;
 
+	@Value("${test.default:defaultValue}")
+	private String defaultValue;
 
-these are the files in the project:
-bootstrap.properties
-bootstrap-local.properties
-application-test-local-override.prop
-application-test.prop	
+	@Value("${invest.myvest.clientPoolSize}")
+	private int fromSSM;
 
-can you help me on how i can test and make a table on the behaviour of the code?
+	@Value("${rest.connection.timeout}")
+	private int fromLocal;
+
+	@Test
+	public void testLocalOverride()
+	{
+		Assertions.assertEquals(dbUsername, "spdbapp1");
+	}
+
+	@Test
+	public void testLocalPropertyPlaceHolderDefault()
+	{
+		Assertions.assertEquals(defaultValue, "defaultValue");
+
+	}
+
+	@Test
+	public void testLocalPropertyOverrideFromSSM()
+	{
+		Assertions.assertEquals(fromSSM, 5);
+	}
+
+	@Test
+	public void testServiceGlobal()
+	{
+		Assertions.assertEquals(fromLocal, 3001);
+	}
+
+	@AfterAll
+	public static void resetConfigStoreProperty()
+	{
+		System.setProperty("pcap.enableConfigStore", "false");
+	}
+
+	static
+	{
+		System.setProperty("pcap.enableConfigStore", "true");
+		System.setProperty("spring.profiles.active", "local");
+	}
+}
+
+20:50:37  [ERROR] Tests run: 4, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 4.092 s <<< FAILURE! -- in com.personalcapital.config.SafePageConfigurerITTest
+20:50:37  [ERROR] com.personalcapital.config.SafePageConfigurerITTest.testLocalPropertyOverrideFromSSM -- Time elapsed: 0.003 s <<< FAILURE!
+20:50:37  org.opentest4j.AssertionFailedError: expected: <50> but was: <5>
