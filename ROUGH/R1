@@ -1,40 +1,25 @@
-
-VM args:
--Daws.account=dev
--Didentity.stage=devtrunk
--Didentity.parentStage=devshared
--Didentity.serverArray=pcap
--Depw.starter.config.enabled=true
--Dspring.cloud.config.enabled=true
--------------------------------------------------------------------------------------------------------------------------------------------------------------
-code:
-package com.empower.epw.account.config;
-
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ContextConfiguration;
-
-@SpringBootTest
-@ContextConfiguration(locations = "classpath:epwconfig.xml")
-public class PcapConfigPoCLatest
-{
-	@Value("${epw.account.datasource.username}")
-	private String user;
-
-	@Test
-	public void loadfromdevtrunkpcap()	{
-		Assertions.assertEquals("acct_app_devtrunk", user);
-	}
-}
---------------------------------------------------------------------------------------------------------------------------------------------------------------
-epwconfig.xml:
 <?xml version="1.0" encoding="UTF-8"?>
 <beans xmlns="http://www.springframework.org/schema/beans"
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
-    <bean id="safePageConfigurer" class="com.personalcapital.config.SafePageConfigurer" factory-method="getSafePageConfigurerForEks">
+
+    <!-- Enables property resolution -->
+    <bean class="org.springframework.context.support.PropertySourcesPlaceholderConfigurer">
+        <property name="ignoreUnresolvablePlaceholders" value="true"/>
+        <property name="locations">
+            <list>
+                <value>classpath:application.properties</value>
+                <value>classpath:application-override.properties</value>
+            </list>
+        </property>
+    </bean>
+
+    <!-- Conditionally Load SafePageConfigurer -->
+    <bean id="safePageConfigurer" class="com.personalcapital.config.SafePageConfigurer"
+          factory-method="getSafePageConfigurerForEks"
+          lazy-init="true"
+          depends-on="propertyConfigurer"
+          p:enabled="#{ systemProperties['epw.starter.config.enabled'] == 'false' }">
         <constructor-arg>
             <list>
                 <value>application</value>
@@ -47,38 +32,60 @@ epwconfig.xml:
         </constructor-arg>
         <constructor-arg value="pcap"/>
     </bean>
-    <bean id="env" class="org.springframework.core.env.StandardEnvironment"/>
-    <bean id="epwconfig" class="com.empower.epw.starter.config.store.EpwConfigServiceBootstrapConfiguration">
+
+    <!-- Conditionally Load EPW Starter -->
+    <bean id="epwconfig" class="com.empower.epw.starter.config.store.EpwConfigServiceBootstrapConfiguration"
+          lazy-init="true"
+          depends-on="propertyConfigurer"
+          p:enabled="#{ systemProperties['epw.starter.config.enabled'] == 'true' }">
         <constructor-arg ref="env"/>
     </bean>
+
+    <bean id="env" class="org.springframework.core.env.StandardEnvironment"/>
 </beans>
 
-code snippet which uses the flag:
-	private boolean safepageConfig = true;
 
-	private CfgStoreLoader()
-	{
+package com.empower.epw.account.config;
 
-	}
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ApplicationContext;
+import org.springframework.core.env.Environment;
+import org.springframework.test.context.ContextConfiguration;
 
-	public void loadProperties(Properties configStoreProperties)
-	{
-		if (System.getProperty("epw.starter.config.enabled") != null)
-		{
-			safepageConfig = Boolean.valueOf(System.getProperty("epw.starter.config.enabled"));
-		}
-		if (safepageConfig)
-			return;
+@SpringBootTest
+@ContextConfiguration(locations = "classpath:epwconfig.xml")
+public class PcapConfigPoCLatest {
 
-observation:
-spring.cloud.config.enabled	|epw.starter.config.enabled|	spring.profiles.active|	user value output
-FALSE	| FALSE	|default	|acct_app_devtrunk
-FALSE |	TRUE	|default|	${epw.account.datasource.username}
-FALSE |	TRUE	|local	|${epw.account.datasource.username}
-FALSE |	FALSE |	local	|acct_app_devtrunk
-TRUE |	FALSE	|default	|acct_app_devtrunk
-TRUE |	TRUE	|default|	${epw.account.datasource.username}
-TRUE	| TRUE	|local	|${epw.account.datasource.username}
-TRUE| 	FALSE	|local|	acct_app_devtrunk
+    @Autowired
+    private Environment environment;
 
-when epw.starter.config.enabled = true, previously it wasn't giving me any issue, but now. the output is ${epw.account.datasource.username}
+    @Autowired
+    private ApplicationContext context;
+
+    @Value("${epw.account.datasource.username:NOT_FOUND}")
+    private String user;
+
+    @Test
+    public void testBeanLoaded() {
+        if (context.containsBean("safePageConfigurer")) {
+            System.out.println("[TEST] ✅ SafePageConfigurer is ACTIVE");
+        } else if (context.containsBean("epwconfig")) {
+            System.out.println("[TEST] ✅ EPW Starter is ACTIVE");
+        } else {
+            System.out.println("[TEST] ❌ No expected beans are loaded!");
+        }
+    }
+
+    @Test
+    public void loadPropertyFromConfig() {
+        String resolvedUser = environment.getProperty("epw.account.datasource.username", "NOT_FOUND");
+        System.out.println("[TEST DEBUG] Loaded Property in Test: " + resolvedUser);
+
+        Assertions.assertNotEquals("NOT_FOUND", resolvedUser, "Property should have been resolved!");
+        Assertions.assertEquals("acct_app_devtrunk", resolvedUser);
+    }
+}
