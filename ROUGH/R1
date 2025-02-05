@@ -1,2 +1,24 @@
-✅ SafePageConfigurer is from a non-Spring project and is not a Spring-managed bean, so Spring cannot autowire it or use it within @SpringBootTest.
-✅ Since it's not a bean, Spring does not execute its methods automatically, meaning it won't load properties unless explicitly called.
+package com.personalcapital.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class PropertiesLoader
+{
+	private static final String[] MODULES =
+	{
+			"application"
+	};
+	private static final String[] LOCAL_MODULES =
+	{
+			"application-override.properties"
+	};
+
+	@Bean
+	public static SafePageConfigurer safePageConfigurer() throws Exception
+	{
+
+		return SafePageConfigurer.getSafePageConfigurerForEks(MODULES, LOCAL_MODULES, "pcap");
+	}
+}
