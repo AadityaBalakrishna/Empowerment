@@ -1,3 +1,6 @@
+i want to include this in the xml file:
+how do i do it?:
+
 package com.personalcapital.config;
 
 import org.springframework.context.annotation.Bean;
@@ -22,3 +25,14 @@ public class PropertiesLoader
 		return SafePageConfigurer.getSafePageConfigurerForEks(MODULES, LOCAL_MODULES, "pcap");
 	}
 }
+
+existing xml file:
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+    <bean id="env" class="org.springframework.core.env.StandardEnvironment"/>
+    <bean id="epwconfig" class="com.empower.epw.starter.config.store.EpwConfigServiceBootstrapConfiguration">
+        <constructor-arg ref="env"/>
+    </bean>
+</beans>
