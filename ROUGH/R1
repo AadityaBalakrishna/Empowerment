@@ -1,581 +1,222 @@
-package com.personalcapital.config;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Properties;
-import java.util.concurrent.CompletableFuture;
-
-import org.springframework.beans.factory.config.PropertyPlaceholderConfigurer;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.core.io.FileSystemResource;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.support.PropertiesLoaderUtils;
-
-import com.personalcapital.log.PcapLogger;
-import com.personalcapital.log.PcapLoggerFactory;
-import com.safepage.util.BaseUtils;
-
-/**
- * @author Fritz
- */
-
-/**
- * Initial property configuration for SafePage webapp. Reads in a set of modules from
- * safepage.properties file and uses the settings for these to drive the specific module properties
- * to read. For example, if safepage.properties file specifies yodlee.target=test, this says use the
- * "test" config for module "yodlee". In the WEB-INF/classes, the property files that following the
- * naming convention {module}-{config}.properties (e.g. "yodlee-test.properties") are read in.
- */
-public class SafePageConfigurer extends PropertyPlaceholderConfigurer
-{
-	private final static PcapLogger logger = PcapLoggerFactory
-			.getPcapLogger(SafePageConfigurer.class);
-	private static final String APPLICATION_VERSION = "TRUNK";
-	private Properties newProperties = new Properties();
-	private static final String PCAP_RETAIN_SENSITIVE_DATA = "pcap.retainSensitiveData";
-	private static final String PCAP_RETAIN_SENSITIVE_DATA_VALUE_FALSE = "false";
-	protected Boolean ssmEnabled;
-	protected Boolean testApp;
-	private String[] localModules;
-	private Properties propertiesFromSSM = new Properties();
-	/*
-	 * For EKS services, used to identify the path that needs to be read from
-	 * /pcap/pcapeks/$serviceId
-	 */
-	protected String eksServiceIdentity;
-	private SSMPropertiesVerification ssmPropertiesVerification = SSMPropertiesVerification
-			.getInstance();
-
-	public SafePageConfigurer()
-	{
-		logger.info("Starting the application with version " + APPLICATION_VERSION);
-	}
-
-	/**
-	 * Takes a list of modules that we need properties for and loads up properties files based on
-	 * higher-level configuration maintained at the level of the container that we are running in.
-	 * This method is specifically written to be used in a Tomcat context, since it assumes
-	 * catalina.home system property is set.
-	 * 
-	 * @param moduleNames
-	 *            The set of modules that we want properties for.
-	 * @throws Exception
-	 */
-	public void setModules(String[] moduleNames) throws Exception
-	{
-		Properties containerProperties = null;
-		File containerPropertiesFile = null;
-		Integer appCount = 0;
-		// See if
-		String catalinaHome = System.getProperty("catalina.home");
-		if (BaseUtils.isNull(catalinaHome))
-		{
-			logger.warn(
-					"'catalina.home' property is not set. skipping servlet container overrides");
-		}
-		else
-		{
-			File catalinaConfDir = new File(catalinaHome, "conf");
-			String catalinaConfDirPath = catalinaConfDir.getCanonicalPath();
-			containerPropertiesFile = new File(catalinaConfDir, "safepage.properties");
-			if (catalinaConfDir.exists() && containerPropertiesFile.exists())
-			{
-				logger.info("Using safepage.properties file from: " + catalinaConfDirPath);
-				try (InputStream confInput = new FileInputStream(containerPropertiesFile);)
-				{
-					containerProperties = new Properties();
-					containerProperties.load(confInput);
-					for (Map.Entry<Object, Object> mapEntry : containerProperties.entrySet())
-					{
-						String key = (String) mapEntry.getKey();
-						if (key.equals("pcap.app.count"))
-						{
-							appCount = Integer.parseInt((String) mapEntry.getValue());
-							logger.info("Initial App Count :{}",
-									containerProperties.getProperty("pcap.app.count"));
-						}
-						if (key.endsWith(".sensitive"))
-						{
-							String value = (String) mapEntry.getValue();
-							String newKey = key.substring(0, key.lastIndexOf('.'));
-							String decryptedValue = value;// decrypt here
-							newProperties.setProperty(newKey, decryptedValue);
-						}
-					}
-				}
-				if (appCount != null)
-				{
-					try (FileOutputStream fout = new FileOutputStream(containerPropertiesFile);)
-					{
-						appCount = appCount - 1;
-						containerProperties.setProperty("pcap.app.count", String.valueOf(appCount));
-						containerProperties.store(fout, "---Changed app count---");
-						logger.info("App Count changed:{}",
-								containerProperties.getProperty("pcap.app.count"));
-					}
-				}
-
-				boolean safePagePropertyOverride = false;
-				if (appCount != null && appCount == 0)
-				{
-					safePagePropertyOverride = true;
-				}
-
-				if (containerProperties.get(PCAP_RETAIN_SENSITIVE_DATA) == null
-						|| (containerProperties.get(PCAP_RETAIN_SENSITIVE_DATA) != null
-								&& ((PCAP_RETAIN_SENSITIVE_DATA_VALUE_FALSE)
-										.equals(containerProperties
-												.getProperty(PCAP_RETAIN_SENSITIVE_DATA)))))
-				{
-					if (safePagePropertyOverride && !newProperties.isEmpty())
-					{
-						try (FileOutputStream fout = new FileOutputStream(containerPropertiesFile);)
-						{
-							for (Map.Entry<Object, Object> mapEntry : newProperties.entrySet())
-							{
-								String key = (String) mapEntry.getKey();
-								containerProperties.remove(key + ".sensitive");
-							}
-							containerProperties.store(fout, "---Removed sensitive details---");
-						}
-					}
-				}
-				// PLAT-765; 1.At this point all safepage properties are loaded, copy them for
-				// compare
-				if (!isTestApp())
-				{
-					ssmPropertiesVerification.setSafepageProperties(containerProperties);
-				}
-			}
-			else
-			{
-				logger.warn("No safepage.properties found in: " + catalinaConfDirPath);
-			}
-		}
-
-		List<Resource> resources = new ArrayList<Resource>(moduleNames.length + 1);
-		for (int i = 0; i < moduleNames.length; i++)
-		{
-			String moduleName = moduleNames[i];
-			addClassPathResource(resources, moduleName + ".properties");
-			// overlay target specific properties on top
-			if (containerProperties != null)
-			{
-				String moduleTarget = containerProperties.getProperty(moduleName + ".target");
-				String modulePath = moduleName
-						+ (BaseUtils.isNotNull(moduleTarget) ? ("-" + moduleTarget) : "")
-						+ ".properties";
-				addClassPathResource(resources, modulePath);
-			}
-		}
-
-		addFileSystemResource(resources, containerPropertiesFile);
-
-		Resource[] resourceArray = resources.toArray(new Resource[resources.size()]);
-		this.setLocations(resourceArray);
-	}
-
-	@Override
-	protected void loadProperties(Properties props) throws IOException
-	{
-		Properties configStoreProperties = new Properties();
-		super.loadProperties(props);
-		if (!this.newProperties.isEmpty())
-		{
-			props.putAll(this.newProperties);
-			// PLAT-1040
-			if (!isTestApp())
-			{
-				ssmPropertiesVerification.getSafepageProperties()
-						.putAll(newProperties);
-			}
-			logger.debug("Properties loaded :" + props);
-		}
-
-		CfgStoreLoader.getInstance()
-				.loadProperties(configStoreProperties);
-
-		if (isSsmEnabled() && !isTestApp())
-		{
-			if (configStoreProperties.size() > 0)
-			{
-				props.putAll(configStoreProperties);
-			}
-			// Load properties from SSM
-			getSSMConfigurer().loadProperties(propertiesFromSSM);
-			if (propertiesFromSSM.size() > 0)
-			{
-				props.putAll(propertiesFromSSM);
-			}
-			// PLAT-765; 3. Compare properties loaded from spp and ssm
-		}
-
-		logger.info("Final App Count :{}", props.getProperty("pcap.app.count"));
-
-		/*
-		 * Get Current environment properties
-		 */
-		Properties filteredEnvironmentProperties = getFilteredEnvironmentProperties();
-		logger.info("Reading Enviroment Properties: " + filteredEnvironmentProperties);
-		// overriding the values
-		props.putAll(filteredEnvironmentProperties);
-	}
-
-	/**
-	 * Removes java and user variables
-	 * 
-	 * @return
-	 */
-	private static Properties getFilteredEnvironmentProperties()
-	{
-		Properties filteredProperties = new Properties();
-		Iterator<Object> keys = System.getProperties()
-				.keySet()
-				.iterator();
-		while (keys.hasNext())
-		{
-			String key = (String) keys.next();
-			if (key.startsWith("java") || key.startsWith("sun") || key.startsWith("user")
-					|| key.startsWith("surefire") || key.startsWith("awt"))
-			{
-				continue;
-			}
-			filteredProperties.setProperty(key, System.getProperty(key));
-		}
-		return filteredProperties;
-	}
-
-	/*
-	 * Load and initialize only once, handled by getInstance
-	 */
-	private SSMConfigurer getSSMConfigurer()
-	{
-		SSMConfigurer ssmConfigurer = SSMConfigurer.getInstance();
-		ssmConfigurer.setSsmEnabled(isSsmEnabled());
-		ssmConfigurer.setTestApp(isTestApp());
-		// only for EKS services
-		ssmConfigurer.setEksServiceIdentity(getEksServiceIdentity());
-		return ssmConfigurer;
-	}
-
-	private boolean addFileSystemResource(List<Resource> resources, File resourceFile)
-	{
-		if (resourceFile == null)
-			return false;
-
-		Resource resource = new FileSystemResource(resourceFile);
-		if (!resource.exists())
-		{
-			logger.warn("file system resource " + resourceFile.getAbsolutePath() + " not found");
-
-			return false;
-		}
-
-		resources.add(resource);
-
-		logger.info("added file system resource " + resourceFile.getAbsolutePath());
-		return true;
-	}
-
-	private Properties[] getLocalProperties()
-	{
-		Properties[] localProperties = null;
-
-		logger.info("Local Properties being initialized");
-		if (localModules == null)
-		{
-			throw new IllegalArgumentException(
-					"localModules cannot be null when isLocalOverride is true");
-		}
-
-		localProperties = Arrays.stream(localModules)
-				.map(localPropertyClassPathResource ->
-				{
-					try
-					{
-						Properties prop = PropertiesLoaderUtils
-								.loadAllProperties(localPropertyClassPathResource + ".properties");
-						return prop;
-					}
-					catch (final IOException e)
-					{
-						logger.error("Couldn't load local property file : {}, Exception: {}",
-								localPropertyClassPathResource, e.getMessage());
-						return null;
-					}
-				})
-				.filter(Objects::nonNull)
-				.toArray(Properties[]::new);
-
-		return localProperties;
-	}
-
-	private boolean addClassPathResource(List<Resource> resources, String resourcePath)
-	{
-		Resource resource = new ClassPathResource(resourcePath);
-		if (!resource.exists())
-		{
-			logger.warn("classpath resource " + resourcePath + " not found");
-
-			return false;
-		}
-		resources.add(resource);
-
-		logger.info("added classpath resource " + resourcePath);
-		return true;
-	}
-
-	public Boolean isSsmEnabled()
-	{
-		if (this.ssmEnabled == null)
-		{
-			return false;
-		}
-		return ssmEnabled;
-	}
-
-	public void setSsmEnabled(boolean ssmEnabled)
-	{
-		this.ssmEnabled = ssmEnabled;
-	}
-
-	public void setLocalModules(String[] localModules)
-	{
-		this.localModules = localModules;
-	}
-
-	public String[] getLocalModules()
-	{
-		return this.localModules;
-	}
-
-	public boolean isTestApp()
-	{
-		if (this.testApp == null)
-		{
-			return false;
-		}
-		return testApp;
-	}
-
-	public void setTestApp(boolean testApp)
-	{
-		this.testApp = testApp;
-	}
-
-	public String getEksServiceIdentity()
-	{
-		return eksServiceIdentity;
-	}
-
-	public void setEksServiceIdentity(String eksServiceIdentity)
-	{
-		this.eksServiceIdentity = eksServiceIdentity;
-	}
-
-	/**
-	 * Whether to use local files for override
-	 */
-	private static boolean isLocalOverride()
-	{
-		String profileList = System.getProperty("spring.profiles.active");
-		if (profileList != null)
-		{
-			String[] profiles = profileList.split(",");
-			for (String profile : profiles)
-			{
-				if ("local".equals(profile))
-					return true;
-			}
-		}
-
-		return false;
-	}
-
-	/**
-	 * Gives SafepageConfigurer for use based on set properties
-	 * 
-	 * @param modules
-	 * @param localModules
-	 * @return
-	 * @throws Exception
-	 */
-	public static SafePageConfigurer getSafePageConfigurerForEks(String[] modules,
-			String[] localModules, String eksServiceIdentity) throws Exception
-	{
-		return getSafePageConfigurerForEks(modules, localModules, eksServiceIdentity,
-				isLocalOverride());
-	}
-
-	/**
-	 * Gives SafepageConfigurer for use based on set properties
-	 * 
-	 * @param modules
-	 * @param localModules
-	 * @return
-	 * @throws Exception
-	 */
-	public static SafePageConfigurer getSafePageConfigurerForEks(String[] modules,
-			String[] localModules, String eksServiceIdentity, boolean isLocalOverride)
-			throws Exception
-	{
-		if (BaseUtils.isNullOrNull(eksServiceIdentity))
-		{
-			throw new IllegalArgumentException("eksServiceIdentity cannot be null");
-		}
-
-		final SafePageConfigurer safePageConfigurer = new SafePageConfigurer();
-		safePageConfigurer.setTestApp(false);
-		safePageConfigurer.setSsmEnabled(true);
-		// ignore placeholders not matched
-		safePageConfigurer.setIgnoreUnresolvablePlaceholders(true);
-		safePageConfigurer.setLocalOverride(isLocalOverride);
-		// PCB-173- Read EKS SSM path for Db credentials
-		safePageConfigurer.setEksServiceIdentity(eksServiceIdentity);
-
-		if (modules == null)
-		{
-			throw new IllegalArgumentException("modules cannot be null");
-		}
-		safePageConfigurer.setModules(modules);
-
-		Properties[] localProperties = new Properties[1];
-		if (isLocalOverride)
-		{
-			logger.info("Local Properties being initialized");
-			if (localModules == null)
-			{
-				throw new IllegalArgumentException(
-						"localModules cannot be null when isLocalOverride is true");
-			}
-			localProperties = new Properties[localModules.length + 1];
-			localProperties = Arrays.stream(localModules)
-					.map(localPropertyClassPathResource ->
-					{
-						try
-						{
-							return PropertiesLoaderUtils
-									.loadAllProperties(localPropertyClassPathResource);
-						}
-						catch (final IOException e)
-						{
-							logger.error("Couldn't load local property file : {}, Exception: {}",
-									localPropertyClassPathResource, e.getMessage());
-							return null;
-						}
-					})
-					.filter(Objects::nonNull)
-					.toArray(Properties[]::new);
-		}
-
-		safePageConfigurer.setPropertiesArray(localProperties);
-		return safePageConfigurer;
-	}
-
-}
-
-
-package com.personalcapital.config;
+package com.empower.epw.account.config;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.test.context.SpringBootTest;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import com.empower.epw.starter.config.store.EpwConfigServiceBootstrapConfiguration;
+import com.personalcapital.config.CfgStoreResponse;
+import com.personalcapital.config.SafePageConfigurer;
 
-public class CfgStoreLoaderTest
+@SpringBootTest(classes = {EpwConfigServiceBootstrapConfiguration.class, SafePageConfigurer.class, CfgStoreResponse.class})
+public class PcapConfigPoCLatest
 {
+	@Value("${epw.account.datasource.username}")
+	private String user;
 
 	@Test
-	public void generateProfiles_whenIdentityStageDevstaging1_returnDevstaging1Profile()
-	{
-		Assertions.assertEquals("devshared,devstaging,devstaging1", CfgStoreLoader.getInstance()
-				.generateProfiles("dev", "devstaging1", "devstaging"));
-	}
-
-	@Test
-	public void generateProfiles_whenIdentityParentStageIsNull_returnEPStagingProfile()
-	{
-		Assertions.assertEquals("epprodshared,epstaging1", CfgStoreLoader.getInstance()
-				.generateProfiles("epprod", "epstaging1", null));
-	}
-
-	@Test
-	public void generateProfiles_whenIdentityStageProd_returnProdProfile()
-	{
-		Assertions.assertEquals("prodshared,prod", CfgStoreLoader.getInstance()
-				.generateProfiles("prod", "prod", ""));
-	}
-
-	@Test
-	public void generateProfiles_whenIdentityStagePStaging_returnPStagingProfile()
-	{
-		Assertions.assertEquals("prodshared,staging", CfgStoreLoader.getInstance()
-				.generateProfiles("prod", "staging", ""));
-	}
-
-	@Test
-	public void generateProfiles_whenIdentityStageQAStaging_returnQAStagingProfile()
-	{
-		Assertions.assertEquals("devshared,qastaging", CfgStoreLoader.getInstance()
-				.generateProfiles("dev", "qastaging", ""));
-	}
-
-	@Test
-	public void generateProfiles_whenIdentityStageIsNull_ThrowException()
-	{
-		assertThrows(IllegalArgumentException.class, () ->
-		{
-			CfgStoreLoader.getInstance()
-					.generateProfiles("dev", null, "");
-		});
-	}
-
-	@Test
-	public void generateProfiles_whenIdentityStageIsEmpty_ThrowException()
-	{
-		assertThrows(IllegalArgumentException.class, () ->
-		{
-			CfgStoreLoader.getInstance()
-					.generateProfiles("dev", "", "");
-		});
-	}
-
-	@Test
-	public void generateProfiles_whenAwsAccountIsNull_returnNull()
-	{
-		assertThrows(IllegalArgumentException.class, () ->
-		{
-			CfgStoreLoader.getInstance()
-					.generateProfiles(null, "qastaging", "");
-		});
-	}
-
-	@Test
-	public void generateProfiles_whenAwsAccountIsEmpty_ThrowException()
-	{
-		assertThrows(IllegalArgumentException.class, () ->
-		{
-			CfgStoreLoader.getInstance()
-					.generateProfiles("", "qastaging", "");
-		});
-	}
-
-	@Test
-	public void generateProfiles_whenBothAwsAccountAndIdentityStageNull_ThrowException()
-	{
-		assertThrows(IllegalArgumentException.class, () ->
-		{
-			CfgStoreLoader.getInstance()
-					.generateProfiles(null, null, "");
-		});
+	public void loadfromdevtrunkpcap()	{
+		Assertions.assertEquals("pcap_app_2", user);
 	}
 }
+
+Error creating bean with name 'com.empower.epw.account.config.PcapConfigPoCLatest': Injection of autowired dependencies failed
+org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'com.empower.epw.account.config.PcapConfigPoCLatest': Injection of autowired dependencies failed
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor.postProcessProperties(AutowiredAnnotationBeanPostProcessor.java:514)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1421)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireBeanProperties(AbstractAutowireCapableBeanFactory.java:398)
+	at org.springframework.test.context.support.DependencyInjectionTestExecutionListener.injectDependencies(DependencyInjectionTestExecutionListener.java:143)
+	at org.springframework.test.context.support.DependencyInjectionTestExecutionListener.prepareTestInstance(DependencyInjectionTestExecutionListener.java:98)
+	at org.springframework.test.context.TestContextManager.prepareTestInstance(TestContextManager.java:260)
+	at org.springframework.test.context.junit.jupiter.SpringExtension.postProcessTestInstance(SpringExtension.java:163)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.lambda$invokeTestInstancePostProcessors$10(ClassBasedTestDescriptor.java:378)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.executeAndMaskThrowable(ClassBasedTestDescriptor.java:383)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.lambda$invokeTestInstancePostProcessors$11(ClassBasedTestDescriptor.java:378)
+	at java.base/java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:197)
+	at java.base/java.util.stream.ReferencePipeline$2$1.accept(ReferencePipeline.java:179)
+	at java.base/java.util.ArrayList$ArrayListSpliterator.forEachRemaining(ArrayList.java:1708)
+	at java.base/java.util.stream.AbstractPipeline.copyInto(AbstractPipeline.java:509)
+	at java.base/java.util.stream.AbstractPipeline.wrapAndCopyInto(AbstractPipeline.java:499)
+	at java.base/java.util.stream.StreamSpliterators$WrappingSpliterator.forEachRemaining(StreamSpliterators.java:310)
+	at java.base/java.util.stream.Streams$ConcatSpliterator.forEachRemaining(Streams.java:735)
+	at java.base/java.util.stream.Streams$ConcatSpliterator.forEachRemaining(Streams.java:734)
+	at java.base/java.util.stream.ReferencePipeline$Head.forEach(ReferencePipeline.java:762)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.invokeTestInstancePostProcessors(ClassBasedTestDescriptor.java:377)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.lambda$instantiateAndPostProcessTestInstance$6(ClassBasedTestDescriptor.java:290)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.instantiateAndPostProcessTestInstance(ClassBasedTestDescriptor.java:289)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.lambda$testInstancesProvider$4(ClassBasedTestDescriptor.java:279)
+	at java.base/java.util.Optional.orElseGet(Optional.java:364)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.lambda$testInstancesProvider$5(ClassBasedTestDescriptor.java:278)
+	at org.junit.jupiter.engine.execution.TestInstancesProvider.getTestInstances(TestInstancesProvider.java:31)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.lambda$prepare$0(TestMethodTestDescriptor.java:106)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.prepare(TestMethodTestDescriptor.java:105)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.prepare(TestMethodTestDescriptor.java:69)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$prepare$2(NodeTestTask.java:123)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.prepare(NodeTestTask.java:123)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:90)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:155)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:141)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:139)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:138)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:95)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:155)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:141)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:139)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:138)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:95)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.submit(SameThreadHierarchicalTestExecutorService.java:35)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestExecutor.execute(HierarchicalTestExecutor.java:57)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestEngine.execute(HierarchicalTestEngine.java:54)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:107)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:88)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.lambda$execute$0(EngineExecutionOrchestrator.java:54)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.withInterceptedStreams(EngineExecutionOrchestrator.java:67)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:52)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:114)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:86)
+	at org.junit.platform.launcher.core.DefaultLauncherSession$DelegatingLauncher.execute(DefaultLauncherSession.java:86)
+	at org.gradle.api.internal.tasks.testing.junitplatform.JUnitPlatformTestClassProcessor$CollectAllTestClassesExecutor.processAllTestClasses(JUnitPlatformTestClassProcessor.java:119)
+	at org.gradle.api.internal.tasks.testing.junitplatform.JUnitPlatformTestClassProcessor$CollectAllTestClassesExecutor.access$000(JUnitPlatformTestClassProcessor.java:94)
+	at org.gradle.api.internal.tasks.testing.junitplatform.JUnitPlatformTestClassProcessor.stop(JUnitPlatformTestClassProcessor.java:89)
+	at org.gradle.api.internal.tasks.testing.SuiteTestClassProcessor.stop(SuiteTestClassProcessor.java:62)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.gradle.internal.dispatch.ReflectionDispatch.dispatch(ReflectionDispatch.java:36)
+	at org.gradle.internal.dispatch.ReflectionDispatch.dispatch(ReflectionDispatch.java:24)
+	at org.gradle.internal.dispatch.ContextClassLoaderDispatch.dispatch(ContextClassLoaderDispatch.java:33)
+	at org.gradle.internal.dispatch.ProxyDispatchAdapter$DispatchingInvocationHandler.invoke(ProxyDispatchAdapter.java:94)
+	at jdk.proxy2/jdk.proxy2.$Proxy5.stop(Unknown Source)
+	at org.gradle.api.internal.tasks.testing.worker.TestWorker$3.run(TestWorker.java:193)
+	at org.gradle.api.internal.tasks.testing.worker.TestWorker.executeAndMaintainThreadName(TestWorker.java:129)
+	at org.gradle.api.internal.tasks.testing.worker.TestWorker.execute(TestWorker.java:100)
+	at org.gradle.api.internal.tasks.testing.worker.TestWorker.execute(TestWorker.java:60)
+	at org.gradle.process.internal.worker.child.ActionExecutionWorker.execute(ActionExecutionWorker.java:56)
+	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:113)
+	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:65)
+	at worker.org.gradle.process.internal.worker.GradleWorkerMain.run(GradleWorkerMain.java:69)
+	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
+Caused by: java.lang.IllegalArgumentException: Could not resolve placeholder 'epw.account.datasource.username' in value "${epw.account.datasource.username}"
+	at org.springframework.util.PropertyPlaceholderHelper.parseStringValue(PropertyPlaceholderHelper.java:180)
+	at org.springframework.util.PropertyPlaceholderHelper.replacePlaceholders(PropertyPlaceholderHelper.java:126)
+	at org.springframework.beans.factory.config.PropertyPlaceholderConfigurer$PlaceholderResolvingStringValueResolver.resolveStringValue(PropertyPlaceholderConfigurer.java:244)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.resolveEmbeddedValue(AbstractBeanFactory.java:964)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1374)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1353)
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:784)
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.inject(AutowiredAnnotationBeanPostProcessor.java:767)
+	at org.springframework.beans.factory.annotation.InjectionMetadata.inject(InjectionMetadata.java:145)
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor.postProcessProperties(AutowiredAnnotationBeanPostProcessor.java:508)
+	... 85 more
+
+
+Could not resolve placeholder 'epw.account.datasource.username' in value "${epw.account.datasource.username}"
+java.lang.IllegalArgumentException: Could not resolve placeholder 'epw.account.datasource.username' in value "${epw.account.datasource.username}"
+	at org.springframework.util.PropertyPlaceholderHelper.parseStringValue(PropertyPlaceholderHelper.java:180)
+	at org.springframework.util.PropertyPlaceholderHelper.replacePlaceholders(PropertyPlaceholderHelper.java:126)
+	at org.springframework.beans.factory.config.PropertyPlaceholderConfigurer$PlaceholderResolvingStringValueResolver.resolveStringValue(PropertyPlaceholderConfigurer.java:244)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.resolveEmbeddedValue(AbstractBeanFactory.java:964)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1374)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1353)
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:784)
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.inject(AutowiredAnnotationBeanPostProcessor.java:767)
+	at org.springframework.beans.factory.annotation.InjectionMetadata.inject(InjectionMetadata.java:145)
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor.postProcessProperties(AutowiredAnnotationBeanPostProcessor.java:508)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1421)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireBeanProperties(AbstractAutowireCapableBeanFactory.java:398)
+	at org.springframework.test.context.support.DependencyInjectionTestExecutionListener.injectDependencies(DependencyInjectionTestExecutionListener.java:143)
+	at org.springframework.test.context.support.DependencyInjectionTestExecutionListener.prepareTestInstance(DependencyInjectionTestExecutionListener.java:98)
+	at org.springframework.test.context.TestContextManager.prepareTestInstance(TestContextManager.java:260)
+	at org.springframework.test.context.junit.jupiter.SpringExtension.postProcessTestInstance(SpringExtension.java:163)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.lambda$invokeTestInstancePostProcessors$10(ClassBasedTestDescriptor.java:378)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.executeAndMaskThrowable(ClassBasedTestDescriptor.java:383)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.lambda$invokeTestInstancePostProcessors$11(ClassBasedTestDescriptor.java:378)
+	at java.base/java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:197)
+	at java.base/java.util.stream.ReferencePipeline$2$1.accept(ReferencePipeline.java:179)
+	at java.base/java.util.ArrayList$ArrayListSpliterator.forEachRemaining(ArrayList.java:1708)
+	at java.base/java.util.stream.AbstractPipeline.copyInto(AbstractPipeline.java:509)
+	at java.base/java.util.stream.AbstractPipeline.wrapAndCopyInto(AbstractPipeline.java:499)
+	at java.base/java.util.stream.StreamSpliterators$WrappingSpliterator.forEachRemaining(StreamSpliterators.java:310)
+	at java.base/java.util.stream.Streams$ConcatSpliterator.forEachRemaining(Streams.java:735)
+	at java.base/java.util.stream.Streams$ConcatSpliterator.forEachRemaining(Streams.java:734)
+	at java.base/java.util.stream.ReferencePipeline$Head.forEach(ReferencePipeline.java:762)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.invokeTestInstancePostProcessors(ClassBasedTestDescriptor.java:377)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.lambda$instantiateAndPostProcessTestInstance$6(ClassBasedTestDescriptor.java:290)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.instantiateAndPostProcessTestInstance(ClassBasedTestDescriptor.java:289)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.lambda$testInstancesProvider$4(ClassBasedTestDescriptor.java:279)
+	at java.base/java.util.Optional.orElseGet(Optional.java:364)
+	at org.junit.jupiter.engine.descriptor.ClassBasedTestDescriptor.lambda$testInstancesProvider$5(ClassBasedTestDescriptor.java:278)
+	at org.junit.jupiter.engine.execution.TestInstancesProvider.getTestInstances(TestInstancesProvider.java:31)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.lambda$prepare$0(TestMethodTestDescriptor.java:106)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.prepare(TestMethodTestDescriptor.java:105)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.prepare(TestMethodTestDescriptor.java:69)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$prepare$2(NodeTestTask.java:123)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.prepare(NodeTestTask.java:123)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:90)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:155)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:141)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:139)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:138)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:95)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:155)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:141)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:139)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:138)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:95)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.submit(SameThreadHierarchicalTestExecutorService.java:35)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestExecutor.execute(HierarchicalTestExecutor.java:57)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestEngine.execute(HierarchicalTestEngine.java:54)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:107)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:88)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.lambda$execute$0(EngineExecutionOrchestrator.java:54)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.withInterceptedStreams(EngineExecutionOrchestrator.java:67)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:52)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:114)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:86)
+	at org.junit.platform.launcher.core.DefaultLauncherSession$DelegatingLauncher.execute(DefaultLauncherSession.java:86)
+	at org.gradle.api.internal.tasks.testing.junitplatform.JUnitPlatformTestClassProcessor$CollectAllTestClassesExecutor.processAllTestClasses(JUnitPlatformTestClassProcessor.java:119)
+	at org.gradle.api.internal.tasks.testing.junitplatform.JUnitPlatformTestClassProcessor$CollectAllTestClassesExecutor.access$000(JUnitPlatformTestClassProcessor.java:94)
+	at org.gradle.api.internal.tasks.testing.junitplatform.JUnitPlatformTestClassProcessor.stop(JUnitPlatformTestClassProcessor.java:89)
+	at org.gradle.api.internal.tasks.testing.SuiteTestClassProcessor.stop(SuiteTestClassProcessor.java:62)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.gradle.internal.dispatch.ReflectionDispatch.dispatch(ReflectionDispatch.java:36)
+	at org.gradle.internal.dispatch.ReflectionDispatch.dispatch(ReflectionDispatch.java:24)
+	at org.gradle.internal.dispatch.ContextClassLoaderDispatch.dispatch(ContextClassLoaderDispatch.java:33)
+	at org.gradle.internal.dispatch.ProxyDispatchAdapter$DispatchingInvocationHandler.invoke(ProxyDispatchAdapter.java:94)
+	at jdk.proxy2/jdk.proxy2.$Proxy5.stop(Unknown Source)
+	at org.gradle.api.internal.tasks.testing.worker.TestWorker$3.run(TestWorker.java:193)
+	at org.gradle.api.internal.tasks.testing.worker.TestWorker.executeAndMaintainThreadName(TestWorker.java:129)
+	at org.gradle.api.internal.tasks.testing.worker.TestWorker.execute(TestWorker.java:100)
+	at org.gradle.api.internal.tasks.testing.worker.TestWorker.execute(TestWorker.java:60)
+	at org.gradle.process.internal.worker.child.ActionExecutionWorker.execute(ActionExecutionWorker.java:56)
+	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:113)
+	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:65)
+	at worker.org.gradle.process.internal.worker.GradleWorkerMain.run(GradleWorkerMain.java:69)
+	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
