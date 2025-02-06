@@ -48,3 +48,13 @@ xml file:
 -Didentity.stage=devtrunk
 
 vm args i use to make it work
+
+<bean id="propertyConfigurer" class="org.springframework.context.support.PropertySourcesPlaceholderConfigurer">
+    <property name="locations">
+        <list>
+            <value>classpath:application.properties</value>
+            <value>classpath:application-override.properties</value>
+        </list>
+    </property>
+</bean>
+
