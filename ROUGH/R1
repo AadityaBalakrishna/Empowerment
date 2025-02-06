@@ -40,3 +40,7 @@ xml file:
         <constructor-arg value="pcap"/>
     </bean>
 </beans>
+
+    <bean id="propertyConfigurer" class="org.springframework.context.support.PropertySourcesPlaceholderConfigurer">
+        <property name="location" value="classpath:application.properties"/>
+    </bean>
