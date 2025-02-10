@@ -1,1 +1,84 @@
-rough work
+package com.empower.epw.core.dataprep.interceptor;
+
+import java.util.Map;
+
+import org.apache.kafka.clients.producer.ProducerInterceptor;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
+import org.springframework.kafka.support.KafkaUtils;
+
+import com.empower.dataprep.domain.ResultEvent;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+import io.micrometer.core.instrument.Metrics;
+import lombok.AllArgsConstructor;
+
+import static com.empower.epw.core.dataprep.util.DataPrepUtil.LISTENER_GROUP;
+
+@AllArgsConstructor
+public class DataPrepProducerInterceptor implements ProducerInterceptor<String, String>
+{
+	public static final String APPLY_EVENT_VIOLATION_COUNTER = "dataprep.listener.violation.apply";
+	public static final String EVENT_STATUS_VIOLATION_COUNTER = "dataprep.listener.violation.status";
+	public static final String EVENT_PARSING_VIOLATION_COUNTER = "dataprep.listener.violation.parsing";
+	private static final PcapLogger log = PcapLoggerFactory
+			.getPcapLogger(DataPrepProducerInterceptor.class);
+
+	private final ObjectMapper objectMapper = new ObjectMapper();
+
+	@Override
+	public ProducerRecord<String, String> onSend(ProducerRecord<String, String> producerRecord)
+	{
+		final String consumerGroupId = KafkaUtils.getConsumerGroupId();
+		if (consumerGroupId != null)
+		{
+			producerRecord.headers()
+					.add(LISTENER_GROUP, consumerGroupId.getBytes());
+		}
+		final String topic = producerRecord.topic();
+		if (topic.endsWith("apply"))
+		{
+			Metrics.counter(APPLY_EVENT_VIOLATION_COUNTER, consumerGroupId)
+					.increment();
+			log.warn("Apply event is not allowed to be produced");
+		}
+		else if (topic.endsWith("reducer"))
+		{
+			try
+			{
+				final ResultEvent resultEvent = objectMapper.readValue(producerRecord.value(),
+						ResultEvent.class);
+				if (resultEvent.getEventStatus() == null)
+				{
+					Metrics.counter(EVENT_STATUS_VIOLATION_COUNTER, consumerGroupId)
+							.increment();
+				}
+			}
+			catch (Exception e)
+			{
+				Metrics.counter(EVENT_PARSING_VIOLATION_COUNTER, consumerGroupId)
+						.increment();
+			}
+		}
+		return producerRecord;
+	}
+
+	@Override
+	public void onAcknowledgement(RecordMetadata recordMetadata, Exception e)
+	{
+
+	}
+
+	@Override
+	public void close()
+	{
+
+	}
+
+	@Override
+	public void configure(Map<String, ?> map)
+	{
+
+	}
+}
