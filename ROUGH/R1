@@ -1,1 +1,63 @@
-rough
+Summary of doMultiCacheable()
+Extract method and arguments.
+Check if the requested data is cached.
+Return cached data if available.
+If data is missing, call the original method to fetch it from the database.
+Store newly fetched data in Redis for future use.
+Return the final result.
+Handle errors and remove cache entries if needed.
+
+Cache Failure --> If any error occurs while checking or retrieving cache values.
+logger.info("Caching on {} aborted due to an error. message: {}. stacktrace: {}",
+        pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
+
+Eviction Failure --> If cache eviction fails after a caching error.
+logger.info("Eviction on caching failure failed on {}, due to: {}, stacktrace: {}",
+        pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
+
+Data Mismatch Warning ---> If the database returns unexpected results, causing an ordering issue in cached data.
+logger.warn(
+        "Did not receive a correlated amount of data from the target method: {}. "
+                + "Result list will be unsorted and won't respect the order of the keys passed in argument.",
+        pjp.toShortString());
+
+
+apart from this, can also track, cache hit/miss/store
+
+example:
+1. Cache Failure Counter
+Metrics.counter("pcap.cache.failure", "class", pjp.getTarget().getClass().getSimpleName(),
+        "method", pjp.getSignature().getName())
+        .increment();
+
+logger.info("Caching on {} aborted due to an error. message: {}. stacktrace: {}",
+        pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
+
+2. Eviction Failure Counter
+Metrics.counter("pcap.cache.eviction.failure", "class", pjp.getTarget().getClass().getSimpleName(),
+        "method", pjp.getSignature().getName())
+        .increment();
+
+logger.info("Eviction on caching failure failed on {}, due to: {}, stacktrace: {}",
+        pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
+
+3. Data Mismatch Warning Counter
+Metrics.counter("pcap.cache.data.mismatch", "class", pjp.getTarget().getClass().getSimpleName(),
+        "method", pjp.getSignature().getName())
+        .increment();
+
+logger.warn(
+        "Did not receive a correlated amount of data from the target method: {}. "
+                + "Result list will be unsorted and won't respect the order of the keys passed in argument.",
+        pjp.toShortString());
+
+dependency:
+<dependency>
+    <groupId>io.micrometer</groupId>
+    <artifactId>micrometer-registry-datadog</artifactId>
+    <version>1.12.0</version>
+</dependency>
+
+in application.properties:
+management.metrics.export.datadog.api-key=your-api-key
+management.metrics.export.datadog.step=30s
