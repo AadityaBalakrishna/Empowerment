@@ -1,84 +1,103 @@
-package com.empower.epw.core.dataprep.interceptor;
+## **How Caching Works in `PcapMultiCacheableAdvice.java`**  
 
-import java.util.Map;
+### **1. The Aspect Intercepts Methods with `@PcapMultiCacheable`**
+- The `@Around` annotation captures any method annotated with `@PcapMultiCacheable`.  
+- It extracts method details and arguments for cache key generation.  
 
-import org.apache.kafka.clients.producer.ProducerInterceptor;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
-import org.springframework.kafka.support.KafkaUtils;
+```java
+@Around("@annotation(pcapMultiCacheable)")
+public Object doMultiCacheable(ProceedingJoinPoint pjp, PcapMultiCacheable pcapMultiCacheable) throws Throwable
+```
 
-import com.empower.dataprep.domain.ResultEvent;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.personalcapital.log.PcapLogger;
-import com.personalcapital.log.PcapLoggerFactory;
-import io.micrometer.core.instrument.Metrics;
-import lombok.AllArgsConstructor;
+---
 
-import static com.empower.epw.core.dataprep.util.DataPrepUtil.LISTENER_GROUP;
+### **2. Cache Keys Are Generated Based on Method Arguments**
+- The method's arguments are used to create a unique cache key.  
 
-@AllArgsConstructor
-public class DataPrepProducerInterceptor implements ProducerInterceptor<String, String>
-{
-	public static final String APPLY_EVENT_VIOLATION_COUNTER = "dataprep.listener.violation.apply";
-	public static final String EVENT_STATUS_VIOLATION_COUNTER = "dataprep.listener.violation.status";
-	public static final String EVENT_PARSING_VIOLATION_COUNTER = "dataprep.listener.violation.parsing";
-	private static final PcapLogger log = PcapLoggerFactory
-			.getPcapLogger(DataPrepProducerInterceptor.class);
+```java
+String cacheName = pcapMultiCacheable.value();
+String keyPrefix = pcapMultiCacheable.keyPrefix();
+CacheKeyProvider cacheKeyProvider = pcapMultiCacheable.keyProvider().getDeclaredConstructor().newInstance();
 
-	private final ObjectMapper objectMapper = new ObjectMapper();
+for (Object listKey : listKeyArg) {
+    String key = CacheUtils.generateKey(cacheName, keyPrefix,
+            cacheKeyProvider.getKeyField(listKey), otherKeyArgs);
+```
 
-	@Override
-	public ProducerRecord<String, String> onSend(ProducerRecord<String, String> producerRecord)
-	{
-		final String consumerGroupId = KafkaUtils.getConsumerGroupId();
-		if (consumerGroupId != null)
-		{
-			producerRecord.headers()
-					.add(LISTENER_GROUP, consumerGroupId.getBytes());
-		}
-		final String topic = producerRecord.topic();
-		if (topic.endsWith("apply"))
-		{
-			Metrics.counter(APPLY_EVENT_VIOLATION_COUNTER, consumerGroupId)
-					.increment();
-			log.warn("Apply event is not allowed to be produced");
-		}
-		else if (topic.endsWith("reducer"))
-		{
-			try
-			{
-				final ResultEvent resultEvent = objectMapper.readValue(producerRecord.value(),
-						ResultEvent.class);
-				if (resultEvent.getEventStatus() == null)
-				{
-					Metrics.counter(EVENT_STATUS_VIOLATION_COUNTER, consumerGroupId)
-							.increment();
-				}
-			}
-			catch (Exception e)
-			{
-				Metrics.counter(EVENT_PARSING_VIOLATION_COUNTER, consumerGroupId)
-						.increment();
-			}
-		}
-		return producerRecord;
-	}
+- The final cache key follows this format: `{cacheName}:{keyPrefix}:{argumentValue}`.  
+- This ensures each method call is uniquely identified in Redis.  
 
-	@Override
-	public void onAcknowledgement(RecordMetadata recordMetadata, Exception e)
-	{
+---
 
-	}
+### **3. Redis Is Checked for Cached Values**
+- The generated key is used to check if a value already exists in Redis.  
+- If the value is found, it is added to `keyValueMap` (cache hit).  
+- If the value is missing, it is added to `missedListKeys` (cache miss).  
 
-	@Override
-	public void close()
-	{
-
-	}
-
-	@Override
-	public void configure(Map<String, ?> map)
-	{
-
-	}
+```java
+Object cachedValue = getRedisson(redisType).getBucket(key).get();
+if (cachedValue == null || (cachedValue instanceof ObjectUtils.Null && cachedValueNullable == false)) {
+    missedListKeys.add(listKey);  // Cache miss
+} else {
+    keyValueMap.put(listKey, CacheUtils.getValue(cachedValue));  // Cache hit
 }
+```
+
+---
+
+### **4. Handling Cache Misses**
+- If all values are found in the cache, the method returns immediately.  
+- If some values are missing, the method is modified to fetch only the missing values.  
+
+```java
+if (missedListKeys != null && !missedListKeys.isEmpty()) {
+    modifiedArgs = modifiedArgs(args, listKeyArgIndex, missedListKeys);
+    final Object resultForMissed = pjp.proceed(modifiedArgs);
+```
+
+- `pjp.proceed()` calls the original method to fetch missing data from the database.  
+
+---
+
+### **5. Storing New Values in Redis**
+- The newly fetched values from the database are stored in Redis for future requests.  
+
+```java
+for (Object key : missedListKeys) {
+    String cacheKey = CacheUtils.generateKey(cacheName, keyPrefix,
+            cacheKeyProvider.getKeyField(key), otherKeyArgs);
+    getRedisson(redisType).getBucket(cacheKey)
+        .set(value == null ? ObjectUtils.NULL : value, ttlSeconds, TimeUnit.SECONDS);
+}
+```
+
+---
+
+### **6. Returning the Final Result**
+- The method combines cache hits and newly fetched values before returning the final result.  
+
+```java
+return getCollectionResult(listKeyArg, keyValueMap, collectionResult);
+```
+
+---
+
+## **Summary of the Caching Process**
+1. The method annotated with `@PcapMultiCacheable` is intercepted.  
+2. A cache key is generated using method arguments.  
+3. Redis is checked to see if a value exists.  
+4. If all values are found, they are returned immediately.  
+5. If some values are missing, the original method is called to fetch them from the database.  
+6. The newly fetched values are stored in Redis for future use.  
+7. The final result (cache hits + newly fetched values) is returned to the caller.  
+
+---
+
+## **Next Step: Adding DataDog Metrics**
+Now that the caching logic is clear, the next step is to instrument the code to track:  
+- Cache hits  
+- Cache misses  
+- Method name and class name  
+- Success or failure of the caching process  
+
+Would you like me to proceed with modifying the code to add DataDog metrics?
