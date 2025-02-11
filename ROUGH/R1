@@ -1,8 +1,79 @@
-Can you point out where these three are happening?
-
-The class on which the caching happened
-the method in which the caching happens 
-outcome of the caching (success/failure)
+Yes, these three details (class, method, outcome) are captured in each metric logging statement within PcapMultiCacheableAdvice.java. Here’s where they are included:
 
 
+---
+
+1️⃣ The Class on Which the Caching Happened
+
+📍 Captured using:
+
+pjp.getTarget().getClass().getSimpleName()
+
+📍 Where it appears:
+
+In every Metrics.counter() call:
+
+Metrics.counter(CACHE_HIT_METRIC, 
+                "class", pjp.getTarget().getClass().getSimpleName(),
+                "method", pjp.getSignature().getName(),
+                "outcome", "hit").increment();
+
+
+
+---
+
+2️⃣ The Method in Which the Caching Happens
+
+📍 Captured using:
+
+pjp.getSignature().getName()
+
+📍 Where it appears:
+
+In every Metrics.counter() call:
+
+Metrics.counter(CACHE_MISS_METRIC, 
+                "class", pjp.getTarget().getClass().getSimpleName(),
+                "method", pjp.getSignature().getName(),
+                "outcome", "miss").increment();
+
+
+
+---
+
+3️⃣ The Outcome of the Caching (Success/Failure)
+
+📍 Captured as "hit", "miss", "failure", "eviction.failure", "data.mismatch", "store"
+📍 Where it appears:
+
+Cache Hit: "outcome", "hit"
+
+Cache Miss: "outcome", "miss"
+
+Cache Failure: "outcome", "failure"
+
+Eviction Failure: "outcome", "eviction.failure"
+
+Data Mismatch Warning: "outcome", "data.mismatch"
+
+Cache Store: "outcome", "store"
+
+
+📍 Example in Metrics.counter() calls:
+
+Metrics.counter(CACHE_FAILURE_METRIC, 
+                "class", pjp.getTarget().getClass().getSimpleName(),
+                "method", pjp.getSignature().getName(),
+                "outcome", "failure").increment();
+
+
+---
+
+📌 Final Confirmation
+
+✅ The class is captured via pjp.getTarget().getClass().getSimpleName().
+✅ The method is captured via pjp.getSignature().getName().
+✅ The outcome is explicitly set in each Metrics.counter() call.
+
+This ensures all three required details are included in the DataDog metrics.
 
