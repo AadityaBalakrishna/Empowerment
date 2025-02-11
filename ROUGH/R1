@@ -1,46 +1,140 @@
-Cache Failure --> If any error occurs while checking or retrieving cache values.(twice)
-logger.info("Caching on {} aborted due to an error. message: {}. stacktrace: {}",
-        pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
+You're absolutely right! I initially focused on cache hit, miss, and failure tracking, but I missed adding eviction failure and data mismatch warnings as separate metrics. Let's fix that now and ensure all key events are logged and tracked in DataDog.
 
-Eviction Failure --> If cache eviction fails after a caching error.
-logger.info("Eviction on caching failure failed on {}, due to: {}, stacktrace: {}",
-        pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
 
-Data Mismatch Warning ---> If the database returns unexpected results, causing an ordering issue in cached data.
+---
+
+📌 Updated Implementation Plan
+
+1. Cache Hit ✅ (Already implemented)
+
+
+2. Cache Miss ✅ (Already implemented)
+
+
+3. Cache Failure (Occurs when an error happens during cache retrieval - needs to be logged and counted twice in different places)
+
+
+4. Eviction Failure (Occurs when the system fails to remove problematic cache entries - needs a new metric)
+
+
+5. Data Mismatch Warning (Occurs when cached data order doesn’t match the expected DB result - needs a new metric)
+
+
+6. Cache Store (Tracking successful cache writes - needs a new metric)
+
+
+
+
+---
+
+📌 Code Changes for PcapMultiCacheableAdvice.java
+
+1️⃣ Define New Metric Constants
+
+📍 At the beginning of the class, add these constants:
+
+private static final String CACHE_HIT_METRIC = "pcap.cache.success";
+private static final String CACHE_MISS_METRIC = "pcap.cache.miss";
+private static final String CACHE_FAILURE_METRIC = "pcap.cache.failure";
+private static final String CACHE_EVICTION_FAILURE_METRIC = "pcap.cache.eviction.failure";
+private static final String CACHE_DATA_MISMATCH_METRIC = "pcap.cache.data.mismatch";
+private static final String CACHE_STORE_METRIC = "pcap.cache.store";
+
+
+---
+
+2️⃣ Track Cache Failure (Two Places)
+
+📍 Find this block where an error occurs during cache retrieval:
+
+catch (Exception ex) {
+    logger.info("Caching on {} aborted due to an error. message: {}. stacktrace: {}", 
+                pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
+
+    Metrics.counter(CACHE_FAILURE_METRIC, 
+                    "class", pjp.getTarget().getClass().getSimpleName(),
+                    "method", pjp.getSignature().getName())
+            .increment();
+
+    return pjp.proceed();
+}
+
+✅ Now, cache failures are logged and counted.
+
+
+---
+
+3️⃣ Track Eviction Failure
+
+📍 Find this block where cache eviction fails:
+
+catch (Exception e) {
+    logger.info("Eviction on caching failure failed on {}, due to: {}, stacktrace: {}", 
+                pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
+
+    Metrics.counter(CACHE_EVICTION_FAILURE_METRIC, 
+                    "class", pjp.getTarget().getClass().getSimpleName(),
+                    "method", pjp.getSignature().getName())
+            .increment();
+}
+
+✅ Now, if eviction fails, it’s logged and counted separately.
+
+
+---
+
+4️⃣ Track Data Mismatch Warning
+
+📍 Find this block where cached data is out of order:
+
 logger.warn(
-        "Did not receive a correlated amount of data from the target method: {}. "
-                + "Result list will be unsorted and won't respect the order of the keys passed in argument.",
-        pjp.toShortString());
+    "Did not receive a correlated amount of data from the target method: {}. "
+    + "Result list will be unsorted and won't respect the order of the keys passed in argument.",
+    pjp.toShortString());
 
-
-apart from this, can also track, cache hit/miss/store
-
-example:
-1. Cache Failure Counter
-Metrics.counter("pcap.cache.failure", "class", pjp.getTarget().getClass().getSimpleName(),
-        "method", pjp.getSignature().getName())
+Metrics.counter(CACHE_DATA_MISMATCH_METRIC, 
+                "class", pjp.getTarget().getClass().getSimpleName(),
+                "method", pjp.getSignature().getName())
         .increment();
 
-logger.info("Caching on {} aborted due to an error. message: {}. stacktrace: {}",
-        pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
+✅ Now, data mismatch warnings are logged and counted separately.
 
-2. Eviction Failure Counter
-Metrics.counter("pcap.cache.eviction.failure", "class", pjp.getTarget().getClass().getSimpleName(),
-        "method", pjp.getSignature().getName())
+
+---
+
+5️⃣ Track Cache Store (When New Data is Cached)
+
+📍 Find this block where new data is written to the cache:
+
+String cacheKey = CacheUtils.generateKey(cacheName, keyPrefix, keyFieldValues, otherKeyArgs);
+getRedisson(redisType).getBucket(cacheKey).set(resultItemForMissed, ttlSeconds, TimeUnit.SECONDS);
+
+Metrics.counter(CACHE_STORE_METRIC, 
+                "class", pjp.getTarget().getClass().getSimpleName(),
+                "method", pjp.getSignature().getName())
         .increment();
 
-logger.info("Eviction on caching failure failed on {}, due to: {}, stacktrace: {}",
-        pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
-
-3. Data Mismatch Warning Counter
-Metrics.counter("pcap.cache.data.mismatch", "class", pjp.getTarget().getClass().getSimpleName(),
-        "method", pjp.getSignature().getName())
-        .increment();
-
-logger.warn(
-        "Did not receive a correlated amount of data from the target method: {}. "
-                + "Result list will be unsorted and won't respect the order of the keys passed in argument.",
-        pjp.toShortString());
+✅ Now, cache writes are also tracked separately.
 
 
-why haven't you done these changes?
+---
+
+📌 Summary of Fixes
+
+
+---
+
+📌 Next Steps
+
+1. Replace your PcapMultiCacheableAdvice.java file with these updates.
+
+
+2. Run a test case and verify logs/metrics.
+
+
+3. Confirm that cache hits, misses, failures, evictions, and stores are correctly recorded in DataDog.
+
+
+
+Would you like help writing test cases to validate these metrics?
+
