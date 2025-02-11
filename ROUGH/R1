@@ -30,6 +30,7 @@ import com.personalcapital.cache.utils.CacheUtils;
 import com.personalcapital.log.PcapLogger;
 import com.personalcapital.log.PcapLoggerFactory;
 import com.safepage.util.Utils;
+import io.micrometer.core.instrument.Metrics;
 
 @Aspect
 @Order(AnnotationOrderConstants.CACHE_MULTI_CACHING_PRECEDENCE)
@@ -181,17 +182,33 @@ public class PcapMultiCacheableAdvice extends CacheAdviceCommons
 					// write keys and corresponding cached values to a keyValue Map
 					((Map<Object, Object>) keyValueMap).put(listKey,
 							CacheUtils.getValue(cachedValue));
+	
+					//increement Datadog counter for cache hits
+					Metrics.counter("pcap.cache.success",
+							"class", pjp.getTarget().getClass().getSimpleName(),
+							"method",pjp.getSignature().getName(),
+							"outcome", "hit").increment();
 				}
 			}
 
 			// if there are no missed keys just return all the values fetched from cache
 			if (missedListKeys == null || missedListKeys.isEmpty())
 			{
+				Metrics.counter("pcap.cache.success",
+						"class", pjp.getTarget().getClass().getSimpleName(),
+						"method",pjp.getSignature().getName(),
+						"outcome", "hit").increment();
+
 				if (resultIsCollection)
 					return getCollectionResult(listKeyArg, keyValueMap, collectionResult);
 				else
 					return getMapResult(listKeyArg, keyValueMap, mapResult);
 			}
+			//increement Datadog counter for cache misses
+			Metrics.counter("pcap.cache.success",
+					"class", pjp.getTarget().getClass().getSimpleName(),
+					"method",pjp.getSignature().getName(),
+					"outcome", "miss").increment();
 
 			// here we update the arguments for the method to only get those records from the db for
 			// which we didn't find an entry in the cache.
@@ -381,6 +398,11 @@ public class PcapMultiCacheableAdvice extends CacheAdviceCommons
 		}
 		catch (Exception ex)
 		{
+			Metrics.counter("pcap.cache.failure",
+					"class", pjp.getTarget().getClass().getSimpleName(),
+					"method",pjp.getSignature().getName(),
+					"outcome", "error").increment();
+
 			logger.info("Caching on {} aborted due to an error. message: {}. stacktrace: {}",
 					pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
 
@@ -480,3 +502,6 @@ public class PcapMultiCacheableAdvice extends CacheAdviceCommons
 		return mapInstance;
 	}
 }
+
+
+is this code changes i have done correct? i thought these metrics need to be added where the logger.warn or logger.info codes are there and also. that's how it is in the DataPrepProducerInterceptor cde that i mentioned and also that code has public static final string specified for the metric name, can we follow that here?
