@@ -1,63 +1,8 @@
-📌 Summary of Fixes
+Can you point out where these three are happening?
 
-1. Cache Hit → When a value is found in Redis.
-
-Metric: pcap.cache.success
-
-Outcome: "hit"
-
-Location: When retrieving from cache.
-
-
-
-2. Cache Miss → When a value is not found and must be fetched from the database.
-
-Metric: pcap.cache.miss
-
-Outcome: "miss"
-
-Location: Before proceeding to DB call.
-
-
-
-3. Cache Failure → When an error occurs in cache retrieval.
-
-Metric: pcap.cache.failure
-
-Outcome: "failure"
-
-Location: Exception handling in cache retrieval.
-
-
-
-4. Eviction Failure → When cache eviction fails after an error.
-
-Metric: pcap.cache.eviction.failure
-
-Outcome: "eviction.failure"
-
-Location: Exception handling in cache eviction.
-
-
-
-5. Data Mismatch Warning → When cached data order doesn’t match the expected DB result.
-
-Metric: pcap.cache.data.mismatch
-
-Outcome: "data.mismatch"
-
-Location: When cache and DB results do not align.
-
-
-
-6. Cache Store → When new data is written to the cache.
-
-Metric: pcap.cache.store
-
-Outcome: "store"
-
-Location: After writing data to cache.
-
+The class on which the caching happened
+the method in which the caching happens 
+outcome of the caching (success/failure)
 
 
 
