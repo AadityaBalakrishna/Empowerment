@@ -1,79 +1,165 @@
-Yes, these three details (class, method, outcome) are captured in each metric logging statement within PcapMultiCacheableAdvice.java. Here’s where they are included:
+package com.personalcapital.cache.aop;
 
+import com.personalcapital.cache.annotation.PcapMultiCacheable;
+import com.personalcapital.cache.annotation.RedisType;
+import com.personalcapital.cache.aop.support.CacheKeyProvider;
+import com.personalcapital.cache.utils.CacheUtils;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.junit.jupiter.api.*;
 
----
+import java.util.*;
 
-1️⃣ The Class on Which the Caching Happened
+import static org.junit.jupiter.api.Assertions.*;
 
-📍 Captured using:
+public class PcapMultiCacheableAdviceDebugTest {
 
-pjp.getTarget().getClass().getSimpleName()
+    private PcapMultiCacheableAdvice cacheAdvice;
+    private SimpleMeterRegistry meterRegistry;
+    
+    @BeforeEach
+    void setUp() {
+        meterRegistry = new SimpleMeterRegistry();  // Track metrics during test
+        Metrics.addRegistry(meterRegistry);
+        cacheAdvice = new PcapMultiCacheableAdvice();
+    }
 
-📍 Where it appears:
+    /** ✅ **Test 1: Cache Hit (Should not call DB, use cached data)** */
+    @Test
+    void testCacheHit() throws Throwable {
+        ProceedingJoinPoint pjp = createMockJoinPoint("cacheHitMethod");
+        PcapMultiCacheable annotation = createMockAnnotation("testCache");
 
-In every Metrics.counter() call:
+        // Simulate cache hit by preloading the cache
+        String cacheKey = "generatedKey";
+        cacheAdvice.getRedisson(RedisType.DEFAULT).getBucket(cacheKey).set("CachedData");
 
-Metrics.counter(CACHE_HIT_METRIC, 
-                "class", pjp.getTarget().getClass().getSimpleName(),
-                "method", pjp.getSignature().getName(),
-                "outcome", "hit").increment();
+        Object result = cacheAdvice.doMultiCacheable(pjp, annotation);
+        
+        System.out.println("Cache Hit Result: " + result);
+        assertEquals("CachedData", result);
+        assertEquals(1, meterRegistry.get("pcap.cache.success").counter().count(), "Cache hit metric should be incremented");
+    }
 
+    /** ✅ **Test 2: Cache Miss (Should call DB & store new value)** */
+    @Test
+    void testCacheMiss() throws Throwable {
+        ProceedingJoinPoint pjp = createMockJoinPoint("cacheMissMethod");
+        PcapMultiCacheable annotation = createMockAnnotation("testCache");
 
+        // Ensure cache is empty
+        String cacheKey = "generatedKey";
+        cacheAdvice.getRedisson(RedisType.DEFAULT).getBucket(cacheKey).delete();
 
----
+        Object result = cacheAdvice.doMultiCacheable(pjp, annotation);
 
-2️⃣ The Method in Which the Caching Happens
+        System.out.println("Cache Miss Result: " + result);
+        assertNotNull(result);
+        assertEquals(1, meterRegistry.get("pcap.cache.miss").counter().count(), "Cache miss metric should be incremented");
+    }
 
-📍 Captured using:
+    /** ✅ **Test 3: Cache Failure (Should call DB even if cache fails)** */
+    @Test
+    void testCacheFailure() throws Throwable {
+        ProceedingJoinPoint pjp = createMockJoinPoint("cacheFailureMethod");
+        PcapMultiCacheable annotation = createMockAnnotation("testCache");
 
-pjp.getSignature().getName()
+        // Force cache retrieval to throw an error
+        cacheAdvice = new PcapMultiCacheableAdvice() {
+            @Override
+            public Object getRedisson(RedisType type) {
+                throw new RuntimeException("Cache failure");
+            }
+        };
 
-📍 Where it appears:
+        Object result = cacheAdvice.doMultiCacheable(pjp, annotation);
 
-In every Metrics.counter() call:
+        System.out.println("Cache Failure Result: " + result);
+        assertNotNull(result);
+        assertEquals(1, meterRegistry.get("pcap.cache.failure").counter().count(), "Cache failure metric should be incremented");
+    }
 
-Metrics.counter(CACHE_MISS_METRIC, 
-                "class", pjp.getTarget().getClass().getSimpleName(),
-                "method", pjp.getSignature().getName(),
-                "outcome", "miss").increment();
+    /** ✅ **Test 4: Eviction Failure (Should still continue processing)** */
+    @Test
+    void testEvictionFailure() throws Throwable {
+        ProceedingJoinPoint pjp = createMockJoinPoint("evictionFailureMethod");
+        PcapMultiCacheable annotation = createMockAnnotation("testCache");
 
+        cacheAdvice = new PcapMultiCacheableAdvice() {
+            @Override
+            public boolean evictFromRedis(RedisType type, List<String> keys) {
+                throw new RuntimeException("Eviction failure");
+            }
+        };
 
+        Object result = cacheAdvice.doMultiCacheable(pjp, annotation);
 
----
+        System.out.println("Eviction Failure Result: " + result);
+        assertNotNull(result);
+        assertEquals(1, meterRegistry.get("pcap.cache.eviction.failure").counter().count(), "Eviction failure metric should be incremented");
+    }
 
-3️⃣ The Outcome of the Caching (Success/Failure)
+    /** ✅ **Test 5: Data Mismatch Warning (Should log warning but continue)** */
+    @Test
+    void testDataMismatchWarning() throws Throwable {
+        ProceedingJoinPoint pjp = createMockJoinPoint("dataMismatchMethod");
+        PcapMultiCacheable annotation = createMockAnnotation("testCache");
 
-📍 Captured as "hit", "miss", "failure", "eviction.failure", "data.mismatch", "store"
-📍 Where it appears:
+        List<Object> cacheData = Arrays.asList("item1", "item2");
+        List<Object> dbData = Collections.singletonList("item1");  // Missing one entry
 
-Cache Hit: "outcome", "hit"
+        cacheAdvice = new PcapMultiCacheableAdvice() {
+            @Override
+            public Collection<Object> getCollectionResult(Collection<Object> keys, Map<Object, Object> map, Collection<Object> collection) {
+                return dbData;
+            }
+        };
 
-Cache Miss: "outcome", "miss"
+        Object result = cacheAdvice.doMultiCacheable(pjp, annotation);
 
-Cache Failure: "outcome", "failure"
+        System.out.println("Data Mismatch Warning Result: " + result);
+        assertNotNull(result);
+        assertEquals(1, meterRegistry.get("pcap.cache.data.mismatch").counter().count(), "Data mismatch metric should be incremented");
+    }
 
-Eviction Failure: "outcome", "eviction.failure"
+    /** ✅ **Test 6: Cache Store (Should store new data after a miss)** */
+    @Test
+    void testCacheStore() throws Throwable {
+        ProceedingJoinPoint pjp = createMockJoinPoint("cacheStoreMethod");
+        PcapMultiCacheable annotation = createMockAnnotation("testCache");
 
-Data Mismatch Warning: "outcome", "data.mismatch"
+        // Ensure cache is empty
+        String cacheKey = "generatedKey";
+        cacheAdvice.getRedisson(RedisType.DEFAULT).getBucket(cacheKey).delete();
 
-Cache Store: "outcome", "store"
+        Object result = cacheAdvice.doMultiCacheable(pjp, annotation);
 
+        System.out.println("Cache Store Result: " + result);
+        assertNotNull(result);
+        assertEquals(1, meterRegistry.get("pcap.cache.store").counter().count(), "Cache store metric should be incremented");
+    }
 
-📍 Example in Metrics.counter() calls:
+    /** ✅ **Helper Methods to Create Fake Annotations & Join Points** */
+    private ProceedingJoinPoint createMockJoinPoint(String methodName) {
+        return new ProceedingJoinPoint() {
+            @Override public Object proceed() { return "DB_Result"; }
+            @Override public Object getTarget() { return this; }
+            @Override public String getSignature() { return methodName; }
+            @Override public Object[] getArgs() { return new Object[] { List.of("key1") }; }
+            @Override public String toShortString() { return "MockJoinPoint(" + methodName + ")"; }
+        };
+    }
 
-Metrics.counter(CACHE_FAILURE_METRIC, 
-                "class", pjp.getTarget().getClass().getSimpleName(),
-                "method", pjp.getSignature().getName(),
-                "outcome", "failure").increment();
-
-
----
-
-📌 Final Confirmation
-
-✅ The class is captured via pjp.getTarget().getClass().getSimpleName().
-✅ The method is captured via pjp.getSignature().getName().
-✅ The outcome is explicitly set in each Metrics.counter() call.
-
-This ensures all three required details are included in the DataDog metrics.
-
+    private PcapMultiCacheable createMockAnnotation(String cacheName) {
+        return new PcapMultiCacheable() {
+            @Override public Class<PcapMultiCacheable> annotationType() { return PcapMultiCacheable.class; }
+            @Override public String value() { return cacheName; }
+            @Override public boolean nullable() { return false; }
+            @Override public String keyPrefix() { return "testPrefix"; }
+            @Override public int ttlSeconds() { return 60; }
+            @Override public RedisType redisType() { return RedisType.DEFAULT; }
+            @Override public Class<? extends CacheKeyProvider> keyProvider() { return CacheKeyProvider.class; }
+        };
+    }
+}
