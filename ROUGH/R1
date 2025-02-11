@@ -1,5 +1,183 @@
-along with that , i want to ensure this is also followed:
-The class on which the caching happened
-the method in which the caching happens 
-outcome of the caching (success/failure)
-The metric will be of type counter.
+package com.personalcapital.cache.aop;
+
+import java.lang.reflect.Method;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
+import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.Aspect;
+import org.springframework.aop.AopInvocationException;
+import org.springframework.beans.PropertyAccessorFactory;
+import org.springframework.core.annotation.Order;
+
+import com.personalcapital.cache.annotation.PcapMultiCacheable;
+import com.personalcapital.cache.annotation.RedisType;
+import com.personalcapital.cache.aop.support.AnnotationOrderConstants;
+import com.personalcapital.cache.aop.support.CacheAdviceHelper;
+import com.personalcapital.cache.aop.support.CacheKeyProvider;
+import com.personalcapital.cache.utils.CacheUtils;
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+import com.safepage.util.Utils;
+
+import io.micrometer.core.instrument.Metrics;
+
+@Aspect
+@Order(AnnotationOrderConstants.CACHE_MULTI_CACHING_PRECEDENCE)
+public class PcapMultiCacheableAdvice extends CacheAdviceCommons {
+
+    private static final PcapLogger logger = PcapLoggerFactory
+            .getPcapLogger(PcapMultiCacheableAdvice.class);
+
+    // Metric names following DataPrepProducerInterceptor.java style
+    private static final String CACHE_HIT_METRIC = "pcap.cache.success";
+    private static final String CACHE_MISS_METRIC = "pcap.cache.miss";
+    private static final String CACHE_FAILURE_METRIC = "pcap.cache.failure";
+
+    @SuppressWarnings("unchecked")
+    @Around("@annotation(pcapMultiCacheable)")
+    public Object doMultiCacheable(ProceedingJoinPoint pjp, PcapMultiCacheable pcapMultiCacheable)
+            throws Throwable {
+
+        Method method = null;
+        Object[] args = pjp.getArgs();
+        Integer listKeyArgIndex = null;
+        Collection<Object> listKeyArg = new ArrayList<>();
+        Collection<Object> otherKeyArgs = new ArrayList<>();
+
+        Collection<Object> missedListKeys = null;
+        Object[] modifiedArgs = null;
+        boolean resultIsCollection = true;
+
+        String resultKeyField = pcapMultiCacheable.resultKeyField();
+        String[] resultKeyFields = pcapMultiCacheable.resultKeyFields();
+
+        boolean cachedValueNullable = pcapMultiCacheable.nullable();
+        String keyPrefix = pcapMultiCacheable.keyPrefix();
+        Collection<Object> collectionResult = null;
+        Map<Object, Object> mapResult = null;
+
+        Map<Object, Object> keyValueMap = new LinkedHashMap<>();
+        String cacheName = pcapMultiCacheable.value();
+        RedisType redisType = pcapMultiCacheable.redisType();
+
+        if (StringUtils.isBlank(cacheName)) {
+            throw new AopInvocationException(
+                    "pcapMultiCacheable needs to have cacheName specified in value element.");
+        }
+
+        CacheKeyProvider cacheKeyProvider = pcapMultiCacheable.keyProvider()
+                .getDeclaredConstructor()
+                .newInstance();
+
+        try {
+            method = CacheAdviceHelper.getMethod(pjp);
+            Class<?> returnType = method.getReturnType();
+
+            if (Collection.class.isAssignableFrom(returnType)) {
+                resultIsCollection = true;
+                collectionResult = collectionInstance((Class<? extends Collection>) returnType);
+            } else if (Map.class.isAssignableFrom(returnType)) {
+                resultIsCollection = false;
+                mapResult = mapInstance((Class<? extends Map>) returnType);
+            } else {
+                throw new AopInvocationException(
+                        "pcapMultiCacheable cannot apply to method without return.");
+            }
+
+            int[] keyIndice = pcapMultiCacheable.keys();
+
+            if (args == null || args.length == 0) {
+                throw new AopInvocationException(
+                        "pcapMultiCacheable cannot apply to method without parameter");
+            }
+
+            for (int i = 0; i < args.length; i++) {
+                Object arg = args[i];
+                if (Collection.class.isInstance(arg) && Collection.class.isAssignableFrom(arg.getClass())) {
+                    listKeyArgIndex = i;
+                } else {
+                    otherKeyArgs.add(cacheKeyProvider.getKeyField(arg));
+                }
+            }
+
+            if (listKeyArgIndex == null) {
+                throw new AopInvocationException(
+                        "pcapMultiCacheable must have a Collection parameter as key list");
+            }
+
+            listKeyArg = (Collection<Object>) args[listKeyArgIndex];
+
+            for (Object listKey : listKeyArg) {
+                String key = CacheUtils.generateKey(cacheName, keyPrefix,
+                        cacheKeyProvider.getKeyField(listKey), otherKeyArgs);
+                Object cachedValue = getRedisson(redisType).getBucket(key).get();
+
+                if (cachedValue == null || (cachedValue instanceof ObjectUtils.Null)) {
+                    if (missedListKeys == null) {
+                        missedListKeys = new ArrayList<>();
+                    }
+                    missedListKeys.add(listKey);
+                } else {
+                    keyValueMap.put(listKey, CacheUtils.getValue(cachedValue));
+
+                    // Log and increment DataDog counter for cache hits
+                    logger.info("Cache hit for class: {}, method: {}", 
+                                pjp.getTarget().getClass().getSimpleName(), 
+                                pjp.getSignature().getName());
+
+                    Metrics.counter(CACHE_HIT_METRIC,
+                            "class", pjp.getTarget().getClass().getSimpleName(),
+                            "method", pjp.getSignature().getName(),
+                            "outcome", "hit").increment();
+                }
+            }
+
+            if (missedListKeys == null || missedListKeys.isEmpty()) {
+                return getCollectionResult(listKeyArg, keyValueMap, collectionResult);
+            }
+
+            // Log and increment DataDog counter for cache misses
+            logger.info("Cache miss for class: {}, method: {}", 
+                        pjp.getTarget().getClass().getSimpleName(), 
+                        pjp.getSignature().getName());
+
+            Metrics.counter(CACHE_MISS_METRIC,
+                    "class", pjp.getTarget().getClass().getSimpleName(),
+                    "method", pjp.getSignature().getName(),
+                    "outcome", "miss").increment();
+
+            modifiedArgs = modifiedArgs(args, listKeyArgIndex, missedListKeys);
+        } catch (Exception ex) {
+            logger.error("Cache failure in class: {}, method: {}. Error: {}", 
+                         pjp.getTarget().getClass().getSimpleName(), 
+                         pjp.getSignature().getName(), 
+                         ex.getMessage());
+
+            Metrics.counter(CACHE_FAILURE_METRIC,
+                    "class", pjp.getTarget().getClass().getSimpleName(),
+                    "method", pjp.getSignature().getName(),
+                    "outcome", "error").increment();
+
+            return pjp.proceed();
+        }
+
+        return pjp.proceed(modifiedArgs);
+    }
+
+    private Collection<Object> getCollectionResult(Collection<Object> listKeyArg,
+                                                   Map<Object, Object> keyValueMap,
+                                                   Collection<Object> collectionResult) {
+        collectionResult.clear();
+        for (Object listKey : listKeyArg) {
+            if (keyValueMap.containsKey(listKey))
+                collectionResult.add(keyValueMap.get(listKey));
+        }
+        return collectionResult;
+    }
+}
