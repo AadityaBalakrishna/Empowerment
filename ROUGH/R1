@@ -1,3 +1,14 @@
-io.micrometer.core.instrument.search.MeterNotFoundException: Unable to find a meter that matches all the requirements at once. Here's what was found:
-   FAIL: No meter with name 'pcap.cache.eviction.failure' was found.
-   FAIL: No meters with type counter were found.
+catch (Exception e)
+			{
+				logger.info("Eviction on caching failure failed on {}, due to: {}, stacktrace: {}",
+						pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
+
+				Metrics.counter(CACHE_EVICTION_FAILURE_METRIC, "class", pjp.getTarget()
+						.getClass()
+						.getSimpleName(), "method",
+						pjp.getSignature()
+								.getName())
+						.increment();
+			}
+
+let's go back to debugging this is how it is currently, how do i fix it?
