@@ -1,2 +1,22 @@
-Class 'Anonymous class derived from ProceedingJoinPoint' must implement abstract method 'set$AroundClosure(AroundClosure)' in 'ProceedingJoinPoint'
-'getSignature()' in 'Anonymous class derived from org.aspectj.lang.ProceedingJoinPoint' clashes with 'getSignature()' in 'org.aspectj.lang.JoinPoint'; attempting to use incompatible return type
+@Test
+void testCacheFailureMetric() {
+    SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+    Metrics.addRegistry(meterRegistry);
+
+    PcapMultiCacheableAdvice cacheAdvice = new PcapMultiCacheableAdvice();
+
+    // Call `doMultiCacheable()` with `null` values (forces exception handling)
+    try {
+        cacheAdvice.doMultiCacheable(null, null);
+    } catch (Exception ignored) {
+        // Expected failure, we're only testing if the metric is recorded
+    }
+
+    // ✅ Assert if the metric is recorded in Micrometer
+    assertEquals(1, meterRegistry.get("pcap.cache.failure").counter().count(),
+                 "Cache failure metric should be incremented");
+
+    // ✅ Print output for manual checking
+    System.out.println("✅ Cache Failure Metric Count: " + 
+                       meterRegistry.get("pcap.cache.failure").counter().count());
+}
