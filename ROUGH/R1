@@ -1,33 +1,16 @@
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+io.micrometer.core.instrument.search.MeterNotFoundException: Unable to find a meter that matches all the requirements at once. Here's what was found:
+   FAIL: No meter with name 'pcap.cache.failure' was found.
+   FAIL: No meters with type counter were found.
 
-public class PcapMultiCacheableAdviceBasicTest {
-
-    private PcapMultiCacheableAdvice cacheAdvice;
-    private SimpleMeterRegistry meterRegistry;
-
-    @BeforeEach
-    void setUp() {
-        meterRegistry = new SimpleMeterRegistry();
-        Metrics.addRegistry(meterRegistry);
-        cacheAdvice = new PcapMultiCacheableAdvice();
-    }
-
-    @Test
-    void testCacheFailureMetric() {
-        // ✅ Expect `Throwable` when calling doMultiCacheable()
-        assertThrows(Throwable.class, () -> cacheAdvice.doMultiCacheable(null, null));
-
-        // ✅ Assert if the metric is recorded in Micrometer
-        assertEquals(1, meterRegistry.get("pcap.cache.failure").counter().count(),
-                     "Cache failure metric should be incremented");
-
-        // ✅ Debugging output
-        System.out.println("✅ Cache Failure Metric Count: " + 
-                           meterRegistry.get("pcap.cache.failure").counter().count());
-    }
-}
+	at io.micrometer.core.instrument.search.MeterNotFoundException$FromRequiredSearch.build(MeterNotFoundException.java:245)
+	at io.micrometer.core.instrument.search.MeterNotFoundException$FromRequiredSearch.access$100(MeterNotFoundException.java:49)
+	at io.micrometer.core.instrument.search.MeterNotFoundException.forSearch(MeterNotFoundException.java:46)
+	at io.micrometer.core.instrument.search.RequiredSearch.lambda$getOne$1(RequiredSearch.java:199)
+	at java.base/java.util.Optional.orElseThrow(Optional.java:403)
+	at io.micrometer.core.instrument.search.RequiredSearch.getOne(RequiredSearch.java:199)
+	at io.micrometer.core.instrument.search.RequiredSearch.counter(RequiredSearch.java:129)
+	at com.personalcapital.cache.aop.PcapMultiCacheableAdviceTest.testCacheFailureMetric(PcapMultiCacheableAdviceTest.java:28)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
