@@ -1,6 +1,1 @@
-24:8
-java: class PcapMultiCacheableAdviceMetricsTest is public, should be declared in a file named PcapMultiCacheableAdviceMetricsTest.java
-
-76:76
-java: reference to evictFromRedis is ambiguous
-  both method evictFromRedis(com.personalcapital.cache.annotation.RedisType,java.lang.String) in com.personalcapital.cache.aop.CacheAdviceCommons and method evictFromRedis(com.personalcapital.cache.annotation.RedisType,java.util.List<java.lang.String>) in com.personalcapital.cache.aop.CacheAdviceCommons match
+java.lang.NullPointerException: Cannot invoke "org.aspectj.lang.Signature.getName()" because the return value of "org.aspectj.lang.ProceedingJoinPoint.getSignature()" is null
