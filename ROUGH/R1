@@ -1,3 +1,24 @@
-io.micrometer.core.instrument.search.MeterNotFoundException: Unable to find a meter that matches all the requirements at once. Here's what was found:
-   FAIL: No meter with name 'pcap.cache.eviction.failure' was found.
-   FAIL: No meters with type counter were found.
+	public void incrementSuccess(Metadata metadata)
+	{
+		logger.debug(
+				"Incrementing incrementSuccess metric for entity type: {}, operation: {}, source: {}",
+				metadata.getEntityType()
+						.name(),
+				metadata.getOperation()
+						.name(),
+				metadata.getSource()
+						.name(),
+				metadata.getTraceId(), metadata.getSpanId());
+
+		Counter updateCounterSuccess = Metrics.counter(METRICS_NAME, ENTITY_TYPE,
+				metadata.getEntityType()
+						.name(),
+				OPERATION, metadata.getOperation()
+						.name(),
+				SOURCE, metadata.getSource()
+						.name(),
+				"result", "success");
+		updateCounterSuccess.increment();
+	}
+
+this is one of the example, try to implement this
