@@ -1,7 +1,59 @@
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.Signature;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-java.lang.NullPointerException: Cannot invoke "org.aspectj.lang.Signature.getName()" because the return value of "org.aspectj.lang.ProceedingJoinPoint.getSignature()" is null
+import static com.personalcapital.cache.aop.PcapMultiCacheableAdvice.CACHE_EVICTION_FAILURE_METRIC;
+import static org.mockito.Mockito.*;
 
-	at com.personalcapital.cache.aop.PcapMultiCacheableAdviceTest.testCacheEvictionFailureMetric(PcapMultiCacheableAdviceTest.java:28)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+import static org.junit.jupiter.api.Assertions.*;
+
+public class PcapMultiCacheableAdviceTest {
+
+    private PcapMultiCacheableAdvice cacheAdvice;
+    private SimpleMeterRegistry meterRegistry;
+
+    @BeforeEach
+    void setUp() {
+        meterRegistry = new SimpleMeterRegistry();  // Initialize SimpleMeterRegistry for testing
+        Metrics.addRegistry(meterRegistry);  // Register the registry
+        cacheAdvice = new PcapMultiCacheableAdvice();  // Initialize the class under test
+    }
+
+    @Test
+    void testCacheEvictionFailureMetric() throws Throwable {
+        // Mock the ProceedingJoinPoint completely
+        ProceedingJoinPoint pjp = mock(ProceedingJoinPoint.class);
+
+        // Mock the Signature object
+        Signature mockSignature = mock(Signature.class);
+        when(mockSignature.getName()).thenReturn("testMethod");
+        when(pjp.getSignature()).thenReturn(mockSignature);
+        when(pjp.getTarget()).thenReturn(this);
+        when(pjp.getArgs()).thenReturn(new Object[]{"key1"});
+
+        // Mock the toShortString() and toLongString() methods to return valid strings
+        when(pjp.toShortString()).thenReturn("FakeJoinPoint");
+        when(pjp.toLongString()).thenReturn("FakeJoinPoint Long String");
+
+        // Simulate an eviction failure by throwing an exception
+        doThrow(new RuntimeException("Cache eviction failure")).when(cacheAdvice).evictFromRedis(any(), anyList());
+
+        // Run the method that should trigger the eviction failure
+        try {
+            cacheAdvice.doMultiCacheable(pjp, null);  // Trigger the eviction failure code
+        } catch (Exception e) {
+            // Expected failure, we're testing for a failure case
+        }
+
+        // ✅ Verify that the metric for eviction failure is incremented
+        assertEquals(1, meterRegistry.get(CACHE_EVICTION_FAILURE_METRIC).counter().count(),
+                     "Cache eviction failure metric should be incremented");
+
+        // ✅ Debugging Output
+        System.out.println("Cache Eviction Failure Metric Count: " + 
+                           meterRegistry.get(CACHE_EVICTION_FAILURE_METRIC).counter().count());
+    }
+}
