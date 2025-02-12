@@ -1,16 +1,5 @@
+	private static final String CACHE_EVICTION_FAILURE_METRIC = "pcap.cache.eviction.failure";
+	private static final String CACHE_DATA_MISMATCH_METRIC = "pcap.cache.data.mismatch";
+	private static final String CACHE_STORE_METRIC = "pcap.cache.store";
 
-io.micrometer.core.instrument.search.MeterNotFoundException: Unable to find a meter that matches all the requirements at once. Here's what was found:
-   FAIL: No meter with name 'pcap.cache.failure' was found.
-   FAIL: No meters with type counter were found.
-
-	at io.micrometer.core.instrument.search.MeterNotFoundException$FromRequiredSearch.build(MeterNotFoundException.java:245)
-	at io.micrometer.core.instrument.search.MeterNotFoundException$FromRequiredSearch.access$100(MeterNotFoundException.java:49)
-	at io.micrometer.core.instrument.search.MeterNotFoundException.forSearch(MeterNotFoundException.java:46)
-	at io.micrometer.core.instrument.search.RequiredSearch.lambda$getOne$1(RequiredSearch.java:199)
-	at java.base/java.util.Optional.orElseThrow(Optional.java:403)
-	at io.micrometer.core.instrument.search.RequiredSearch.getOne(RequiredSearch.java:199)
-	at io.micrometer.core.instrument.search.RequiredSearch.counter(RequiredSearch.java:129)
-	at com.personalcapital.cache.aop.PcapMultiCacheableAdviceTest.testCacheFailureMetric(PcapMultiCacheableAdviceTest.java:28)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+instead of pcap.cache.miss, try for any one of these, because these were already being logged in the code before we did any changes, we just added the metrics to count, you have the full PcapMulticacheableAdvice code right?
