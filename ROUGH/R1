@@ -1,1 +1,25 @@
-java.lang.NullPointerException: Cannot invoke "org.aspectj.lang.Signature.getName()" because the return value of "org.aspectj.lang.ProceedingJoinPoint.getSignature()" is null
+@Test
+void testCacheMiss() throws Throwable {
+    when(pcapMultiCacheable.value()).thenReturn("testCache");
+
+    // Ensure `pjp.getTarget()` is valid
+    when(pjp.getTarget()).thenReturn(this);
+
+    // Mock Signature and its method
+    Signature mockSignature = mock(Signature.class);
+    when(mockSignature.getName()).thenReturn("testMethod");
+    when(pjp.getSignature()).thenReturn(mockSignature);
+
+    when(pjp.getArgs()).thenReturn(new Object[]{List.of("key1")});
+    when(cacheKeyProvider.getKeyField(any())).thenReturn("key1");
+    when(CacheUtils.generateKey(any(), any(), any(), any())).thenReturn("generatedKey");
+
+    // Simulate cache miss (return null from cache)
+    when(cacheAdvice.getRedisson(any())).thenReturn(mock(RedisType.class));
+    when(cacheAdvice.getRedisson(any()).getBucket(any()).get()).thenReturn(null);
+
+    Object result = cacheAdvice.doMultiCacheable(pjp, pcapMultiCacheable);
+
+    verify(pjp, times(1)).proceed(); // Should call DB
+    assert result != null;
+}
