@@ -1,14 +1,56 @@
-catch (Exception e)
-			{
-				logger.info("Eviction on caching failure failed on {}, due to: {}, stacktrace: {}",
-						pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
+package com.personalcapital.cache.aop;
 
-				Metrics.counter(CACHE_EVICTION_FAILURE_METRIC, "class", pjp.getTarget()
-						.getClass()
-						.getSimpleName(), "method",
-						pjp.getSignature()
-								.getName())
-						.increment();
-			}
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.Signature;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-let's go back to debugging this is how it is currently, how do i fix it?
+import static com.personalcapital.cache.aop.PcapMultiCacheableAdvice.CACHE_EVICTION_FAILURE_METRIC;
+import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
+
+public class PcapMultiCacheableAdviceTest {
+	private PcapMultiCacheableAdvice cacheAdvice;
+	private SimpleMeterRegistry meterRegistry;
+
+	@BeforeEach
+	void setUp() {
+		meterRegistry = new SimpleMeterRegistry();
+		Metrics.addRegistry(meterRegistry);
+		cacheAdvice = new PcapMultiCacheableAdvice();
+	}
+
+	@Test
+	void testCacheEvictionFailureMetric() throws Throwable{
+		ProceedingJoinPoint pjp = mock(ProceedingJoinPoint.class);
+
+		Signature mockSignature = mock(Signature.class);
+		when(mockSignature.getName()).thenReturn("testMethod");
+		when(pjp.getSignature()).thenReturn(mockSignature);
+		when(pjp.getTarget()).thenReturn(this);
+		when(pjp.getArgs()).thenReturn(new Object[]{"key1"});
+
+		when(pjp.toShortString()).thenReturn("FakeJoinPoint");
+		when(pjp.toLongString()).thenReturn("FakeJoinPoint Long String");
+
+		PcapMultiCacheableAdvice spyCacheAdvice = spy(cacheAdvice);
+
+		doThrow(new RuntimeException("Cache eviction failure")).when(spyCacheAdvice).evictFromRedis(any(), anyList());
+
+		try {
+			spyCacheAdvice.doMultiCacheable(pjp, null);
+		} catch (Exception e) {
+		}
+
+//		Metrics.counter(CACHE_EVICTION_FAILURE_METRIC).increment();
+
+		assertEquals(1, meterRegistry.get(CACHE_EVICTION_FAILURE_METRIC).counter().count(),
+				"Cache eviction failure metric should be incremented");
+		System.out.println("Cache Eviction Failure Metric Count: " +
+				meterRegistry.get(CACHE_EVICTION_FAILURE_METRIC).counter().count());
+	}
+}
+
+edit this code and give me the final one, and also tell me what needs to be added in the PcapMutliCacheAbleAdvice code
