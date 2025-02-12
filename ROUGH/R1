@@ -1,33 +1,32 @@
+package com.personalcapital.cache.aop;
+
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import static com.personalcapital.cache.aop.PcapMultiCacheableAdvice.CACHE_EVICTION_FAILURE_METRIC;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class PcapMultiCacheableAdviceTest {
+	private PcapMultiCacheableAdvice cacheAdvice;
+	private SimpleMeterRegistry meterRegistry;
 
-    private PcapMultiCacheableAdvice cacheAdvice;
-    private SimpleMeterRegistry meterRegistry;
+	@BeforeEach
+	void setUp() {
+		meterRegistry = new SimpleMeterRegistry();
+		Metrics.addRegistry(meterRegistry);
+		cacheAdvice = new PcapMultiCacheableAdvice();
+	}
 
-    @BeforeEach
-    void setUp() {
-        meterRegistry = new SimpleMeterRegistry();
-        Metrics.addRegistry(meterRegistry);
-        cacheAdvice = new PcapMultiCacheableAdvice();
-    }
-
-    @Test
-    void testCacheEvictionFailureMetric() {
-        // ✅ Manually increment the eviction failure counter
-        Metrics.counter(CACHE_EVICTION_FAILURE_METRIC).increment();
-
-        // ✅ Now assert that the metric was recorded
-        assertEquals(1, meterRegistry.get(CACHE_EVICTION_FAILURE_METRIC).counter().count(),
-                     "Cache eviction failure metric should be incremented");
-
-        // ✅ Debugging output
-        System.out.println("✅ Cache Eviction Failure Metric Count: " + 
-                           meterRegistry.get(CACHE_EVICTION_FAILURE_METRIC).counter().count());
-    }
+	@Test
+	void testCacheEvictionFailureMetric() {
+		Metrics.counter(CACHE_EVICTION_FAILURE_METRIC).increment();
+		assertEquals(1, meterRegistry.get(CACHE_EVICTION_FAILURE_METRIC).counter().count(),
+				"Cache eviction failure metric should be incremented");
+		System.out.println("Cache Eviction Failure Metric Count: " +
+				meterRegistry.get(CACHE_EVICTION_FAILURE_METRIC).counter().count());
+	}
 }
+
+can you explain what i am trying to do here?
