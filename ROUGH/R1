@@ -1,25 +1,51 @@
-@Test
-void testCacheMiss() throws Throwable {
-    when(pcapMultiCacheable.value()).thenReturn("testCache");
+package com.personalcapital.cache.aop;
 
-    // Ensure `pjp.getTarget()` is valid
-    when(pjp.getTarget()).thenReturn(this);
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-    // Mock Signature and its method
-    Signature mockSignature = mock(Signature.class);
-    when(mockSignature.getName()).thenReturn("testMethod");
-    when(pjp.getSignature()).thenReturn(mockSignature);
+import java.util.List;
 
-    when(pjp.getArgs()).thenReturn(new Object[]{List.of("key1")});
-    when(cacheKeyProvider.getKeyField(any())).thenReturn("key1");
-    when(CacheUtils.generateKey(any(), any(), any(), any())).thenReturn("generatedKey");
+import static org.junit.jupiter.api.Assertions.*;
 
-    // Simulate cache miss (return null from cache)
-    when(cacheAdvice.getRedisson(any())).thenReturn(mock(RedisType.class));
-    when(cacheAdvice.getRedisson(any()).getBucket(any()).get()).thenReturn(null);
+public class PcapMultiCacheableAdviceBasicTest {
 
-    Object result = cacheAdvice.doMultiCacheable(pjp, pcapMultiCacheable);
+    private PcapMultiCacheableAdvice cacheAdvice;
+    private SimpleMeterRegistry meterRegistry;
 
-    verify(pjp, times(1)).proceed(); // Should call DB
-    assert result != null;
+    @BeforeEach
+    void setUp() {
+        meterRegistry = new SimpleMeterRegistry();  // Create a simple registry for testing
+        Metrics.addRegistry(meterRegistry);        // Attach it to Micrometer
+        cacheAdvice = new PcapMultiCacheableAdvice();  // Create a real instance (no mocks)
+    }
+
+    @Test
+    void testCacheFailureMetric() throws Throwable {
+        // Create a fake ProceedingJoinPoint (no Mockito)
+        ProceedingJoinPoint pjp = new ProceedingJoinPoint() {
+            @Override public Object proceed() { throw new RuntimeException("Simulated cache failure"); }
+            @Override public Object getTarget() { return this; }
+            @Override public String toShortString() { return "FakeJoinPoint"; }
+            @Override public String getSignature() { return "testMethod"; }
+            @Override public Object[] getArgs() { return new Object[]{List.of("key1")}; }
+        };
+
+        // Call the actual method (no mocking)
+        try {
+            cacheAdvice.doMultiCacheable(pjp, null);  // Null annotation for now
+        } catch (Exception ignored) {
+            // Expected failure, we are testing if the metric gets recorded
+        }
+
+        // ✅ Assert if the metric is recorded in Micrometer
+        assertEquals(1, meterRegistry.get("pcap.cache.failure").counter().count(),
+                     "Cache failure metric should be incremented");
+
+        // ✅ Debugging Output
+        System.out.println("✅ Cache Failure Metric Count: " + 
+                           meterRegistry.get("pcap.cache.failure").counter().count());
+    }
 }
