@@ -1,33 +1,13 @@
-public class MetricsService
+try to use only 1 time...
+pseudo code
+var className = ...getTarget().getClass().getSimpleName()
+then use className for other refs.
+
+for reusability & brevity u can wrap the coe in a method & use..e.g
+getSimpleClassName (Event o)
 {
-	private static final PcapLogger logger = PcapLoggerFactory.getPcapLogger(MetricsService.class);
-	private static final String ENTITY_TYPE = "entity_type";
-	private static final String OPERATION = "operation";
-	private static final String SOURCE = "source";
-	private static final String METRICS_NAME = "epw.cstmr.sdi.event";
+return ...getTarget().getClass().getSimpleName()}
+}
+and use getSimpleClassName whr it is needed.
 
-	public void incrementSuccess(Metadata metadata)
-	{
-		logger.debug(
-				"Incrementing incrementSuccess metric for entity type: {}, operation: {}, source: {}",
-				metadata.getEntityType()
-						.name(),
-				metadata.getOperation()
-						.name(),
-				metadata.getSource()
-						.name(),
-				metadata.getTraceId(), metadata.getSpanId());
-
-		Counter updateCounterSuccess = Metrics.counter(METRICS_NAME, ENTITY_TYPE,
-				metadata.getEntityType()
-						.name(),
-				OPERATION, metadata.getOperation()
-						.name(),
-				SOURCE, metadata.getSource()
-						.name(),
-				"result", "success");
-		updateCounterSuccess.increment();
-	}
-
-
-this is one of the approach that is in use, is there anything useful from this that we can use?
+what should i do to work on these comments?
