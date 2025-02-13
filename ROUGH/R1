@@ -1,104 +1,55 @@
-Counter cacheHitCounter = Metrics.counter("pcap.cache.event", 
-    "class", pjp.getTarget().getClass().getSimpleName(), 
-    "method", pjp.getSignature().getName(), 
-    "outcome", "hit");
-
-Counter cacheMissCounter = Metrics.counter("pcap.cache.event", 
-    "class", pjp.getTarget().getClass().getSimpleName(), 
-    "method", pjp.getSignature().getName(), 
-    "outcome", "miss");
-
-Counter cacheFailureCounter = Metrics.counter("pcap.cache.event", 
-    "class", pjp.getTarget().getClass().getSimpleName(), 
-    "method", pjp.getSignature().getName(), 
-    "outcome", "failure");
-
-Counter cacheStoreCounter = Metrics.counter("pcap.cache.event", 
-    "class", pjp.getTarget().getClass().getSimpleName(), 
-    "method", pjp.getSignature().getName(), 
-    "outcome", "store");
-
-Counter evictionFailureCounter = Metrics.counter("pcap.cache.event", 
-    "class", pjp.getTarget().getClass().getSimpleName(), 
-    "method", pjp.getSignature().getName(), 
-    "outcome", "eviction_failure");
-
-Counter dataMismatchCounter = Metrics.counter("pcap.cache.event", 
-    "class", pjp.getTarget().getClass().getSimpleName(), 
-    "method", pjp.getSignature().getName(), 
-    "outcome", "data_mismatch");
-
-You're right to ask about using Counter explicitly. Yes, we should use Counter objects instead of calling Metrics.counter(...).increment() directly.
-
-This is because:
-
-1. Better Performance: Counter objects are instantiated once and reused.
-
-
-2. Consistency: Matches best practices from MetricsService.
-
-
-3. Readability: More structured approach to tracking metrics.
-
-
-
-
----
-
-Final Fix: Using Counter Variables
-
-Here’s the updated doMultiCacheable() method with properly defined Counter objects:
-
+@SuppressWarnings("unchecked")
 @Around("@annotation(pcapMultiCacheable)")
 public Object doMultiCacheable(ProceedingJoinPoint pjp, PcapMultiCacheable pcapMultiCacheable) throws Throwable {
-    Method method = CacheAdviceHelper.getMethod(pjp);
+    Method method = null;
     Object[] args = pjp.getArgs();
-    Class<?> targetClass = pjp.getTarget().getClass();
-    String methodName = pjp.getSignature().getName();
-
+    Class<?> returnType = null;
+    Integer listKeyArgIndex = null;
     Collection<Object> listKeyArg = new ArrayList<>();
     Collection<Object> otherKeyArgs = new ArrayList<>();
     Collection<Object> missedListKeys = null;
     Object[] modifiedArgs = null;
-    boolean resultIsCollection;
+    boolean resultIsCollection = true;
 
-    String cacheName = pcapMultiCacheable.value();
+    String resultKeyField = pcapMultiCacheable.resultKeyField();
+    String[] resultKeyFields = pcapMultiCacheable.resultKeyFields();
+    boolean cachedValueNullable = pcapMultiCacheable.nullable();
     String keyPrefix = pcapMultiCacheable.keyPrefix();
+    Collection<Object> collectionResult = null;
+    Map<Object, Object> mapResult = null;
+
+    Map<Object, Object> keyValueMap = new LinkedHashMap<>();
+    String cacheName = pcapMultiCacheable.value();
     RedisType redisType = pcapMultiCacheable.redisType();
 
     if (StringUtils.isBlank(cacheName)) {
-        throw new AopInvocationException("pcapMultiCacheable needs a cacheName.");
+        throw new AopInvocationException("pcapMultiCacheable needs to have cacheName specified.");
     }
 
     CacheKeyProvider cacheKeyProvider = pcapMultiCacheable.keyProvider().getDeclaredConstructor().newInstance();
 
-    // **Define Counter Metrics**
-    Counter cacheHitCounter = Metrics.counter("pcap.cache.event", "class", targetClass.getSimpleName(), "method", methodName, "outcome", "hit");
-    Counter cacheMissCounter = Metrics.counter("pcap.cache.event", "class", targetClass.getSimpleName(), "method", methodName, "outcome", "miss");
-    Counter cacheFailureCounter = Metrics.counter("pcap.cache.event", "class", targetClass.getSimpleName(), "method", methodName, "outcome", "failure");
-    Counter cacheStoreCounter = Metrics.counter("pcap.cache.event", "class", targetClass.getSimpleName(), "method", methodName, "outcome", "store");
-    Counter evictionFailureCounter = Metrics.counter("pcap.cache.event", "class", targetClass.getSimpleName(), "method", methodName, "outcome", "eviction_failure");
-    Counter dataMismatchCounter = Metrics.counter("pcap.cache.event", "class", targetClass.getSimpleName(), "method", methodName, "outcome", "data_mismatch");
-
     try {
-        Class<?> returnType = method.getReturnType();
-        resultIsCollection = Collection.class.isAssignableFrom(returnType);
+        method = CacheAdviceHelper.getMethod(pjp);
+        returnType = method.getReturnType();
 
-        Collection<Object> collectionResult = resultIsCollection ? collectionInstance((Class<? extends Collection>) returnType) : null;
-        Map<Object, Object> mapResult = resultIsCollection ? null : mapInstance((Class<? extends Map>) returnType);
-        Map<Object, Object> keyValueMap = new LinkedHashMap<>();
-
-        int[] keyIndices = pcapMultiCacheable.keys();
-        Integer listKeyArgIndex = null;
-
-        if (args == null || args.length == 0) {
-            throw new AopInvocationException("pcapMultiCacheable cannot apply to a method without parameters.");
+        if (Collection.class.isAssignableFrom(returnType)) {
+            resultIsCollection = true;
+            collectionResult = collectionInstance((Class<? extends Collection>) returnType);
+        } else if (Map.class.isAssignableFrom(returnType)) {
+            resultIsCollection = false;
+            mapResult = mapInstance((Class<? extends Map>) returnType);
+        } else {
+            throw new AopInvocationException("pcapMultiCacheable cannot apply to method without return.");
         }
 
-        // Identify cache keys
+        int[] keyIndice = pcapMultiCacheable.keys();
+        if (args == null || args.length == 0) {
+            throw new AopInvocationException("pcapMultiCacheable cannot apply to method without parameters.");
+        }
+
         for (int i = 0; i < args.length; i++) {
             Object arg = args[i];
-            if (Collection.class.isInstance(arg)) {
+            if (Collection.class.isInstance(arg) && Collection.class.isAssignableFrom(arg.getClass())) {
                 listKeyArgIndex = i;
             } else {
                 otherKeyArgs.add(cacheKeyProvider.getKeyField(arg));
@@ -106,7 +57,7 @@ public Object doMultiCacheable(ProceedingJoinPoint pjp, PcapMultiCacheable pcapM
         }
 
         if (listKeyArgIndex == null) {
-            throw new AopInvocationException("pcapMultiCacheable must have a Collection parameter.");
+            throw new AopInvocationException("pcapMultiCacheable must have a Collection parameter as key list.");
         }
 
         listKeyArg = (Collection<Object>) args[listKeyArgIndex];
@@ -115,7 +66,7 @@ public Object doMultiCacheable(ProceedingJoinPoint pjp, PcapMultiCacheable pcapM
             String key = CacheUtils.generateKey(cacheName, keyPrefix, cacheKeyProvider.getKeyField(listKey), otherKeyArgs);
             Object cachedValue = getRedisson(redisType).getBucket(key).get();
 
-            if (cachedValue == null) {
+            if (cachedValue == null || (cachedValue instanceof ObjectUtils.Null && !cachedValueNullable)) {
                 if (missedListKeys == null) {
                     missedListKeys = collectionInstance(listKeyArg.getClass());
                 }
@@ -124,27 +75,40 @@ public Object doMultiCacheable(ProceedingJoinPoint pjp, PcapMultiCacheable pcapM
                 keyValueMap.put(listKey, CacheUtils.getValue(cachedValue));
 
                 // **Cache Hit Metric**
-                cacheHitCounter.increment();
+                logger.info("Cache hit in class: {}, method: {}", pjp.getTarget().getClass().getSimpleName(), pjp.getSignature().getName());
+                Metrics.counter("pcap.cache.event",
+                        "class", pjp.getTarget().getClass().getSimpleName(),
+                        "method", pjp.getSignature().getName(),
+                        "outcome", "hit").increment();
             }
         }
 
         if (missedListKeys == null || missedListKeys.isEmpty()) {
-            return resultIsCollection ? getCollectionResult(listKeyArg, keyValueMap, collectionResult) 
-                                      : getMapResult(listKeyArg, keyValueMap, mapResult);
+            return resultIsCollection ? getCollectionResult(listKeyArg, keyValueMap, collectionResult)
+                    : getMapResult(listKeyArg, keyValueMap, mapResult);
         }
 
         // **Cache Miss Metric**
-        cacheMissCounter.increment();
+        logger.info("Cache miss in class: {}, method: {}", pjp.getTarget().getClass().getSimpleName(), pjp.getSignature().getName());
+        Metrics.counter("pcap.cache.event",
+                "class", pjp.getTarget().getClass().getSimpleName(),
+                "method", pjp.getSignature().getName(),
+                "outcome", "miss").increment();
+
         modifiedArgs = modifiedArgs(args, listKeyArgIndex, missedListKeys);
     } catch (Exception ex) {
-        logger.info("Caching on {} failed. Error: {}", pjp.toShortString(), ex.getMessage());
+        logger.info("Caching on {} aborted due to an error. message: {}. stacktrace: {}",
+                pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
 
         // **Cache Failure Metric**
-        cacheFailureCounter.increment();
+        Metrics.counter("pcap.cache.event",
+                "class", pjp.getTarget().getClass().getSimpleName(),
+                "method", pjp.getSignature().getName(),
+                "outcome", "failure").increment();
+
         return pjp.proceed();
     }
 
-    // Fetch missing keys from DB
     final Object resultForMissed = pjp.proceed(modifiedArgs);
     int ttlSeconds = getTtlFromConfiguration(cacheName, pcapMultiCacheable.ttlSeconds());
 
@@ -153,64 +117,47 @@ public Object doMultiCacheable(ProceedingJoinPoint pjp, PcapMultiCacheable pcapM
             Collection<Object> collectionResultForMissed = (Collection<Object>) resultForMissed;
 
             Collection<Object> mergedResult = getCollectionResult(listKeyArg, keyValueMap, collectionResult);
-
             if (collectionResultForMissed == null || collectionResultForMissed.isEmpty()) {
                 return mergedResult;
             }
 
-            Iterator<Object> missedValueIterator = collectionResultForMissed.iterator();
-            Iterator<Object> missedKeyIterator = missedListKeys.iterator();
+            for (Object resultItemForMissed : collectionResultForMissed) {
+                if (resultItemForMissed == null) continue;
 
-            while (missedKeyIterator.hasNext()) {
-                Object key = missedKeyIterator.next();
-                Object value = missedValueIterator.next();
+                String cacheKey = CacheUtils.generateKey(cacheName, keyPrefix, cacheKeyProvider.getKeyField(resultItemForMissed), otherKeyArgs);
+                getRedisson(redisType).getBucket(cacheKey).set(resultItemForMissed, ttlSeconds, TimeUnit.SECONDS);
 
-                String cacheKey = CacheUtils.generateKey(cacheName, keyPrefix, cacheKeyProvider.getKeyField(key), otherKeyArgs);
-                getRedisson(redisType).getBucket(cacheKey).set(value, ttlSeconds, TimeUnit.SECONDS);
-
-                keyValueMap.put(key, value);
+                mergedResult.add(resultItemForMissed);
             }
 
-            // **Cache Store Metric**
-            cacheStoreCounter.increment();
+            return mergedResult;
+        } else {
+            Map<Object, Object> mapResultForMissed = (Map<Object, Object>) resultForMissed;
+            Map<Object, Object> mergedResult = getMapResult(listKeyArg, keyValueMap, mapResult);
+
+            if (mapResultForMissed == null || mapResultForMissed.isEmpty()) {
+                return mergedResult;
+            }
+
+            for (Object key : missedListKeys) {
+                Object value = mapResultForMissed.get(key);
+                String cacheKey = CacheUtils.generateKey(cacheName, keyPrefix, cacheKeyProvider.getKeyField(key), otherKeyArgs);
+                getRedisson(redisType).getBucket(cacheKey).set(value == null ? ObjectUtils.NULL : value, ttlSeconds, TimeUnit.SECONDS);
+                mergedResult.put(key, value);
+            }
+
             return mergedResult;
         }
     } catch (Exception ex) {
-        logger.warn("Data Mismatch Warning: {}", pjp.toShortString());
+        logger.info("Cache processing failed in class: {}, method: {}. Error: {}",
+                pjp.getTarget().getClass().getSimpleName(), pjp.getSignature().getName(), ex.getMessage());
 
-        // **Data Mismatch Warning Metric**
-        dataMismatchCounter.increment();
+        // **Cache Processing Failure Metric**
+        Metrics.counter("pcap.cache.event",
+                "class", pjp.getTarget().getClass().getSimpleName(),
+                "method", pjp.getSignature().getName(),
+                "outcome", "processing-failure").increment();
+
         return pjp.proceed();
     }
-
-    return pjp.proceed();
 }
-
-
----
-
-Final Fix Summary
-
-Now using Counter variables instead of calling Metrics.counter(...).increment() every time.
-
-Avoids unnecessary object creation and makes the code cleaner & efficient.
-
-No logic changes, just optimized metric recording.
-
-
-
----
-
-Final Counter Mapping
-
-
----
-
-Next Steps
-
-1️⃣ Update your PcapMultiCacheableAdvice class with this version.
-2️⃣ Run unit tests to validate local metric tracking.
-3️⃣ Deploy to MR branch and verify logs in DataDog.
-
-This is fully optimized & best practice aligned. Let me know if you need refinements! 🚀
-
