@@ -1,3 +1,33 @@
+Counter cacheHitCounter = Metrics.counter("pcap.cache.event", 
+    "class", pjp.getTarget().getClass().getSimpleName(), 
+    "method", pjp.getSignature().getName(), 
+    "outcome", "hit");
+
+Counter cacheMissCounter = Metrics.counter("pcap.cache.event", 
+    "class", pjp.getTarget().getClass().getSimpleName(), 
+    "method", pjp.getSignature().getName(), 
+    "outcome", "miss");
+
+Counter cacheFailureCounter = Metrics.counter("pcap.cache.event", 
+    "class", pjp.getTarget().getClass().getSimpleName(), 
+    "method", pjp.getSignature().getName(), 
+    "outcome", "failure");
+
+Counter cacheStoreCounter = Metrics.counter("pcap.cache.event", 
+    "class", pjp.getTarget().getClass().getSimpleName(), 
+    "method", pjp.getSignature().getName(), 
+    "outcome", "store");
+
+Counter evictionFailureCounter = Metrics.counter("pcap.cache.event", 
+    "class", pjp.getTarget().getClass().getSimpleName(), 
+    "method", pjp.getSignature().getName(), 
+    "outcome", "eviction_failure");
+
+Counter dataMismatchCounter = Metrics.counter("pcap.cache.event", 
+    "class", pjp.getTarget().getClass().getSimpleName(), 
+    "method", pjp.getSignature().getName(), 
+    "outcome", "data_mismatch");
+
 You're right to ask about using Counter explicitly. Yes, we should use Counter objects instead of calling Metrics.counter(...).increment() directly.
 
 This is because:
