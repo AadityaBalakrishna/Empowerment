@@ -1,171 +1,33 @@
-next block of code:
-here also there are two places where events are ebing logged, are they required for my task?
-task requirement:
-For each invocation of the pcapcacheble send a custom metric to datadog that captures following info
-The class on which the caching happened
-the method in which the caching happens 
-outcome of the caching (success/failure)
-The metric will be of type counter.
+public class MetricsService
+{
+	private static final PcapLogger logger = PcapLoggerFactory.getPcapLogger(MetricsService.class);
+	private static final String ENTITY_TYPE = "entity_type";
+	private static final String OPERATION = "operation";
+	private static final String SOURCE = "source";
+	private static final String METRICS_NAME = "epw.cstmr.sdi.event";
 
-this block is right after the first block i shared
-/*
-		 * so far we have created a key and gotten the corresponding cached values for these keys we
-		 * also have a list of all the keys for which we don't have a value.
-		 */
-		final Object resultForMissed = pjp.proceed(modifiedArgs);
+	public void incrementSuccess(Metadata metadata)
+	{
+		logger.debug(
+				"Incrementing incrementSuccess metric for entity type: {}, operation: {}, source: {}",
+				metadata.getEntityType()
+						.name(),
+				metadata.getOperation()
+						.name(),
+				metadata.getSource()
+						.name(),
+				metadata.getTraceId(), metadata.getSpanId());
 
-		int ttlSeconds = getTtlFromConfiguration(cacheName, pcapMultiCacheable.ttlSeconds());
+		Counter updateCounterSuccess = Metrics.counter(METRICS_NAME, ENTITY_TYPE,
+				metadata.getEntityType()
+						.name(),
+				OPERATION, metadata.getOperation()
+						.name(),
+				SOURCE, metadata.getSource()
+						.name(),
+				"result", "success");
+		updateCounterSuccess.increment();
+	}
 
-		// we now have all the missing collection/data from the database
-		try
-		{
-			if (resultIsCollection)
-			{
-				// get all the newly fetched data
-				Collection<Object> collectionResultForMissed = (Collection<Object>) resultForMissed;
 
-				// check if something from the result has to be used as part of the key.
-				if (Utils.isNotNull(resultKeyField)
-						|| (resultKeyFields != null && resultKeyFields.length > 0))
-				{
-					Collection<Object> mergedResult = getCollectionResult(listKeyArg, keyValueMap,
-							collectionResult);
-
-					// if nothing new was found for the missed keys, just return the existing
-					// collection
-					if (collectionResultForMissed == null || collectionResultForMissed.isEmpty())
-						return mergedResult;
-
-					List<Object> keyFieldValues = new ArrayList<Object>();
-
-					for (Object resultItemForMissed : collectionResultForMissed)
-					{
-						if (resultItemForMissed == null)
-							continue;
-
-						keyFieldValues.clear();
-						if ((resultKeyFields != null && resultKeyFields.length > 0))
-						{
-							// if key is to be derived from result, then get the field from result
-							// using reflection and create the cache key
-							for (int i = 0; i < resultKeyFields.length; i++)
-							{
-								Object keyFieldValue = PropertyAccessorFactory
-										.forBeanPropertyAccess(resultItemForMissed)
-										.getPropertyValue(resultKeyFields[i]);
-								keyFieldValues.add(cacheKeyProvider.getKeyField(keyFieldValue));
-							}
-						}
-						else
-						{// is only one is property is given use that value for key directly
-							Object keyFieldValue = PropertyAccessorFactory
-									.forBeanPropertyAccess(resultItemForMissed)
-									.getPropertyValue(resultKeyField);
-
-							if (keyFieldValue != null)
-							{
-								keyFieldValues.add(cacheKeyProvider.getKeyField(keyFieldValue));
-							}
-						}
-
-						// genearteKey and add the item fetched from db.
-						if (keyFieldValues.size() > 0)
-						{
-							String cacheKey = CacheUtils.generateKey(cacheName, keyPrefix,
-									keyFieldValues, otherKeyArgs);
-							getRedisson(redisType).getBucket(cacheKey)
-									.set(resultItemForMissed, ttlSeconds, TimeUnit.SECONDS);
-						}
-						// add found item to resultant collection from cache+db that has to be
-						// returned
-						mergedResult.add(resultItemForMissed);
-					}
-
-					return mergedResult;
-				}
-
-				// if all the generated keys don't have a corresponding value, just generate a list
-				// for the ones that do have it
-				if (collectionResultForMissed == null
-						|| collectionResultForMissed.size() != missedListKeys.size())
-				{
-					logger.warn(
-							"Did not receive a correlated amount of data from the target method: {}. "
-									+ "Result list will be unsorted and won't respect the order of the keys passed in argument.",
-							pjp.toShortString());
-					Collection<Object> resultFromHit = getCollectionResult(listKeyArg, keyValueMap,
-							collectionResult);
-					if (collectionResultForMissed != null)
-					{
-						collectionResultForMissed.addAll(resultFromHit);
-						return collectionResultForMissed;
-					}
-					return resultFromHit;
-				}
-
-				// if no property of the resulting objects from the object collection has to be used
-				// as part of they key, simply iterate over the missedKeys and missed Values and
-				// create a resultant collection and return it.
-
-				Iterator<Object> missedValueIterator = collectionResultForMissed.iterator();
-				Iterator<Object> missedKeyIterator = missedListKeys.iterator();
-
-				while (missedKeyIterator.hasNext())
-				{
-					Object key = missedKeyIterator.next();
-					Object value = missedValueIterator.next();
-
-					if (value != null || cachedValueNullable)
-					{
-						String cacheKey = CacheUtils.generateKey(cacheName, keyPrefix,
-								cacheKeyProvider.getKeyField(key), otherKeyArgs);
-						getRedisson(redisType).getBucket(cacheKey)
-								.set(value == null ? ObjectUtils.NULL : value, ttlSeconds,
-										TimeUnit.SECONDS);
-					}
-
-					keyValueMap.put(key, value);
-				}
-
-				// return a collection of missing objects
-				return getCollectionResult(listKeyArg, keyValueMap, collectionResult);
-			}
-			else
-			{
-				// if result is a map and not a collection
-				Map<Object, Object> mapResultForMissed = (Map<Object, Object>) resultForMissed;
-				Map<Object, Object> mergedResult = getMapResult(listKeyArg, keyValueMap, mapResult);
-				if (mapResultForMissed == null || mapResultForMissed.isEmpty())
-				{
-					return mergedResult;
-				}
-
-				Iterator<Object> missedKeyIterator = missedListKeys.iterator();
-
-				while (missedKeyIterator.hasNext())
-				{
-					Object key = missedKeyIterator.next();
-					Object value = mapResultForMissed.get(key);
-
-					if (value != null || cachedValueNullable)
-					{
-						String cacheKey = CacheUtils.generateKey(cacheName, keyPrefix,
-								cacheKeyProvider.getKeyField(key), otherKeyArgs);
-						getRedisson(redisType).getBucket(cacheKey)
-								.set(value == null ? ObjectUtils.NULL : value, ttlSeconds,
-										TimeUnit.SECONDS);
-					}
-
-					mergedResult.put(key, value);
-				}
-
-				return mergedResult;
-			}
-		}
-		catch (Exception ex)
-		{
-			logger.info("Caching on {} aborted due to an error. message: {}. stacktrace: {}",
-					pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
-
-			return pjp.proceed();
-		}
+this is one of the approach that is in use, is there anything useful from this that we can use?
