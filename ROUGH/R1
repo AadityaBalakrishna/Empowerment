@@ -1,67 +1,58 @@
+package com.personalcapital.cache.support;
 
-	/**
-	 * Redis key for each securityId: "quote:Symbol:<securityId>" ttl = 600 sec = 10 min
-	 */
-	@Override
-	@PcapMultiCacheable(value = "quote", keyProvider = QuoteCacheKeyProvider.class)
-	public Map<SecurityId, Quote> getQuotes(List<SecurityId> securityIds)
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Date;
+
+import com.personalcapital.cache.aop.support.CacheKeyProvider;
+import com.personalcapital.cache.utils.CacheUtils;
+import com.safepage.invest.data.SecurityId;
+import com.safepage.util.DateTimeUtils;
+
+public class QuoteCacheKeyProvider implements CacheKeyProvider
+{
+	private static Object extractKeyField(Object object)
 	{
-		Map<SecurityId, Quote> results = new HashMap<SecurityId, Quote>();
-
-		List<SecurityId> pcapIndexList = new ArrayList<SecurityId>();
-		List<SecurityId> securityIdListExcludingPCAPIndex = new ArrayList<SecurityId>();
-
-		for (SecurityId securityId : securityIds)
+		if (object == null)
+			return "";
+		else if (object instanceof SecurityId)
 		{
-			if (securityId == null)
-				continue;
+			String tmp = "";
+			SecurityId securityId = (SecurityId) object;
+			String symbol = securityId.getSymbol();
+			String cusip = securityId.getCusip();
+			if (symbol != null && !symbol.isEmpty())
+				tmp = "Symbol:" + symbol.replace(' ', '/');
+			else if (cusip != null && !cusip.isEmpty())
+				tmp = "CUSIP:" + cusip.replace(' ', '/');
 
-			if (Utils.isNotNull(securityId.getSymbol())
-					&& QuoteService.PCAP_CUSTOM_INDICES_MAP.containsKey(securityId.getSymbol()))
-			{
-				pcapIndexList.add(securityId);
-			}
-			else if (CryptoCurrencyUtils.isCryptoHolding(securityId.getSymbol()))
-			{
-				log(securityId, null, true, "quotes");
-				if (!cryptoCacheUtils.isCryptoSymbolSupported(securityId))
-				{
-					log(securityId, "getQuotes");
-					continue;
-				}
-				Quote quote = this.cryptoCompareQuoteService.getQuote(securityId);
-				log(securityId, null, false, "quotes");
-				if (quote != null)
-				{
-					results.put(securityId, quote);
-				}
-			}
-			else
-			{
-				Quote quote = getLastClosingQuoteIfValidAndMarketClosed(securityId);
-				if (quote != null)
-				{
-					results.put(securityId, quote);
-					continue;
-				}
-				securityIdListExcludingPCAPIndex.add(securityId);
-			}
+			return tmp;
+		}
+		else if (object instanceof Date)
+			return DateTimeUtils.formatDate((Date) object);
+		else
+			return object;
+	}
+
+	public static String generateKey(Object... objects)
+	{
+		if (objects == null)
+			return "";
+
+		Collection<Object> keyObjects = new ArrayList<>(objects.length);
+		for (Object object : objects)
+		{
+			keyObjects.add(extractKeyField(object));
 		}
 
-		Map<SecurityId, Quote> pcapIndexResults = null;
-		if (!pcapIndexList.isEmpty())
-			pcapIndexResults = this.getPCAPIndexQuotes(pcapIndexList, null);
-		Map<SecurityId, Quote> resultsExcludingPCAPIndex = null;
-		if (!securityIdListExcludingPCAPIndex.isEmpty())
-			resultsExcludingPCAPIndex = backingQuoteService
-					.getQuotes(securityIdListExcludingPCAPIndex);
-
-		if (pcapIndexResults != null)
-			results.putAll(pcapIndexResults);
-
-		if (resultsExcludingPCAPIndex != null)
-			results.putAll(resultsExcludingPCAPIndex);
-
-		return results;
+		return CacheUtils.generateKey("", keyObjects);
 	}
+
+	@Override
+	public Object getKeyField(Object object)
+	{
+		return extractKeyField(object);
+	}
+
+}
 
