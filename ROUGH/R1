@@ -1,12 +1,128 @@
-	private PcapMultiCacheable mockPcapMultiCacheable() {
-		PcapMultiCacheable annotation = mock(PcapMultiCacheable.class);
-		when(annotation.resultKeyField()).thenReturn("id");
-		when(annotation.nullable()).thenReturn(false);
-		when(annotation.keyPrefix()).thenReturn("test_prefix");
-		when(annotation.value()).thenReturn("test_cache");
-		when(annotation.redisType()).thenReturn(null);
-		when(annotation.keys()).thenReturn(new int[]{0});
-		return annotation;
-	}
+package com.personalcapital.cache.aop;
 
-what happened to this? why have you not used it, by the way when i asked to log, i wanted you to use logger, and can all these be done in just one test class, i can see many repeated lines of code
+import com.personalcapital.cache.annotation.PcapMultiCacheable;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Counter;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.Signature;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
+import org.mockito.MockedStatic;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.util.Arrays;
+import java.util.List;
+
+public class PcapMultiCacheableAdviceTest {
+
+    private static final Logger logger = LoggerFactory.getLogger(PcapMultiCacheableAdviceTest.class);
+    private PcapMultiCacheableAdvice cacheAdvice;
+
+    @BeforeEach
+    void setUp() {
+        cacheAdvice = new PcapMultiCacheableAdvice();
+    }
+
+    private ProceedingJoinPoint mockProceedingJoinPoint() {
+        ProceedingJoinPoint pjp = mock(ProceedingJoinPoint.class);
+        Signature mockSignature = mock(Signature.class);
+
+        when(pjp.getTarget()).thenReturn(cacheAdvice);
+        when(pjp.getSignature()).thenReturn(mockSignature);
+        when(mockSignature.getName()).thenReturn("testMethod");
+
+        return pjp;
+    }
+
+    private PcapMultiCacheable mockPcapMultiCacheable() {
+        PcapMultiCacheable annotation = mock(PcapMultiCacheable.class);
+        when(annotation.resultKeyField()).thenReturn("id");
+        when(annotation.nullable()).thenReturn(false);
+        when(annotation.keyPrefix()).thenReturn("test_prefix");
+        when(annotation.value()).thenReturn("test_cache");
+        when(annotation.redisType()).thenReturn(null);
+        when(annotation.keys()).thenReturn(new int[]{0});
+        return annotation;
+    }
+
+    private void verifyMetricsLogging(MockedStatic<Metrics> mockedMetrics, String expectedOutcome) {
+        ArgumentCaptor<String> metricNameCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String[]> tagsCaptor = ArgumentCaptor.forClass(String[].class);
+
+        mockedMetrics.verify(() -> Metrics.counter(metricNameCaptor.capture(), tagsCaptor.capture()), times(1));
+
+        List<String> capturedTags = Arrays.asList(tagsCaptor.getValue());
+        assertEquals("pcap.cache.event", metricNameCaptor.getValue());
+        assertTrue(capturedTags.contains("outcome"));
+        assertTrue(capturedTags.contains(expectedOutcome));
+
+        logger.info("Captured Metric Name: {}", metricNameCaptor.getValue());
+        logger.info("Captured Tags: {}", capturedTags);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"hit", "miss", "store", "failure", "data_mismatch"})
+    void testPublishCacheMetrics(String outcome) {
+        ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+
+        try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class)) {
+            Counter mockCounter = mock(Counter.class);
+            mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class))).thenReturn(mockCounter);
+
+            cacheAdvice.publishCacheMetrics(pjp, outcome);
+
+            verify(mockCounter, times(1)).increment();
+            verifyMetricsLogging(mockedMetrics, outcome);
+        }
+    }
+
+    @Test
+    void testPublishCacheMetrics_CacheReadFailure() throws Throwable {
+        ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+        PcapMultiCacheableAdvice spyAdvice = spy(cacheAdvice);
+
+        when(pjp.proceed()).thenThrow(new RuntimeException("Simulated DB Read Failure"));
+
+        try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class)) {
+            Counter mockCounter = mock(Counter.class);
+            mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class))).thenReturn(mockCounter);
+
+            try {
+                spyAdvice.doMultiCacheable(pjp, mockPcapMultiCacheable());
+            } catch (Exception ignored) { }
+
+            verify(spyAdvice, times(1)).publishCacheMetrics(eq(pjp), eq("failure"));
+            verify(mockCounter, times(1)).increment();
+            verifyMetricsLogging(mockedMetrics, "failure");
+        }
+    }
+
+    @Test
+    void testPublishCacheMetrics_EvictionFailure() throws Throwable {
+        ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+        PcapMultiCacheableAdvice spyAdvice = spy(cacheAdvice);
+
+        doThrow(new RuntimeException("Eviction failed")).when(spyAdvice).evictFromRedis(any(), anyList());
+
+        try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class)) {
+            Counter mockCounter = mock(Counter.class);
+            mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class))).thenReturn(mockCounter);
+
+            try {
+                spyAdvice.doMultiCacheable(pjp, mockPcapMultiCacheable());
+            } catch (Exception ignored) { }
+
+            verify(spyAdvice, times(1)).evictFromRedis(any(), anyList());
+            verify(spyAdvice, times(1)).publishCacheMetrics(eq(pjp), eq("eviction_failure"));
+            verify(mockCounter, times(1)).increment();
+            verifyMetricsLogging(mockedMetrics, "eviction_failure");
+        }
+    }
+}
