@@ -1,4 +1,12 @@
-			ArgumentCaptor<String> metricName = ArgumentCaptor.forClass(String.class);
-			ArgumentCaptor<String[]> tagsSenttoDatadog = ArgumentCaptor.forClass(String[].class);
+	private PcapMultiCacheable mockPcapMultiCacheable() {
+		PcapMultiCacheable annotation = mock(PcapMultiCacheable.class);
+		when(annotation.resultKeyField()).thenReturn("id");
+		when(annotation.nullable()).thenReturn(false);
+		when(annotation.keyPrefix()).thenReturn("test_prefix");
+		when(annotation.value()).thenReturn("test_cache");
+		when(annotation.redisType()).thenReturn(null);
+		when(annotation.keys()).thenReturn(new int[]{0});
+		return annotation;
+	}
 
-and log them in the end of the test case?
+what happened to this? why have you not used it, by the way when i asked to log, i wanted you to use logger, and can all these be done in just one test class, i can see many repeated lines of code
