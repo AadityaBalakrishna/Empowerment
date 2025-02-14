@@ -1,232 +1,80 @@
-package com.personalcapital.cache.testframework;
+package com.personalcapital.cache.aop;
 
-import com.personalcapital.cache.aop.*;
-import com.personalcapital.cache.config.CacheJVMConfiguration;
-import com.personalcapital.cache.redis.DateRangeCacheRedisHashMapUtils;
-import com.personalcapital.cache.redis.DateRangeCacheRedisSortedSetHelper;
-import com.personalcapital.cache.redis.PcapCacheErrorHandler;
-import com.personalcapital.cache.utils.CacheConstants;
-import com.personalcapital.cache.utils.CacheManagerHelper;
-import com.personalcapital.log.PcapLogger;
-import com.personalcapital.log.PcapLoggerFactory;
-import org.redisson.api.RedissonClient;
-import org.redisson.spring.cache.CacheConfig;
-import org.redisson.spring.cache.RedissonSpringCacheManager;
-import org.springframework.beans.factory.annotation.Lookup;
-import org.springframework.cache.CacheManager;
-import org.springframework.cache.annotation.CachingConfigurerSupport;
-import org.springframework.cache.annotation.EnableCaching;
-import org.springframework.cache.interceptor.CacheErrorHandler;
-import org.springframework.cache.transaction.TransactionAwareCacheManagerProxy;
-import org.springframework.context.annotation.*;
-import org.springframework.test.context.TestPropertySource;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.wait.strategy.Wait;
+import com.personalcapital.cache.testframework.CacheTestConfiguration;
+import com.personalcapital.cache.annotation.PcapMultiCacheable;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Counter;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.Signature;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.MockedStatic;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
 
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
-import java.util.Map;
+import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
 
-import static org.springframework.test.util.ReflectionTestUtils.setField;
+import java.util.Arrays;
 
-@Configuration
-@EnableAspectJAutoProxy
-@EnableCaching(order = org.springframework.core.Ordered.HIGHEST_PRECEDENCE)
-@ComponentScan(basePackages = { "com.personalcapital.cache.config" })
-@TestPropertySource(properties =
-{
-        "caching.redis.readMode=MASTER",
-        "caching.redis.ha.readMode=MASTER",
-        "caching.redisson.idleConnectionTimeout=100",
-        "caching.redisson.timeout=2000",
-        "caching.redis.timeout=5000",
-        "caching.redisson.timeout=5000",
-        "caching.redis.pool.maxTotal=50",
-        "caching.redis.pool.maxIdle=20",
-        "caching.redis.pool.minIdle=5",
-        "caching.redis.serializer.useMinBin=false",
-        "redis.enabled=true",
-        "caching.global.disabled=true",
-        "caching.global.mode=redis",
-        "caching.redis.hostname=127.0.0.1"
-} )
-@Import(CacheJVMConfiguration.class)
-public class CacheTestConfiguration extends CachingConfigurerSupport
-{
-    private static final PcapLogger LOGGER = PcapLoggerFactory.getPcapLogger(CacheTestConfiguration.class);
-    public static GenericContainer redis =
-            new GenericContainer("redis:6")
-                    .withExposedPorts(6379);
+@SpringBootTest(classes = CacheTestConfiguration.class)  // ✅ Load Spring Context
+public class PcapMultiCacheableAdviceTest {
 
-    public CacheTestConfiguration()
-    {
+    @Autowired
+    private PcapMultiCacheableAdvice cacheAdvice;  // ✅ Inject the real bean
+
+    @BeforeEach
+    void setUp() {
+        // No need to manually initialize cacheAdvice, Spring injects it
     }
 
-    @PostConstruct
-    public void initialize() throws Exception
-    {
-        LOGGER.debug("CacheTestConfiguration Initialized---" + Thread.currentThread().getName());
-        redis.withLogConsumer(new PCAPLogConsumer(LOGGER)).
-        waitingFor(
-            Wait.forLogMessage(".*Ready to accept connections.*\\n", 1)
-        );
-        redis.start();
-        Thread.sleep(2000);// TODO: Handle proper container startup
-        Integer firstMappedPort = redis.getMappedPort(6379);
-        final String redisPort = String.valueOf(firstMappedPort);
+    @Test
+    void testPublishCacheMetrics_onEvictionFailure() throws Throwable {
+        ProceedingJoinPoint pjp = mock(ProceedingJoinPoint.class);
+        Signature mockSignature = mock(Signature.class);
 
-        System.setProperty("caching.redis.port", redisPort);
-        System.setProperty("caching.redis.ha.port", redisPort);
-        System.setProperty("caching.redis.ha.cluster.port", redisPort);
-        System.setProperty("caching.redis.cluster.port",redisPort);
-        System.setProperty("caching.redis.ha.hostname","127.0.0.1");
-        System.setProperty("caching.redis.ha.configEndpoint","127.0.0.1");
-        System.setProperty("caching.global.uri","127.0.0.1:11211");
-        System.setProperty("caching.redis.clusterMode","false");
+        when(pjp.getTarget()).thenReturn(cacheAdvice);
+        when(pjp.getSignature()).thenReturn(mockSignature);
+        when(pjp.getSignature().getName()).thenReturn("testMethod");
+        when(pjp.getArgs()).thenReturn(new Object[]{"testKey"});
 
-    }
-    @PreDestroy
-    public void destroy() throws Exception
-    {
-        LOGGER.debug("CacheTestConfiguration Destroy---" + Thread.currentThread().getName());
-        redis.stop();
-    }
-    @Lookup(value = CacheConstants.REDISSON_REGULAR)
-    public RedissonClient redission(){
-        return null;
-    }
+        // ✅ Mock the annotation instead of passing null
+        PcapMultiCacheable mockAnnotation = mock(PcapMultiCacheable.class);
+        when(mockAnnotation.resultKeyField()).thenReturn("id"); 
+        when(mockAnnotation.nullable()).thenReturn(false);
+        when(mockAnnotation.keyPrefix()).thenReturn("test_prefix");
+        when(mockAnnotation.value()).thenReturn("test_cache");
+        when(mockAnnotation.redisType()).thenReturn(null);
+        when(mockAnnotation.keys()).thenReturn(new int[]{0});
 
-    @Lookup(value = CacheConstants.REDISSON_HIGH_AVAILABILITY)
-    public RedissonClient redissionHa(){
-        return null;
-    }
+        // Mock eviction failure
+        PcapMultiCacheableAdvice spyAdvice = spy(cacheAdvice);  // ✅ Use real injected bean
+        doThrow(new RuntimeException("Cache eviction failed")).when(spyAdvice).evictFromRedis(any(), anyList());
 
-    @Lookup(value = "redisCacheExpires")
-    public Map<String, CacheConfig> redisCacheExpires()
-    {
-        return null;
-    }
+        try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class)) {
+            Counter mockCounter = mock(Counter.class);
+            mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
+                         .thenReturn(mockCounter);
 
-    @Bean
-    public PcapCacheableAdvice pcapCacheableAdvice()
-    {
-        LOGGER.debug("Initializing PcapCacheableAdvice bean");
-        PcapCacheableAdvice pcapCacheableAdvice = new PcapCacheableAdvice();
-        setField(pcapCacheableAdvice, "redissonGen",redission());
-        setField(pcapCacheableAdvice, "redissonHa",redissionHa());
-        setField(pcapCacheableAdvice, "redisCacheExpires",redisCacheExpires());
-        LOGGER.debug("Initialized PcapCacheableAdvice bean {} " , pcapCacheableAdvice);
-        return pcapCacheableAdvice;
-    }
+            // Act
+            try {
+                spyAdvice.doMultiCacheable(pjp, mockAnnotation);
+            } catch (Exception e) {
+                System.out.println("Caught Exception: " + e.getMessage());
+            }
 
-    @Bean(name = "pcapMultiCacheableAdvice")
-    public PcapMultiCacheableAdvice pcapMultiCacheableAdvice()
-    {
-        LOGGER.debug("Initializing PcapMultiCacheableAdvice bean");
-        PcapMultiCacheableAdvice pcapMultiCacheableAdvice = new PcapMultiCacheableAdvice();
-        setField(pcapMultiCacheableAdvice, "redissonGen",redission());
-        setField(pcapMultiCacheableAdvice, "redissonHa",redissionHa());
-        setField(pcapMultiCacheableAdvice, "redisCacheExpires",redisCacheExpires());
-        LOGGER.debug("Initialized PcapCacheableAdvice bean {} " , pcapMultiCacheableAdvice);
-        return pcapMultiCacheableAdvice;
-    }
+            // Verify `evictFromRedis` was actually called
+            verify(spyAdvice, times(1)).evictFromRedis(any(), anyList());
 
-    @Bean(name = "pcapMultiCacheEvictAdvice")
-    public PcapMultiCacheEvictAdvice pcapMultiCacheEvictAdvice()
-    {
-        LOGGER.debug("Initialized PcapMultiCacheEvictAdvice bean ");
-        PcapMultiCacheEvictAdvice pcapMultiCacheEvictAdvice = new PcapMultiCacheEvictAdvice();
-        setField(pcapMultiCacheEvictAdvice, "redissonGen",redission());
-        setField(pcapMultiCacheEvictAdvice, "redissonHa",redissionHa());
-        setField(pcapMultiCacheEvictAdvice, "redisCacheExpires",redisCacheExpires());
-        LOGGER.debug("Initialized PcapMultiCacheEvictAdvice bean {} " , pcapMultiCacheEvictAdvice);
-        return pcapMultiCacheEvictAdvice;
-    }
+            // Verify `publishCacheMetrics` was called with "eviction_failure"
+            verify(spyAdvice, times(1)).publishCacheMetrics(eq(pjp), eq("eviction_failure"));
 
-    @Bean(name = "pcapMultiCachePutAdvice")
-    public PcapMultiCachePutAdvice pcapMultiCachePutAdvice()
-    {
-        LOGGER.debug("Initialized PcapMultiCachePutAdvice bean ");
-        PcapMultiCachePutAdvice pcapMultiCachePutAdvice = new PcapMultiCachePutAdvice();
-        setField(pcapMultiCachePutAdvice, "redissonGen",redission());
-        setField(pcapMultiCachePutAdvice, "redissonHa",redissionHa());
-        setField(pcapMultiCachePutAdvice, "redisCacheExpires",redisCacheExpires());
-        LOGGER.debug("Initialized PcapMultiCachePutAdvice bean {} " , pcapMultiCachePutAdvice);
-        return pcapMultiCachePutAdvice;
-    }
+            // Verify Metrics.counter() was called
+            mockedMetrics.verify(() -> Metrics.counter(eq("pcap.cache.event"), any(String[].class)), times(1));
 
-    @Bean
-    public PcapCacheEvictAdvice pcapCacheEvictAdvice()
-    {
-        LOGGER.debug("Initialized PcapCacheEvictAdvice bean ");
-        PcapCacheEvictAdvice pcapCacheableEvictAdvice = new PcapCacheEvictAdvice();
-        setField(pcapCacheableEvictAdvice, "redissonGen",redission());
-        setField(pcapCacheableEvictAdvice, "redissonHa",redissionHa());
-        setField(pcapCacheableEvictAdvice, "redisCacheExpires",redisCacheExpires());
-        LOGGER.debug("Initialized PcapCacheEvictAdvice bean {} " , pcapCacheableEvictAdvice);
-        return pcapCacheableEvictAdvice;
-    }
-
-    @Bean
-    public PcapCachePutAdvice pcapCachePutAdvice()
-    {
-        LOGGER.debug("Initialized PcapCachePutAdvice bean " );
-        PcapCachePutAdvice pcapCachePutAdvice = new PcapCachePutAdvice();
-        setField(pcapCachePutAdvice, "redissonGen",redission());
-        setField(pcapCachePutAdvice, "redissonHa",redissionHa());
-        setField(pcapCachePutAdvice, "redisCacheExpires",redisCacheExpires());
-        LOGGER.debug("Initialized PcapCachePutAdvice bean {} ", pcapCachePutAdvice );
-        return pcapCachePutAdvice;
-    }
-
-
-    @Bean
-    public DateRangeCacheAdvice dateRangeCacheAdvice()
-    {
-        LOGGER.debug("Initializing DateRangeCacheAdvice bean");
-        DateRangeCacheAdvice dateRangeCacheAdvice = new DateRangeCacheAdvice();
-        LOGGER.debug("Initializing DateRangeCacheAdvice bean {} ", dateRangeCacheAdvice);
-        return dateRangeCacheAdvice;
-    }
-
-    @Bean
-    public DateRangeCacheRedisHashMapUtils dateRangeCacheRedisHashMapUtils()
-    {
-        LOGGER.debug("Initializing DateRangeCacheRedisHashMapUtils bean");
-        DateRangeCacheRedisHashMapUtils dateRangeCacheRedisHashMapUtils = new DateRangeCacheRedisHashMapUtils();
-        setField(dateRangeCacheRedisHashMapUtils, "redisson",redissionHa());
-        LOGGER.debug("Initializing DateRangeCacheRedisHashMapUtils bean {}", dateRangeCacheRedisHashMapUtils);
-        return dateRangeCacheRedisHashMapUtils;
-    }
-
-    @Bean
-    public DateRangeCacheRedisSortedSetHelper dateRangeCacheRedisSortedSetHelper()
-    {
-        LOGGER.debug("Initializing DateRangeCacheRedisSortedSetHelper bean");
-        DateRangeCacheRedisSortedSetHelper dateRangeCacheRedisSortedSetHelper = new DateRangeCacheRedisSortedSetHelper();
-        setField(dateRangeCacheRedisSortedSetHelper, "redisson",redissionHa());
-        LOGGER.debug("Initializing DateRangeCacheRedisSortedSetHelper bean {}", dateRangeCacheRedisSortedSetHelper);
-        return dateRangeCacheRedisSortedSetHelper;
-    }
-
-    @Bean
-    @Primary
-    public CacheManager cacheManager() {
-        CacheManager cacheManager = new RedissonSpringCacheManager(redissionHa(),redisCacheExpires());
-        return new TransactionAwareCacheManagerProxy( cacheManager );
-    }
-
-    @Override
-    public CacheErrorHandler errorHandler()
-    {
-        return new PcapCacheErrorHandler();
-    }
-
-    @Bean
-    public CacheManagerHelper cacheManagerHelper()
-    {
-        return new CacheManagerHelper();
+            // Verify counter increment
+            verify(mockCounter, times(1)).increment();
+        }
     }
 }
-
-i found this in the testframework folder, is it helpful? if yes, utilise it
