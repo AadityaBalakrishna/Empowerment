@@ -1,87 +1,169 @@
-package com.personalcapital.cache.aop;
-
-import java.util.Arrays;
-
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import org.aspectj.lang.ProceedingJoinPoint;
-import org.aspectj.lang.Signature;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.MockedStatic;
-
-import static org.mockito.Mockito.*;
-import static org.junit.jupiter.api.Assertions.*;
-
-public class PcapMultiCacheableAdviceTest
-{
-	private PcapMultiCacheableAdvice cacheAdvice;
-	private SimpleMeterRegistry meterRegistry;
-
-	@BeforeEach
-	void setUp()
-	{
-		meterRegistry = new SimpleMeterRegistry();
-		Metrics.addRegistry(meterRegistry);
-		cacheAdvice = new PcapMultiCacheableAdvice();
-	}
-
-	@Test
-	void testRecordCachingMetric()
-	{
-		ProceedingJoinPoint pjp = mock(ProceedingJoinPoint.class);
-		Signature mockSignature = mock(Signature.class);
-
-		PcapMultiCacheableAdvice advice = new PcapMultiCacheableAdvice();
-		when(pjp.getTarget()).thenReturn(advice);
-		when(pjp.getSignature()).thenReturn(mockSignature);
-		when(pjp.getSignature()
-				.getName()).thenReturn("testMethod");
-
-		try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class))
+		// get type of cache: default or redis or simple from annotation
+		if (StringUtils.isBlank(cacheName))
 		{
-			Counter mockCounter = mock(Counter.class);
-			mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
-					.thenReturn(mockCounter);
-			cacheAdvice.publishCacheMetrics(pjp, "miss");
-
-			ArgumentCaptor<String> metricName = ArgumentCaptor.forClass(String.class);
-			ArgumentCaptor<String[]> tagsSenttoDatadog = ArgumentCaptor.forClass(String[].class);
-
-			mockedMetrics.verify(
-					() -> Metrics.counter(metricName.capture(), tagsSenttoDatadog.capture()));
-
-			assertEquals("pcap.cache.event", metricName.getValue());
-			verify(mockCounter, times(1)).increment();
-
-			System.out.println("Metric Captured Successfully: " + metricName.getValue());
-			System.out.println("Captured Tags: " + Arrays.toString(tagsSenttoDatadog.getValue()));
+			throw new AopInvocationException(
+					"pcapMultiCacheable needs to have cacheName specified in value element.");
 		}
-	}
-}
+		CacheKeyProvider cacheKeyProvider = pcapMultiCacheable.keyProvider()
+				.getDeclaredConstructor()
+				.newInstance();
+		try
+		{
+			method = CacheAdviceHelper.getMethod(pjp);
+			returnType = method.getReturnType();
 
+			// check expected return type
+			if (Collection.class.isAssignableFrom(returnType))
+			{
+				resultIsCollection = true;
+				collectionResult = collectionInstance((Class<? extends Collection>) returnType);
+			}
+			else if (Map.class.isAssignableFrom(returnType))
+			{
+				resultIsCollection = false;
+				mapResult = mapInstance((Class<? extends Map>) returnType);
+			}
+			else
+			{
+				throw new AopInvocationException(
+						"pcapMultiCacheable cannot apply to method without return.");
+			}
 
-Wanted but not invoked:
-Metrics.class.counter(
-    <Capturing argument: String>,
-    <Capturing argument: String[]>
-);
--> at io.micrometer.core.instrument.Metrics.counter(Metrics.java:76)
-Actually, there were zero interactions with this mock.
+			// check if keyIndices are provided for keyName generation
+			int[] keyIndice = pcapMultiCacheable.keys();
 
-Wanted but not invoked:
-Metrics.class.counter(
-    <Capturing argument: String>,
-    <Capturing argument: String[]>
-);
--> at io.micrometer.core.instrument.Metrics.counter(Metrics.java:76)
-Actually, there were zero interactions with this mock.
+			if (args == null || args.length == 0)
+			{
+				throw new AopInvocationException(
+						"pcapMultiCacheable cannot apply to method without parameter");
+			}
 
-	at io.micrometer.core.instrument.Metrics.counter(Metrics.java:76)
-	at com.personalcapital.cache.aop.PcapMultiCacheableAdviceTest.lambda$testPulbishCacheMetrics_onEvictionFailure$3(PcapMultiCacheableAdviceTest.java:97)
-	at com.personalcapital.cache.aop.PcapMultiCacheableAdviceTest.testPulbishCacheMetrics_onEvictionFailure(PcapMultiCacheableAdviceTest.java:96)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+			// get other Arguments to generate key
+			if (keyIndice == null || keyIndice.length == 0)
+			{
+				for (int i = 0; i < args.length; i++)
+				{
+					Object arg = args[i];
+					/*
+					 * if arguments contain a collection, remember the argument number tp extract
+					 * elements for keyName generation later
+					 */
+					if (Collection.class.isInstance(arg)
+							&& Collection.class.isAssignableFrom(arg.getClass()))
+					{
+						listKeyArgIndex = i;
+					}
+					else
+					{
+						otherKeyArgs.add(cacheKeyProvider.getKeyField(arg));
+					}
+				}
+			}
+			else
+			{
+				// if we provide a list of indices for the args that have to be used for keys, use
+				// this to generate keys
+				for (int keyIndex : keyIndice)
+				{
+					if (keyIndex >= args.length)
+						continue;
+
+					Object arg = args[keyIndex];
+					if (Collection.class.isInstance(arg)
+							&& Collection.class.isAssignableFrom(arg.getClass()))
+					{
+						listKeyArgIndex = keyIndex;
+					}
+					else
+					{
+						otherKeyArgs.add(cacheKeyProvider.getKeyField(arg));
+					}
+				}
+			}
+
+			if (listKeyArgIndex == null)
+			{
+				throw new AopInvocationException(
+						"pcapMultiCacheable must have a Collection parameter as key list");
+			}
+
+			// get the collection arg to generate keys
+			listKeyArg = (Collection<Object>) args[listKeyArgIndex];
+			for (Object listKey : listKeyArg)
+			{
+				// get key generated from all values gathered so far from pcapMultiCacheable
+				String key = CacheUtils.generateKey(cacheName, keyPrefix,
+						cacheKeyProvider.getKeyField(listKey), otherKeyArgs);
+				// get cachedValue
+				Object cachedValue = getRedisson(redisType).getBucket(key)
+						.get();
+				if (cachedValue == null || (cachedValue instanceof ObjectUtils.Null
+						&& cachedValueNullable == false))
+				{
+					if (missedListKeys == null)
+					{
+						// create an empty collection of type of expected cachedValues
+						missedListKeys = collectionInstance(listKeyArg.getClass());
+					}
+
+					// create a collection of keys with no cachedValues
+					((Collection<Object>) missedListKeys).add(listKey);
+					// Cache Miss Metric
+					publishCacheMetrics(pjp, "miss");
+				}
+				else
+				{
+					// write keys and corresponding cached values to a keyValue Map
+					((Map<Object, Object>) keyValueMap).put(listKey,
+							CacheUtils.getValue(cachedValue));
+					// Cache Hit Metric
+					publishCacheMetrics(pjp, "hit");
+				}
+			}
+
+			// if there are no missed keys just return all the values fetched from cache
+			if (missedListKeys == null || missedListKeys.isEmpty())
+			{
+				if (resultIsCollection)
+					return getCollectionResult(listKeyArg, keyValueMap, collectionResult);
+				else
+					return getMapResult(listKeyArg, keyValueMap, mapResult);
+			}
+
+			// here we update the arguments for the method to only get those records from the db for
+			// which we didn't find an entry in the cache.
+			modifiedArgs = modifiedArgs(args, listKeyArgIndex, missedListKeys);
+		}
+		catch (Exception ex)
+		{
+			logger.info("Caching on {} aborted due to an error. message: {}. stacktrace: {}",
+					pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
+			// Cache Failure Metric
+			publishCacheMetrics(pjp, "failure");
+			try
+			{
+				final CacheKeyProvider finalCacheKeyProvider = cacheKeyProvider;
+				final Collection<Object> finalOtherKeyArgs = otherKeyArgs;
+				List<String> keys = listKeyArg.stream()
+						.filter(k -> Objects.nonNull(k))
+						.map(k -> CacheUtils.generateKey(cacheName, keyPrefix,
+								finalCacheKeyProvider.getKeyField(k), finalOtherKeyArgs))
+						.collect(Collectors.toList());
+				if (!evictFromRedis(redisType, keys))
+				{
+					// if eviction fails we fetch from db and return
+					return pjp.proceed();
+				}
+			}
+			catch (Exception e)
+			{
+				logger.info("Eviction on caching failure failed on {}, due to: {}, stacktrace: {}",
+						pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
+				// Cache Eviction Failure Metric
+				publishCacheMetrics(pjp, "eviction_failure");
+			}
+			// since we evict all the keys we want to fetch and save all the keys again
+			modifiedArgs = args;
+		}
+
+i'm giving you the entire block of code to get to that data_eviction stage, mock the exception properly and get me the right answe
