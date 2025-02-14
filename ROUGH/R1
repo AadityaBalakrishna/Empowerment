@@ -1,13 +1,31 @@
-try to use only 1 time...
-pseudo code
-var className = ...getTarget().getClass().getSimpleName()
-then use className for other refs.
+	private static final String METRICS_NAME = "pcap.cache.event";
 
-for reusability & brevity u can wrap the coe in a method & use..e.g
-getSimpleClassName (Event o)
-{
-return ...getTarget().getClass().getSimpleName()}
-}
-and use getSimpleClassName whr it is needed.
+	void recordCaching(ProceedingJoinPoint pjp, String outcome){
+		String className = getClassName(pjp);
+		String methodName = getMethodName(pjp);
 
-what should i do to work on these comments?
+		Metrics.counter(METRICS_NAME,"class",className,"method",methodName,"outcome",outcome).increment();
+	}
+
+	private String getClassName(ProceedingJoinPoint pjp)
+	{
+		return pjp.getTarget()
+				.getClass()
+				.getSimpleName();
+	}
+
+	private String getMethodName(ProceedingJoinPoint pjp)
+	{
+		return pjp.getSignature()
+				.getName();
+	}
+
+
+					/*// Cache Miss Metric
+					Metrics.counter(METRICS_NAME, "class", className, "method", methodName, "outcome",
+									"miss")
+							.increment();
+*/
+					recordCaching(pjp,"miss");
+
+there are the changes you need to keep in mind before giving me the test case
