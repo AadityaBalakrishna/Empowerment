@@ -3,11 +3,10 @@ void testPublishCacheMetrics_DataMismatch() throws Throwable {
     ProceedingJoinPoint pjp = mockProceedingJoinPoint();
     PcapMultiCacheableAdvice spyAdvice = spy(cacheAdvice);
 
-    // ✅ Simulate a scenario where the database returns fewer/more elements than expected
-    List<String> cacheKeys = Arrays.asList("key1", "key2", "key3");  // Expected keys in cache
-    List<String> dbResults = Arrays.asList("key1", "key2");  // DB returns fewer elements (Mismatch!)
+    // ✅ Spy on getCollectionResult() to force a data mismatch
+    doReturn(Arrays.asList("wrongData")).when(spyAdvice).getCollectionResult(any(), any(), any());
 
-    when(pjp.proceed()).thenReturn(dbResults); // Simulate DB returning incorrect data
+    when(pjp.proceed()).thenReturn(Arrays.asList("key1", "key2")); // Simulate DB returning incorrect data
 
     try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class)) {
         Counter mockCounter = mock(Counter.class);
