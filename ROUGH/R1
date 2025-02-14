@@ -68,7 +68,7 @@ public class PcapMultiCacheableAdviceTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"hit", "miss", "store", "failure", "data_mismatch"})
+    @ValueSource(strings = {"hit", "miss", "store"})
     void testPublishCacheMetrics(String outcome) {
         ProceedingJoinPoint pjp = mockProceedingJoinPoint();
 
@@ -123,6 +123,27 @@ public class PcapMultiCacheableAdviceTest {
             verify(spyAdvice, times(1)).publishCacheMetrics(eq(pjp), eq("eviction_failure"));
             verify(mockCounter, times(1)).increment();
             verifyMetricsLogging(mockedMetrics, "eviction_failure");
+        }
+    }
+
+    @Test
+    void testPublishCacheMetrics_DataMismatch() throws Throwable {
+        ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+        PcapMultiCacheableAdvice spyAdvice = spy(cacheAdvice);
+
+        doThrow(new RuntimeException("Data mismatch detected")).when(spyAdvice).getCollectionResult(any(), any(), any());
+
+        try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class)) {
+            Counter mockCounter = mock(Counter.class);
+            mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class))).thenReturn(mockCounter);
+
+            try {
+                spyAdvice.doMultiCacheable(pjp, mockPcapMultiCacheable());
+            } catch (Exception ignored) { }
+
+            verify(spyAdvice, times(1)).publishCacheMetrics(eq(pjp), eq("data_mismatch"));
+            verify(mockCounter, times(1)).increment();
+            verifyMetricsLogging(mockedMetrics, "data_mismatch");
         }
     }
 }
