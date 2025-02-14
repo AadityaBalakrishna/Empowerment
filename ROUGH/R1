@@ -1,6 +1,154 @@
-2025-02-14T20:41:39.975+05:30  WARN 13783 --- [           main] s.c.a.AnnotationConfigApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'redissonConfiguration': Unsatisfied dependency expressed through field 'idleConnectionTimeout': Failed to convert value of type 'java.lang.String' to required type 'int'; For input string: "${caching.redisson.idleConnectionTimeout}"
-2025-02-14T20:41:40.609+05:30 ERROR 13783 --- [           main] o.s.b.SpringApplication                  : Application run failed
+package com.personalcapital.cache.aop;
 
-org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'redissonConfiguration': Unsatisfied dependency expressed through field 'idleConnectionTimeout': Failed to convert value of type 'java.lang.String' to required type 'int'; For input string: "${caching.redisson.idleConnectionTimeout}"
-Caused by: org.springframework.beans.TypeMismatchException: Failed to convert value of type 'java.lang.String' to required type 'int'; For input string: "${caching.redisson.idleConnectionTimeout}"
-Caused by: java.lang.NumberFormatException: For input string: "${caching.redisson.idleConnectionTimeout}"
+import com.personalcapital.cache.annotation.PcapMultiCacheable;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Counter;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.Signature;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
+
+import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.util.Arrays;
+
+public class PcapMultiCacheableAdviceTest {
+
+    private PcapMultiCacheableAdvice cacheAdvice;
+
+    @BeforeEach
+    void setUp() {
+        cacheAdvice = new PcapMultiCacheableAdvice();
+    }
+
+    private ProceedingJoinPoint mockProceedingJoinPoint() {
+        ProceedingJoinPoint pjp = mock(ProceedingJoinPoint.class);
+        Signature mockSignature = mock(Signature.class);
+
+        when(pjp.getTarget()).thenReturn(cacheAdvice);
+        when(pjp.getSignature()).thenReturn(mockSignature);
+        when(mockSignature.getName()).thenReturn("testMethod");
+
+        return pjp;
+    }
+
+    private PcapMultiCacheable mockPcapMultiCacheable() {
+        PcapMultiCacheable annotation = mock(PcapMultiCacheable.class);
+        when(annotation.resultKeyField()).thenReturn("id");
+        when(annotation.nullable()).thenReturn(false);
+        when(annotation.keyPrefix()).thenReturn("test_prefix");
+        when(annotation.value()).thenReturn("test_cache");
+        when(annotation.redisType()).thenReturn(null);
+        when(annotation.keys()).thenReturn(new int[]{0});
+        return annotation;
+    }
+
+    @Test
+    void testPublishCacheMetrics_Hit() {
+        ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+
+        try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class)) {
+            Counter mockCounter = mock(Counter.class);
+            mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
+                         .thenReturn(mockCounter);
+
+            cacheAdvice.publishCacheMetrics(pjp, "hit");
+
+            mockedMetrics.verify(() -> Metrics.counter(eq("pcap.cache.event"), any(String[].class)), times(1));
+            verify(mockCounter, times(1)).increment();
+        }
+    }
+
+    @Test
+    void testPublishCacheMetrics_Miss() {
+        ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+
+        try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class)) {
+            Counter mockCounter = mock(Counter.class);
+            mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
+                         .thenReturn(mockCounter);
+
+            cacheAdvice.publishCacheMetrics(pjp, "miss");
+
+            mockedMetrics.verify(() -> Metrics.counter(eq("pcap.cache.event"), any(String[].class)), times(1));
+            verify(mockCounter, times(1)).increment();
+        }
+    }
+
+    @Test
+    void testPublishCacheMetrics_Store() {
+        ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+
+        try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class)) {
+            Counter mockCounter = mock(Counter.class);
+            mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
+                         .thenReturn(mockCounter);
+
+            cacheAdvice.publishCacheMetrics(pjp, "store");
+
+            mockedMetrics.verify(() -> Metrics.counter(eq("pcap.cache.event"), any(String[].class)), times(1));
+            verify(mockCounter, times(1)).increment();
+        }
+    }
+
+    @Test
+    void testPublishCacheMetrics_Failure() {
+        ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+
+        try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class)) {
+            Counter mockCounter = mock(Counter.class);
+            mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
+                         .thenReturn(mockCounter);
+
+            cacheAdvice.publishCacheMetrics(pjp, "failure");
+
+            mockedMetrics.verify(() -> Metrics.counter(eq("pcap.cache.event"), any(String[].class)), times(1));
+            verify(mockCounter, times(1)).increment();
+        }
+    }
+
+    @Test
+    void testPublishCacheMetrics_EvictionFailure() throws Throwable {
+        ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+        PcapMultiCacheable annotation = mockPcapMultiCacheable();
+        PcapMultiCacheableAdvice spyAdvice = spy(cacheAdvice);
+
+        doThrow(new RuntimeException("Cache eviction failed")).when(spyAdvice).evictFromRedis(any(), anyList());
+
+        try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class)) {
+            Counter mockCounter = mock(Counter.class);
+            mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
+                         .thenReturn(mockCounter);
+
+            try {
+                spyAdvice.doMultiCacheable(pjp, annotation);
+            } catch (Exception ignored) { }
+
+            verify(spyAdvice, times(1)).evictFromRedis(any(), anyList());
+            verify(spyAdvice, times(1)).publishCacheMetrics(eq(pjp), eq("eviction_failure"));
+
+            mockedMetrics.verify(() -> Metrics.counter(eq("pcap.cache.event"), any(String[].class)), times(1));
+            verify(mockCounter, times(1)).increment();
+        }
+    }
+
+    @Test
+    void testPublishCacheMetrics_DataMismatch() {
+        ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+
+        try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class)) {
+            Counter mockCounter = mock(Counter.class);
+            mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
+                         .thenReturn(mockCounter);
+
+            cacheAdvice.publishCacheMetrics(pjp, "data_mismatch");
+
+            mockedMetrics.verify(() -> Metrics.counter(eq("pcap.cache.event"), any(String[].class)), times(1));
+            verify(mockCounter, times(1)).increment();
+        }
+    }
+}
