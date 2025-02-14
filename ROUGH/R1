@@ -62,123 +62,26 @@ public class PcapMultiCacheableAdviceTest
 	}
 }
 
-can you add this new exception case testing in the same test class, and simplyfy the test class
 
+Wanted but not invoked:
+Metrics.class.counter(
+    <Capturing argument: String>,
+    <Capturing argument: String[]>
+);
+-> at io.micrometer.core.instrument.Metrics.counter(Metrics.java:76)
+Actually, there were zero interactions with this mock.
 
-package com.personalcapital.cache.aop;
+Wanted but not invoked:
+Metrics.class.counter(
+    <Capturing argument: String>,
+    <Capturing argument: String[]>
+);
+-> at io.micrometer.core.instrument.Metrics.counter(Metrics.java:76)
+Actually, there were zero interactions with this mock.
 
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import org.aspectj.lang.ProceedingJoinPoint;
-import org.aspectj.lang.Signature;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.MockedStatic;
-
-import static org.mockito.Mockito.*;
-import static org.junit.jupiter.api.Assertions.*;
-
-import java.util.Arrays;
-
-public class PcapMultiCacheableAdviceTest {
-    private PcapMultiCacheableAdvice cacheAdvice;
-    private SimpleMeterRegistry meterRegistry;
-
-    @BeforeEach
-    void setUp() {
-        meterRegistry = new SimpleMeterRegistry();
-        Metrics.addRegistry(meterRegistry);
-        cacheAdvice = new PcapMultiCacheableAdvice();
-    }
-
-    @Test
-    void testPublishCacheMetrics_Success() {
-        ProceedingJoinPoint pjp = mockProceedingJoinPoint("testMethod");
-
-        try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class)) {
-            Counter mockCounter = mock(Counter.class);
-            mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class))).thenReturn(mockCounter);
-
-            cacheAdvice.publishCacheMetrics(pjp, "miss");
-
-            verifyMetricRecorded(mockedMetrics, "pcap.cache.event", "miss");
-            verify(mockCounter, times(1)).increment();
-        }
-    }
-
-
-why not follw the same format of all test cases, to maintain some uniformity:
-also use loggers instead of sys.out
-    @Test
-    void testPublishCacheMetrics_OnFailure() throws Throwable {
-        ProceedingJoinPoint pjp = mockProceedingJoinPoint("testMethod");
-
-        doThrow(new RuntimeException("Simulated Cache Failure")).when(pjp).proceed();
-
-        try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class)) {
-            Counter mockCounter = mock(Counter.class);
-            mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class))).thenReturn(mockCounter);
-
-            assertThrows(RuntimeException.class, () -> cacheAdvice.publishCacheMetrics(pjp, "failure"));
-
-            verifyMetricRecorded(mockedMetrics, "pcap.cache.event", "failure");
-            verify(mockCounter, times(1)).increment();
-        }
-    }
-
-    // Utility methods to improve readability and reuse
-
-    private ProceedingJoinPoint mockProceedingJoinPoint(String methodName) {
-        ProceedingJoinPoint pjp = mock(ProceedingJoinPoint.class);
-        Signature mockSignature = mock(Signature.class);
-        when(pjp.getTarget()).thenReturn(cacheAdvice);
-        when(pjp.getSignature()).thenReturn(mockSignature);
-        when(mockSignature.getName()).thenReturn(methodName);
-        return pjp;
-    }
-
-    private void verifyMetricRecorded(MockedStatic<Metrics> mockedMetrics, String metricName, String outcome) {
-        ArgumentCaptor<String> metricNameCaptor = ArgumentCaptor.forClass(String.class);
-        ArgumentCaptor<String[]> tagCaptor = ArgumentCaptor.forClass(String[].class);
-
-        mockedMetrics.verify(() -> Metrics.counter(metricNameCaptor.capture(), tagCaptor.capture()));
-
-        assertEquals(metricName, metricNameCaptor.getValue());
-        System.out.println("✅ Metric Captured Successfully: " + metricNameCaptor.getValue());
-        System.out.println("📌 Captured Tags: " + Arrays.toString(tagCaptor.getValue()));
-    }
-}
-	@Test
-	void testRecordCachingMetric()
-	{
-		ProceedingJoinPoint pjp = mock(ProceedingJoinPoint.class);
-		Signature mockSignature = mock(Signature.class);
-
-		PcapMultiCacheableAdvice advice = new PcapMultiCacheableAdvice();
-		when(pjp.getTarget()).thenReturn(advice);
-		when(pjp.getSignature()).thenReturn(mockSignature);
-		when(pjp.getSignature()
-				.getName()).thenReturn("testMethod");
-
-		try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class))
-		{
-			Counter mockCounter = mock(Counter.class);
-			mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
-					.thenReturn(mockCounter);
-			cacheAdvice.publishCacheMetrics(pjp, "miss");
-
-			ArgumentCaptor<String> metricName = ArgumentCaptor.forClass(String.class);
-			ArgumentCaptor<String[]> tagsSenttoDatadog = ArgumentCaptor.forClass(String[].class);
-
-			mockedMetrics.verify(
-					() -> Metrics.counter(metricName.capture(), tagsSenttoDatadog.capture()));
-
-			assertEquals("pcap.cache.event", metricName.getValue());
-			verify(mockCounter, times(1)).increment();
-
-			System.out.println("Metric Captured Successfully: " + metricName.getValue());
-			System.out.println("Captured Tags: " + Arrays.toString(tagsSenttoDatadog.getValue()));
-		}
-	}
+	at io.micrometer.core.instrument.Metrics.counter(Metrics.java:76)
+	at com.personalcapital.cache.aop.PcapMultiCacheableAdviceTest.lambda$testPulbishCacheMetrics_onEvictionFailure$3(PcapMultiCacheableAdviceTest.java:97)
+	at com.personalcapital.cache.aop.PcapMultiCacheableAdviceTest.testPulbishCacheMetrics_onEvictionFailure(PcapMultiCacheableAdviceTest.java:96)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
