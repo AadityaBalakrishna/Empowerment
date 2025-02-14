@@ -1,14 +1,25 @@
-Wanted but not invoked:
-pcapMultiCacheableAdvice.publishCacheMetrics(
-    Mock for ProceedingJoinPoint, hashCode: 595663369,
-    "data_mismatch"
-);
--> at com.personalcapital.cache.aop.PcapMultiCacheableAdvice.publishCacheMetrics(PcapMultiCacheableAdvice.java:45)
+@Test
+void testPublishCacheMetrics_DataMismatch() throws Throwable {
+    ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+    PcapMultiCacheableAdvice spyAdvice = spy(cacheAdvice);
 
-However, there was exactly 1 interaction with this mock:
-pcapMultiCacheableAdvice.doMultiCacheable(
-    Mock for ProceedingJoinPoint, hashCode: 595663369,
-    Mock for PcapMultiCacheable, hashCode: 363616706
-);
--> at com.personalcapital.cache.aop.PcapMultiCacheableAdviceTest.testPublishCacheMetrics_DataMismatch(PcapMultiCacheableAdviceTest.java:141)
+    // ✅ Simulate a scenario where the database returns fewer/more elements than expected
+    List<String> cacheKeys = Arrays.asList("key1", "key2", "key3");  // Expected keys in cache
+    List<String> dbResults = Arrays.asList("key1", "key2");  // DB returns fewer elements (Mismatch!)
 
+    when(pjp.proceed()).thenReturn(dbResults); // Simulate DB returning incorrect data
+
+    try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class)) {
+        Counter mockCounter = mock(Counter.class);
+        mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class))).thenReturn(mockCounter);
+
+        try {
+            spyAdvice.doMultiCacheable(pjp, mockPcapMultiCacheable());
+        } catch (Exception ignored) { }
+
+        // ✅ Verify that `publishCacheMetrics` logs "data_mismatch"
+        verify(spyAdvice, times(1)).publishCacheMetrics(eq(pjp), eq("data_mismatch"));
+        verify(mockCounter, times(1)).increment();
+        verifyMetricsLogging(mockedMetrics, "data_mismatch");
+    }
+}
