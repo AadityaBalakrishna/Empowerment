@@ -148,3 +148,28 @@ public class PcapMultiCacheableAdviceTest {
     }
 }
 
+
+try
+			{
+				final CacheKeyProvider finalCacheKeyProvider = cacheKeyProvider;
+				final Collection<Object> finalOtherKeyArgs = otherKeyArgs;
+				List<String> keys = listKeyArg.stream()
+						.filter(k -> Objects.nonNull(k))
+						.map(k -> CacheUtils.generateKey(cacheName, keyPrefix,
+								finalCacheKeyProvider.getKeyField(k), finalOtherKeyArgs))
+						.collect(Collectors.toList());
+				if (!evictFromRedis(redisType, keys))
+				{
+					// if eviction fails we fetch from db and return
+					return pjp.proceed();
+				}
+			}
+			catch (Exception e)
+			{
+				logger.info("Eviction on caching failure failed on {}, due to: {}, stacktrace: {}",
+						pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
+				// Cache Eviction Failure Metric
+				publishCacheMetrics(pjp, "eviction_failure");
+			}
+
+this is the block or the logger i am trying to test, that exception block, the metrics is increemented if the exception is caught right? try to trigger that exception and give me that metric
