@@ -1,39 +1,61 @@
-@Test
-void testExceptionTriggersFailureMetric() throws Throwable {
-    ProceedingJoinPoint pjp = mockProceedingJoinPoint();
-    PcapMultiCacheable annotation = mockPcapMultiCacheable();
 
-    // ✅ Do NOT use spy(cacheAdvice) directly
-    PcapMultiCacheableAdvice spyAdvice = spy(new PcapMultiCacheableAdvice());
+Wanted but not invoked:
+pcapMultiCacheableAdvice.publishCacheMetrics(
+    Mock for ProceedingJoinPoint, hashCode: 1869177530,
+    "failure"
+);
+-> at com.personalcapital.cache.aop.PcapMultiCacheableAdvice.publishCacheMetrics(PcapMultiCacheableAdvice.java:45)
 
-    // ✅ Use `doAnswer` instead of `doThrow`
-    doAnswer(invocation -> { throw new RuntimeException("Simulated exception"); })
-            .when(pjp).proceed();
+However, there was exactly 1 interaction with this mock:
+pcapMultiCacheableAdvice.doMultiCacheable(
+    Mock for ProceedingJoinPoint, hashCode: 1869177530,
+    Mock for PcapMultiCacheable, hashCode: 133177937
+);
+-> at com.personalcapital.cache.aop.PcapMultiCacheableAdviceTest.testExceptionTriggersFailureMetric(PcapMultiCacheableAdviceTest.java:68)
 
-    try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class)) {
-        Counter mockCounter = mock(Counter.class);
-        mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
-                     .thenReturn(mockCounter);
 
-        try {
-            spyAdvice.doMultiCacheable(pjp, annotation);
-        } catch (Exception ignored) {
-            // Expected exception
-        }
+Wanted but not invoked:
+pcapMultiCacheableAdvice.publishCacheMetrics(
+    Mock for ProceedingJoinPoint, hashCode: 1869177530,
+    "failure"
+);
+-> at com.personalcapital.cache.aop.PcapMultiCacheableAdvice.publishCacheMetrics(PcapMultiCacheableAdvice.java:45)
 
-        // ✅ Verify that publishCacheMetrics was called with "failure"
-        verify(spyAdvice, times(1)).publishCacheMetrics(eq(pjp), eq("failure"));
+However, there was exactly 1 interaction with this mock:
+pcapMultiCacheableAdvice.doMultiCacheable(
+    Mock for ProceedingJoinPoint, hashCode: 1869177530,
+    Mock for PcapMultiCacheable, hashCode: 133177937
+);
+-> at com.personalcapital.cache.aop.PcapMultiCacheableAdviceTest.testExceptionTriggersFailureMetric(PcapMultiCacheableAdviceTest.java:68)
 
-        // ✅ Capture the actual metric triggered
-        ArgumentCaptor<String> metricNameCaptor = ArgumentCaptor.forClass(String.class);
-        ArgumentCaptor<String[]> tagsCaptor = ArgumentCaptor.forClass(String[].class);
 
-        mockedMetrics.verify(() -> Metrics.counter(metricNameCaptor.capture(), tagsCaptor.capture()), times(1));
-        verify(mockCounter, times(1)).increment();
+	at com.personalcapital.cache.aop.PcapMultiCacheableAdvice.publishCacheMetrics(PcapMultiCacheableAdvice.java:45)
+	at com.personalcapital.cache.aop.PcapMultiCacheableAdviceTest.testExceptionTriggersFailureMetric(PcapMultiCacheableAdviceTest.java:74)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
 
-        // ✅ Ensure correct metric tags
-        List<String> capturedTags = Arrays.asList(tagsCaptor.getValue());
-        assertTrue(capturedTags.contains("outcome"), "Tags should contain 'outcome'");
-        assertTrue(capturedTags.contains("failure"), "Tags should contain 'failure'");
-    }
-}
+
+
+Wanted but not invoked:
+Metrics.class.counter(
+    <Capturing argument: String>,
+    <Capturing argument: String[]>
+);
+-> at io.micrometer.core.instrument.Metrics.counter(Metrics.java:76)
+Actually, there were zero interactions with this mock.
+
+Wanted but not invoked:
+Metrics.class.counter(
+    <Capturing argument: String>,
+    <Capturing argument: String[]>
+);
+-> at io.micrometer.core.instrument.Metrics.counter(Metrics.java:76)
+Actually, there were zero interactions with this mock.
+
+	at io.micrometer.core.instrument.Metrics.counter(Metrics.java:76)
+	at com.personalcapital.cache.aop.PcapMultiCacheableAdviceTest.lambda$testEvictionFailureTriggersMetric$4(PcapMultiCacheableAdviceTest.java:113)
+	at com.personalcapital.cache.aop.PcapMultiCacheableAdviceTest.testEvictionFailureTriggersMetric(PcapMultiCacheableAdviceTest.java:113)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
