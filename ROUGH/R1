@@ -30,15 +30,12 @@ public class PcapMultiCacheableAdviceTest {
         ProceedingJoinPoint pjp = mock(ProceedingJoinPoint.class);
         Signature mockSignature = mock(Signature.class);
 
-        // Define behavior for class and method retrieval
         when(pjp.getTarget()).thenReturn(this);
         when(pjp.getSignature()).thenReturn(mockSignature);
         when(mockSignature.getName()).thenReturn("testMethod");
 
-        // Call the recordCaching method
         cacheAdvice.recordCaching(pjp, "miss");
 
-        // Assert that the counter is incremented
         assertEquals(1, meterRegistry.get(METRICS_NAME)
                 .tag("class", this.getClass().getSimpleName())
                 .tag("method", "testMethod")
@@ -49,3 +46,54 @@ public class PcapMultiCacheableAdviceTest {
                 meterRegistry.get(METRICS_NAME).tag("outcome", "miss").counter().count());
     }
 }
+
+
+package com.personalcapital.cache.aop;
+
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+
+import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
+
+public class PcapMultiCacheableAdviceTest {
+    private PcapMultiCacheableAdvice cacheAdvice;
+    private SimpleMeterRegistry meterRegistry;
+
+    @BeforeEach
+    void setUp() {
+        meterRegistry = new SimpleMeterRegistry();
+        Metrics.addRegistry(meterRegistry);
+        cacheAdvice = new PcapMultiCacheableAdvice();
+    }
+
+    @Test
+    void testRecordCachingMetric() {
+        ProceedingJoinPoint pjp = mock(ProceedingJoinPoint.class);
+        when(pjp.getTarget()).thenReturn(this);
+        when(pjp.getSignature().getName()).thenReturn("testMethod");
+        cacheAdvice.recordCaching(pjp, "miss");
+
+        ArgumentCaptor<String> metricNameCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> tagKeyCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> tagValueCaptor = ArgumentCaptor.forClass(String.class);
+
+        verifyStatic(Metrics.class, times(1));
+        Metrics.counter(metricNameCaptor.capture(), tagKeyCaptor.capture(), tagValueCaptor.capture());
+
+        assertEquals("pcap.cache.event", metricNameCaptor.getValue());
+        assertEquals("class", tagKeyCaptor.getAllValues().get(0));
+        assertEquals(this.getClass().getSimpleName(), tagValueCaptor.getAllValues().get(0)); 
+        assertEquals("method", tagKeyCaptor.getAllValues().get(1));
+        assertEquals("testMethod", tagValueCaptor.getAllValues().get(1));
+        assertEquals("outcome", tagKeyCaptor.getAllValues().get(2));
+        assertEquals("miss", tagValueCaptor.getAllValues().get(2));
+
+        System.out.println("Metric Captured Successfully: " + metricNameCaptor.getValue());
+    }
+}
+
