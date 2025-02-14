@@ -1,31 +1,51 @@
-	private static final String METRICS_NAME = "pcap.cache.event";
+package com.personalcapital.cache.aop;
 
-	void recordCaching(ProceedingJoinPoint pjp, String outcome){
-		String className = getClassName(pjp);
-		String methodName = getMethodName(pjp);
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.Signature;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-		Metrics.counter(METRICS_NAME,"class",className,"method",methodName,"outcome",outcome).increment();
-	}
+import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
 
-	private String getClassName(ProceedingJoinPoint pjp)
-	{
-		return pjp.getTarget()
-				.getClass()
-				.getSimpleName();
-	}
+public class PcapMultiCacheableAdviceTest {
+    
+    private PcapMultiCacheableAdvice cacheAdvice;
+    private SimpleMeterRegistry meterRegistry;
+    
+    private static final String METRICS_NAME = "pcap.cache.event";
+    
+    @BeforeEach
+    void setUp() {
+        meterRegistry = new SimpleMeterRegistry();
+        Metrics.addRegistry(meterRegistry);
+        cacheAdvice = new PcapMultiCacheableAdvice();
+    }
 
-	private String getMethodName(ProceedingJoinPoint pjp)
-	{
-		return pjp.getSignature()
-				.getName();
-	}
+    @Test
+    void testCacheMissMetric() {
+        // Mock JoinPoint
+        ProceedingJoinPoint pjp = mock(ProceedingJoinPoint.class);
+        Signature mockSignature = mock(Signature.class);
 
+        // Define behavior for class and method retrieval
+        when(pjp.getTarget()).thenReturn(this);
+        when(pjp.getSignature()).thenReturn(mockSignature);
+        when(mockSignature.getName()).thenReturn("testMethod");
 
-					/*// Cache Miss Metric
-					Metrics.counter(METRICS_NAME, "class", className, "method", methodName, "outcome",
-									"miss")
-							.increment();
-*/
-					recordCaching(pjp,"miss");
+        // Call the recordCaching method
+        cacheAdvice.recordCaching(pjp, "miss");
 
-there are the changes you need to keep in mind before giving me the test case
+        // Assert that the counter is incremented
+        assertEquals(1, meterRegistry.get(METRICS_NAME)
+                .tag("class", this.getClass().getSimpleName())
+                .tag("method", "testMethod")
+                .tag("outcome", "miss")
+                .counter().count());
+
+        System.out.println("Cache Miss Metric Count: " +
+                meterRegistry.get(METRICS_NAME).tag("outcome", "miss").counter().count());
+    }
+}
