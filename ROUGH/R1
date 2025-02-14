@@ -152,3 +152,121 @@ public class PcapMultiCacheableAdviceTest {
         }
     }
 }
+
+
+package com.personalcapital.cache.aop;
+
+import com.personalcapital.cache.annotation.PcapMultiCacheable;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Counter;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.Signature;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.MockedStatic;
+
+import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.util.Arrays;
+import java.util.List;
+
+public class PcapMultiCacheableAdviceTest {
+
+    private PcapMultiCacheableAdvice cacheAdvice;
+
+    @BeforeEach
+    void setUp() {
+        cacheAdvice = spy(new PcapMultiCacheableAdvice()); // Spy to allow exception mocking
+    }
+
+    private ProceedingJoinPoint mockProceedingJoinPoint() {
+        ProceedingJoinPoint pjp = mock(ProceedingJoinPoint.class);
+        Signature mockSignature = mock(Signature.class);
+
+        when(pjp.getTarget()).thenReturn(cacheAdvice);
+        when(pjp.getSignature()).thenReturn(mockSignature);
+        when(mockSignature.getName()).thenReturn("testMethod");
+
+        return pjp;
+    }
+
+    private PcapMultiCacheable mockPcapMultiCacheable() {
+        PcapMultiCacheable annotation = mock(PcapMultiCacheable.class);
+        when(annotation.resultKeyField()).thenReturn("id");
+        when(annotation.nullable()).thenReturn(false);
+        when(annotation.keyPrefix()).thenReturn("test_prefix");
+        when(annotation.value()).thenReturn("test_cache");
+        when(annotation.redisType()).thenReturn(null);
+        when(annotation.keys()).thenReturn(new int[]{0});
+        return annotation;
+    }
+
+    @Test
+    void testExceptionTriggersFailureMetric() throws Throwable {
+        ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+        PcapMultiCacheable annotation = mockPcapMultiCacheable();
+
+        // Force an exception inside doMultiCacheable
+        doThrow(new RuntimeException("Simulated exception")).when(pjp).proceed();
+
+        try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class)) {
+            Counter mockCounter = mock(Counter.class);
+            mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
+                         .thenReturn(mockCounter);
+
+            try {
+                cacheAdvice.doMultiCacheable(pjp, annotation);
+            } catch (Exception ignored) {
+                // Expected exception
+            }
+
+            // ✅ Capture the metric triggered
+            ArgumentCaptor<String> metricNameCaptor = ArgumentCaptor.forClass(String.class);
+            ArgumentCaptor<String[]> tagsCaptor = ArgumentCaptor.forClass(String[].class);
+
+            mockedMetrics.verify(() -> Metrics.counter(metricNameCaptor.capture(), tagsCaptor.capture()), times(1));
+            verify(mockCounter, times(1)).increment();
+
+            // ✅ Ensure it logs "failure" as the outcome
+            List<String> capturedTags = Arrays.asList(tagsCaptor.getValue());
+            assertTrue(capturedTags.contains("outcome"), "Tags should contain 'outcome'");
+            assertTrue(capturedTags.contains("failure"), "Tags should contain 'failure'");
+        }
+    }
+
+    @Test
+    void testEvictionFailureTriggersMetric() throws Throwable {
+        ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+        PcapMultiCacheable annotation = mockPcapMultiCacheable();
+
+        // Simulate eviction failure by forcing an exception in evictFromRedis
+        doThrow(new RuntimeException("Eviction failed")).when(cacheAdvice).evictFromRedis(any(), anyList());
+
+        try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class)) {
+            Counter mockCounter = mock(Counter.class);
+            mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
+                         .thenReturn(mockCounter);
+
+            try {
+                cacheAdvice.doMultiCacheable(pjp, annotation);
+            } catch (Exception ignored) {
+                // Expected exception
+            }
+
+            // ✅ Capture the metric triggered
+            ArgumentCaptor<String> metricNameCaptor = ArgumentCaptor.forClass(String.class);
+            ArgumentCaptor<String[]> tagsCaptor = ArgumentCaptor.forClass(String[].class);
+
+            mockedMetrics.verify(() -> Metrics.counter(metricNameCaptor.capture(), tagsCaptor.capture()), times(1));
+            verify(mockCounter, times(1)).increment();
+
+            // ✅ Ensure it logs "eviction_failure" as the outcome
+            List<String> capturedTags = Arrays.asList(tagsCaptor.getValue());
+            assertTrue(capturedTags.contains("outcome"), "Tags should contain 'outcome'");
+            assertTrue(capturedTags.contains("eviction_failure"), "Tags should contain 'eviction_failure'");
+        }
+    }
+}
+
