@@ -1,180 +1,74 @@
-	@Test
-	void testPublishCacheMetrics_EvictionFailure() throws Throwable {
-		ProceedingJoinPoint pjp = mockProceedingJoinPoint();
-		PcapMultiCacheableAdvice spyAdvice = spy(cacheAdvice);
-
-		doThrow(new RuntimeException("Eviction failed")).when(spyAdvice).evictFromRedis(any(), anyList());
-
-		try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class)) {
-			Counter mockCounter = mock(Counter.class);
-			mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class))).thenReturn(mockCounter);
-
-			try {
-				spyAdvice.doMultiCacheable(pjp, mockPcapMultiCacheable());
-			} catch (Exception ignored) { }
-
-			verify(spyAdvice, times(1)).evictFromRedis(any(), anyList());
-			verify(spyAdvice, times(1)).publishCacheMetrics(eq(pjp), eq("eviction_failure"));
-			verify(mockCounter, times(1)).increment();
-			verifyMetricsLogging(mockedMetrics, "eviction_failure");
-		}
-	}
-
-error:
-
-Wanted but not invoked:
-pcapMultiCacheableAdvice.evictFromRedis(
-    <any>,
-    <any List>
-);
--> at com.personalcapital.cache.aop.CacheAdviceCommons.evictFromRedis(CacheAdviceCommons.java:95)
-
-However, there was exactly 1 interaction with this mock:
-pcapMultiCacheableAdvice.doMultiCacheable(
-    Mock for ProceedingJoinPoint, hashCode: 1003307628,
-    Mock for PcapMultiCacheable, hashCode: 300659126
-);
--> at com.personalcapital.cache.aop.PcapMultiCacheableAdviceTest.testPublishCacheMetrics_EvictionFailure(PcapMultiCacheableAdviceTest.java:119)
-
-
-Wanted but not invoked:
-pcapMultiCacheableAdvice.evictFromRedis(
-    <any>,
-    <any List>
-);
--> at com.personalcapital.cache.aop.CacheAdviceCommons.evictFromRedis(CacheAdviceCommons.java:95)
-
-However, there was exactly 1 interaction with this mock:
-pcapMultiCacheableAdvice.doMultiCacheable(
-    Mock for ProceedingJoinPoint, hashCode: 1003307628,
-    Mock for PcapMultiCacheable, hashCode: 300659126
-);
--> at com.personalcapital.cache.aop.PcapMultiCacheableAdviceTest.testPublishCacheMetrics_EvictionFailure(PcapMultiCacheableAdviceTest.java:119)
-
-
-	at com.personalcapital.cache.aop.CacheAdviceCommons.evictFromRedis(CacheAdviceCommons.java:95)
-	at com.personalcapital.cache.aop.PcapMultiCacheableAdviceTest.testPublishCacheMetrics_EvictionFailure(PcapMultiCacheableAdviceTest.java:122)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-
-Disconnected from the target VM, address: '127.0.0.1:46869', transport: 'socket'
-
-Process finished with exit code 255
-
 package com.personalcapital.cache.aop;
 
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
+import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
 
-import org.apache.commons.lang3.StringUtils;
-import org.redisson.api.RedissonClient;
-import org.redisson.spring.cache.CacheConfig;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.util.CollectionUtils;
+import java.util.List;
+
+import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.powermock.core.classloader.annotations.PrepareForTest;
+import org.powermock.modules.junit5.PowerMockExtension;
+import org.powermock.reflect.Whitebox;
 
 import com.personalcapital.cache.annotation.RedisType;
-import com.personalcapital.cache.utils.CacheConstants;
+import com.personalcapital.cache.aop.support.CacheKeyProvider;
 import com.personalcapital.log.PcapLogger;
 import com.personalcapital.log.PcapLoggerFactory;
 
-public class CacheAdviceCommons
-{
-	private static PcapLogger logger = PcapLoggerFactory.getPcapLogger(CacheAdviceCommons.class);
-	@Autowired
-	private Map<String, CacheConfig> redisCacheExpires;
+@ExtendWith(PowerMockExtension.class)  // Enable PowerMockito
+@PrepareForTest({PcapMultiCacheableAdvice.class, PcapLoggerFactory.class})  // Prepare class for modification
+class ExceptionTest {
 
-	@Autowired
-	@Qualifier(CacheConstants.REDISSON_REGULAR)
-	private RedissonClient redissonGen;
+    @Mock
+    private ProceedingJoinPoint mockPjp;
 
-	@Autowired
-	@Qualifier(CacheConstants.REDISSON_HIGH_AVAILABILITY)
-	private RedissonClient redissonHa;
+    @Mock
+    private CacheKeyProvider mockCacheKeyProvider;
 
-	private static final int DEFAULT_EXPIRY_SECONDS = 1800;
+    @Mock
+    private PcapLogger mockLogger;  // Mocking the logger
 
-	/**
-	 * define cacheName : expiry in RedissonConfiguration
-	 * 
-	 * @param cacheName
-	 * @param ttl
-	 * @return
-	 */
-	protected int getTtlFromConfiguration(String cacheName, int ttl)
-	{
-		CacheConfig cacheConfig = redisCacheExpires.get(cacheName);
-		if (cacheConfig != null)
-		{
-			// convert from Millis to Seconds
-			return Math.toIntExact(TimeUnit.MILLISECONDS.toSeconds(cacheConfig.getTTL()));
-		}
-		return ttl > 0 ? ttl : DEFAULT_EXPIRY_SECONDS;
-	}
+    @InjectMocks
+    private PcapMultiCacheableAdvice advice;
 
-	/**
-	 * return redisson to be used based on redistType enum
-	 * 
-	 * @param redisType
-	 * @return
-	 */
-	protected RedissonClient getRedisson(RedisType redisType)
-	{
-		switch (redisType)
-		{
-			case HA:
-				return redissonHa;
-			case GEN:
-			default:
-				return redissonGen;
-		}
-	}
+    @BeforeEach
+    void setUp() throws Exception {
+        MockitoAnnotations.openMocks(this);
 
-	/**
-	 * Evict fully qualified key from given redis type
-	 * 
-	 * @param redisType
-	 * @param key
-	 * @return
-	 */
-	protected boolean evictFromRedis(RedisType redisType, String key)
-	{
-		try
-		{
-			getRedisson(redisType).getBucket(key)
-					.delete();
-		}
-		catch (Exception e)
-		{
-			logger.warn("Evict failed for redisType: {}, key: {}, due to: {}", redisType, key, e);
-			return false;
-		}
-		return true;
-	}
+        // Replace the static final logger with our mock
+        Whitebox.setInternalState(PcapMultiCacheableAdvice.class, "logger", mockLogger);
+    }
 
-	protected boolean evictFromRedis(RedisType redisType, List<String> keys)
-	{
-		if (redisType == null || CollectionUtils.isEmpty(keys))
-		{
-			return true;
-		}
-		try
-		{
-			getRedisson(redisType).getKeys()
-					.delete(keys.stream()
-							.toArray(String[]::new));
-		}
-		catch (Exception e)
-		{
-			logger.warn("Evict failed for redisType: {}, key: {}, due to: {}", redisType,
-					StringUtils.join(keys, ","), e);
-			return false;
-		}
-		return true;
-	}
+    @Test
+    void testEvictionFailureLogsProperly() throws Throwable {
+        // Mock values
+        RedisType redisType = RedisType.DEFAULT;
+        List<String> keys = List.of("testKey1", "testKey2");
 
+        when(mockPjp.toShortString()).thenReturn("sampleMethod()");
+
+        // Spy on the actual advice instance
+        PcapMultiCacheableAdvice spyAdvice = spy(advice);
+
+        // Force evictFromRedis to throw an exception
+        doThrow(new RuntimeException("Forced eviction failure")).when(spyAdvice).evictFromRedis(redisType, keys);
+
+        try {
+            spyAdvice.evictFromRedis(redisType, keys);
+        } catch (Exception ex) {
+            // Verify that the exception was logged
+            verify(mockLogger, times(1)).info(eq("Eviction on caching failure failed on {}, due to: {}, stacktrace: {}"),
+                    eq("sampleMethod()"), eq(ex.getMessage()), any(String.class));
+
+            // Ensure metric is published
+            spyAdvice.publishCacheMetrics(mockPjp, "eviction_failure");
+        }
+    }
 }
-
-this is the code it was referring to, so please help me here
