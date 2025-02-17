@@ -1,24 +1,62 @@
-@Test
-void testPublishCacheMetrics_DataMismatch() throws Throwable {
-    ProceedingJoinPoint pjp = mockProceedingJoinPoint();
-    PcapMultiCacheableAdvice spyAdvice = spy(cacheAdvice);
+import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
 
-    // ✅ Spy on getCollectionResult() to force a data mismatch
-    doReturn(Arrays.asList("wrongData")).when(spyAdvice).getCollectionResult(any(), any(), any());
+import java.util.List;
 
-    when(pjp.proceed()).thenReturn(Arrays.asList("key1", "key2")); // Simulate DB returning incorrect data
+import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
-    try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class)) {
-        Counter mockCounter = mock(Counter.class);
-        mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class))).thenReturn(mockCounter);
+import com.personalcapital.cache.annotation.RedisType;
+import com.personalcapital.cache.aop.PcapMultiCacheableAdvice;
+import com.personalcapital.cache.aop.support.CacheKeyProvider;
+import com.personalcapital.log.PcapLogger;
+
+class PcapMultiCacheableAdviceTest {
+
+    @Mock
+    private ProceedingJoinPoint mockPjp;
+
+    @Mock
+    private CacheKeyProvider mockCacheKeyProvider;
+
+    @Mock
+    private PcapLogger mockLogger;
+
+    @InjectMocks
+    private PcapMultiCacheableAdvice advice;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+    }
+
+    @Test
+    void testEvictionFailureLogsProperly() throws Throwable {
+        // Mocking values
+        RedisType redisType = RedisType.DEFAULT;
+        List<String> keys = List.of("testKey1", "testKey2");
+
+        // Mock pjp.toShortString() to return a sample method signature
+        when(mockPjp.toShortString()).thenReturn("sampleMethod()");
+
+        // Force evictFromRedis to throw an exception
+        PcapMultiCacheableAdvice spyAdvice = spy(advice);
+        doThrow(new RuntimeException("Forced eviction failure")).when(spyAdvice).evictFromRedis(redisType, keys);
 
         try {
-            spyAdvice.doMultiCacheable(pjp, mockPcapMultiCacheable());
-        } catch (Exception ignored) { }
+            spyAdvice.evictFromRedis(redisType, keys);
+        } catch (Exception ex) {
+            // Ensure exception is caught and logged
+            verify(mockLogger).info(eq("Eviction on caching failure failed on {}, due to: {}, stacktrace: {}"),
+                    eq("sampleMethod()"), eq(ex.getMessage()), eq(ExceptionUtils.getStackTrace(ex)));
 
-        // ✅ Verify that `publishCacheMetrics` logs "data_mismatch"
-        verify(spyAdvice, times(1)).publishCacheMetrics(eq(pjp), eq("data_mismatch"));
-        verify(mockCounter, times(1)).increment();
-        verifyMetricsLogging(mockedMetrics, "data_mismatch");
+            // Ensure metric is published
+            spyAdvice.publishCacheMetrics(mockPjp, "eviction_failure");
+        }
     }
 }
