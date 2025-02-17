@@ -8,36 +8,43 @@ import static org.junit.jupiter.api.Assertions.*;
 class PcapMultiCacheableAdviceTest {
 
     @InjectMocks
-    private PcapMultiCacheableAdvice pcapMultiCacheableAdvice; // Class under test
+    private PcapMultiCacheableAdvice pcapMultiCacheableAdvice; // The class under test
 
     @Mock
-    private CacheAdviceCommons cacheAdviceCommons; // Cache advice commons class
+    private RedissonClient redissonClient;  // Mock RedissonClient
+    @Mock
+    private RMap<String, Object> mockMap;  // Mock Redisson RMap (or any appropriate structure)
 
     private final String cacheName = "testCache";
     private final String keyPrefix = "prefix";
 
     @BeforeEach
     void setUp() {
-        // No Redisson, just working with the logic
+        // No unnecessary mocking—just working with the caching logic
+        when(redissonClient.getMap(anyString())).thenReturn(mockMap);  // Mock Redisson behavior for map
     }
 
     @Test
     void testCacheMissAndStore() {
-        // Simulating cache miss
+        // Test scenario: Cache miss -> store new value
+
         String listKey = "key1";
         String generatedKey = cacheName + ":" + keyPrefix + ":" + listKey;
-        String newValue = "newData";  // New value to store after cache miss
+        String newValue = "newData";  // New value to store in the cache
 
-        // Mock behavior of your cache check and store method (direct logic call)
-        when(cacheAdviceCommons.getCacheValue(generatedKey)).thenReturn(null); // Simulating cache miss
-        doNothing().when(cacheAdviceCommons).storeCacheValue(generatedKey, newValue); // Simulating store method
+        // Simulate a cache miss
+        when(mockMap.get(generatedKey)).thenReturn(null);  // Simulating cache miss (no value in Redis)
 
-        // Run the method under test (which should check the cache and store if miss occurs)
+        // Simulate storing the new value in the cache
+        doNothing().when(mockMap).put(generatedKey, newValue);  // Simulate storing new value
+
+        // Run the method under test (this is where cache miss & store logic happens)
         pcapMultiCacheableAdvice.processCacheRetrieval(
                 cacheName, keyPrefix, Collections.singleton(listKey), new HashMap<>(), new ArrayList<>()
         );
 
-        // Verify that cache store was triggered (value should be stored after cache miss)
-        verify(cacheAdviceCommons, times(1)).storeCacheValue(generatedKey, newValue); // Ensure value is stored
+        // Verify that the new value is stored in Redis (cache miss occurred)
+        verify(mockMap, times(1)).put(generatedKey, newValue);  // Ensure `put()` is called to store the new value
+        verify(mockMap, times(1)).get(generatedKey);  // Ensure `get()` was called to check for cache miss
     }
 }
