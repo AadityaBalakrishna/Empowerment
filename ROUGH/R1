@@ -1,85 +1,117 @@
-import static org.mockito.Mockito.*;
-import static org.junit.jupiter.api.Assertions.*;
+package com.personalcapital.cache.aop;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.redisson.api.RBucket;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
+import org.apache.commons.lang3.StringUtils;
 import org.redisson.api.RedissonClient;
-import java.util.*;
+import org.redisson.spring.cache.CacheConfig;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.util.CollectionUtils;
 
-@ExtendWith(MockitoExtension.class)
-class CacheServiceTest {
+import com.personalcapital.cache.annotation.RedisType;
+import com.personalcapital.cache.utils.CacheConstants;
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
 
-    @Mock
-    private RedissonClient redissonClient;
+public class CacheAdviceCommons
+{
+	private static PcapLogger logger = PcapLoggerFactory.getPcapLogger(CacheAdviceCommons.class);
+	@Autowired
+	private Map<String, CacheConfig> redisCacheExpires;
 
-    @Mock
-    private CacheKeyProvider cacheKeyProvider;
+	@Autowired
+	@Qualifier(CacheConstants.REDISSON_REGULAR)
+	private RedissonClient redissonGen;
 
-    @Mock
-    private CacheUtils cacheUtils;
+	@Autowired
+	@Qualifier(CacheConstants.REDISSON_HIGH_AVAILABILITY)
+	private RedissonClient redissonHa;
 
-    @Mock
-    private CacheService cacheService; // Replace with the actual class containing your method
+	private static final int DEFAULT_EXPIRY_SECONDS = 1800;
 
-    @BeforeEach
-    void setUp() {
-        cacheService = new CacheService(redissonClient, cacheKeyProvider);
-    }
+	/**
+	 * define cacheName : expiry in RedissonConfiguration
+	 * 
+	 * @param cacheName
+	 * @param ttl
+	 * @return
+	 */
+	protected int getTtlFromConfiguration(String cacheName, int ttl)
+	{
+		CacheConfig cacheConfig = redisCacheExpires.get(cacheName);
+		if (cacheConfig != null)
+		{
+			// convert from Millis to Seconds
+			return Math.toIntExact(TimeUnit.MILLISECONDS.toSeconds(cacheConfig.getTTL()));
+		}
+		return ttl > 0 ? ttl : DEFAULT_EXPIRY_SECONDS;
+	}
 
-    @Test
-    void testCacheHit() {
-        // Mocking values
-        String cacheName = "testCache";
-        String keyPrefix = "prefix";
-        Object keyArg = "key1";
-        String generatedKey = "testCache:prefix:key1";
+	/**
+	 * return redisson to be used based on redistType enum
+	 * 
+	 * @param redisType
+	 * @return
+	 */
+	protected RedissonClient getRedisson(RedisType redisType)
+	{
+		switch (redisType)
+		{
+			case HA:
+				return redissonHa;
+			case GEN:
+			default:
+				return redissonGen;
+		}
+	}
 
-        // Mock the cache key provider
-        when(cacheKeyProvider.getKeyField(keyArg)).thenReturn("key1");
+	/**
+	 * Evict fully qualified key from given redis type
+	 * 
+	 * @param redisType
+	 * @param key
+	 * @return
+	 */
+	protected boolean evictFromRedis(RedisType redisType, String key)
+	{
+		try
+		{
+			getRedisson(redisType).getBucket(key)
+					.delete();
+		}
+		catch (Exception e)
+		{
+			logger.warn("Evict failed for redisType: {}, key: {}, due to: {}", redisType, key, e);
+			return false;
+		}
+		return true;
+	}
 
-        // Mock RedissonClient behavior
-        RBucket<Object> mockBucket = mock(RBucket.class);
-        when(redissonClient.getBucket(generatedKey)).thenReturn(mockBucket);
-        when(mockBucket.get()).thenReturn("cachedValue"); // Simulating cache hit
+	protected boolean evictFromRedis(RedisType redisType, List<String> keys)
+	{
+		if (redisType == null || CollectionUtils.isEmpty(keys))
+		{
+			return true;
+		}
+		try
+		{
+			getRedisson(redisType).getKeys()
+					.delete(keys.stream()
+							.toArray(String[]::new));
+		}
+		catch (Exception e)
+		{
+			logger.warn("Evict failed for redisType: {}, key: {}, due to: {}", redisType,
+					StringUtils.join(keys, ","), e);
+			return false;
+		}
+		return true;
+	}
 
-        // Run the method (replace with your actual method call)
-        Map<Object, Object> result = cacheService.getFromCache(cacheName, keyPrefix, List.of(keyArg));
-
-        // Verify the expected cached value is returned
-        assertEquals("cachedValue", result.get(keyArg));
-
-        // Verify cache hit metric was published
-        verify(cacheService, times(1)).publishCacheMetrics(any(), eq("hit"));
-    }
-
-    @Test
-    void testCacheMiss() {
-        // Mocking values
-        String cacheName = "testCache";
-        String keyPrefix = "prefix";
-        Object keyArg = "key2";
-        String generatedKey = "testCache:prefix:key2";
-
-        // Mock the cache key provider
-        when(cacheKeyProvider.getKeyField(keyArg)).thenReturn("key2");
-
-        // Mock RedissonClient behavior
-        RBucket<Object> mockBucket = mock(RBucket.class);
-        when(redissonClient.getBucket(generatedKey)).thenReturn(mockBucket);
-        when(mockBucket.get()).thenReturn(null); // Simulating cache miss
-
-        // Run the method (replace with your actual method call)
-        Map<Object, Object> result = cacheService.getFromCache(cacheName, keyPrefix, List.of(keyArg));
-
-        // Ensure the value is not present
-        assertFalse(result.containsKey(keyArg));
-
-        // Verify cache miss metric was published
-        verify(cacheService, times(1)).publishCacheMetrics(any(), eq("miss"));
-    }
 }
+
+
+also the test class name is PcapMultiCacheabletest and use this:package com.personalcapital.cache.aop;
