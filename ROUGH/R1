@@ -1,1 +1,1 @@
-java.lang.NullPointerException: Cannot invoke "com.personalcapital.cache.annotation.PcapMultiCacheable.resultKeyField()" because "pcapMultiCacheable" is null
+java.lang.NullPointerException: Cannot invoke "java.lang.Class.getDeclaredConstructor(java.lang.Class[])" because the return value of "com.personalcapital.cache.annotation.PcapMultiCacheable.keyProvider()" is null
