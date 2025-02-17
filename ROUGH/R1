@@ -1,10 +1,79 @@
-java.lang.IllegalAccessException: Can not set static final com.personalcapital.log.PcapLogger field com.personalcapital.cache.aop.PcapMultiCacheableAdvice.logger to com.personalcapital.log.PcapLogger$MockitoMock$l9FD1f6S
+package com.personalcapital.cache.aop;
 
-	at java.base/jdk.internal.reflect.FieldAccessorImpl.throwFinalFieldIllegalAccessException(FieldAccessorImpl.java:137)
-	at java.base/jdk.internal.reflect.FieldAccessorImpl.throwFinalFieldIllegalAccessException(FieldAccessorImpl.java:141)
-	at java.base/jdk.internal.reflect.MethodHandleObjectFieldAccessorImpl.set(MethodHandleObjectFieldAccessorImpl.java:103)
-	at java.base/java.lang.reflect.Field.set(Field.java:836)
-	at com.personalcapital.cache.aop.ExceptionTest.setUp(ExceptionTest.java:41)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+import static org.mockito.Mockito.*;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.List;
+
+import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import com.personalcapital.cache.annotation.RedisType;
+import com.personalcapital.cache.aop.support.CacheKeyProvider;
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+
+class ExceptionTest {
+
+    @Mock
+    private ProceedingJoinPoint mockPjp;
+
+    @Mock
+    private CacheKeyProvider mockCacheKeyProvider;
+
+    @Mock
+    private PcapLogger mockLogger;  // Mocking the logger
+
+    @InjectMocks
+    private PcapMultiCacheableAdvice advice;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        MockitoAnnotations.openMocks(this);
+        setFinalStatic(PcapMultiCacheableAdvice.class.getDeclaredField("logger"), mockLogger);
+    }
+
+    private void setFinalStatic(Field field, Object newValue) throws Exception {
+        field.setAccessible(true);
+
+        // Remove final modifier from the field
+        Field modifiersField = Field.class.getDeclaredField("modifiers");
+        modifiersField.setAccessible(true);
+        modifiersField.setInt(field, field.getModifiers() & ~Modifier.FINAL);
+
+        // Set new value
+        field.set(null, newValue);
+    }
+
+    @Test
+    void testEvictionFailureLogsProperly() throws Throwable {
+        // Mock values
+        RedisType redisType = RedisType.DEFAULT;
+        List<String> keys = List.of("testKey1", "testKey2");
+
+        when(mockPjp.toShortString()).thenReturn("sampleMethod()");
+
+        // Spy on the actual advice instance
+        PcapMultiCacheableAdvice spyAdvice = spy(advice);
+
+        // Force evictFromRedis to throw an exception
+        doThrow(new RuntimeException("Forced eviction failure")).when(spyAdvice).evictFromRedis(redisType, keys);
+
+        try {
+            spyAdvice.evictFromRedis(redisType, keys);
+        } catch (Exception ex) {
+            // Verify that the exception was logged
+            verify(mockLogger, times(1)).info(eq("Eviction on caching failure failed on {}, due to: {}, stacktrace: {}"),
+                    eq("sampleMethod()"), eq(ex.getMessage()), any(String.class));
+
+            // Ensure metric is published
+            spyAdvice.publishCacheMetrics(mockPjp, "eviction_failure");
+        }
+    }
+}
