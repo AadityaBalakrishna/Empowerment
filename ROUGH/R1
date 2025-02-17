@@ -1,57 +1,15 @@
-package com.personalcapital.cache.aop;
+org.mockito.exceptions.base.MockitoException: 
+Only void methods can doNothing()!
+Example of correct use of doNothing():
+    doNothing().
+    doThrow(new RuntimeException())
+    .when(mock).someVoidMethod();
+Above means:
+someVoidMethod() does nothing the 1st time but throws an exception the 2nd time is called
 
-import static org.mockito.Mockito.*;
-import static org.junit.jupiter.api.Assertions.*;
+	at com.personalcapital.cache.aop.ExceptionTest.testCacheFailureAndEvictionFailureMetrics(ExceptionTest.java:47)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
 
-import org.aspectj.lang.ProceedingJoinPoint;
-import org.aspectj.lang.Signature;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.*;
 
-import com.personalcapital.cache.annotation.PcapMultiCacheable;
-
-@ExtendWith(MockitoExtension.class)
-class ExceptionTest {
-
-    @Mock
-    private ProceedingJoinPoint mockPjp;
-
-    @Mock
-    private Signature mockSignature;
-
-    @Mock
-    private PcapMultiCacheable mockAnnotation;
-
-    @InjectMocks
-    @Spy // Spy to track method calls, but real method is executed
-    private PcapMultiCacheableAdvice cacheAdvice;
-
-    @BeforeEach
-    void setUp() {
-        // Mock method signature to avoid NullPointerException
-        when(mockPjp.getSignature()).thenReturn(mockSignature);
-        when(mockSignature.getName()).thenReturn("testMethod");
-
-        // Mock class name retrieval
-        when(mockPjp.getTarget()).thenReturn(this);
-    }
-
-    @Test
-    void testCacheFailureAndEvictionFailureMetrics() throws Throwable {
-        // First call throws exception (triggers cache_failure)
-        doThrow(new RuntimeException("Cache retrieval failed"))
-            .doNothing() // Second call succeeds (triggers eviction)
-            .when(mockPjp).proceed();
-
-        // Execute the method and expect an exception
-        assertThrows(RuntimeException.class, () -> cacheAdvice.doMultiCacheable(mockPjp, mockAnnotation));
-
-        // Verify that "failure" metric was logged exactly once
-        verify(cacheAdvice, times(1)).publishCacheMetrics(mockPjp, "failure");
-
-        // Verify that "eviction_failure" metric was logged exactly once
-        verify(cacheAdvice, times(1)).publishCacheMetrics(mockPjp, "eviction_failure");
-    }
-}
