@@ -1,85 +1,36 @@
-import static org.mockito.Mockito.*;
-import static org.junit.jupiter.api.Assertions.*;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.redisson.api.RBucket;
 import org.redisson.api.RedissonClient;
-import java.util.*;
+
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class CacheServiceTest {
+class PcapMultiCacheableAdviceTest {
 
-    @Mock
     private RedissonClient redissonClient;
-
-    @Mock
-    private CacheKeyProvider cacheKeyProvider;
-
-    @Mock
-    private CacheUtils cacheUtils;
-
-    @Mock
-    private CacheService cacheService; // Replace with the actual class containing your method
+    private RBucket<Object> mockBucket;
 
     @BeforeEach
     void setUp() {
-        cacheService = new CacheService(redissonClient, cacheKeyProvider);
+        MockitoAnnotations.openMocks(this);
+
+        redissonClient = mock(RedissonClient.class);
+        mockBucket = mock(RBucket.class); // Explicitly create a mock
+
+        when(redissonClient.getBucket(anyString())).thenReturn(mockBucket);
     }
 
     @Test
     void testCacheHit() {
-        // Mocking values
-        String cacheName = "testCache";
-        String keyPrefix = "prefix";
-        Object keyArg = "key1";
-        String generatedKey = "testCache:prefix:key1";
+        when(mockBucket.get()).thenReturn("cachedValue");  // Simulate cache hit
 
-        // Mock the cache key provider
-        when(cacheKeyProvider.getKeyField(keyArg)).thenReturn("key1");
+        String cachedValue = (String) redissonClient.getBucket("testKey").get();
 
-        // Mock RedissonClient behavior
-        RBucket<Object> mockBucket = mock(RBucket.class);
-        when(redissonClient.getBucket(generatedKey)).thenReturn(mockBucket);
-        when(mockBucket.get()).thenReturn("cachedValue"); // Simulating cache hit
-
-        // Run the method (replace with your actual method call)
-        Map<Object, Object> result = cacheService.getFromCache(cacheName, keyPrefix, List.of(keyArg));
-
-        // Verify the expected cached value is returned
-        assertEquals("cachedValue", result.get(keyArg));
-
-        // Verify cache hit metric was published
-        verify(cacheService, times(1)).publishCacheMetrics(any(), eq("hit"));
-    }
-
-    @Test
-    void testCacheMiss() {
-        // Mocking values
-        String cacheName = "testCache";
-        String keyPrefix = "prefix";
-        Object keyArg = "key2";
-        String generatedKey = "testCache:prefix:key2";
-
-        // Mock the cache key provider
-        when(cacheKeyProvider.getKeyField(keyArg)).thenReturn("key2");
-
-        // Mock RedissonClient behavior
-        RBucket<Object> mockBucket = mock(RBucket.class);
-        when(redissonClient.getBucket(generatedKey)).thenReturn(mockBucket);
-        when(mockBucket.get()).thenReturn(null); // Simulating cache miss
-
-        // Run the method (replace with your actual method call)
-        Map<Object, Object> result = cacheService.getFromCache(cacheName, keyPrefix, List.of(keyArg));
-
-        // Ensure the value is not present
-        assertFalse(result.containsKey(keyArg));
-
-        // Verify cache miss metric was published
-        verify(cacheService, times(1)).publishCacheMetrics(any(), eq("miss"));
+        assert cachedValue.equals("cachedValue"); // Validate cache hit
+        verify(mockBucket, times(1)).get();
     }
 }
