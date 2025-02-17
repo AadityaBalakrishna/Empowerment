@@ -1,1 +1,1 @@
-java.lang.NullPointerException: Cannot invoke "Object.getClass()" because the return value of "org.aspectj.lang.ProceedingJoinPoint.getTarget()" is null
+java.lang.NullPointerException: Cannot invoke "com.personalcapital.cache.annotation.PcapMultiCacheable.resultKeyField()" because "pcapMultiCacheable" is null
