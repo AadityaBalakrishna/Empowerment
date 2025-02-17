@@ -2,8 +2,9 @@ package com.personalcapital.cache.aop;
 
 import static org.mockito.Mockito.*;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
 import java.util.List;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -17,7 +18,6 @@ import org.mockito.MockitoAnnotations;
 import com.personalcapital.cache.annotation.RedisType;
 import com.personalcapital.cache.aop.support.CacheKeyProvider;
 import com.personalcapital.log.PcapLogger;
-import com.personalcapital.log.PcapLoggerFactory;
 
 class ExceptionTest {
 
@@ -36,19 +36,18 @@ class ExceptionTest {
     @BeforeEach
     void setUp() throws Exception {
         MockitoAnnotations.openMocks(this);
-        setFinalStatic(PcapMultiCacheableAdvice.class.getDeclaredField("logger"), mockLogger);
+        setStaticFinalField(PcapMultiCacheableAdvice.class, "logger", mockLogger);
     }
 
-    private void setFinalStatic(Field field, Object newValue) throws Exception {
+    private void setStaticFinalField(Class<?> clazz, String fieldName, Object newValue) throws Exception {
+        Field field = clazz.getDeclaredField(fieldName);
         field.setAccessible(true);
 
-        // Remove final modifier from the field
-        Field modifiersField = Field.class.getDeclaredField("modifiers");
-        modifiersField.setAccessible(true);
-        modifiersField.setInt(field, field.getModifiers() & ~Modifier.FINAL);
+        // Use VarHandle to bypass final modifier in Java 12+
+        VarHandle fieldHandle = MethodHandles.privateLookupIn(clazz, MethodHandles.lookup())
+                .findStaticVarHandle(clazz, fieldName, field.getType());
 
-        // Set new value
-        field.set(null, newValue);
+        fieldHandle.set(newValue);
     }
 
     @Test
