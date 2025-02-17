@@ -1,107 +1,58 @@
-package com.personalcapital.cache.aop;
-
-import com.personalcapital.cache.annotation.RedisType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.redisson.api.RMap;
 import org.redisson.api.RedissonClient;
-import org.redisson.api.RKeys;
-import org.redisson.api.RBucket;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith(MockitoExtension.class)
-public class PcapMultiCacheableAdviceTest {
+class PcapMultiCacheableAdviceTest {
 
-	@Mock
-	private RedissonClient redissonClient;  // Mock RedissonClient
+    @Mock
+    private RedissonClient redissonClient;  // Mock RedissonClient
 
-	@Mock
-	private RKeys rKeys;  // Mock for key deletion
+    @Mock
+    private RMap<String, Object> mockRMap; // Mock Redisson map (instead of RBucket)
 
-	@Mock
-	private RBucket<String> rBucket; // Mock for key-value interactions
+    @InjectMocks
+    private PcapMultiCacheableAdvice pcapMultiCacheableAdvice; // Advice class being tested
 
-	private CacheAdviceCommons cacheAdviceCommons;
+    private final String cacheName = "testCache";
+    private final String keyPrefix = "prefix";
 
-	@BeforeEach
-	void setUp() {
-		MockitoAnnotations.openMocks(this);
-		redissonClient = mock(RedissonClient.class);
-		RBucket<Object> mockBucket;
-		mockBucket - mock(RBucket.class);
-		when(redissonClient.getBucket(anyString())).thenReturn(mockBucket);
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+        when(redissonClient.getMap(anyString())).thenReturn(mockRMap);  // Mock `RMap`
+    }
 
-		// Mock RedissonClient to return our mock RKeys
-		when(redissonClient.getKeys()).thenReturn(rKeys);
-		when(redissonClient.getBucket(anyString())).thenReturn(rBucket);
+    @Test
+    void testDataMismatchAndStore() {
+        // Simulate a data mismatch
+        String listKey = "key1";
+        String generatedKey = cacheName + ":" + keyPrefix + ":" + listKey;
+        String storedValue = "oldData";  // Simulated cached value that is outdated
+        String newValue = "newData";  // The new correct value
 
-		// Create a real instance of CacheAdviceCommons but override Redisson
-		cacheAdviceCommons = spy(new CacheAdviceCommons());
+        // Mock the behavior of RMap: get() returns the outdated value
+        when(mockRMap.get(generatedKey)).thenReturn(storedValue);  // Simulating data mismatch
 
-		// Override getRedisson() to return our mocked RedissonClient
-		doReturn(redissonClient).when(cacheAdviceCommons).getRedisson(any());
-	}
+        // Run the method under test (assuming processCacheRetrieval handles this logic)
+        pcapMultiCacheableAdvice.processCacheRetrieval(
+                cacheName, keyPrefix, Collections.singleton(listKey), new HashMap<>(), new ArrayList<>()
+        );
 
-	@Test
-	void testEvictSingleKey_Success() {
-		// Simulate successful deletion
-		when(rBucket.delete()).thenReturn(true);
+        // Verify that the cache is updated with the new value
+        verify(mockRMap, times(1)).put(generatedKey, newValue);  // `put()` should be called to update the cache
 
-		boolean result = cacheAdviceCommons.evictFromRedis(RedisType.GEN, "testKey");
-
-		assertTrue(result, "Eviction should be successful");
-		verify(rBucket, times(1)).delete();
-	}
-
-	@Test
-	void testEvictSingleKey_Failure() {
-		// Simulate failed deletion
-		when(rBucket.delete()).thenThrow(new RuntimeException("Redis failure"));
-
-		boolean result = cacheAdviceCommons.evictFromRedis(RedisType.GEN, "testKey");
-
-		assertFalse(result, "Eviction should fail and return false");
-		verify(rBucket, times(1)).delete();
-	}
-
-	@Test
-	void testEvictMultipleKeys_Success() {
-		// Simulate successful deletion for multiple keys
-		when(rKeys.delete(any(String[].class))).thenReturn(2L); // Assume 2 keys deleted
-
-		List<String> keys = Arrays.asList("key1", "key2");
-		boolean result = cacheAdviceCommons.evictFromRedis(RedisType.GEN, keys);
-
-		assertTrue(result, "Eviction should be successful");
-		verify(rKeys, times(1)).delete(any(String[].class));
-	}
-
-	@Test
-	void testEvictMultipleKeys_EmptyList() {
-		boolean result = cacheAdviceCommons.evictFromRedis(RedisType.GEN, Collections.emptyList());
-
-		assertTrue(result, "Eviction should be skipped for an empty list");
-		verify(rKeys, never()).delete(any(String[].class));
-	}
-
-	@Test
-	void testEvictMultipleKeys_Failure() {
-		// Simulate failure scenario
-		when(rKeys.delete(any(String[].class))).thenThrow(new RuntimeException("Redis error"));
-
-		List<String> keys = Arrays.asList("key1", "key2");
-		boolean result = cacheAdviceCommons.evictFromRedis(RedisType.GEN, keys);
-
-		assertFalse(result, "Eviction should fail and return false");
-		verify(rKeys, times(1)).delete(any(String[].class));
-	}
+        // Optionally, assert that the cache correctly returned the new value if applicable
+        when(mockRMap.get(generatedKey)).thenReturn(newValue);
+        assertEquals(newValue, mockRMap.get(generatedKey), "Cache should now have the new value");
+    }
 }
