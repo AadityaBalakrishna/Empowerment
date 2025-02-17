@@ -1,58 +1,43 @@
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.redisson.api.RMap;
-import org.redisson.api.RedissonClient;
-
 import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-@ExtendWith(MockitoExtension.class)
 class PcapMultiCacheableAdviceTest {
 
-    @Mock
-    private RedissonClient redissonClient;  // Mock RedissonClient
-
-    @Mock
-    private RMap<String, Object> mockRMap; // Mock Redisson map (instead of RBucket)
-
     @InjectMocks
-    private PcapMultiCacheableAdvice pcapMultiCacheableAdvice; // Advice class being tested
+    private PcapMultiCacheableAdvice pcapMultiCacheableAdvice; // Class under test
+
+    @Mock
+    private CacheAdviceCommons cacheAdviceCommons; // Cache advice commons class
 
     private final String cacheName = "testCache";
     private final String keyPrefix = "prefix";
 
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
-        when(redissonClient.getMap(anyString())).thenReturn(mockRMap);  // Mock `RMap`
+        // No Redisson, just working with the logic
     }
 
     @Test
-    void testDataMismatchAndStore() {
-        // Simulate a data mismatch
+    void testCacheMissAndStore() {
+        // Simulating cache miss
         String listKey = "key1";
         String generatedKey = cacheName + ":" + keyPrefix + ":" + listKey;
-        String storedValue = "oldData";  // Simulated cached value that is outdated
-        String newValue = "newData";  // The new correct value
+        String newValue = "newData";  // New value to store after cache miss
 
-        // Mock the behavior of RMap: get() returns the outdated value
-        when(mockRMap.get(generatedKey)).thenReturn(storedValue);  // Simulating data mismatch
+        // Mock behavior of your cache check and store method (direct logic call)
+        when(cacheAdviceCommons.getCacheValue(generatedKey)).thenReturn(null); // Simulating cache miss
+        doNothing().when(cacheAdviceCommons).storeCacheValue(generatedKey, newValue); // Simulating store method
 
-        // Run the method under test (assuming processCacheRetrieval handles this logic)
+        // Run the method under test (which should check the cache and store if miss occurs)
         pcapMultiCacheableAdvice.processCacheRetrieval(
                 cacheName, keyPrefix, Collections.singleton(listKey), new HashMap<>(), new ArrayList<>()
         );
 
-        // Verify that the cache is updated with the new value
-        verify(mockRMap, times(1)).put(generatedKey, newValue);  // `put()` should be called to update the cache
-
-        // Optionally, assert that the cache correctly returned the new value if applicable
-        when(mockRMap.get(generatedKey)).thenReturn(newValue);
-        assertEquals(newValue, mockRMap.get(generatedKey), "Cache should now have the new value");
+        // Verify that cache store was triggered (value should be stored after cache miss)
+        verify(cacheAdviceCommons, times(1)).storeCacheValue(generatedKey, newValue); // Ensure value is stored
     }
 }
