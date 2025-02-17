@@ -1,46 +1,85 @@
+import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.redisson.api.RedissonClient;
-import org.redisson.api.RKeys;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.redisson.api.RBucket;
+import org.redisson.api.RedissonClient;
+import java.util.*;
 
-import static org.mockito.Mockito.*;
-
-public class PcapMultiCacheableAdviceTest {
-
-    @Mock
-    private RedissonClient redissonClient;  // Mocking the RedissonClient
+@ExtendWith(MockitoExtension.class)
+class CacheServiceTest {
 
     @Mock
-    private RKeys rKeys;  // Mocking the RKeys interface (for key deletion)
+    private RedissonClient redissonClient;
+
+    @Mock
+    private CacheKeyProvider cacheKeyProvider;
+
+    @Mock
+    private CacheUtils cacheUtils;
+
+    @Mock
+    private CacheService cacheService; // Replace with the actual class containing your method
 
     @BeforeEach
     void setUp() {
-        // Initialize mocks
-        MockitoAnnotations.openMocks(this);
-
-        // Mock RedissonClient's behavior
-        when(redissonClient.getKeys()).thenReturn(rKeys);
-        
-        // Simulate the behavior of the keys deletion (success case)
-        when(rKeys.delete(any(String[].class))).thenReturn(true);  // Simulating successful eviction
-
-        // If you're using `getBucket()` in your code, you can mock it too
-        // Mocking getBucket (used for interacting with a specific Redis key)
-        RBucket<String> rBucket = mock(RBucket.class);
-        when(redissonClient.getBucket(anyString())).thenReturn(rBucket);
-        when(rBucket.get()).thenReturn("cachedValue");  // Simulating getting a cached value
+        cacheService = new CacheService(redissonClient, cacheKeyProvider);
     }
 
     @Test
-    void testEvictionLogic() {
-        // Simulate the eviction process
-        boolean result = redissonClient.getKeys().delete(new String[] {"key1", "key2"});
+    void testCacheHit() {
+        // Mocking values
+        String cacheName = "testCache";
+        String keyPrefix = "prefix";
+        Object keyArg = "key1";
+        String generatedKey = "testCache:prefix:key1";
 
-        // Verify the eviction logic worked as expected
-        assertTrue(result);
-        verify(redissonClient.getKeys(), times(1)).delete(any(String[].class));  // Ensure the deletion was called once
+        // Mock the cache key provider
+        when(cacheKeyProvider.getKeyField(keyArg)).thenReturn("key1");
+
+        // Mock RedissonClient behavior
+        RBucket<Object> mockBucket = mock(RBucket.class);
+        when(redissonClient.getBucket(generatedKey)).thenReturn(mockBucket);
+        when(mockBucket.get()).thenReturn("cachedValue"); // Simulating cache hit
+
+        // Run the method (replace with your actual method call)
+        Map<Object, Object> result = cacheService.getFromCache(cacheName, keyPrefix, List.of(keyArg));
+
+        // Verify the expected cached value is returned
+        assertEquals("cachedValue", result.get(keyArg));
+
+        // Verify cache hit metric was published
+        verify(cacheService, times(1)).publishCacheMetrics(any(), eq("hit"));
+    }
+
+    @Test
+    void testCacheMiss() {
+        // Mocking values
+        String cacheName = "testCache";
+        String keyPrefix = "prefix";
+        Object keyArg = "key2";
+        String generatedKey = "testCache:prefix:key2";
+
+        // Mock the cache key provider
+        when(cacheKeyProvider.getKeyField(keyArg)).thenReturn("key2");
+
+        // Mock RedissonClient behavior
+        RBucket<Object> mockBucket = mock(RBucket.class);
+        when(redissonClient.getBucket(generatedKey)).thenReturn(mockBucket);
+        when(mockBucket.get()).thenReturn(null); // Simulating cache miss
+
+        // Run the method (replace with your actual method call)
+        Map<Object, Object> result = cacheService.getFromCache(cacheName, keyPrefix, List.of(keyArg));
+
+        // Ensure the value is not present
+        assertFalse(result.containsKey(keyArg));
+
+        // Verify cache miss metric was published
+        verify(cacheService, times(1)).publishCacheMetrics(any(), eq("miss"));
     }
 }
