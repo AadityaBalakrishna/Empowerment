@@ -1,117 +1,100 @@
 package com.personalcapital.cache.aop;
 
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-
-import org.apache.commons.lang3.StringUtils;
-import org.redisson.api.RedissonClient;
-import org.redisson.spring.cache.CacheConfig;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.util.CollectionUtils;
-
 import com.personalcapital.cache.annotation.RedisType;
-import com.personalcapital.cache.utils.CacheConstants;
-import com.personalcapital.log.PcapLogger;
-import com.personalcapital.log.PcapLoggerFactory;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.redisson.api.RedissonClient;
+import org.redisson.api.RKeys;
+import org.redisson.api.RBucket;
 
-public class CacheAdviceCommons
-{
-	private static PcapLogger logger = PcapLoggerFactory.getPcapLogger(CacheAdviceCommons.class);
-	@Autowired
-	private Map<String, CacheConfig> redisCacheExpires;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
-	@Autowired
-	@Qualifier(CacheConstants.REDISSON_REGULAR)
-	private RedissonClient redissonGen;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
-	@Autowired
-	@Qualifier(CacheConstants.REDISSON_HIGH_AVAILABILITY)
-	private RedissonClient redissonHa;
+public class PcapMultiCacheableAdviceTest {
 
-	private static final int DEFAULT_EXPIRY_SECONDS = 1800;
+    @Mock
+    private RedissonClient redissonClient;  // Mock RedissonClient
 
-	/**
-	 * define cacheName : expiry in RedissonConfiguration
-	 * 
-	 * @param cacheName
-	 * @param ttl
-	 * @return
-	 */
-	protected int getTtlFromConfiguration(String cacheName, int ttl)
-	{
-		CacheConfig cacheConfig = redisCacheExpires.get(cacheName);
-		if (cacheConfig != null)
-		{
-			// convert from Millis to Seconds
-			return Math.toIntExact(TimeUnit.MILLISECONDS.toSeconds(cacheConfig.getTTL()));
-		}
-		return ttl > 0 ? ttl : DEFAULT_EXPIRY_SECONDS;
-	}
+    @Mock
+    private RKeys rKeys;  // Mock for key deletion
 
-	/**
-	 * return redisson to be used based on redistType enum
-	 * 
-	 * @param redisType
-	 * @return
-	 */
-	protected RedissonClient getRedisson(RedisType redisType)
-	{
-		switch (redisType)
-		{
-			case HA:
-				return redissonHa;
-			case GEN:
-			default:
-				return redissonGen;
-		}
-	}
+    @Mock
+    private RBucket<String> rBucket; // Mock for key-value interactions
 
-	/**
-	 * Evict fully qualified key from given redis type
-	 * 
-	 * @param redisType
-	 * @param key
-	 * @return
-	 */
-	protected boolean evictFromRedis(RedisType redisType, String key)
-	{
-		try
-		{
-			getRedisson(redisType).getBucket(key)
-					.delete();
-		}
-		catch (Exception e)
-		{
-			logger.warn("Evict failed for redisType: {}, key: {}, due to: {}", redisType, key, e);
-			return false;
-		}
-		return true;
-	}
+    private CacheAdviceCommons cacheAdviceCommons;
 
-	protected boolean evictFromRedis(RedisType redisType, List<String> keys)
-	{
-		if (redisType == null || CollectionUtils.isEmpty(keys))
-		{
-			return true;
-		}
-		try
-		{
-			getRedisson(redisType).getKeys()
-					.delete(keys.stream()
-							.toArray(String[]::new));
-		}
-		catch (Exception e)
-		{
-			logger.warn("Evict failed for redisType: {}, key: {}, due to: {}", redisType,
-					StringUtils.join(keys, ","), e);
-			return false;
-		}
-		return true;
-	}
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
 
+        // Mock RedissonClient to return our mock RKeys
+        when(redissonClient.getKeys()).thenReturn(rKeys);
+        when(redissonClient.getBucket(anyString())).thenReturn(rBucket);
+
+        // Create a real instance of CacheAdviceCommons but override Redisson
+        cacheAdviceCommons = spy(new CacheAdviceCommons());
+
+        // Override getRedisson() to return our mocked RedissonClient
+        doReturn(redissonClient).when(cacheAdviceCommons).getRedisson(any());
+    }
+
+    @Test
+    void testEvictSingleKey_Success() {
+        // Simulate successful deletion
+        when(rBucket.delete()).thenReturn(true);
+
+        boolean result = cacheAdviceCommons.evictFromRedis(RedisType.GEN, "testKey");
+
+        assertTrue(result, "Eviction should be successful");
+        verify(rBucket, times(1)).delete();
+    }
+
+    @Test
+    void testEvictSingleKey_Failure() {
+        // Simulate failed deletion
+        when(rBucket.delete()).thenThrow(new RuntimeException("Redis failure"));
+
+        boolean result = cacheAdviceCommons.evictFromRedis(RedisType.GEN, "testKey");
+
+        assertFalse(result, "Eviction should fail and return false");
+        verify(rBucket, times(1)).delete();
+    }
+
+    @Test
+    void testEvictMultipleKeys_Success() {
+        // Simulate successful deletion for multiple keys
+        when(rKeys.delete(any(String[].class))).thenReturn(2L); // Assume 2 keys deleted
+
+        List<String> keys = Arrays.asList("key1", "key2");
+        boolean result = cacheAdviceCommons.evictFromRedis(RedisType.GEN, keys);
+
+        assertTrue(result, "Eviction should be successful");
+        verify(rKeys, times(1)).delete(any(String[].class));
+    }
+
+    @Test
+    void testEvictMultipleKeys_EmptyList() {
+        boolean result = cacheAdviceCommons.evictFromRedis(RedisType.GEN, Collections.emptyList());
+
+        assertTrue(result, "Eviction should be skipped for an empty list");
+        verify(rKeys, never()).delete(any(String[].class));
+    }
+
+    @Test
+    void testEvictMultipleKeys_Failure() {
+        // Simulate failure scenario
+        when(rKeys.delete(any(String[].class))).thenThrow(new RuntimeException("Redis error"));
+
+        List<String> keys = Arrays.asList("key1", "key2");
+        boolean result = cacheAdviceCommons.evictFromRedis(RedisType.GEN, keys);
+
+        assertFalse(result, "Eviction should fail and return false");
+        verify(rKeys, times(1)).delete(any(String[].class));
+    }
 }
-
-
-also the test class name is PcapMultiCacheabletest and use this:package com.personalcapital.cache.aop;
