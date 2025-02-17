@@ -1,3 +1,5 @@
+package com.personalcapital.cache.aop;
+
 import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -6,16 +8,12 @@ import org.aspectj.lang.Signature;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.*;
 
 import com.personalcapital.cache.annotation.PcapMultiCacheable;
-import com.personalcapital.cache.aop.PcapMultiCacheableAdvice;
-import io.micrometer.core.instrument.Metrics;
 
 @ExtendWith(MockitoExtension.class)
-class PcapMultiCacheableAdviceTest {
+class ExceptionTest {
 
     @Mock
     private ProceedingJoinPoint mockPjp;
@@ -27,6 +25,7 @@ class PcapMultiCacheableAdviceTest {
     private PcapMultiCacheable mockAnnotation;
 
     @InjectMocks
+    @Spy // Use a spy to track method calls
     private PcapMultiCacheableAdvice cacheAdvice;
 
     @BeforeEach
@@ -47,19 +46,13 @@ class PcapMultiCacheableAdviceTest {
         // Mock eviction failure (simulate an exception when eviction is attempted)
         doThrow(new RuntimeException("Eviction failed")).when(mockPjp).proceed();
 
-        // Capture metric counters before the test
-        double cacheFailureBefore = Metrics.counter("pcap.cache.event", "outcome", "failure").count();
-        double evictionFailureBefore = Metrics.counter("pcap.cache.event", "outcome", "eviction_failure").count();
-
         // Execute the method and expect an exception
         assertThrows(RuntimeException.class, () -> cacheAdvice.doMultiCacheable(mockPjp, mockAnnotation));
 
-        // Capture metric counters after the test
-        double cacheFailureAfter = Metrics.counter("pcap.cache.event", "outcome", "failure").count();
-        double evictionFailureAfter = Metrics.counter("pcap.cache.event", "outcome", "eviction_failure").count();
+        // Verify that "failure" metric was logged
+        verify(cacheAdvice, times(1)).publishCacheMetrics(mockPjp, "failure");
 
-        // Verify that both failure metrics increased
-        assertEquals(cacheFailureBefore + 1, cacheFailureAfter, "Cache failure metric should increase by 1");
-        assertEquals(evictionFailureBefore + 1, evictionFailureAfter, "Eviction failure metric should increase by 1");
+        // Verify that "eviction_failure" metric was logged
+        verify(cacheAdvice, times(1)).publishCacheMetrics(mockPjp, "eviction_failure");
     }
 }
