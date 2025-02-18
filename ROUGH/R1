@@ -1,3 +1,4 @@
-Checking if RedissonClient is injected: redissonGen bean
-Checking if getBucket() is working: Mock for RBucket, hashCode: 1226378966
-Checking if bucket.get() is returning: cachedValue
+System.out.println("Executing doMultiCacheable...");
+System.out.println("Checking cache for key: " + computedCacheKey);
+Object cachedValue = redissonGen.getBucket(computedCacheKey).get();
+System.out.println("Cached value retrieved: " + cachedValue);
