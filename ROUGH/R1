@@ -667,3 +667,22 @@ public class PcapMultiCacheableAdviceTest {
 		return pjp;
 	}
 }
+
+@Test
+void testCacheStoreMetric() throws Throwable {
+    ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+    when(mockBucket.get()).thenReturn(null); // Simulate cache miss
+    when(pjp.proceed()).thenReturn(Arrays.asList("newValue")); // Simulate DB fetch
+
+    try (MockedStatic<Metrics> mockedMetrics = Mockito.mockStatic(Metrics.class)) {
+        Counter mockCounter = mock(Counter.class);
+        mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class))).thenReturn(mockCounter);
+
+        cacheAdvice.doMultiCacheable(pjp, null);
+
+        mockedMetrics.verify(() -> Metrics.counter("pcap.cache.event", "class", "PcapMultiCacheableAdvice",
+                "method", "testMethod", "outcome", "store"), times(1));
+
+        verify(mockCounter, times(1)).increment();
+    }
+}
