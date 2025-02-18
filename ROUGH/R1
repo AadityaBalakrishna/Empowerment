@@ -1,4 +1,1 @@
-System.out.println("Executing doMultiCacheable...");
-System.out.println("Checking cache for key: " + computedCacheKey);
-Object cachedValue = redissonGen.getBucket(computedCacheKey).get();
-System.out.println("Cached value retrieved: " + cachedValue);
+String keyPrefix = pcapMultiCacheable.keyPrefix();
