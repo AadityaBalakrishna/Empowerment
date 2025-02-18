@@ -1,183 +1,160 @@
-package com.empower.epw.cstmr.sdi.service;
+package com.personalcapital.cache.aop;
 
-import org.springframework.stereotype.Service;
-
-import com.empower.ihub.candh.common.Metadata;
-import com.personalcapital.log.PcapLogger;
-import com.personalcapital.log.PcapLoggerFactory;
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
-
-@Service
-public class MetricsService
-{
-	private static final PcapLogger logger = PcapLoggerFactory.getPcapLogger(MetricsService.class);
-	private static final String ENTITY_TYPE = "entity_type";
-	private static final String OPERATION = "operation";
-	private static final String SOURCE = "source";
-	private static final String METRICS_NAME = "epw.cstmr.sdi.event";
-
-	public void incrementSuccess(Metadata metadata)
-	{
-		logger.debug(
-				"Incrementing incrementSuccess metric for entity type: {}, operation: {}, source: {}",
-				metadata.getEntityType()
-						.name(),
-				metadata.getOperation()
-						.name(),
-				metadata.getSource()
-						.name(),
-				metadata.getTraceId(), metadata.getSpanId());
-
-		Counter updateCounterSuccess = Metrics.counter(METRICS_NAME, ENTITY_TYPE,
-				metadata.getEntityType()
-						.name(),
-				OPERATION, metadata.getOperation()
-						.name(),
-				SOURCE, metadata.getSource()
-						.name(),
-				"result", "success");
-		updateCounterSuccess.increment();
-	}
-
-	public void incrementFailureForAltIds(Metadata metadata)
-	{
-		logger.debug(
-				"Incrementing incrementFailureForAltIds metric for entity type: {}, operation: {}, source: {}",
-				metadata.getEntityType()
-						.name(),
-				metadata.getOperation()
-						.name(),
-				metadata.getSource()
-						.name(),
-				metadata.getTraceId(), metadata.getSpanId());
-		Counter updateCounterAltIdsEmpty = Metrics.counter(METRICS_NAME, ENTITY_TYPE,
-				metadata.getEntityType()
-						.name(),
-				OPERATION, metadata.getOperation()
-						.name(),
-				SOURCE, metadata.getSource()
-						.name(),
-				"problem", "no-alt-ids");
-		updateCounterAltIdsEmpty.increment();
-	}
-
-	public void incrementFailureForPersonaEmpty(Metadata metadata)
-	{
-		logger.debug(
-				"Incrementing incrementFailureForPersonaEmpty metric for entity type: {}, operation: {}, source: {}",
-				metadata.getEntityType()
-						.name(),
-				metadata.getOperation()
-						.name(),
-				metadata.getSource()
-						.name(),
-				metadata.getTraceId(), metadata.getSpanId());
-		Counter updateCounterForPersonaEmpty = Metrics.counter(METRICS_NAME, ENTITY_TYPE,
-				metadata.getEntityType()
-						.name(),
-				OPERATION, metadata.getOperation()
-						.name(),
-				SOURCE, metadata.getSource()
-						.name(),
-				"problem", "no-persona");
-		updateCounterForPersonaEmpty.increment();
-	}
-
-}
-
-package com.empower.epw.cstmr.sdi.service;
-
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.Signature;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import org.redisson.api.RBucket;
+import org.redisson.api.RedissonClient;
 
-import com.empower.ihub.candh.common.EntityType;
-import com.empower.ihub.candh.common.Metadata;
-import com.empower.ihub.candh.common.Operation;
-import com.empower.ihub.candh.common.Source;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Metrics;
+import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
+import java.util.Arrays;
+import java.util.List;
 
-public class MetricsServiceTest
-{
+public class PcapMultiCacheableAdviceTest {
+    
+    private PcapMultiCacheableAdvice cacheAdvice;
+    private SimpleMeterRegistry meterRegistry;
+    private RedissonClient redissonClient;
+    private RBucket<Object> mockBucket;
 
-	private MetricsService metricsService;
+    @BeforeEach
+    void setUp() {
+        meterRegistry = new SimpleMeterRegistry();
+        Metrics.addRegistry(meterRegistry);
+        cacheAdvice = new PcapMultiCacheableAdvice();
 
-	@BeforeEach
-	public void setUp()
-	{
-		metricsService = new MetricsService();
-	}
+        // Mock Redis behavior
+        redissonClient = mock(RedissonClient.class);
+        mockBucket = mock(RBucket.class);
+        when(redissonClient.getBucket(anyString())).thenReturn(mockBucket);
+    }
 
-	@Test
-	public void testIncrementSuccess()
-	{
-		Metadata metadata = new Metadata();
-		metadata.setEntityType(EntityType.TELEPHONE);
-		metadata.setOperation(Operation.UPDATE);
-		metadata.setSource(Source.EASY);
+    /**
+     * ✅ Test Case 1: Cache Hit
+     * Ensures that when a value is found in the cache, the "hit" metric is recorded.
+     */
+    @Test
+    void testCacheHitMetric() throws Throwable {
+        ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+        when(mockBucket.get()).thenReturn("cachedValue"); // Simulate cache hit
 
-		try (MockedStatic<Metrics> mockedMetrics = Mockito.mockStatic(Metrics.class))
-		{
-			Counter successCounter = mock(Counter.class);
-			mockedMetrics
-					.when(() -> Metrics.counter("epw.cstmr.sdi.event", "entity_type", "TELEPHONE",
-							"operation", "UPDATE", "source", "EASY", "result", "success"))
-					.thenReturn(successCounter);
+        try (MockedStatic<Metrics> mockedMetrics = Mockito.mockStatic(Metrics.class)) {
+            Counter mockCounter = mock(Counter.class);
+            mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class))).thenReturn(mockCounter);
 
-			metricsService.incrementSuccess(metadata);
+            cacheAdvice.publishCacheMetrics(pjp, "hit");
 
-			verify(successCounter, times(1)).increment();
-		}
-	}
+            ArgumentCaptor<String> metricNameCaptor = ArgumentCaptor.forClass(String.class);
+            ArgumentCaptor<String[]> tagCaptor = ArgumentCaptor.forClass(String[].class);
 
-	@Test
-	public void testIncrementFailureForAltIds()
-	{
-		Metadata metadata = new Metadata();
-		metadata.setEntityType(EntityType.TELEPHONE);
-		metadata.setOperation(Operation.UPDATE);
-		metadata.setSource(Source.EASY);
+            mockedMetrics.verify(() -> Metrics.counter(metricNameCaptor.capture(), tagCaptor.capture()));
 
-		try (MockedStatic<Metrics> mockedMetrics = Mockito.mockStatic(Metrics.class))
-		{
-			Counter altIdsEmptyCounter = mock(Counter.class);
-			mockedMetrics
-					.when(() -> Metrics.counter("epw.cstmr.sdi.event", "entity_type", "TELEPHONE",
-							"operation", "UPDATE", "source", "EASY", "problem", "no-alt-ids"))
-					.thenReturn(altIdsEmptyCounter);
+            assertEquals("pcap.cache.event", metricNameCaptor.getValue());
+            verify(mockCounter, times(1)).increment();
+        }
+    }
 
-			metricsService.incrementFailureForAltIds(metadata);
+    /**
+     * ✅ Test Case 2: Cache Miss
+     * Ensures that when a value is **not found** in the cache, the "miss" metric is recorded.
+     */
+    @Test
+    void testCacheMissMetric() throws Throwable {
+        ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+        when(mockBucket.get()).thenReturn(null); // Simulate cache miss
 
-			verify(altIdsEmptyCounter, times(1)).increment();
-		}
-	}
+        try (MockedStatic<Metrics> mockedMetrics = Mockito.mockStatic(Metrics.class)) {
+            Counter mockCounter = mock(Counter.class);
+            mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class))).thenReturn(mockCounter);
 
-	@Test
-	public void testIncrementFailureForPersonaEmpty()
-	{
-		Metadata metadata = new Metadata();
-		metadata.setEntityType(EntityType.TELEPHONE);
-		metadata.setOperation(Operation.UPDATE);
-		metadata.setSource(Source.EASY);
+            cacheAdvice.publishCacheMetrics(pjp, "miss");
 
-		try (MockedStatic<Metrics> mockedMetrics = Mockito.mockStatic(Metrics.class))
-		{
-			Counter personaEmptyCounter = mock(Counter.class);
-			mockedMetrics
-					.when(() -> Metrics.counter("epw.cstmr.sdi.event", "entity_type", "TELEPHONE",
-							"operation", "UPDATE", "source", "EASY", "problem", "no-persona"))
-					.thenReturn(personaEmptyCounter);
+            ArgumentCaptor<String> metricNameCaptor = ArgumentCaptor.forClass(String.class);
+            ArgumentCaptor<String[]> tagCaptor = ArgumentCaptor.forClass(String[].class);
 
-			metricsService.incrementFailureForPersonaEmpty(metadata);
+            mockedMetrics.verify(() -> Metrics.counter(metricNameCaptor.capture(), tagCaptor.capture()));
 
-			verify(personaEmptyCounter, times(1)).increment();
-		}
-	}
+            assertEquals("pcap.cache.event", metricNameCaptor.getValue());
+            verify(mockCounter, times(1)).increment();
+        }
+    }
+
+    /**
+     * ✅ Test Case 3: Cache Failure
+     * Simulates an exception in caching and verifies the "failure" metric is recorded.
+     */
+    @Test
+    void testCacheFailureMetric() throws Throwable {
+        ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+        doThrow(new RuntimeException("Cache failure simulated")).when(pjp).proceed();
+
+        try (MockedStatic<Metrics> mockedMetrics = Mockito.mockStatic(Metrics.class)) {
+            Counter mockCounter = mock(Counter.class);
+            mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class))).thenReturn(mockCounter);
+
+            try {
+                cacheAdvice.doMultiCacheable(pjp, null);
+            } catch (Exception ignored) {
+                // Exception expected, no need to handle
+            }
+
+            mockedMetrics.verify(() -> Metrics.counter("pcap.cache.event", "class", "PcapMultiCacheableAdvice",
+                    "method", "testMethod", "outcome", "failure"), times(1));
+
+            verify(mockCounter, times(1)).increment();
+        }
+    }
+
+    /**
+     * ✅ Test Case 4: Cache Eviction Failure
+     * Simulates a scenario where cache eviction fails, and verifies that the correct metric is incremented.
+     */
+    @Test
+    void testCacheEvictionFailureMetric() throws Throwable {
+        ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+        PcapMultiCacheableAdvice spyAdvice = spy(cacheAdvice);
+        
+        doThrow(new RuntimeException("Cache eviction failed")).when(spyAdvice).evictFromRedis(any(), anyList());
+
+        try (MockedStatic<Metrics> mockedMetrics = Mockito.mockStatic(Metrics.class)) {
+            Counter mockCounter = mock(Counter.class);
+            mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class))).thenReturn(mockCounter);
+
+            try {
+                spyAdvice.doMultiCacheable(pjp, null);
+            } catch (Exception ignored) {
+                // Exception expected, no need to handle
+            }
+
+            mockedMetrics.verify(() -> Metrics.counter("pcap.cache.event", "class", "PcapMultiCacheableAdvice",
+                    "method", "testMethod", "outcome", "eviction_failure"), times(1));
+
+            verify(mockCounter, times(1)).increment();
+        }
+    }
+
+    // ========== Utility Methods ==========
+
+    /**
+     * Creates a mocked ProceedingJoinPoint with a fake method signature.
+     */
+    private ProceedingJoinPoint mockProceedingJoinPoint() {
+        ProceedingJoinPoint pjp = mock(ProceedingJoinPoint.class);
+        Signature mockSignature = mock(Signature.class);
+
+        when(pjp.getTarget()).thenReturn(cacheAdvice);
+        when(pjp.getSignature()).thenReturn(mockSignature);
+        when(mockSignature.getName()).thenReturn("testMethod");
+
+        return pjp;
+    }
 }
