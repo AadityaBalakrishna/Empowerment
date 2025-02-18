@@ -1,1 +1,183 @@
-java.lang.NullPointerException: Cannot invoke "java.lang.Class.getDeclaredConstructor(java.lang.Class[])" because the return value of "com.personalcapital.cache.annotation.PcapMultiCacheable.keyProvider()" is null
+package com.empower.epw.cstmr.sdi.service;
+
+import org.springframework.stereotype.Service;
+
+import com.empower.ihub.candh.common.Metadata;
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
+
+@Service
+public class MetricsService
+{
+	private static final PcapLogger logger = PcapLoggerFactory.getPcapLogger(MetricsService.class);
+	private static final String ENTITY_TYPE = "entity_type";
+	private static final String OPERATION = "operation";
+	private static final String SOURCE = "source";
+	private static final String METRICS_NAME = "epw.cstmr.sdi.event";
+
+	public void incrementSuccess(Metadata metadata)
+	{
+		logger.debug(
+				"Incrementing incrementSuccess metric for entity type: {}, operation: {}, source: {}",
+				metadata.getEntityType()
+						.name(),
+				metadata.getOperation()
+						.name(),
+				metadata.getSource()
+						.name(),
+				metadata.getTraceId(), metadata.getSpanId());
+
+		Counter updateCounterSuccess = Metrics.counter(METRICS_NAME, ENTITY_TYPE,
+				metadata.getEntityType()
+						.name(),
+				OPERATION, metadata.getOperation()
+						.name(),
+				SOURCE, metadata.getSource()
+						.name(),
+				"result", "success");
+		updateCounterSuccess.increment();
+	}
+
+	public void incrementFailureForAltIds(Metadata metadata)
+	{
+		logger.debug(
+				"Incrementing incrementFailureForAltIds metric for entity type: {}, operation: {}, source: {}",
+				metadata.getEntityType()
+						.name(),
+				metadata.getOperation()
+						.name(),
+				metadata.getSource()
+						.name(),
+				metadata.getTraceId(), metadata.getSpanId());
+		Counter updateCounterAltIdsEmpty = Metrics.counter(METRICS_NAME, ENTITY_TYPE,
+				metadata.getEntityType()
+						.name(),
+				OPERATION, metadata.getOperation()
+						.name(),
+				SOURCE, metadata.getSource()
+						.name(),
+				"problem", "no-alt-ids");
+		updateCounterAltIdsEmpty.increment();
+	}
+
+	public void incrementFailureForPersonaEmpty(Metadata metadata)
+	{
+		logger.debug(
+				"Incrementing incrementFailureForPersonaEmpty metric for entity type: {}, operation: {}, source: {}",
+				metadata.getEntityType()
+						.name(),
+				metadata.getOperation()
+						.name(),
+				metadata.getSource()
+						.name(),
+				metadata.getTraceId(), metadata.getSpanId());
+		Counter updateCounterForPersonaEmpty = Metrics.counter(METRICS_NAME, ENTITY_TYPE,
+				metadata.getEntityType()
+						.name(),
+				OPERATION, metadata.getOperation()
+						.name(),
+				SOURCE, metadata.getSource()
+						.name(),
+				"problem", "no-persona");
+		updateCounterForPersonaEmpty.increment();
+	}
+
+}
+
+package com.empower.epw.cstmr.sdi.service;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
+
+import com.empower.ihub.candh.common.EntityType;
+import com.empower.ihub.candh.common.Metadata;
+import com.empower.ihub.candh.common.Operation;
+import com.empower.ihub.candh.common.Source;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+
+public class MetricsServiceTest
+{
+
+	private MetricsService metricsService;
+
+	@BeforeEach
+	public void setUp()
+	{
+		metricsService = new MetricsService();
+	}
+
+	@Test
+	public void testIncrementSuccess()
+	{
+		Metadata metadata = new Metadata();
+		metadata.setEntityType(EntityType.TELEPHONE);
+		metadata.setOperation(Operation.UPDATE);
+		metadata.setSource(Source.EASY);
+
+		try (MockedStatic<Metrics> mockedMetrics = Mockito.mockStatic(Metrics.class))
+		{
+			Counter successCounter = mock(Counter.class);
+			mockedMetrics
+					.when(() -> Metrics.counter("epw.cstmr.sdi.event", "entity_type", "TELEPHONE",
+							"operation", "UPDATE", "source", "EASY", "result", "success"))
+					.thenReturn(successCounter);
+
+			metricsService.incrementSuccess(metadata);
+
+			verify(successCounter, times(1)).increment();
+		}
+	}
+
+	@Test
+	public void testIncrementFailureForAltIds()
+	{
+		Metadata metadata = new Metadata();
+		metadata.setEntityType(EntityType.TELEPHONE);
+		metadata.setOperation(Operation.UPDATE);
+		metadata.setSource(Source.EASY);
+
+		try (MockedStatic<Metrics> mockedMetrics = Mockito.mockStatic(Metrics.class))
+		{
+			Counter altIdsEmptyCounter = mock(Counter.class);
+			mockedMetrics
+					.when(() -> Metrics.counter("epw.cstmr.sdi.event", "entity_type", "TELEPHONE",
+							"operation", "UPDATE", "source", "EASY", "problem", "no-alt-ids"))
+					.thenReturn(altIdsEmptyCounter);
+
+			metricsService.incrementFailureForAltIds(metadata);
+
+			verify(altIdsEmptyCounter, times(1)).increment();
+		}
+	}
+
+	@Test
+	public void testIncrementFailureForPersonaEmpty()
+	{
+		Metadata metadata = new Metadata();
+		metadata.setEntityType(EntityType.TELEPHONE);
+		metadata.setOperation(Operation.UPDATE);
+		metadata.setSource(Source.EASY);
+
+		try (MockedStatic<Metrics> mockedMetrics = Mockito.mockStatic(Metrics.class))
+		{
+			Counter personaEmptyCounter = mock(Counter.class);
+			mockedMetrics
+					.when(() -> Metrics.counter("epw.cstmr.sdi.event", "entity_type", "TELEPHONE",
+							"operation", "UPDATE", "source", "EASY", "problem", "no-persona"))
+					.thenReturn(personaEmptyCounter);
+
+			metricsService.incrementFailureForPersonaEmpty(metadata);
+
+			verify(personaEmptyCounter, times(1)).increment();
+		}
+	}
+}
