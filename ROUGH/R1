@@ -1,1 +1,9 @@
-java.lang.NullPointerException: Cannot invoke "java.util.Map.get(Object)" because "this.redisCacheExpires" is null
+	@NotNull
+	private Map<String, CacheConfig> redisCacheExpires;
+
+	public CachePushAdvice(Map<String, CacheConfig> redisCacheExpires)
+	{
+		this.redisCacheExpires = redisCacheExpires;
+	}
+
+in one of the other class, they did it like this
