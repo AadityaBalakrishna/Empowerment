@@ -20,7 +20,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
-import java.lang.reflect.Method;
 import java.util.*;
 
 import static org.mockito.Mockito.*;
@@ -53,21 +52,10 @@ public class PcapMultiCacheableAdviceMetricsTest
 	static void initMockedStatic()
 	{
 		mockedCacheAdviceHelper = mockStatic(CacheAdviceHelper.class);
-		try
-		{
-			Method mockMethod = DummyClass.class.getMethod("dummyMethod");
-			mockedCacheAdviceHelper
-					.when(() -> CacheAdviceHelper.getMethod(any(ProceedingJoinPoint.class)))
-					.thenReturn(mockMethod);
-		}
-		catch (NoSuchMethodException e)
-		{
-			throw new RuntimeException("Failed to mock getMethod", e);
-		}
 	}
 
 	@BeforeEach
-	void setUp()
+	void setUp() throws NoSuchMethodException
 	{
 		MockitoAnnotations.openMocks(this);
 		meterRegistry = new SimpleMeterRegistry();
@@ -88,6 +76,10 @@ public class PcapMultiCacheableAdviceMetricsTest
 		when(mockAnnotation.keyPrefix()).thenReturn("prefix");
 		when(mockAnnotation.redisType()).thenReturn(RedisType.DEFAULT);
 		when(mockAnnotation.keyProvider()).thenAnswer(invocation -> DummyCacheKeyProvider.class);
+
+		mockedCacheAdviceHelper
+				.when(() -> CacheAdviceHelper.getMethod(any(ProceedingJoinPoint.class)))
+				.thenReturn(DummyClass.class.getMethod("dummyMethod"));
 	}
 
 	@Test
@@ -108,6 +100,17 @@ public class PcapMultiCacheableAdviceMetricsTest
 				.get()).thenReturn("cachedValue");
 
 		executeAndVerifyMetrics("hit");
+	}
+
+	@Test
+	void testCacheFailureAndDataMismatchMetric() throws Throwable
+	{
+		mockedCacheAdviceHelper
+				.when(() -> CacheAdviceHelper.getMethod(any(ProceedingJoinPoint.class)))
+				.thenReturn(DummyClass.class.getMethod("failingDummyMethod"));
+
+		when(mockProceedingJoinPoint().proceed()).thenThrow(new RuntimeException("Forced Failure"));
+		executeAndVerifyMetrics("failure", "data_mismatch");
 	}
 
 	private void executeAndVerifyMetrics(String... expectedMetrics) throws Throwable
@@ -151,6 +154,7 @@ public class PcapMultiCacheableAdviceMetricsTest
 		{
 				Collections.singletonList("key1")
 		});
+		when(pjp.proceed()).thenReturn(Collections.singletonList("dbFetchedValue"));
 		return pjp;
 	}
 
@@ -159,6 +163,11 @@ public class PcapMultiCacheableAdviceMetricsTest
 		public static Collection<String> dummyMethod()
 		{
 			return Collections.emptyList();
+		}
+
+		public void failingDummyMethod()
+		{
+			throw new RuntimeException("Forced Failure");
 		}
 	}
 
@@ -190,3 +199,5 @@ public class PcapMultiCacheableAdviceMetricsTest
 		}
 	}
 }
+
+if cache hit is working, even data_store, should work, can you help me with this?
