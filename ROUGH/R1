@@ -1,54 +1,37 @@
-catch (Exception ex)
-		{
-			logger.info("Caching on {} aborted due to an error. message: {}. stacktrace: {}",
-					pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
-			// Cache Failure Metric
-			publishCacheMetrics(pjp, "failure");
-			try
-			{
-				final CacheKeyProvider finalCacheKeyProvider = cacheKeyProvider;
-				final Collection<Object> finalOtherKeyArgs = otherKeyArgs;
-				List<String> keys = listKeyArg.stream()
-						.filter(k -> Objects.nonNull(k))
-						.map(k -> CacheUtils.generateKey(cacheName, keyPrefix,
-								finalCacheKeyProvider.getKeyField(k), finalOtherKeyArgs))
-						.collect(Collectors.toList());
-				if (!evictFromRedis(redisType, keys))
-				{
-					// if eviction fails we fetch from db and return
-					return pjp.proceed();
-				}
-			}
-			catch (Exception e)
-			{
-				logger.info("Eviction on caching failure failed on {}, due to: {}, stacktrace: {}",
-						pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
-				// Cache Eviction Failure Metric
-				publishCacheMetrics(pjp, "eviction_failure");
-			}
-			// since we evict all the keys we want to fetch and save all the keys again
-			modifiedArgs = args;
-		}
+@Test
+void testCacheEvictionFailureMetricThroughDoMultiCacheable() throws Throwable {
+    ProceedingJoinPoint pjp = mockProceedingJoinPoint();
 
-try to make the code go to "publishCacheMetrics(pjp, "eviction_failure");", its coming till if (!evictFromRedis(redisType, keys)),
-protected boolean evictFromRedis(RedisType redisType, List<String> keys)
-	{
-		if (redisType == null || CollectionUtils.isEmpty(keys))
-		{
-			return true;
-		}
-		try
-		{
-			getRedisson(redisType).getKeys()
-					.delete(keys.stream()
-							.toArray(String[]::new));
-		}
-		catch (Exception e)
-		{
-			logger.warn("Evict failed for redisType: {}, key: {}, due to: {}", redisType,
-					StringUtils.join(keys, ","), e);
-			return false;
-		}
-		return true;
-	}
-this is where the code goes to, so try to get the eviction failure by failing any value
+    try (MockedStatic<Metrics> mockedMetrics = Mockito.mockStatic(Metrics.class)) {
+        Counter mockCounter = mock(Counter.class);
+        mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
+                .thenReturn(mockCounter);
+
+        // ✅ Simulate Cache Failure
+        when(redissonClient.getBucket(anyString()).get()).thenThrow(new RuntimeException("Cache read error"));
+
+        // ✅ Mock `evictFromRedis` to fail
+        RedissonClient mockRedisson = mock(RedissonClient.class);
+        when(cacheAdvice.getRedisson(any())).thenReturn(mockRedisson);
+        when(mockRedisson.getKeys()).thenThrow(new RuntimeException("Redis eviction failed"));
+
+        Object result = cacheAdvice.doMultiCacheable(pjp, mockAnnotation);
+        ArgumentCaptor<String> outcomeCaptor = ArgumentCaptor.forClass(String.class);
+
+        assertNotNull(result);
+        
+        mockedMetrics.verify(() -> Metrics.counter(
+                        eq("pcap.cache.event"), eq("class"), eq("PcapMultiCacheableAdvice"),
+                        eq("method"), eq("dummyMethod"), eq("outcome"), outcomeCaptor.capture()),
+                atLeastOnce());
+
+        List<String> capturedMetrics = outcomeCaptor.getAllValues();
+        logger.info("Captured Metrics: {}", capturedMetrics);
+
+        // ✅ Ensure "eviction_failure" is recorded
+        assertTrue(capturedMetrics.contains("eviction_failure"),
+                "Expected 'eviction_failure' metric but got: " + capturedMetrics);
+
+        verify(mockCounter, atLeastOnce()).increment();
+    }
+}
