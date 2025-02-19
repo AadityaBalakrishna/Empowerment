@@ -23,6 +23,7 @@ import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
+import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -106,11 +107,26 @@ public class PcapMultiCacheableAdviceTestCacheHit
 		{
 				0
 		});
-		method = CacheAdviceHelper.getMethod(pjp);
 		when(mockAnnotation.keyPrefix()).thenReturn("prefix");
 		when(mockAnnotation.redisType()).thenReturn(RedisType.DEFAULT);
 
 		when(mockAnnotation.keyProvider()).thenAnswer(invocation -> DummyCacheKeyProvider.class);
+		mockStaticCacheAdviceHelper();
+	}
+
+	private void mockStaticCacheAdviceHelper()
+	{
+		MockedStatic<CacheAdviceHelper> mockedStatic = mockStatic(CacheAdviceHelper.class);
+
+		try{
+			Method mockMethod = DummyClass.class.getMethod("dummyMethod");
+			mockedStatic.when(()-> CacheAdviceHelper.getMethod(any(ProceedingJoinPoint.class))).thenReturn(mockMethod);
+		}catch (NoSuchMethodException e){
+			throw new RuntimeException("Failed to mock getMethod",e);
+		}
+	}
+	public static class DummyClass{
+		public void dummyMethod(){}
 	}
 
 	private void injectPrivateField(Object target, String fieldName, Object value)
@@ -132,7 +148,7 @@ public class PcapMultiCacheableAdviceTestCacheHit
 	void testCacheHitMetricThroughDoMultiCacheable() throws Throwable
 	{
 		ProceedingJoinPoint pjp = mockProceedingJoinPoint();
-//		when(pjp.getSignature()).thenReturn(new MethodSignatureImpl());
+		/*when(pjp.getSignature()).thenReturn(new MethodSignatureImpl());*/
 
 		/* when(mockBucket.get()).thenReturn("cachedValue"); // Simulate cache hit */
 
@@ -178,3 +194,17 @@ public class PcapMultiCacheableAdviceTestCacheHit
 		}
 	}
 }
+
+error:
+org.opentest4j.AssertionFailedError: expected: not <null>
+
+	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
+	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+	at org.junit.jupiter.api.AssertNotNull.failNull(AssertNotNull.java:49)
+	at org.junit.jupiter.api.AssertNotNull.assertNotNull(AssertNotNull.java:35)
+	at org.junit.jupiter.api.AssertNotNull.assertNotNull(AssertNotNull.java:30)
+	at org.junit.jupiter.api.Assertions.assertNotNull(Assertions.java:304)
+	at com.personalcapital.cache.aop.PcapMultiCacheableAdviceTestCacheHit.testCacheHitMetricThroughDoMultiCacheable(PcapMultiCacheableAdviceTestCacheHit.java:163)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
