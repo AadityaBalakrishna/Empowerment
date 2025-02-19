@@ -94,10 +94,11 @@ public class PcapMultiCacheableAdviceTestCacheHit
 
 		/* injectPrivateField(cacheAdvice, "redisCacheExpires", new HashMap<>()); */
 
-		/*
-		 * redissonClient = mock(RedissonClient.class); mockBucket = mock(RBucket.class);
-		 */
-		/* when(redissonClient.getBucket(anyString())).thenReturn(mockBucket); */
+		redissonClient = mock(RedissonClient.class);
+		RBucket mockBucket = mock(RBucket.class);
+
+		when(redissonClient.getBucket(anyString())).thenReturn(mockBucket);
+		when(mockBucket.get()).thenReturn("cachedValue"); // Simulate cache hit
 
 		mockAnnotation = mock(PcapMultiCacheable.class);
 
@@ -150,7 +151,7 @@ public class PcapMultiCacheableAdviceTestCacheHit
 		ProceedingJoinPoint pjp = mockProceedingJoinPoint();
 		/*when(pjp.getSignature()).thenReturn(new MethodSignatureImpl());*/
 
-		/* when(mockBucket.get()).thenReturn("cachedValue"); // Simulate cache hit */
+//		when(mockBucket.get()).thenReturn("cachedValue"); // Simulate cache hit
 
 		try (MockedStatic<Metrics> mockedMetrics = Mockito.mockStatic(Metrics.class))
 		{
@@ -182,6 +183,7 @@ public class PcapMultiCacheableAdviceTestCacheHit
 		{
 				Collections.singletonList("key1")
 		});
+//		when(pjp.proceed()).thenReturn("dbValues");
 		return pjp;
 	}
 
@@ -194,17 +196,3 @@ public class PcapMultiCacheableAdviceTestCacheHit
 		}
 	}
 }
-
-error:
-org.opentest4j.AssertionFailedError: expected: not <null>
-
-	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
-	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
-	at org.junit.jupiter.api.AssertNotNull.failNull(AssertNotNull.java:49)
-	at org.junit.jupiter.api.AssertNotNull.assertNotNull(AssertNotNull.java:35)
-	at org.junit.jupiter.api.AssertNotNull.assertNotNull(AssertNotNull.java:30)
-	at org.junit.jupiter.api.Assertions.assertNotNull(Assertions.java:304)
-	at com.personalcapital.cache.aop.PcapMultiCacheableAdviceTestCacheHit.testCacheHitMetricThroughDoMultiCacheable(PcapMultiCacheableAdviceTestCacheHit.java:163)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
