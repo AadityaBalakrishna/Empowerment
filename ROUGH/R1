@@ -16,11 +16,9 @@ import org.junit.jupiter.api.Test;
 import org.mockito.*;
 import org.redisson.api.RBucket;
 import org.redisson.api.RedissonClient;
-import org.redisson.spring.cache.CacheConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cache.CacheManager;
-import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
 import java.lang.reflect.Method;
@@ -28,149 +26,243 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.personalcapital.cache.utils.CacheConstants.FLOW_CACHE;
-import static com.personalcapital.cache.utils.CacheConstants.FLOW_CACHE_TTL_IN_SECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-@SpringJUnitConfig(locations =
-{
-		"classpath:cachePushAdviceTest-Context.xml"
-})
-public class PcapMultiCacheableAdviceTestCacheHit
-{
+@SpringJUnitConfig(locations = { "classpath:cachePushAdviceTest-Context.xml" })
+public class PcapMultiCacheableAdviceTest {
 
-	@InjectMocks
-	@Spy
-	@Autowired
-	private PcapMultiCacheableAdvice cacheAdvice;
+    @InjectMocks
+    @Spy
+    @Autowired
+    private PcapMultiCacheableAdvice cacheAdvice;
 
-	private SimpleMeterRegistry meterRegistry;
-	private PcapMultiCacheable mockAnnotation;
+    private SimpleMeterRegistry meterRegistry;
+    private PcapMultiCacheable mockAnnotation;
 
-	@Autowired
-	@Qualifier(CacheConstants.REDISSON_REGULAR)
-	private RedissonClient redissonClient;
+    @Autowired
+    @Qualifier(CacheConstants.REDISSON_REGULAR)
+    private RedissonClient redissonClient;
 
-	@Autowired
-	@Qualifier(CacheConstants.REDIS_CACHE_MANAGER_REGULAR)
-	private CacheManager cacheManager;
+    @Autowired
+    @Qualifier(CacheConstants.REDIS_CACHE_MANAGER_REGULAR)
+    private CacheManager cacheManager;
 
-	@Bean(name = "redisCacheExpires")
-	public Map<String, CacheConfig> redisCacheExpires()
-	{
-		Map<String, CacheConfig> config = new HashMap<>();
-		/*
-		 * create "securityInfo" cache with ttl =7,200,000ms(7200s) and maxIdleTime = 0ms
-		 * maxIdleTime will expire the key sooner than the ttl, if the item hasn't been "touched" in
-		 * that much duration
-		 */
-		// TODO : This needs to move out
-		config.put("securityInfo", new CacheConfig(SECONDS.toMillis(7200), 0));
-		config.put("quote", new CacheConfig(SECONDS.toMillis(600), 0));
-		config.put("historicalQuote", new CacheConfig(SECONDS.toMillis(86400), 0));
-		config.put("advice", new CacheConfig(SECONDS.toMillis(1800), 0));
-		config.put("adviceData", new CacheConfig(SECONDS.toMillis(10800), 0));
-		config.put("entity", new CacheConfig(SECONDS.toMillis(1800), 0));
-		config.put("security", new CacheConfig(SECONDS.toMillis(3600), 0));
-		config.put("yodlee", new CacheConfig(SECONDS.toMillis(1800), 0));
-		config.put("userFeature", new CacheConfig(SECONDS.toMillis(300), 0));
-		config.put("messageTemplateData", new CacheConfig(SECONDS.toMillis(864000), 0));
-		config.put("frontapp", new CacheConfig(SECONDS.toMillis(1800), 0));
-		config.put(FLOW_CACHE, new CacheConfig(SECONDS.toMillis(FLOW_CACHE_TTL_IN_SECONDS), 0));
-		return config;
-	}
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
 
-	@BeforeEach
-	void setUp()
-	{
-		MockitoAnnotations.openMocks(this);
+        meterRegistry = new SimpleMeterRegistry();
+        Metrics.addRegistry(meterRegistry);
 
-		meterRegistry = new SimpleMeterRegistry();
-		Metrics.addRegistry(meterRegistry);
+        redissonClient = mock(RedissonClient.class);
+        RBucket<Object> mockBucket = mock(RBucket.class);
+        when(redissonClient.getBucket(anyString())).thenReturn(mockBucket);
 
-		redissonClient = mock(RedissonClient.class);
-		RBucket<Object> mockBucket = mock(RBucket.class);
-		when(redissonClient.getBucket(anyString())).thenReturn(mockBucket);
-		when(mockBucket.get()).thenReturn("cachedValue"); // Simulate cache hit
+        mockAnnotation = mock(PcapMultiCacheable.class);
+        when(mockAnnotation.value()).thenReturn("testCache");
+        when(mockAnnotation.keys()).thenReturn(new int[]{0});
+        when(mockAnnotation.keyPrefix()).thenReturn("prefix");
+        when(mockAnnotation.redisType()).thenReturn(RedisType.DEFAULT);
+        when(mockAnnotation.keyProvider()).thenAnswer(invocation -> DummyCacheKeyProvider.class);
 
-		mockAnnotation = mock(PcapMultiCacheable.class);
-		when(mockAnnotation.value()).thenReturn("testCache");
-		when(mockAnnotation.keys()).thenReturn(new int[]{0});
-		when(mockAnnotation.keyPrefix()).thenReturn("prefix");
-		when(mockAnnotation.redisType()).thenReturn(RedisType.DEFAULT);
-		when(mockAnnotation.keyProvider()).thenAnswer(invocation -> DummyCacheKeyProvider.class);
-		try (MockedStatic<CacheAdviceHelper> mockedStatic = mockStatic(CacheAdviceHelper.class)){
-			Method mockMethod = DummyClass.class.getMethod("dummyMethod");
-			mockedStatic.when(()-> CacheAdviceHelper.getMethod(any(ProceedingJoinPoint.class))).thenReturn(mockMethod);
-		}
-		catch (NoSuchMethodException e)
-		{
-			throw new RuntimeException("Failed to mock getMethod",e);
-		}
-	}
+        try (MockedStatic<CacheAdviceHelper> mockedStatic = mockStatic(CacheAdviceHelper.class)) {
+            Method mockMethod = DummyClass.class.getMethod("dummyMethod");
+            mockedStatic.when(() -> CacheAdviceHelper.getMethod(any(ProceedingJoinPoint.class))).thenReturn(mockMethod);
+        } catch (NoSuchMethodException e) {
+            throw new RuntimeException("Failed to mock getMethod", e);
+        }
+    }
 
-	public static class DummyClass{
-		public void dummyMethod(){}
-	}
+    public static class DummyClass {
+        public void dummyMethod() {}
+    }
 
-	@Test
-	void testCacheMissMetricThroughDoMultiCacheable() throws Throwable
-	{
-		ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+    /**
+     * ✅ Test Cache Hit (should record "hit")
+     */
+    @Test
+    void testCacheHitMetric() throws Throwable {
+        ProceedingJoinPoint pjp = mockProceedingJoinPoint();
 
-		try (MockedStatic<Metrics> mockedMetrics = Mockito.mockStatic(Metrics.class))
-		{
-			Counter mockCounter = mock(Counter.class);
-			mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
-					.thenReturn(mockCounter);
+        try (MockedStatic<Metrics> mockedMetrics = Mockito.mockStatic(Metrics.class)) {
+            Counter mockCounter = mock(Counter.class);
+            mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
+                    .thenReturn(mockCounter);
 
-			when(redissonClient.getBucket(anyString()).get()).thenReturn(null);
+            // Simulate cache hit
+            when(redissonClient.getBucket(anyString()).get()).thenReturn("cachedValue");
 
-			Object result = cacheAdvice.doMultiCacheable(pjp, mockAnnotation);
+            Object result = cacheAdvice.doMultiCacheable(pjp, mockAnnotation);
 
-			assertNotNull(result);
-			assertEquals("dbFetchedValue", result);
+            assertNotNull(result);
+            assertEquals("cachedValue", result);
 
-			ArgumentCaptor<String> outcomeCaptor = ArgumentCaptor.forClass(String.class);
+            ArgumentCaptor<String> outcomeCaptor = ArgumentCaptor.forClass(String.class);
+            mockedMetrics.verify(() -> Metrics.counter(anyString(), any(), any(), any(), any(), "outcome", outcomeCaptor.capture()), atLeastOnce());
 
-			mockedMetrics.verify(() -> Metrics.counter(
-							eq("pcap.cache.event"), eq("class"), eq("PcapMultiCacheableAdvice"),
-							eq("method"), eq("testMethod"), eq("outcome"), outcomeCaptor.capture()),
-					atLeastOnce());
+            System.out.println("Captured Metrics: " + outcomeCaptor.getAllValues());
+            assertTrue(outcomeCaptor.getAllValues().contains("hit"), "Expected 'hit' metric but got: " + outcomeCaptor.getAllValues());
 
-			System.out.println("Captured Metrics: "+ outcomeCaptor.getAllValues());
-			assertTrue(outcomeCaptor.getAllValues().contains("miss"),
-					"Expected 'miss' metric but got: " + outcomeCaptor.getAllValues());
+            verify(mockCounter, atLeastOnce()).increment();
+        }
+    }
 
-			verify(mockCounter, atLeastOnce()).increment();
-		}
-	}
+    /**
+     * ✅ Test Cache Miss (should record "miss")
+     */
+    @Test
+    void testCacheMissMetric() throws Throwable {
+        ProceedingJoinPoint pjp = mockProceedingJoinPoint();
 
-	private ProceedingJoinPoint mockProceedingJoinPoint() throws Throwable
-	{
-		ProceedingJoinPoint pjp = mock(ProceedingJoinPoint.class);
-		Signature mockSignature = mock(Signature.class);
-		when(pjp.getTarget()).thenReturn(cacheAdvice);
-		when(pjp.getSignature()).thenReturn(mockSignature);
-		when(mockSignature.getName()).thenReturn("testMethod");
-		when(pjp.getArgs()).thenReturn(new Object[]
-		{
-				Collections.singletonList("key1")
-		});
-		when(pjp.proceed()).thenReturn("dbFetchedValue");
-		return pjp;
-	}
+        try (MockedStatic<Metrics> mockedMetrics = Mockito.mockStatic(Metrics.class)) {
+            Counter mockCounter = mock(Counter.class);
+            mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
+                    .thenReturn(mockCounter);
 
-	public static class DummyCacheKeyProvider implements CacheKeyProvider
-	{
-		@Override
-		public Object getKeyField(Object value)
-		{
-			return value != null ? value.toString() : "null";
-		}
-	}
+            // Simulate cache miss
+            when(redissonClient.getBucket(anyString()).get()).thenReturn(null);
+
+            Object result = cacheAdvice.doMultiCacheable(pjp, mockAnnotation);
+
+            assertNotNull(result);
+            assertEquals("dbFetchedValue", result);
+
+            ArgumentCaptor<String> outcomeCaptor = ArgumentCaptor.forClass(String.class);
+            mockedMetrics.verify(() -> Metrics.counter(anyString(), any(), any(), any(), any(), "outcome", outcomeCaptor.capture()), atLeastOnce());
+
+            System.out.println("Captured Metrics: " + outcomeCaptor.getAllValues());
+            assertTrue(outcomeCaptor.getAllValues().contains("miss"), "Expected 'miss' metric but got: " + outcomeCaptor.getAllValues());
+
+            verify(mockCounter, atLeastOnce()).increment();
+        }
+    }
+
+    /**
+     * ✅ Test Cache Failure (should record "failure")
+     */
+    @Test
+    void testCacheFailureMetric() throws Throwable {
+        ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+
+        try (MockedStatic<Metrics> mockedMetrics = Mockito.mockStatic(Metrics.class)) {
+            Counter mockCounter = mock(Counter.class);
+            mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
+                    .thenReturn(mockCounter);
+
+            // Simulate an exception
+            when(redissonClient.getBucket(anyString()).get()).thenThrow(new RuntimeException("Simulated Cache Failure"));
+
+            Object result = cacheAdvice.doMultiCacheable(pjp, mockAnnotation);
+
+            assertNotNull(result);
+
+            ArgumentCaptor<String> outcomeCaptor = ArgumentCaptor.forClass(String.class);
+            mockedMetrics.verify(() -> Metrics.counter(anyString(), any(), any(), any(), any(), "outcome", outcomeCaptor.capture()), atLeastOnce());
+
+            System.out.println("Captured Metrics: " + outcomeCaptor.getAllValues());
+            assertTrue(outcomeCaptor.getAllValues().contains("failure"), "Expected 'failure' metric but got: " + outcomeCaptor.getAllValues());
+
+            verify(mockCounter, atLeastOnce()).increment();
+        }
+    }
+    // ✅ Test "store" metric (when value is stored in cache)
+    @Test
+    void testCacheStoreMetric() throws Throwable {
+        ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+
+        try (MockedStatic<Metrics> mockedMetrics = Mockito.mockStatic(Metrics.class)) {
+            Counter mockCounter = mock(Counter.class);
+            mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
+                    .thenReturn(mockCounter);
+
+            // Simulate a cache miss, but allow storing the value
+            when(redissonClient.getBucket(anyString()).get()).thenReturn(null);
+            when(redissonClient.getBucket(anyString()).set(any(), anyLong(), any())).thenReturn(null);
+
+            Object result = cacheAdvice.doMultiCacheable(pjp, mockAnnotation);
+
+            assertNotNull(result);
+
+            ArgumentCaptor<String> outcomeCaptor = ArgumentCaptor.forClass(String.class);
+            mockedMetrics.verify(() -> Metrics.counter(anyString(), any(), any(), any(), any(), "outcome", outcomeCaptor.capture()), atLeastOnce());
+
+            System.out.println("Captured Metrics: " + outcomeCaptor.getAllValues());
+            assertTrue(outcomeCaptor.getAllValues().contains("store"), "Expected 'store' metric but got: " + outcomeCaptor.getAllValues());
+
+            verify(mockCounter, atLeastOnce()).increment();
+        }
+    }
+
+    // ✅ Test "eviction_failure" metric (when cache eviction fails)
+    @Test
+    void testCacheEvictionFailureMetric() throws Throwable {
+        ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+
+        try (MockedStatic<Metrics> mockedMetrics = Mockito.mockStatic(Metrics.class)) {
+            Counter mockCounter = mock(Counter.class);
+            mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
+                    .thenReturn(mockCounter);
+
+            // Simulate an exception when trying to evict from the cache
+            doThrow(new RuntimeException("Simulated Eviction Failure")).when(redissonClient).getBucket(anyString());
+
+            Object result = cacheAdvice.doMultiCacheable(pjp, mockAnnotation);
+
+            assertNotNull(result);
+
+            ArgumentCaptor<String> outcomeCaptor = ArgumentCaptor.forClass(String.class);
+            mockedMetrics.verify(() -> Metrics.counter(anyString(), any(), any(), any(), any(), "outcome", outcomeCaptor.capture()), atLeastOnce());
+
+            System.out.println("Captured Metrics: " + outcomeCaptor.getAllValues());
+            assertTrue(outcomeCaptor.getAllValues().contains("eviction_failure"), "Expected 'eviction_failure' metric but got: " + outcomeCaptor.getAllValues());
+
+            verify(mockCounter, atLeastOnce()).increment();
+        }
+    }
+
+    // ✅ Test "data_mismatch" metric (when DB results do not match requested keys)
+    @Test
+    void testDataMismatchMetric() throws Throwable {
+        ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+
+        try (MockedStatic<Metrics> mockedMetrics = Mockito.mockStatic(Metrics.class)) {
+            Counter mockCounter = mock(Counter.class);
+            mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
+                    .thenReturn(mockCounter);
+
+            // Simulate a cache miss but return fewer results from DB
+            when(redissonClient.getBucket(anyString()).get()).thenReturn(null);
+            when(pjp.proceed()).thenReturn(Collections.singletonList("fewerResults")); // DB returns fewer items
+
+            Object result = cacheAdvice.doMultiCacheable(pjp, mockAnnotation);
+
+            assertNotNull(result);
+
+            ArgumentCaptor<String> outcomeCaptor = ArgumentCaptor.forClass(String.class);
+            mockedMetrics.verify(() -> Metrics.counter(anyString(), any(), any(), any(), any(), "outcome", outcomeCaptor.capture()), atLeastOnce());
+
+            System.out.println("Captured Metrics: " + outcomeCaptor.getAllValues());
+            assertTrue(outcomeCaptor.getAllValues().contains("data_mismatch"), "Expected 'data_mismatch' metric but got: " + outcomeCaptor.getAllValues());
+
+            verify(mockCounter, atLeastOnce()).increment();
+        }
+    }
+    private ProceedingJoinPoint mockProceedingJoinPoint() throws Throwable {
+        ProceedingJoinPoint pjp = mock(ProceedingJoinPoint.class);
+        Signature mockSignature = mock(Signature.class);
+        when(pjp.getTarget()).thenReturn(cacheAdvice);
+        when(pjp.getSignature()).thenReturn(mockSignature);
+        when(mockSignature.getName()).thenReturn("testMethod");
+        when(pjp.getArgs()).thenReturn(new Object[]{ Collections.singletonList("key1") });
+        when(pjp.proceed()).thenReturn("dbFetchedValue");
+        return pjp;
+    }
+
+    public static class DummyCacheKeyProvider implements CacheKeyProvider {
+        @Override
+        public Object getKeyField(Object value) {
+            return value != null ? value.toString() : "null";
+        }
+    }
 }
-
-can you modify this class, using the same logic in this test case but to test all the other metrics by doing what's necessary to test them individually, but all include an option to check which all metrics are being hit in those test cases
