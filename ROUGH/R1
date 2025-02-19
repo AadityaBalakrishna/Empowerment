@@ -1,34 +1,15 @@
-@Test
-void testCacheMissMetricThroughDoMultiCacheable() throws Throwable
-{
-    ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+org.opentest4j.AssertionFailedError: Expected 'miss' metric but got: [failure, data_mismatch, failure] ==> 
+Expected :true
+Actual   :false
+<Click to see difference>
 
-    try (MockedStatic<Metrics> mockedMetrics = Mockito.mockStatic(Metrics.class))
-    {
-        Counter mockCounter = mock(Counter.class);
-        mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
-                .thenReturn(mockCounter);
 
-        // Simulate a cache miss by ensuring Redisson returns null
-        when(redissonClient.getBucket(anyString()).get()).thenReturn(null);
-
-        Object result = cacheAdvice.doMultiCacheable(pjp, mockAnnotation);
-
-        assertNotNull(result);
-        assertEquals("dbFetchedValue", result);  // Expect DB value due to cache miss
-
-        // Capture all metric invocations
-        ArgumentCaptor<String> outcomeCaptor = ArgumentCaptor.forClass(String.class);
-
-        mockedMetrics.verify(() -> Metrics.counter(
-                        eq("pcap.cache.event"), eq("class"), eq("PcapMultiCacheableAdvice"),
-                        eq("method"), eq("testMethod"), eq("outcome"), outcomeCaptor.capture()),
-                atLeastOnce()); // Allow multiple metric increments
-
-        // Check that at least one metric matches "miss"
-        assertTrue(outcomeCaptor.getAllValues().contains("miss"),
-                "Expected 'miss' metric but got: " + outcomeCaptor.getAllValues());
-
-        verify(mockCounter, atLeastOnce()).increment();
-    }
-}
+	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+	at org.junit.jupiter.api.AssertTrue.failNotTrue(AssertTrue.java:63)
+	at org.junit.jupiter.api.AssertTrue.assertTrue(AssertTrue.java:36)
+	at org.junit.jupiter.api.Assertions.assertTrue(Assertions.java:214)
+	at com.personalcapital.cache.aop.PcapMultiCacheableAdviceTestCacheHit.testCacheMissMetricThroughDoMultiCacheable(PcapMultiCacheableAdviceTestCacheHit.java:146)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
