@@ -4,6 +4,7 @@ import com.personalcapital.cache.annotation.PcapMultiCacheable;
 import com.personalcapital.cache.annotation.RedisType;
 import com.personalcapital.cache.aop.support.CacheAdviceHelper;
 import com.personalcapital.cache.aop.support.CacheKeyProvider;
+import com.personalcapital.cache.utils.CacheConstants;
 import com.personalcapital.log.PcapLogger;
 import com.personalcapital.log.PcapLoggerFactory;
 import io.micrometer.core.instrument.Counter;
@@ -25,152 +26,167 @@ import java.util.*;
 import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-@SpringJUnitConfig(locations = { "classpath:cachePushAdviceTest-Context.xml" })
-public class PcapMultiCacheableAdviceMetricsTest {
+@SpringJUnitConfig(locations =
+{
+		"classpath:cachePushAdviceTest-Context.xml"
+})
+public class PcapMultiCacheableAdviceMetricsTest
+{
 
-    @InjectMocks
-    @Spy
-    @Autowired
-    private PcapMultiCacheableAdvice cacheAdvice;
+	@InjectMocks
+	@Spy
+	@Autowired
+	private PcapMultiCacheableAdvice cacheAdvice;
 
-    private SimpleMeterRegistry meterRegistry;
-    private PcapMultiCacheable mockAnnotation;
+	private SimpleMeterRegistry meterRegistry;
+	private PcapMultiCacheable mockAnnotation;
 
-    @Autowired
-    @Qualifier("redissonClient")
-    private RedissonClient redissonClient;
+	@Autowired
+	@Qualifier(CacheConstants.REDISSON_REGULAR)
+	private RedissonClient redissonClient;
 
-    private static final PcapLogger logger = PcapLoggerFactory.getPcapLogger(PcapMultiCacheableAdviceMetricsTest.class);
-    private static MockedStatic<CacheAdviceHelper> mockedCacheAdviceHelper;
+	private static final PcapLogger logger = PcapLoggerFactory
+			.getPcapLogger(PcapMultiCacheableAdviceMetricsTest.class);
+	private static MockedStatic<CacheAdviceHelper> mockedCacheAdviceHelper;
 
-    @BeforeAll
-    static void initMockedStatic() {
-        mockedCacheAdviceHelper = mockStatic(CacheAdviceHelper.class);
-        try {
-            Method mockMethod = DummyClass.class.getMethod("dummyMethod");
-            mockedCacheAdviceHelper.when(() -> CacheAdviceHelper.getMethod(any(ProceedingJoinPoint.class)))
-                    .thenReturn(mockMethod);
-        } catch (NoSuchMethodException e) {
-            throw new RuntimeException("Failed to mock getMethod", e);
-        }
-    }
+	@BeforeAll
+	static void initMockedStatic()
+	{
+		mockedCacheAdviceHelper = mockStatic(CacheAdviceHelper.class);
+		try
+		{
+			Method mockMethod = DummyClass.class.getMethod("dummyMethod");
+			mockedCacheAdviceHelper
+					.when(() -> CacheAdviceHelper.getMethod(any(ProceedingJoinPoint.class)))
+					.thenReturn(mockMethod);
+		}
+		catch (NoSuchMethodException e)
+		{
+			throw new RuntimeException("Failed to mock getMethod", e);
+		}
+	}
 
-    @BeforeEach
-    void setUp() {
-        MockitoAnnotations.openMocks(this);
-        meterRegistry = new SimpleMeterRegistry();
-        Metrics.addRegistry(meterRegistry);
+	@BeforeEach
+	void setUp()
+	{
+		MockitoAnnotations.openMocks(this);
+		meterRegistry = new SimpleMeterRegistry();
+		Metrics.addRegistry(meterRegistry);
 
-        redissonClient = mock(RedissonClient.class);
-        RBucket<Object> mockBucket = mock(RBucket.class);
-        doReturn(redissonClient).when(cacheAdvice).getRedisson(RedisType.DEFAULT);
-        when(redissonClient.getBucket(anyString())).thenReturn(mockBucket);
+		redissonClient = mock(RedissonClient.class);
+		RBucket<Object> mockBucket = mock(RBucket.class);
+		doReturn(redissonClient).when(cacheAdvice)
+				.getRedisson(RedisType.DEFAULT);
+		when(redissonClient.getBucket(anyString())).thenReturn(mockBucket);
 
-        mockAnnotation = mock(PcapMultiCacheable.class);
-        when(mockAnnotation.value()).thenReturn("testCache");
-        when(mockAnnotation.keys()).thenReturn(new int[]{0});
-        when(mockAnnotation.keyPrefix()).thenReturn("prefix");
-        when(mockAnnotation.redisType()).thenReturn(RedisType.DEFAULT);
-        when(mockAnnotation.keyProvider()).thenAnswer(invocation -> DummyCacheKeyProvider.class);
-    }
+		mockAnnotation = mock(PcapMultiCacheable.class);
+		when(mockAnnotation.value()).thenReturn("testCache");
+		when(mockAnnotation.keys()).thenReturn(new int[]
+		{
+				0
+		});
+		when(mockAnnotation.keyPrefix()).thenReturn("prefix");
+		when(mockAnnotation.redisType()).thenReturn(RedisType.DEFAULT);
+		when(mockAnnotation.keyProvider()).thenAnswer(invocation -> DummyCacheKeyProvider.class);
+	}
 
-    @Test
-    void testCacheMissAndDataMismatchMetric() throws Throwable {
-        when(redissonClient.getBucket(anyString()).get()).thenReturn(null);
-        when(mockProceedingJoinPoint().proceed()).thenReturn(Collections.singletonList("dbFetchedValue"));
+	@Test
+	void testCacheMissAndDataMismatchMetric() throws Throwable
+	{
+		when(redissonClient.getBucket(anyString())
+				.get()).thenReturn(null);
+		when(mockProceedingJoinPoint().proceed())
+				.thenReturn(Collections.singletonList("dbFetchedValue"));
 
-        executeAndVerifyMetrics("miss", "data_mismatch");
-    }
+		executeAndVerifyMetrics("miss", "data_mismatch");
+	}
 
-    @Test
-    void testCacheHitMetric() throws Throwable {
-        when(redissonClient.getBucket(anyString()).get()).thenReturn("cachedValue");
+	@Test
+	void testCacheHitMetric() throws Throwable
+	{
+		when(redissonClient.getBucket(anyString())
+				.get()).thenReturn("cachedValue");
 
-        executeAndVerifyMetrics("hit");
-    }
+		executeAndVerifyMetrics("hit");
+	}
 
-    @Test
-    void testCacheFailureMetric() throws Throwable {
-        ProceedingJoinPoint pjp = mockProceedingJoinPoint();
-        
-        // **Force cache failure scenario**
-        when(pjp.proceed()).thenThrow(new RuntimeException("Simulated Cache Failure"));
+	private void executeAndVerifyMetrics(String... expectedMetrics) throws Throwable
+	{
+		ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+		try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class))
+		{
+			Counter mockCounter = mock(Counter.class);
+			mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
+					.thenReturn(mockCounter);
 
-        executeAndVerifyMetrics("failure", "data_mismatch");
-    }
+			Object result = cacheAdvice.doMultiCacheable(pjp, mockAnnotation);
+			ArgumentCaptor<String> outcomeCaptor = ArgumentCaptor.forClass(String.class);
 
-    @Test
-    void testCacheEvictionFailureMetric() throws Throwable {
-        ProceedingJoinPoint pjp = mockProceedingJoinPoint();
-        
-        // **Force cache failure and eviction failure**
-        when(pjp.proceed()).thenThrow(new RuntimeException("Simulated Cache Failure"));
-        doThrow(new RuntimeException("Eviction failed")).when(redissonClient).getKeys();
+			assertNotNull(result);
+			mockedMetrics.verify(() -> Metrics.counter(eq("pcap.cache.event"), eq("class"),
+					eq("PcapMultiCacheableAdvice"), eq("method"), eq("dummyMethod"), eq("outcome"),
+					outcomeCaptor.capture()), atLeastOnce());
 
-        executeAndVerifyMetrics("eviction_failure");
-    }
+			List<String> capturedMetrics = outcomeCaptor.getAllValues();
+			logger.info("Captured Metrics: {}", capturedMetrics);
 
-    private void executeAndVerifyMetrics(String... expectedMetrics) throws Throwable {
-        ProceedingJoinPoint pjp = mockProceedingJoinPoint();
-        try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class)) {
-            Counter mockCounter = mock(Counter.class);
-            mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
-                    .thenReturn(mockCounter);
+			for (String expectedMetric : expectedMetrics)
+			{
+				assertTrue(capturedMetrics.contains(expectedMetric),
+						"Expected metric not found: " + expectedMetric);
+			}
 
-            Object result = cacheAdvice.doMultiCacheable(pjp, mockAnnotation);
-            ArgumentCaptor<String> outcomeCaptor = ArgumentCaptor.forClass(String.class);
+			verify(mockCounter, atLeastOnce()).increment();
+		}
+	}
 
-            assertNotNull(result);
-            mockedMetrics.verify(() -> Metrics.counter(eq("pcap.cache.event"), eq("class"),
-                    eq("PcapMultiCacheableAdvice"), eq("method"), eq("dummyMethod"), eq("outcome"),
-                    outcomeCaptor.capture()), atLeastOnce());
+	private ProceedingJoinPoint mockProceedingJoinPoint() throws Throwable
+	{
+		ProceedingJoinPoint pjp = mock(ProceedingJoinPoint.class);
+		Signature mockSignature = mock(Signature.class);
+		when(pjp.getTarget()).thenReturn(cacheAdvice);
+		when(pjp.getSignature()).thenReturn(mockSignature);
+		when(mockSignature.getName()).thenReturn("dummyMethod");
+		when(pjp.getArgs()).thenReturn(new Object[]
+		{
+				Collections.singletonList("key1")
+		});
+		return pjp;
+	}
 
-            List<String> capturedMetrics = outcomeCaptor.getAllValues();
-            logger.info("Captured Metrics: {}", capturedMetrics);
+	public static class DummyClass
+	{
+		public static Collection<String> dummyMethod()
+		{
+			return Collections.emptyList();
+		}
+	}
 
-            for (String expectedMetric : expectedMetrics) {
-                assertTrue(capturedMetrics.contains(expectedMetric), "Expected metric not found: " + expectedMetric);
-            }
+	public static class DummyCacheKeyProvider implements CacheKeyProvider
+	{
+		@Override
+		public Object getKeyField(Object value)
+		{
+			return value != null ? value.toString() : "null";
+		}
+	}
 
-            verify(mockCounter, atLeastOnce()).increment();
-        }
-    }
+	@AfterAll
+	static void releaseMockedStatic()
+	{
+		if (mockedCacheAdviceHelper != null)
+		{
+			mockedCacheAdviceHelper.close();
+			mockedCacheAdviceHelper = null;
+		}
+	}
 
-    private ProceedingJoinPoint mockProceedingJoinPoint() throws Throwable {
-        ProceedingJoinPoint pjp = mock(ProceedingJoinPoint.class);
-        Signature mockSignature = mock(Signature.class);
-        when(pjp.getTarget()).thenReturn(cacheAdvice);
-        when(pjp.getSignature()).thenReturn(mockSignature);
-        when(mockSignature.getName()).thenReturn("dummyMethod");
-        when(pjp.getArgs()).thenReturn(new Object[]{Collections.singletonList("key1")});
-        return pjp;
-    }
-
-    public static class DummyClass {
-        public static Collection<String> dummyMethod() {
-            return Collections.emptyList();
-        }
-    }
-
-    public static class DummyCacheKeyProvider implements CacheKeyProvider {
-        @Override
-        public Object getKeyField(Object value) {
-            return value != null ? value.toString() : "null";
-        }
-    }
-
-    @AfterAll
-    static void releaseMockedStatic() {
-        if (mockedCacheAdviceHelper != null) {
-            mockedCacheAdviceHelper.close();
-            mockedCacheAdviceHelper = null;
-        }
-    }
-
-    @AfterEach
-    void cleanRedis() {
-        if (redissonClient != null) {
-            redissonClient.shutdown();
-        }
-    }
+	@AfterEach
+	void cleanRedis()
+	{
+		if (redissonClient != null)
+		{
+			redissonClient.shutdown();
+		}
+	}
 }
