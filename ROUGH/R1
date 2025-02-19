@@ -1,217 +1,24 @@
-package com.personalcapital.cache.aop;
+if (cachedValue == null || (cachedValue instanceof ObjectUtils.Null
+						&& cachedValueNullable == false))
+				{
+					if (missedListKeys == null)
+					{
+						// create an empty collection of type of expected cachedValues
+						missedListKeys = collectionInstance(listKeyArg.getClass());
+					}
 
-import java.lang.reflect.Method;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+					// create a collection of keys with no cachedValues
+					((Collection<Object>) missedListKeys).add(listKey);
+					// Cache Miss Metric
+					publishCacheMetrics(pjp, "miss");
+				}
+				else
+				{
+					// write keys and corresponding cached values to a keyValue Map
+					((Map<Object, Object>) keyValueMap).put(listKey,
+							CacheUtils.getValue(cachedValue));
+					// Cache Hit Metric
+					publishCacheMetrics(pjp, "hit");
+				}
 
-import org.aspectj.lang.ProceedingJoinPoint;
-import org.aspectj.lang.Signature;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
-import org.mockito.MockedStatic;
-import org.mockito.Mockito;
-import org.mockito.MockitoAnnotations;
-import org.mockito.Spy;
-import org.redisson.api.RBucket;
-import org.redisson.api.RedissonClient;
-import org.redisson.spring.cache.CacheConfig;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.cache.CacheManager;
-import org.springframework.context.annotation.Bean;
-import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
-
-import com.personalcapital.cache.annotation.PcapMultiCacheable;
-import com.personalcapital.cache.annotation.RedisType;
-import com.personalcapital.cache.aop.support.CacheAdviceHelper;
-import com.personalcapital.cache.aop.support.CacheKeyProvider;
-import com.personalcapital.cache.utils.CacheConstants;
-import com.personalcapital.log.PcapLogger;
-import com.personalcapital.log.PcapLoggerFactory;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-
-import static com.personalcapital.cache.utils.CacheConstants.FLOW_CACHE;
-import static com.personalcapital.cache.utils.CacheConstants.FLOW_CACHE_TTL_IN_SECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-@SpringJUnitConfig(locations =
-{
-		"classpath:cachePushAdviceTest-Context.xml"
-})
-public class PcapMultiCacheableAdviceCacheHitMetricsTest
-{
-
-	@InjectMocks
-	@Spy
-	@Autowired
-	private PcapMultiCacheableAdvice cacheAdvice;
-
-	private SimpleMeterRegistry meterRegistry;
-	private PcapMultiCacheable mockAnnotation;
-
-	@Autowired
-	@Qualifier(CacheConstants.REDISSON_REGULAR)
-	private RedissonClient redissonClient;
-
-	@Autowired
-	@Qualifier(CacheConstants.REDIS_CACHE_MANAGER_REGULAR)
-	private CacheManager cacheManager;
-
-	private static final PcapLogger logger = PcapLoggerFactory
-			.getPcapLogger(PcapMultiCacheableAdviceCacheHitMetricsTest.class);
-	private static MockedStatic<CacheAdviceHelper> mockedCacheAdviceHelper;
-
-	@Bean(name = "redisCacheExpires")
-	public Map<String, CacheConfig> redisCacheExpires()
-	{
-		Map<String, CacheConfig> config = new HashMap<>();
-		/*
-		 * create "securityInfo" cache with ttl =7,200,000ms(7200s) and maxIdleTime = 0ms
-		 * maxIdleTime will expire the key sooner than the ttl, if the item hasn't been "touched" in
-		 * that much duration
-		 */
-		// TODO : This needs to move out
-		config.put("securityInfo", new CacheConfig(SECONDS.toMillis(7200), 0));
-		config.put("quote", new CacheConfig(SECONDS.toMillis(600), 0));
-		config.put("historicalQuote", new CacheConfig(SECONDS.toMillis(86400), 0));
-		config.put("advice", new CacheConfig(SECONDS.toMillis(1800), 0));
-		config.put("adviceData", new CacheConfig(SECONDS.toMillis(10800), 0));
-		config.put("entity", new CacheConfig(SECONDS.toMillis(1800), 0));
-		config.put("security", new CacheConfig(SECONDS.toMillis(3600), 0));
-		config.put("yodlee", new CacheConfig(SECONDS.toMillis(1800), 0));
-		config.put("userFeature", new CacheConfig(SECONDS.toMillis(300), 0));
-		config.put("messageTemplateData", new CacheConfig(SECONDS.toMillis(864000), 0));
-		config.put("frontapp", new CacheConfig(SECONDS.toMillis(1800), 0));
-		config.put(FLOW_CACHE, new CacheConfig(SECONDS.toMillis(FLOW_CACHE_TTL_IN_SECONDS), 0));
-		return config;
-	}
-
-	@BeforeEach
-	void setUp()
-	{
-		MockitoAnnotations.openMocks(this);
-
-		meterRegistry = new SimpleMeterRegistry();
-		Metrics.addRegistry(meterRegistry);
-
-		redissonClient = mock(RedissonClient.class);
-		RBucket<Object> mockBucket = mock(RBucket.class);
-		when(redissonClient.getBucket(anyString())).thenReturn(mockBucket);
-		when(mockBucket.get()).thenReturn("cachedValue"); // Simulate cache hit
-
-		mockAnnotation = mock(PcapMultiCacheable.class);
-		when(mockAnnotation.value()).thenReturn("testCache");
-		when(mockAnnotation.keys()).thenReturn(new int[]{0});
-		when(mockAnnotation.keyPrefix()).thenReturn("prefix");
-		when(mockAnnotation.redisType()).thenReturn(RedisType.DEFAULT);
-		when(mockAnnotation.keyProvider()).thenAnswer(invocation -> DummyCacheKeyProvider.class);
-
-		if(mockedCacheAdviceHelper == null){
-			mockedCacheAdviceHelper = mockStatic(CacheAdviceHelper.class);
-			try{
-				Method mockMethod = DummyClass.class.getMethod("dummyMethod");
-				mockedCacheAdviceHelper.when(()-> CacheAdviceHelper.getMethod(any(ProceedingJoinPoint.class))).thenReturn(mockMethod);
-			}catch (NoSuchMethodException e){
-				throw new RuntimeException("Failed to mock getMethod",e);
-			}
-
-		}
-	}
-
-	@Test
-	void testCacheHitMetricThroughDoMultiCacheable() throws Throwable
-	{
-		ProceedingJoinPoint pjp = mockProceedingJoinPoint();
-
-		try (MockedStatic<Metrics> mockedMetrics = Mockito.mockStatic(Metrics.class))
-		{
-			Counter mockCounter = mock(Counter.class);
-			mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
-					.thenReturn(mockCounter);
-
-			when(redissonClient.getBucket(anyString()).get()).thenReturn(null);
-			when(pjp.proceed()).thenReturn(Collections.singletonList("dbFetchedValue"));
-
-			Object result = cacheAdvice.doMultiCacheable(pjp, mockAnnotation);
-			ArgumentCaptor<String> outcomeCaptor = ArgumentCaptor.forClass(String.class);
-
-			assertNotNull(result);
-			mockedMetrics.verify(() -> Metrics.counter(
-							eq("pcap.cache.event"), eq("class"), eq("PcapMultiCacheableAdvice"),
-							eq("method"), eq("dummyMethod"), eq("outcome"), outcomeCaptor.capture()),
-					atLeastOnce());
-
-			List<String> capturedMetrics = outcomeCaptor.getAllValues();
-			logger.info("Captured Metrics: {}", capturedMetrics);
-
-			assertTrue(capturedMetrics.contains("miss"));
-			assertTrue(capturedMetrics.contains("data_mismatch"));
-			verify(mockCounter, atLeastOnce()).increment();
-		}
-	}
-
-	private ProceedingJoinPoint mockProceedingJoinPoint() throws Throwable
-	{
-		ProceedingJoinPoint pjp = mock(ProceedingJoinPoint.class);
-		Signature mockSignature = mock(Signature.class);
-		when(pjp.getTarget()).thenReturn(cacheAdvice);
-		when(pjp.getSignature()).thenReturn(mockSignature);
-		when(mockSignature.getName()).thenReturn("dummyMethod");
-		when(pjp.getArgs()).thenReturn(new Object[]
-		{
-				Collections.singletonList("key1")
-		});
-		return pjp;
-	}
-
-	public static class DummyClass{
-		public static Collection<String> dummyMethod(){
-			return Collections.emptyList();
-		}
-	}
-
-	public static class DummyCacheKeyProvider implements CacheKeyProvider
-	{
-		@Override
-		public Object getKeyField(Object value)
-		{
-			return value != null ? value.toString() : "null";
-		}
-	}
-
-	@AfterAll
-	static void releaseMockedStatic(){
-		if (mockedCacheAdviceHelper != null){
-			mockedCacheAdviceHelper.close();
-			mockedCacheAdviceHelper = null;
-		}
-	}
-
-	@AfterEach
-	void cleanRedis(){
-		if(redissonClient != null){
-			redissonClient.shutdown();
-		}
-	}
-}
-
-this test class is based on cache miss and data mismatch, modify it to test cache hit
+here cachedValue is null, so debug point is not reaching cache hit 
