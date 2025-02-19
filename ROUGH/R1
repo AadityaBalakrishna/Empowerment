@@ -1,24 +1,54 @@
-if (cachedValue == null || (cachedValue instanceof ObjectUtils.Null
-						&& cachedValueNullable == false))
+catch (Exception ex)
+		{
+			logger.info("Caching on {} aborted due to an error. message: {}. stacktrace: {}",
+					pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
+			// Cache Failure Metric
+			publishCacheMetrics(pjp, "failure");
+			try
+			{
+				final CacheKeyProvider finalCacheKeyProvider = cacheKeyProvider;
+				final Collection<Object> finalOtherKeyArgs = otherKeyArgs;
+				List<String> keys = listKeyArg.stream()
+						.filter(k -> Objects.nonNull(k))
+						.map(k -> CacheUtils.generateKey(cacheName, keyPrefix,
+								finalCacheKeyProvider.getKeyField(k), finalOtherKeyArgs))
+						.collect(Collectors.toList());
+				if (!evictFromRedis(redisType, keys))
 				{
-					if (missedListKeys == null)
-					{
-						// create an empty collection of type of expected cachedValues
-						missedListKeys = collectionInstance(listKeyArg.getClass());
-					}
-
-					// create a collection of keys with no cachedValues
-					((Collection<Object>) missedListKeys).add(listKey);
-					// Cache Miss Metric
-					publishCacheMetrics(pjp, "miss");
+					// if eviction fails we fetch from db and return
+					return pjp.proceed();
 				}
-				else
-				{
-					// write keys and corresponding cached values to a keyValue Map
-					((Map<Object, Object>) keyValueMap).put(listKey,
-							CacheUtils.getValue(cachedValue));
-					// Cache Hit Metric
-					publishCacheMetrics(pjp, "hit");
-				}
+			}
+			catch (Exception e)
+			{
+				logger.info("Eviction on caching failure failed on {}, due to: {}, stacktrace: {}",
+						pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
+				// Cache Eviction Failure Metric
+				publishCacheMetrics(pjp, "eviction_failure");
+			}
+			// since we evict all the keys we want to fetch and save all the keys again
+			modifiedArgs = args;
+		}
 
-here cachedValue is null, so debug point is not reaching cache hit 
+try to make the code go to "publishCacheMetrics(pjp, "eviction_failure");", its coming till if (!evictFromRedis(redisType, keys)),
+protected boolean evictFromRedis(RedisType redisType, List<String> keys)
+	{
+		if (redisType == null || CollectionUtils.isEmpty(keys))
+		{
+			return true;
+		}
+		try
+		{
+			getRedisson(redisType).getKeys()
+					.delete(keys.stream()
+							.toArray(String[]::new));
+		}
+		catch (Exception e)
+		{
+			logger.warn("Evict failed for redisType: {}, key: {}, due to: {}", redisType,
+					StringUtils.join(keys, ","), e);
+			return false;
+		}
+		return true;
+	}
+this is where the code goes to, so try to get the eviction failure by failing any value
