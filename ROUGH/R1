@@ -1,62 +1,34 @@
+@Test
+void testCacheMissMetricThroughDoMultiCacheable() throws Throwable
+{
+    ProceedingJoinPoint pjp = mockProceedingJoinPoint();
 
-org.mockito.exceptions.base.MockitoException: 
-An unexpected error occurred while verifying a static stub
+    try (MockedStatic<Metrics> mockedMetrics = Mockito.mockStatic(Metrics.class))
+    {
+        Counter mockCounter = mock(Counter.class);
+        mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
+                .thenReturn(mockCounter);
 
-To correctly verify a stub, invoke a single static method of io.micrometer.core.instrument.Metrics in the provided lambda.
-For example, if a method 'sample' was defined, provide a lambda or anonymous class containing the code
+        // Simulate a cache miss by ensuring Redisson returns null
+        when(redissonClient.getBucket(anyString()).get()).thenReturn(null);
 
-() -> Metrics.sample()
-or
-Metrics::sample
+        Object result = cacheAdvice.doMultiCacheable(pjp, mockAnnotation);
 
-	at com.personalcapital.cache.aop.PcapMultiCacheableAdviceTestCacheHit.testCacheHitMetricThroughDoMultiCacheable(PcapMultiCacheableAdviceTestCacheHit.java:134)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-Caused by: Argument(s) are different! Wanted:
-Metrics.class.counter(
-    "pcap.cache.event",
-    "class",
-    "PcapMultiCacheableAdvice",
-    "method",
-    "testMethod",
-    "outcome",
-    "miss"
-);
--> at io.micrometer.core.instrument.Metrics.counter(Metrics.java:76)
-Actual invocations have different arguments at position [6]:
-Metrics.class.counter(
-    "pcap.cache.event",
-    "class",
-    "PcapMultiCacheableAdvice",
-    "method",
-    "testMethod",
-    "outcome",
-    "failure"
-);
--> at com.personalcapital.cache.aop.PcapMultiCacheableAdvice.publishCacheMetrics(PcapMultiCacheableAdvice.java:48)
-Metrics.class.counter(
-    "pcap.cache.event",
-    "class",
-    "PcapMultiCacheableAdvice",
-    "method",
-    "testMethod",
-    "outcome",
-    "data_mismatch"
-);
--> at com.personalcapital.cache.aop.PcapMultiCacheableAdvice.publishCacheMetrics(PcapMultiCacheableAdvice.java:48)
-Metrics.class.counter(
-    "pcap.cache.event",
-    "class",
-    "PcapMultiCacheableAdvice",
-    "method",
-    "testMethod",
-    "outcome",
-    "failure"
-);
--> at com.personalcapital.cache.aop.PcapMultiCacheableAdvice.publishCacheMetrics(PcapMultiCacheableAdvice.java:48)
+        assertNotNull(result);
+        assertEquals("dbFetchedValue", result);  // Expect DB value due to cache miss
 
-	at io.micrometer.core.instrument.Metrics.counter(Metrics.java:76)
-	at com.personalcapital.cache.aop.PcapMultiCacheableAdviceTestCacheHit.lambda$testCacheHitMetricThroughDoMultiCacheable$3(PcapMultiCacheableAdviceTestCacheHit.java:134)
-	... 4 more
+        // Capture all metric invocations
+        ArgumentCaptor<String> outcomeCaptor = ArgumentCaptor.forClass(String.class);
 
+        mockedMetrics.verify(() -> Metrics.counter(
+                        eq("pcap.cache.event"), eq("class"), eq("PcapMultiCacheableAdvice"),
+                        eq("method"), eq("testMethod"), eq("outcome"), outcomeCaptor.capture()),
+                atLeastOnce()); // Allow multiple metric increments
+
+        // Check that at least one metric matches "miss"
+        assertTrue(outcomeCaptor.getAllValues().contains("miss"),
+                "Expected 'miss' metric but got: " + outcomeCaptor.getAllValues());
+
+        verify(mockCounter, atLeastOnce()).increment();
+    }
+}
