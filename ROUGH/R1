@@ -1,1 +1,88 @@
-909
+@Test
+	void testCacheHitMetric() throws Throwable
+	{
+		when(redissonClient.getBucket(anyString())
+				.get()).thenReturn("cachedValue");
+
+		executeAndVerifyMetrics("hit");
+	}
+
+	@Test
+	void testCacheFailureAndDataMismatchMetric() throws Throwable
+	{
+		mockedCacheAdviceHelper
+				.when(() -> CacheAdviceHelper.getMethod(any(ProceedingJoinPoint.class)))
+				.thenReturn(DummyClass.class.getMethod("failingDummyMethod"));
+
+		when(mockProceedingJoinPoint().proceed()).thenThrow(new RuntimeException("Forced Failure"));
+		executeAndVerifyMetrics("failure", "data_mismatch");
+	}
+
+	@Test
+	void testDataStoreMetric() throws Throwable {
+		ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+
+		try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class)) {
+			Counter mockCounter = mock(Counter.class);
+			mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
+					.thenReturn(mockCounter);
+
+			when(redissonClient.getBucket(anyString()).get()).thenReturn(null);
+
+			List<String> expectedDbValues = List.of("dbFetchedValue");
+			when(pjp.proceed(any())).thenReturn(expectedDbValues);
+
+			RBucket<Object> mockBucket = mock(RBucket.class);
+			when(redissonClient.getBucket(anyString())).thenReturn(mockBucket);
+			doNothing().when(mockBucket).set(any(), anyLong(), any());
+
+			Object result = cacheAdvice.doMultiCacheable(pjp, mockAnnotation);
+			ArgumentCaptor<String> outcomeCaptor = ArgumentCaptor.forClass(String.class);
+
+			assertNotNull(result);
+			assertEquals(expectedDbValues, result);
+
+			mockedMetrics.verify(() -> Metrics.counter(eq("pcap.cache.event"), eq("class"),
+					eq("PcapMultiCacheableAdvice"), eq("method"), eq("dummyMethod"), eq("outcome"),
+					outcomeCaptor.capture()), atLeastOnce());
+
+			List<String> capturedMetrics = outcomeCaptor.getAllValues();
+			logger.info("Captured Metrics: {}", capturedMetrics);
+			System.out.println(capturedMetrics);
+			assertTrue(capturedMetrics.contains("store"));
+			verify(mockCounter, atLeastOnce()).increment();
+		}
+	}
+
+	private void executeAndVerifyMetrics(String... expectedMetrics) throws Throwable
+	{
+		ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+		try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class))
+		{
+			Counter mockCounter = mock(Counter.class);
+			mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
+					.thenReturn(mockCounter);
+
+			Object result = cacheAdvice.doMultiCacheable(pjp, mockAnnotation);
+			ArgumentCaptor<String> outcomeCaptor = ArgumentCaptor.forClass(String.class);
+
+			assertNotNull(result);
+			mockedMetrics.verify(() -> Metrics.counter(eq("pcap.cache.event"), eq("class"),
+					eq("PcapMultiCacheableAdvice"), eq("method"), eq("dummyMethod"), eq("outcome"),
+					outcomeCaptor.capture()), atLeastOnce());
+
+			List<String> capturedMetrics = outcomeCaptor.getAllValues();
+			logger.info("Captured Metrics: {}", capturedMetrics);
+
+			for (String expectedMetric : expectedMetrics)
+			{
+				assertTrue(capturedMetrics.contains(expectedMetric),
+						"Expected metric not found: " + expectedMetric);
+			}
+
+			verify(mockCounter, atLeastOnce()).increment();
+		}
+	}
+
+
+tr to optimize data store and make it like the rest of them
