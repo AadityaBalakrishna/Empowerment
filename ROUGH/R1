@@ -1,21 +1,141 @@
+package com.personalcapital.cache.aop;
 
-org.mockito.exceptions.misusing.UnfinishedStubbingException: 
-Unfinished stubbing detected here:
--> at com.personalcapital.cache.aop.PcapMultiCacheableAdviceMetricsTest.testDataEvictionMetric(PcapMultiCacheableAdviceMetricsTest.java:172)
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
-E.g. thenReturn() may be missing.
-Examples of correct stubbing:
-    when(mock.isOk()).thenReturn(true);
-    when(mock.isOk()).thenThrow(exception);
-    doThrow(exception).when(mock).someVoidMethod();
-Hints:
- 1. missing thenReturn()
- 2. you are trying to stub a final method, which is not supported
- 3. you are stubbing the behaviour of another mock inside before 'thenReturn' instruction is completed
+import org.apache.commons.lang3.StringUtils;
+import org.redisson.api.RedissonClient;
+import org.redisson.spring.cache.CacheConfig;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.util.CollectionUtils;
 
+import com.personalcapital.cache.annotation.RedisType;
+import com.personalcapital.cache.utils.CacheConstants;
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
 
-	at com.personalcapital.cache.aop.PcapMultiCacheableAdviceMetricsTest.testDataEvictionMetric(PcapMultiCacheableAdviceMetricsTest.java:172)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+public class CacheAdviceCommons
+{
+	private static PcapLogger logger = PcapLoggerFactory.getPcapLogger(CacheAdviceCommons.class);
+	@Autowired
+	private Map<String, CacheConfig> redisCacheExpires;
 
+	@Autowired
+	@Qualifier(CacheConstants.REDISSON_REGULAR)
+	private RedissonClient redissonGen;
+
+	@Autowired
+	@Qualifier(CacheConstants.REDISSON_HIGH_AVAILABILITY)
+	private RedissonClient redissonHa;
+
+	private static final int DEFAULT_EXPIRY_SECONDS = 1800;
+
+	/**
+	 * define cacheName : expiry in RedissonConfiguration
+	 * 
+	 * @param cacheName
+	 * @param ttl
+	 * @return
+	 */
+	protected int getTtlFromConfiguration(String cacheName, int ttl)
+	{
+		CacheConfig cacheConfig = redisCacheExpires.get(cacheName);
+		if (cacheConfig != null)
+		{
+			// convert from Millis to Seconds
+			return Math.toIntExact(TimeUnit.MILLISECONDS.toSeconds(cacheConfig.getTTL()));
+		}
+		return ttl > 0 ? ttl : DEFAULT_EXPIRY_SECONDS;
+	}
+
+	/**
+	 * return redisson to be used based on redistType enum
+	 * 
+	 * @param redisType
+	 * @return
+	 */
+	protected RedissonClient getRedisson(RedisType redisType)
+	{
+		switch (redisType)
+		{
+			case HA:
+				return redissonHa;
+			case GEN:
+			default:
+				return redissonGen;
+		}
+	}
+
+	/**
+	 * Evict fully qualified key from given redis type
+	 * 
+	 * @param redisType
+	 * @param key
+	 * @return
+	 */
+	protected boolean evictFromRedis(RedisType redisType, String key)
+	{
+		try
+		{
+			getRedisson(redisType).getBucket(key)
+					.delete();
+		}
+		catch (Exception e)
+		{
+			logger.warn("Evict failed for redisType: {}, key: {}, due to: {}", redisType, key, e);
+			return false;
+		}
+		return true;
+	}
+
+	protected boolean evictFromRedis(RedisType redisType, List<String> keys)
+	{
+		if (redisType == null || CollectionUtils.isEmpty(keys))
+		{
+			return true;
+		}
+		try
+		{
+			getRedisson(redisType).getKeys()
+					.delete(keys.stream()
+							.toArray(String[]::new));
+		}
+		catch (Exception e)
+		{
+			logger.warn("Evict failed for redisType: {}, key: {}, due to: {}", redisType,
+					StringUtils.join(keys, ","), e);
+			return false;
+		}
+		return true;
+	}
+
+}
+CollectionUtils.isEmpty(keys) ---> this shouldn't be empty right?
+
+try
+			{
+				final CacheKeyProvider finalCacheKeyProvider = cacheKeyProvider;
+				final Collection<Object> finalOtherKeyArgs = otherKeyArgs;
+				List<String> keys = listKeyArg.stream()
+						.filter(k -> Objects.nonNull(k))
+						.map(k -> CacheUtils.generateKey(cacheName, keyPrefix,
+								finalCacheKeyProvider.getKeyField(k), finalOtherKeyArgs))
+						.collect(Collectors.toList());
+				if (!evictFromRedis(redisType, keys))
+				{
+					// if eviction fails we fetch from db and return
+					return pjp.proceed();
+				}
+			}
+			catch (Exception e)
+			{
+				logger.info("Eviction on caching failure failed on {}, due to: {}, stacktrace: {}",
+						pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
+				// Cache Eviction Failure Metric
+				publishCacheMetrics(pjp, "eviction_failure");
+			}
+
+is there any other way, this eviction failure can be reached, like some corrupted or something unecpected in the try block?
+think out of the box
