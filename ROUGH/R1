@@ -1,32 +1,345 @@
-@Value("${cache.metrics.enabled}")
-	private boolean isMetricsEnabled;
+package com.personalcapital.cache.aop;
 
-	void publishCacheMetrics(ProceedingJoinPoint pjp, String outcome)
+import com.personalcapital.cache.annotation.PcapMultiCacheable;
+import com.personalcapital.cache.annotation.RedisType;
+import com.personalcapital.cache.aop.support.CacheAdviceHelper;
+import com.personalcapital.cache.aop.support.CacheKeyProvider;
+import com.personalcapital.cache.utils.CacheConstants;
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.Signature;
+import org.junit.jupiter.api.*;
+import org.mockito.*;
+import org.redisson.api.RBucket;
+import org.redisson.api.RKeys;
+import org.redisson.api.RedissonClient;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
+
+import java.util.*;
+
+import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
+
+@SpringJUnitConfig(locations =
+{
+		"classpath:cachePushAdviceTest-Context.xml"
+})
+public class PcapMultiCacheableAdviceMetricsTest
+{
+	@InjectMocks
+	@Spy
+	@Autowired
+	private PcapMultiCacheableAdvice cacheAdvice;
+
+	private SimpleMeterRegistry meterRegistry;
+	private PcapMultiCacheable mockAnnotation;
+
+	@Autowired
+	@Qualifier(CacheConstants.REDISSON_REGULAR)
+	private RedissonClient redissonClient;
+
+	private static final PcapLogger logger = PcapLoggerFactory
+			.getPcapLogger(PcapMultiCacheableAdviceMetricsTest.class);
+	private static MockedStatic<CacheAdviceHelper> mockedCacheAdviceHelper;
+
+	@BeforeAll
+	static void initMockedStatic()
 	{
-		if(!isMetricsEnabled){
-			logger.info("Cache metrics are disabled, skipping metrics publication");
-			return;
+		mockedCacheAdviceHelper = mockStatic(CacheAdviceHelper.class);
+	}
+
+	@BeforeEach
+	void setUp() throws NoSuchMethodException
+	{
+		MockitoAnnotations.openMocks(this);
+		meterRegistry = new SimpleMeterRegistry();
+		Metrics.addRegistry(meterRegistry);
+
+		redissonClient = mock(RedissonClient.class);
+		RBucket<Object> mockBucket = mock(RBucket.class);
+		doReturn(redissonClient).when(cacheAdvice)
+				.getRedisson(RedisType.GEN);
+		when(redissonClient.getBucket(anyString())).thenReturn(mockBucket);
+
+		mockAnnotation = mock(PcapMultiCacheable.class);
+		when(mockAnnotation.value()).thenReturn("testCache");
+		when(mockAnnotation.keys()).thenReturn(new int[]
+		{
+				0
+		});
+		when(mockAnnotation.keyPrefix()).thenReturn("prefix");
+		when(mockAnnotation.redisType()).thenReturn(RedisType.GEN);
+		when(mockAnnotation.keyProvider()).thenAnswer(invocation -> DummyCacheKeyProvider.class);
+
+		mockedCacheAdviceHelper
+				.when(() -> CacheAdviceHelper.getMethod(any(ProceedingJoinPoint.class)))
+				.thenReturn(DummyClass.class.getMethod("dummyMethod"));
+	}
+
+	@Test
+	void testCacheMissAndDataMismatchMetric() throws Throwable
+	{
+		when(redissonClient.getBucket(anyString())
+				.get()).thenReturn(null);
+		when(mockProceedingJoinPoint().proceed())
+				.thenReturn(Collections.singletonList("dbFetchedValue"));
+
+		executeAndVerifyMetrics("miss", "data_mismatch");
+	}
+
+	@Test
+	void testCacheHitMetric() throws Throwable
+	{
+		when(redissonClient.getBucket(anyString())
+				.get()).thenReturn("cachedValue");
+
+		executeAndVerifyMetrics("hit");
+	}
+
+	@Test
+	void testCacheFailureAndDataMismatchMetric() throws Throwable
+	{
+		mockedCacheAdviceHelper
+				.when(() -> CacheAdviceHelper.getMethod(any(ProceedingJoinPoint.class)))
+				.thenReturn(DummyClass.class.getMethod("failingDummyMethod"));
+
+		when(mockProceedingJoinPoint().proceed()).thenThrow(new RuntimeException("Forced Failure"));
+		executeAndVerifyMetrics("failure", "data_mismatch");
+	}
+
+	@Test
+	void testCacheMissAndCacheDataStoreMetric() throws Throwable
+	{
+		ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+		try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class))
+		{
+			Counter mockCounter = mock(Counter.class);
+			mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
+					.thenReturn(mockCounter);
+
+			when(redissonClient.getBucket(anyString())
+					.get()).thenReturn(null);
+
+			List<String> expectedDbValues = List.of("dbFetchedValue");
+			when(pjp.proceed(any())).thenReturn(expectedDbValues);
+
+			RBucket<Object> mockBucket = mock(RBucket.class);
+			when(redissonClient.getBucket(anyString())).thenReturn(mockBucket);
+			doNothing().when(mockBucket)
+					.set(any(), anyLong(), any());
+
+			Object result = cacheAdvice.doMultiCacheable(pjp, mockAnnotation);
+			ArgumentCaptor<String> outcomeCaptor = ArgumentCaptor.forClass(String.class);
+
+			assertNotNull(result);
+			assertEquals(expectedDbValues, result);
+
+			mockedMetrics.verify(() -> Metrics.counter(eq("pcap.cache.event"), eq("class"),
+					eq("PcapMultiCacheableAdvice"), eq("method"), eq("dummyMethod"), eq("outcome"),
+					outcomeCaptor.capture()), atLeastOnce());
+
+			List<String> capturedMetrics = outcomeCaptor.getAllValues();
+			logger.info("Captured Metrics: {}", capturedMetrics);
+
+			assertTrue(capturedMetrics.contains("store"));
+			assertTrue(capturedMetrics.contains("miss"));
+			verify(mockCounter, atLeastOnce()).increment();
 		}
-		String className = getClassName(pjp);
-		String methodName = getMethodName(pjp);
-
-		Metrics.counter(METRICS_NAME, "class", className, "method", methodName, "outcome", outcome)
-				.increment();
-		logger.info("Publishing cache metrics - Class: {}, Method: {}, Outcome: {}", className,
-				methodName, outcome);
 	}
 
-	private String getClassName(ProceedingJoinPoint pjp)
+	@Test
+	void testDataEvictionMetric() throws Throwable
 	{
-		return pjp.getTarget()
-				.getClass()
-				.getSimpleName();
+		ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+		try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class))
+		{
+			Counter mockCounter = mock(Counter.class);
+			mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
+					.thenReturn(mockCounter);
+
+			when(pjp.proceed()).thenThrow(new RuntimeException("Forced Failure"));
+
+			RedissonClient mockRedisson = mock(RedissonClient.class);
+			when(cacheAdvice.getRedisson(RedisType.GEN)).thenReturn(mockRedisson);
+
+			RKeys mockKeys = mock(RKeys.class);
+			when(mockRedisson.getKeys()).thenReturn(mockKeys);
+
+			doThrow(new RuntimeException("Eviction Failed")).when(mockKeys)
+					.delete(any(String[].class));
+
+			Object result;
+			try
+			{
+				result = cacheAdvice.doMultiCacheable(pjp, mockAnnotation);
+			}
+			catch (Exception ignored)
+			{
+				result = Collections.emptyList();
+			}
+			ArgumentCaptor<String> outcomeCaptor = ArgumentCaptor.forClass(String.class);
+
+			assertNotNull(result);
+
+			mockedMetrics.verify(() -> Metrics.counter(eq("pcap.cache.event"), eq("class"),
+					eq("PcapMultiCacheableAdvice"), eq("method"), eq("dummyMethod"), eq("outcome"),
+					outcomeCaptor.capture()), atLeastOnce());
+
+			List<String> capturedMetrics = outcomeCaptor.getAllValues();
+			logger.info("Captured Metrics: {}", capturedMetrics);
+
+			assertTrue(capturedMetrics.contains("failure"));
+			assertTrue(capturedMetrics.contains("eviction_failure"));
+			verify(mockCounter, atLeastOnce()).increment();
+		}
 	}
 
-	private String getMethodName(ProceedingJoinPoint pjp)
+	private void executeAndVerifyMetrics(String... expectedMetrics) throws Throwable
 	{
-		return pjp.getSignature()
-				.getName();
+		ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+		try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class))
+		{
+			Counter mockCounter = mock(Counter.class);
+			mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
+					.thenReturn(mockCounter);
+
+			Object result = cacheAdvice.doMultiCacheable(pjp, mockAnnotation);
+			ArgumentCaptor<String> outcomeCaptor = ArgumentCaptor.forClass(String.class);
+
+			assertNotNull(result);
+			mockedMetrics.verify(() -> Metrics.counter(eq("pcap.cache.event"), eq("class"),
+					eq("PcapMultiCacheableAdvice"), eq("method"), eq("dummyMethod"), eq("outcome"),
+					outcomeCaptor.capture()), atLeastOnce());
+
+			List<String> capturedMetrics = outcomeCaptor.getAllValues();
+			logger.info("Captured Metrics: {}", capturedMetrics);
+
+			for (String expectedMetric : expectedMetrics)
+			{
+				assertTrue(capturedMetrics.contains(expectedMetric));
+			}
+			verify(mockCounter, atLeastOnce()).increment();
+		}
 	}
 
-this is working, any way to optimize this part of the code?
+	private ProceedingJoinPoint mockProceedingJoinPoint() throws Throwable
+	{
+		ProceedingJoinPoint pjp = mock(ProceedingJoinPoint.class);
+		Signature mockSignature = mock(Signature.class);
+		when(pjp.getTarget()).thenReturn(cacheAdvice);
+		when(pjp.getSignature()).thenReturn(mockSignature);
+		when(mockSignature.getName()).thenReturn("dummyMethod");
+		when(pjp.getArgs()).thenReturn(new Object[]
+		{
+				Collections.singletonList("key1")
+		});
+		when(pjp.proceed()).thenReturn(Collections.singletonList("dbFetchedValue"));
+		return pjp;
+	}
+
+	public static class DummyClass
+	{
+		public static Collection<String> dummyMethod()
+		{
+			return Collections.emptyList();
+		}
+
+		public void failingDummyMethod()
+		{
+			throw new RuntimeException("Forced Failure");
+		}
+	}
+
+	public static class DummyCacheKeyProvider implements CacheKeyProvider
+	{
+		@Override
+		public Object getKeyField(Object value)
+		{
+			return value != null ? value.toString() : "null";
+		}
+	}
+
+	@AfterAll
+	static void releaseMockedStatic()
+	{
+		if (mockedCacheAdviceHelper != null)
+		{
+			mockedCacheAdviceHelper.close();
+			mockedCacheAdviceHelper = null;
+		}
+	}
+
+	@AfterEach
+	void cleanRedis()
+	{
+		if (redissonClient != null)
+		{
+			redissonClient.shutdown();
+		}
+	}
+}
+
+if cache.metrics.enabled is set to false, all the test cases fail
+
+java.lang.IllegalStateException: Failed to load ApplicationContext for [MergedContextConfiguration@78504ce9 testClass = com.personalcapital.cache.aop.PcapMultiCacheableAdviceMetricsTest, locations = ["classpath:cachePushAdviceTest-Context.xml"], classes = [], contextInitializerClasses = [], activeProfiles = [], propertySourceDescriptors = [], propertySourceProperties = [], contextCustomizers = [], contextLoader = org.springframework.test.context.support.DelegatingSmartContextLoader, parent = null]
+
+	at org.springframework.test.context.cache.DefaultCacheAwareContextLoaderDelegate.loadContext(DefaultCacheAwareContextLoaderDelegate.java:180)
+	at org.springframework.test.context.support.DefaultTestContext.getApplicationContext(DefaultTestContext.java:130)
+	at org.springframework.test.context.support.DependencyInjectionTestExecutionListener.injectDependencies(DependencyInjectionTestExecutionListener.java:142)
+	at org.springframework.test.context.support.DependencyInjectionTestExecutionListener.prepareTestInstance(DependencyInjectionTestExecutionListener.java:98)
+	at org.springframework.test.context.TestContextManager.prepareTestInstance(TestContextManager.java:260)
+	at org.springframework.test.context.junit.jupiter.SpringExtension.postProcessTestInstance(SpringExtension.java:163)
+	at java.base/java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:197)
+	at java.base/java.util.stream.ReferencePipeline$2$1.accept(ReferencePipeline.java:179)
+	at java.base/java.util.ArrayList$ArrayListSpliterator.forEachRemaining(ArrayList.java:1708)
+	at java.base/java.util.stream.AbstractPipeline.copyInto(AbstractPipeline.java:509)
+	at java.base/java.util.stream.AbstractPipeline.wrapAndCopyInto(AbstractPipeline.java:499)
+	at java.base/java.util.stream.StreamSpliterators$WrappingSpliterator.forEachRemaining(StreamSpliterators.java:310)
+	at java.base/java.util.stream.Streams$ConcatSpliterator.forEachRemaining(Streams.java:735)
+	at java.base/java.util.stream.Streams$ConcatSpliterator.forEachRemaining(Streams.java:734)
+	at java.base/java.util.stream.ReferencePipeline$Head.forEach(ReferencePipeline.java:762)
+	at java.base/java.util.Optional.orElseGet(Optional.java:364)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'pcapMultiCacheableAdvice': Unsatisfied dependency expressed through field 'isMetricsEnabled': Failed to convert value of type 'java.lang.String' to required type 'boolean'; Invalid boolean value [${cache.metrics.enabled}]
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:787)
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.inject(AutowiredAnnotationBeanPostProcessor.java:767)
+	at org.springframework.beans.factory.annotation.InjectionMetadata.inject(InjectionMetadata.java:145)
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor.postProcessProperties(AutowiredAnnotationBeanPostProcessor.java:508)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1419)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:599)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:522)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:975)
+	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:962)
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:624)
+	at org.springframework.test.context.support.AbstractGenericContextLoader.loadContext(AbstractGenericContextLoader.java:221)
+	at org.springframework.test.context.support.AbstractGenericContextLoader.loadContext(AbstractGenericContextLoader.java:110)
+	at org.springframework.test.context.support.AbstractDelegatingSmartContextLoader.loadContext(AbstractDelegatingSmartContextLoader.java:212)
+	at org.springframework.test.context.cache.DefaultCacheAwareContextLoaderDelegate.loadContextInternal(DefaultCacheAwareContextLoaderDelegate.java:225)
+	at org.springframework.test.context.cache.DefaultCacheAwareContextLoaderDelegate.loadContext(DefaultCacheAwareContextLoaderDelegate.java:152)
+	... 17 more
+Caused by: org.springframework.beans.TypeMismatchException: Failed to convert value of type 'java.lang.String' to required type 'boolean'; Invalid boolean value [${cache.metrics.enabled}]
+	at org.springframework.beans.TypeConverterSupport.convertIfNecessary(TypeConverterSupport.java:87)
+	at org.springframework.beans.TypeConverterSupport.convertIfNecessary(TypeConverterSupport.java:71)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1381)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1353)
+	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:784)
+	... 35 more
+Caused by: java.lang.IllegalArgumentException: Invalid boolean value [${cache.metrics.enabled}]
+	at org.springframework.beans.propertyeditors.CustomBooleanEditor.setAsText(CustomBooleanEditor.java:154)
+	at org.springframework.beans.TypeConverterDelegate.doConvertTextValue(TypeConverterDelegate.java:439)
+	at org.springframework.beans.TypeConverterDelegate.doConvertValue(TypeConverterDelegate.java:412)
+	at org.springframework.beans.TypeConverterDelegate.convertIfNecessary(TypeConverterDelegate.java:161)
+	at org.springframework.beans.TypeConverterSupport.convertIfNecessary(TypeConverterSupport.java:80)
+	... 39 more
+
