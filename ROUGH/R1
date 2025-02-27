@@ -1,11 +1,3 @@
-You would make the change in pcapcacheable advice
-For each invocation of the pcapcacheble send a custom metric to datadog that captures following info
--The class on which the caching happened
--the method in which the caching happens 
--outcome of the caching (success/failure)
--The metric will be of type counter.
-
-
 package com.personalcapital.cache.aop;
 
 import java.lang.reflect.Method;
@@ -35,6 +27,7 @@ import com.personalcapital.cache.utils.CacheUtils;
 import com.personalcapital.log.PcapLogger;
 import com.personalcapital.log.PcapLoggerFactory;
 import com.safepage.util.Utils;
+import io.micrometer.core.instrument.Metrics;
 
 @Aspect
 @Order(AnnotationOrderConstants.CACHE_MULTI_CACHING_PRECEDENCE)
@@ -44,6 +37,26 @@ public class PcapCacheableAdvice extends CacheAdviceCommons implements EmbeddedV
 			.getPcapLogger(PcapCacheableAdvice.class);
 
 	private StringValueResolver stringValueResolver;
+
+	private static final String METRIC_NAME = "pcap.cache.event";
+	void publishCacheMetrics(ProceedingJoinPoint pjp, String outcome){
+		boolean isMetricsEnabled = Boolean.parseBoolean(System.getProperty("cache.metrics.enabled", "true"));
+		if(!isMetricsEnabled){
+			logger.info("Cache metrics are disabled, skipping metrics publication");
+			return;
+		}
+		String className = getClassName(pjp);
+		String methodName = getMethodName(pjp);
+
+		Metrics.counter(METRIC_NAME, "class", className, "method", methodName, "outcome", outcome).increment();
+		logger.info("Publishing cache metrics - Class: {}, Method: {}, Outcome: {}", className, methodName, outcome);
+	}
+	private String getClassName(ProceedingJoinPoint pjp){
+		return pjp.getTarget().getClass().getSimpleName();
+	}
+	private String getMethodName(ProceedingJoinPoint pjp){
+		return pjp.getSignature().getName();
+	}
 
 	@Around("@annotation(pcapCacheable)")
 	public Object doPcapCacheable(ProceedingJoinPoint pjp, PcapCacheable pcapCacheable)
@@ -130,13 +143,16 @@ public class PcapCacheableAdvice extends CacheAdviceCommons implements EmbeddedV
 			if (!(cachedValue == null
 					|| (cachedValue instanceof ObjectUtils.Null && cachedValueNullable == false)))
 			{
+				publishCacheMetrics(pjp,"hit");
 				return CacheUtils.getValue(cachedValue);
 			}
+			
 		}
 		catch (Exception ex)
 		{
 			logger.info("Caching on {} aborted due to an error. message: {}. stacktrace: {}",
 					pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
+			publishCacheMetrics(pjp,"failure");
 			// PLAT-849 evictFrom redis on exception and proceeds to populate in subsequent call
 			if (!evictFromRedis(redisType, key))
 			{
@@ -216,6 +232,7 @@ public class PcapCacheableAdvice extends CacheAdviceCommons implements EmbeddedV
 		{
 			logger.info("Caching on {} aborted due to an error. message: {}. stacktrace: {}",
 					pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
+			publishCacheMetrics(pjp,"failure");
 		}
 
 		return resultItemForMissed;
@@ -249,3 +266,6 @@ public class PcapCacheableAdvice extends CacheAdviceCommons implements EmbeddedV
 		this.stringValueResolver = stringValueResolver;
 	}
 }
+
+
+publishCacheMetrics(pjp,"outcome"); --> this is what i am using to publish the metrics in Datadog, but i have used in few places and i am not sure if they are the right places for these outcomes and also might have missed few places with few types of outcomes, can you help me out?
