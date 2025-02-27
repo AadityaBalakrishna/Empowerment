@@ -1,345 +1,251 @@
+You would make the change in pcapcacheable advice
+For each invocation of the pcapcacheble send a custom metric to datadog that captures following info
+-The class on which the caching happened
+-the method in which the caching happens 
+-outcome of the caching (success/failure)
+-The metric will be of type counter.
+
+
 package com.personalcapital.cache.aop;
 
-import com.personalcapital.cache.annotation.PcapMultiCacheable;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.Aspect;
+import org.springframework.aop.AopInvocationException;
+import org.springframework.beans.PropertyAccessorFactory;
+import org.springframework.context.EmbeddedValueResolverAware;
+import org.springframework.core.annotation.Order;
+import org.springframework.util.StringValueResolver;
+
+import com.personalcapital.cache.annotation.PcapCacheable;
 import com.personalcapital.cache.annotation.RedisType;
+import com.personalcapital.cache.aop.support.AnnotationOrderConstants;
 import com.personalcapital.cache.aop.support.CacheAdviceHelper;
 import com.personalcapital.cache.aop.support.CacheKeyProvider;
-import com.personalcapital.cache.utils.CacheConstants;
+import com.personalcapital.cache.utils.CacheUtils;
 import com.personalcapital.log.PcapLogger;
 import com.personalcapital.log.PcapLoggerFactory;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import org.aspectj.lang.ProceedingJoinPoint;
-import org.aspectj.lang.Signature;
-import org.junit.jupiter.api.*;
-import org.mockito.*;
-import org.redisson.api.RBucket;
-import org.redisson.api.RKeys;
-import org.redisson.api.RedissonClient;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
+import com.safepage.util.Utils;
 
-import java.util.*;
-
-import static org.mockito.Mockito.*;
-import static org.junit.jupiter.api.Assertions.*;
-
-@SpringJUnitConfig(locations =
+@Aspect
+@Order(AnnotationOrderConstants.CACHE_MULTI_CACHING_PRECEDENCE)
+public class PcapCacheableAdvice extends CacheAdviceCommons implements EmbeddedValueResolverAware
 {
-		"classpath:cachePushAdviceTest-Context.xml"
-})
-public class PcapMultiCacheableAdviceMetricsTest
-{
-	@InjectMocks
-	@Spy
-	@Autowired
-	private PcapMultiCacheableAdvice cacheAdvice;
-
-	private SimpleMeterRegistry meterRegistry;
-	private PcapMultiCacheable mockAnnotation;
-
-	@Autowired
-	@Qualifier(CacheConstants.REDISSON_REGULAR)
-	private RedissonClient redissonClient;
-
 	private static final PcapLogger logger = PcapLoggerFactory
-			.getPcapLogger(PcapMultiCacheableAdviceMetricsTest.class);
-	private static MockedStatic<CacheAdviceHelper> mockedCacheAdviceHelper;
+			.getPcapLogger(PcapCacheableAdvice.class);
 
-	@BeforeAll
-	static void initMockedStatic()
+	private StringValueResolver stringValueResolver;
+
+	@Around("@annotation(pcapCacheable)")
+	public Object doPcapCacheable(ProceedingJoinPoint pjp, PcapCacheable pcapCacheable)
+			throws Throwable
 	{
-		mockedCacheAdviceHelper = mockStatic(CacheAdviceHelper.class);
-	}
+		Method method = null;
+		Object[] args = pjp.getArgs();
+		Class<?> returnType = null;
 
-	@BeforeEach
-	void setUp() throws NoSuchMethodException
-	{
-		MockitoAnnotations.openMocks(this);
-		meterRegistry = new SimpleMeterRegistry();
-		Metrics.addRegistry(meterRegistry);
+		Collection<Object> keyArgs = null;
 
-		redissonClient = mock(RedissonClient.class);
-		RBucket<Object> mockBucket = mock(RBucket.class);
-		doReturn(redissonClient).when(cacheAdvice)
-				.getRedisson(RedisType.GEN);
-		when(redissonClient.getBucket(anyString())).thenReturn(mockBucket);
+		String resultKeyField = pcapCacheable.resultKeyField();
+		String[] resultKeyFields = pcapCacheable.resultKeyFields();
 
-		mockAnnotation = mock(PcapMultiCacheable.class);
-		when(mockAnnotation.value()).thenReturn("testCache");
-		when(mockAnnotation.keys()).thenReturn(new int[]
+		boolean cachedValueNullable = pcapCacheable.nullable();
+		String keyPrefix = pcapCacheable.keyPrefix();
+		CacheKeyProvider cacheKeyProvider = null;
+		// get type of cache: default or redis or simple from annotation
+		String cacheName = pcapCacheable.value();
+		RedisType redisType = pcapCacheable.redisType();
+		String key = "";
+		if (StringUtils.isBlank(cacheName))
 		{
-				0
-		});
-		when(mockAnnotation.keyPrefix()).thenReturn("prefix");
-		when(mockAnnotation.redisType()).thenReturn(RedisType.GEN);
-		when(mockAnnotation.keyProvider()).thenAnswer(invocation -> DummyCacheKeyProvider.class);
-
-		mockedCacheAdviceHelper
-				.when(() -> CacheAdviceHelper.getMethod(any(ProceedingJoinPoint.class)))
-				.thenReturn(DummyClass.class.getMethod("dummyMethod"));
-	}
-
-	@Test
-	void testCacheMissAndDataMismatchMetric() throws Throwable
-	{
-		when(redissonClient.getBucket(anyString())
-				.get()).thenReturn(null);
-		when(mockProceedingJoinPoint().proceed())
-				.thenReturn(Collections.singletonList("dbFetchedValue"));
-
-		executeAndVerifyMetrics("miss", "data_mismatch");
-	}
-
-	@Test
-	void testCacheHitMetric() throws Throwable
-	{
-		when(redissonClient.getBucket(anyString())
-				.get()).thenReturn("cachedValue");
-
-		executeAndVerifyMetrics("hit");
-	}
-
-	@Test
-	void testCacheFailureAndDataMismatchMetric() throws Throwable
-	{
-		mockedCacheAdviceHelper
-				.when(() -> CacheAdviceHelper.getMethod(any(ProceedingJoinPoint.class)))
-				.thenReturn(DummyClass.class.getMethod("failingDummyMethod"));
-
-		when(mockProceedingJoinPoint().proceed()).thenThrow(new RuntimeException("Forced Failure"));
-		executeAndVerifyMetrics("failure", "data_mismatch");
-	}
-
-	@Test
-	void testCacheMissAndCacheDataStoreMetric() throws Throwable
-	{
-		ProceedingJoinPoint pjp = mockProceedingJoinPoint();
-		try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class))
-		{
-			Counter mockCounter = mock(Counter.class);
-			mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
-					.thenReturn(mockCounter);
-
-			when(redissonClient.getBucket(anyString())
-					.get()).thenReturn(null);
-
-			List<String> expectedDbValues = List.of("dbFetchedValue");
-			when(pjp.proceed(any())).thenReturn(expectedDbValues);
-
-			RBucket<Object> mockBucket = mock(RBucket.class);
-			when(redissonClient.getBucket(anyString())).thenReturn(mockBucket);
-			doNothing().when(mockBucket)
-					.set(any(), anyLong(), any());
-
-			Object result = cacheAdvice.doMultiCacheable(pjp, mockAnnotation);
-			ArgumentCaptor<String> outcomeCaptor = ArgumentCaptor.forClass(String.class);
-
-			assertNotNull(result);
-			assertEquals(expectedDbValues, result);
-
-			mockedMetrics.verify(() -> Metrics.counter(eq("pcap.cache.event"), eq("class"),
-					eq("PcapMultiCacheableAdvice"), eq("method"), eq("dummyMethod"), eq("outcome"),
-					outcomeCaptor.capture()), atLeastOnce());
-
-			List<String> capturedMetrics = outcomeCaptor.getAllValues();
-			logger.info("Captured Metrics: {}", capturedMetrics);
-
-			assertTrue(capturedMetrics.contains("store"));
-			assertTrue(capturedMetrics.contains("miss"));
-			verify(mockCounter, atLeastOnce()).increment();
+			throw new AopInvocationException(
+					"PcapCacheable needs to have cacheName specified in value element.");
 		}
+
+		try
+		{
+			cacheKeyProvider = pcapCacheable.keyProvider()
+					.getDeclaredConstructor()
+					.newInstance();
+			method = CacheAdviceHelper.getMethod(pjp);
+			returnType = method.getReturnType();
+
+			// check expected return type
+			if (returnType.equals(Void.TYPE))
+			{
+				throw new AopInvocationException(
+						"PcapCacheable cannot apply to method without return.");
+			}
+
+			// check if keyIndices are provided for keyName generation
+			int[] keyIndice = pcapCacheable.keys();
+
+			// get Arguments to generate key
+			if (args == null || args.length == 0)
+			{
+				key = CacheUtils.generateKey(cacheName, keyPrefix, null);
+			}
+			else
+			{
+				keyArgs = new ArrayList<Object>();
+				if (keyIndice == null || keyIndice.length == 0)
+				{
+					for (int i = 0; i < args.length; i++)
+					{
+						Object arg = args[i];
+						keyArgs.add(cacheKeyProvider.getKeyField(arg));
+					}
+				}
+				else
+				{
+					// if we provide a list of indices for the args that have to be used for keys,
+					// use
+					// this to generate keys
+					for (int keyIndex : keyIndice)
+					{
+						if (keyIndex >= args.length)
+							continue;
+
+						Object arg = args[keyIndex];
+
+						keyArgs.add(cacheKeyProvider.getKeyField(arg));
+					}
+				}
+
+				// get key generated from all values gathered so far
+				key = CacheUtils.generateKey(cacheName, keyPrefix, keyArgs);
+			}
+			// get cachedValue
+			Object cachedValue = getRedisson(redisType).getBucket(key)
+					.get();
+			if (!(cachedValue == null
+					|| (cachedValue instanceof ObjectUtils.Null && cachedValueNullable == false)))
+			{
+				return CacheUtils.getValue(cachedValue);
+			}
+		}
+		catch (Exception ex)
+		{
+			logger.info("Caching on {} aborted due to an error. message: {}. stacktrace: {}",
+					pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
+			// PLAT-849 evictFrom redis on exception and proceeds to populate in subsequent call
+			if (!evictFromRedis(redisType, key))
+			{
+				// if eviction fails we fetch from db and return
+				return pjp.proceed();
+			}
+		}
+
+		final Object resultItemForMissed = pjp.proceed(args);
+
+		if (resultItemForMissed == null && cachedValueNullable == false)
+		{
+			return resultItemForMissed;
+		}
+
+		int ttl = pcapCacheable.ttlSeconds();
+		final String ttlExpression = pcapCacheable.ttlExpression();
+
+		int ttlSeconds = resolveTtl(ttlExpression, cacheName, ttl);
+
+		try
+		{
+			// check if something from the result has to be used as part of the key.
+			if (Utils.isNotNull(resultKeyField)
+					|| (resultKeyFields != null && resultKeyFields.length > 0))
+			{
+				// cannot cache null value if result is used for key provider
+				if (resultItemForMissed == null)
+				{
+					return resultItemForMissed;
+				}
+
+				List<Object> keyFieldValues = new ArrayList<Object>();
+
+				if ((resultKeyFields != null && resultKeyFields.length > 0))
+				{
+					// if key is to be derived from result, then get the field from result
+					// using reflection and create the cache key
+					for (int i = 0; i < resultKeyFields.length; i++)
+					{
+						Object keyFieldValue = PropertyAccessorFactory
+								.forBeanPropertyAccess(resultItemForMissed)
+								.getPropertyValue(resultKeyFields[i]);
+						keyFieldValues.add(cacheKeyProvider.getKeyField(keyFieldValue));
+					}
+				}
+				else
+				{// is only one is property is given use that value for key directly
+					Object keyFieldValue = PropertyAccessorFactory
+							.forBeanPropertyAccess(resultItemForMissed)
+							.getPropertyValue(resultKeyField);
+
+					if (keyFieldValue != null)
+					{
+						keyFieldValues.add(cacheKeyProvider.getKeyField(keyFieldValue));
+					}
+				}
+
+				// genearteKey and add the item fetched from db.
+				if (keyFieldValues.size() > 0)
+				{
+					String cacheKey = CacheUtils.generateKey(cacheName, keyPrefix, keyFieldValues,
+							keyArgs);
+					getRedisson(redisType).getBucket(cacheKey)
+							.set(resultItemForMissed, ttlSeconds, TimeUnit.SECONDS);
+				}
+			}
+			else
+			{
+				String cacheKey = CacheUtils.generateKey(cacheName, keyPrefix, keyArgs);
+				getRedisson(redisType).getBucket(cacheKey)
+						.set(resultItemForMissed == null ? ObjectUtils.NULL : resultItemForMissed,
+								ttlSeconds, TimeUnit.SECONDS);
+			}
+		}
+		catch (Exception ex)
+		{
+			logger.info("Caching on {} aborted due to an error. message: {}. stacktrace: {}",
+					pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
+		}
+
+		return resultItemForMissed;
 	}
 
-	@Test
-	void testDataEvictionMetric() throws Throwable
+	private int resolveTtl(String ttlExpression, String cacheName, int ttl)
 	{
-		ProceedingJoinPoint pjp = mockProceedingJoinPoint();
-		try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class))
+		Integer fromProperty = null;
+		if (StringUtils.isNotBlank(ttlExpression))
 		{
-			Counter mockCounter = mock(Counter.class);
-			mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
-					.thenReturn(mockCounter);
-
-			when(pjp.proceed()).thenThrow(new RuntimeException("Forced Failure"));
-
-			RedissonClient mockRedisson = mock(RedissonClient.class);
-			when(cacheAdvice.getRedisson(RedisType.GEN)).thenReturn(mockRedisson);
-
-			RKeys mockKeys = mock(RKeys.class);
-			when(mockRedisson.getKeys()).thenReturn(mockKeys);
-
-			doThrow(new RuntimeException("Eviction Failed")).when(mockKeys)
-					.delete(any(String[].class));
-
-			Object result;
 			try
 			{
-				result = cacheAdvice.doMultiCacheable(pjp, mockAnnotation);
+				String stringValue = stringValueResolver.resolveStringValue(ttlExpression);
+				if (stringValue != null)
+				{
+					fromProperty = Integer.parseInt(stringValue);
+				}
 			}
-			catch (Exception ignored)
+			catch (Exception e)
 			{
-				result = Collections.emptyList();
+				logger.error("Exception resolving ttl {} for cache name {}", ttlExpression,
+						cacheName);
 			}
-			ArgumentCaptor<String> outcomeCaptor = ArgumentCaptor.forClass(String.class);
-
-			assertNotNull(result);
-
-			mockedMetrics.verify(() -> Metrics.counter(eq("pcap.cache.event"), eq("class"),
-					eq("PcapMultiCacheableAdvice"), eq("method"), eq("dummyMethod"), eq("outcome"),
-					outcomeCaptor.capture()), atLeastOnce());
-
-			List<String> capturedMetrics = outcomeCaptor.getAllValues();
-			logger.info("Captured Metrics: {}", capturedMetrics);
-
-			assertTrue(capturedMetrics.contains("failure"));
-			assertTrue(capturedMetrics.contains("eviction_failure"));
-			verify(mockCounter, atLeastOnce()).increment();
 		}
+		return fromProperty == null ? getTtlFromConfiguration(cacheName, ttl) : fromProperty;
 	}
 
-	private void executeAndVerifyMetrics(String... expectedMetrics) throws Throwable
+	@Override
+	public void setEmbeddedValueResolver(StringValueResolver stringValueResolver)
 	{
-		ProceedingJoinPoint pjp = mockProceedingJoinPoint();
-		try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class))
-		{
-			Counter mockCounter = mock(Counter.class);
-			mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
-					.thenReturn(mockCounter);
-
-			Object result = cacheAdvice.doMultiCacheable(pjp, mockAnnotation);
-			ArgumentCaptor<String> outcomeCaptor = ArgumentCaptor.forClass(String.class);
-
-			assertNotNull(result);
-			mockedMetrics.verify(() -> Metrics.counter(eq("pcap.cache.event"), eq("class"),
-					eq("PcapMultiCacheableAdvice"), eq("method"), eq("dummyMethod"), eq("outcome"),
-					outcomeCaptor.capture()), atLeastOnce());
-
-			List<String> capturedMetrics = outcomeCaptor.getAllValues();
-			logger.info("Captured Metrics: {}", capturedMetrics);
-
-			for (String expectedMetric : expectedMetrics)
-			{
-				assertTrue(capturedMetrics.contains(expectedMetric));
-			}
-			verify(mockCounter, atLeastOnce()).increment();
-		}
-	}
-
-	private ProceedingJoinPoint mockProceedingJoinPoint() throws Throwable
-	{
-		ProceedingJoinPoint pjp = mock(ProceedingJoinPoint.class);
-		Signature mockSignature = mock(Signature.class);
-		when(pjp.getTarget()).thenReturn(cacheAdvice);
-		when(pjp.getSignature()).thenReturn(mockSignature);
-		when(mockSignature.getName()).thenReturn("dummyMethod");
-		when(pjp.getArgs()).thenReturn(new Object[]
-		{
-				Collections.singletonList("key1")
-		});
-		when(pjp.proceed()).thenReturn(Collections.singletonList("dbFetchedValue"));
-		return pjp;
-	}
-
-	public static class DummyClass
-	{
-		public static Collection<String> dummyMethod()
-		{
-			return Collections.emptyList();
-		}
-
-		public void failingDummyMethod()
-		{
-			throw new RuntimeException("Forced Failure");
-		}
-	}
-
-	public static class DummyCacheKeyProvider implements CacheKeyProvider
-	{
-		@Override
-		public Object getKeyField(Object value)
-		{
-			return value != null ? value.toString() : "null";
-		}
-	}
-
-	@AfterAll
-	static void releaseMockedStatic()
-	{
-		if (mockedCacheAdviceHelper != null)
-		{
-			mockedCacheAdviceHelper.close();
-			mockedCacheAdviceHelper = null;
-		}
-	}
-
-	@AfterEach
-	void cleanRedis()
-	{
-		if (redissonClient != null)
-		{
-			redissonClient.shutdown();
-		}
+		this.stringValueResolver = stringValueResolver;
 	}
 }
-
-if cache.metrics.enabled is set to false, all the test cases fail
-
-java.lang.IllegalStateException: Failed to load ApplicationContext for [MergedContextConfiguration@78504ce9 testClass = com.personalcapital.cache.aop.PcapMultiCacheableAdviceMetricsTest, locations = ["classpath:cachePushAdviceTest-Context.xml"], classes = [], contextInitializerClasses = [], activeProfiles = [], propertySourceDescriptors = [], propertySourceProperties = [], contextCustomizers = [], contextLoader = org.springframework.test.context.support.DelegatingSmartContextLoader, parent = null]
-
-	at org.springframework.test.context.cache.DefaultCacheAwareContextLoaderDelegate.loadContext(DefaultCacheAwareContextLoaderDelegate.java:180)
-	at org.springframework.test.context.support.DefaultTestContext.getApplicationContext(DefaultTestContext.java:130)
-	at org.springframework.test.context.support.DependencyInjectionTestExecutionListener.injectDependencies(DependencyInjectionTestExecutionListener.java:142)
-	at org.springframework.test.context.support.DependencyInjectionTestExecutionListener.prepareTestInstance(DependencyInjectionTestExecutionListener.java:98)
-	at org.springframework.test.context.TestContextManager.prepareTestInstance(TestContextManager.java:260)
-	at org.springframework.test.context.junit.jupiter.SpringExtension.postProcessTestInstance(SpringExtension.java:163)
-	at java.base/java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:197)
-	at java.base/java.util.stream.ReferencePipeline$2$1.accept(ReferencePipeline.java:179)
-	at java.base/java.util.ArrayList$ArrayListSpliterator.forEachRemaining(ArrayList.java:1708)
-	at java.base/java.util.stream.AbstractPipeline.copyInto(AbstractPipeline.java:509)
-	at java.base/java.util.stream.AbstractPipeline.wrapAndCopyInto(AbstractPipeline.java:499)
-	at java.base/java.util.stream.StreamSpliterators$WrappingSpliterator.forEachRemaining(StreamSpliterators.java:310)
-	at java.base/java.util.stream.Streams$ConcatSpliterator.forEachRemaining(Streams.java:735)
-	at java.base/java.util.stream.Streams$ConcatSpliterator.forEachRemaining(Streams.java:734)
-	at java.base/java.util.stream.ReferencePipeline$Head.forEach(ReferencePipeline.java:762)
-	at java.base/java.util.Optional.orElseGet(Optional.java:364)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'pcapMultiCacheableAdvice': Unsatisfied dependency expressed through field 'isMetricsEnabled': Failed to convert value of type 'java.lang.String' to required type 'boolean'; Invalid boolean value [${cache.metrics.enabled}]
-	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:787)
-	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.inject(AutowiredAnnotationBeanPostProcessor.java:767)
-	at org.springframework.beans.factory.annotation.InjectionMetadata.inject(InjectionMetadata.java:145)
-	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor.postProcessProperties(AutowiredAnnotationBeanPostProcessor.java:508)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1419)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:599)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:522)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326)
-	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
-	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:975)
-	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:962)
-	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:624)
-	at org.springframework.test.context.support.AbstractGenericContextLoader.loadContext(AbstractGenericContextLoader.java:221)
-	at org.springframework.test.context.support.AbstractGenericContextLoader.loadContext(AbstractGenericContextLoader.java:110)
-	at org.springframework.test.context.support.AbstractDelegatingSmartContextLoader.loadContext(AbstractDelegatingSmartContextLoader.java:212)
-	at org.springframework.test.context.cache.DefaultCacheAwareContextLoaderDelegate.loadContextInternal(DefaultCacheAwareContextLoaderDelegate.java:225)
-	at org.springframework.test.context.cache.DefaultCacheAwareContextLoaderDelegate.loadContext(DefaultCacheAwareContextLoaderDelegate.java:152)
-	... 17 more
-Caused by: org.springframework.beans.TypeMismatchException: Failed to convert value of type 'java.lang.String' to required type 'boolean'; Invalid boolean value [${cache.metrics.enabled}]
-	at org.springframework.beans.TypeConverterSupport.convertIfNecessary(TypeConverterSupport.java:87)
-	at org.springframework.beans.TypeConverterSupport.convertIfNecessary(TypeConverterSupport.java:71)
-	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1381)
-	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1353)
-	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:784)
-	... 35 more
-Caused by: java.lang.IllegalArgumentException: Invalid boolean value [${cache.metrics.enabled}]
-	at org.springframework.beans.propertyeditors.CustomBooleanEditor.setAsText(CustomBooleanEditor.java:154)
-	at org.springframework.beans.TypeConverterDelegate.doConvertTextValue(TypeConverterDelegate.java:439)
-	at org.springframework.beans.TypeConverterDelegate.doConvertValue(TypeConverterDelegate.java:412)
-	at org.springframework.beans.TypeConverterDelegate.convertIfNecessary(TypeConverterDelegate.java:161)
-	at org.springframework.beans.TypeConverterSupport.convertIfNecessary(TypeConverterSupport.java:80)
-	... 39 more
-
