@@ -1,313 +1,148 @@
-package com.personalcapital.cache.aop;
-
-import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
-import org.apache.commons.lang3.ObjectUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.aspectj.lang.ProceedingJoinPoint;
-import org.aspectj.lang.annotation.Around;
-import org.aspectj.lang.annotation.Aspect;
-import org.springframework.aop.AopInvocationException;
-import org.springframework.beans.PropertyAccessorFactory;
-import org.springframework.context.EmbeddedValueResolverAware;
-import org.springframework.core.annotation.Order;
-import org.springframework.util.StringValueResolver;
-
-import com.personalcapital.cache.annotation.PcapCacheable;
-import com.personalcapital.cache.annotation.RedisType;
-import com.personalcapital.cache.aop.support.AnnotationOrderConstants;
-import com.personalcapital.cache.aop.support.CacheAdviceHelper;
-import com.personalcapital.cache.aop.support.CacheKeyProvider;
-import com.personalcapital.cache.utils.CacheUtils;
-import com.personalcapital.log.PcapLogger;
-import com.personalcapital.log.PcapLoggerFactory;
-import com.safepage.util.Utils;
-import io.micrometer.core.instrument.Metrics;
-
-@Aspect
-@Order(AnnotationOrderConstants.CACHE_MULTI_CACHING_PRECEDENCE)
-public class PcapCacheableAdvice extends CacheAdviceCommons implements EmbeddedValueResolverAware
-{
-	private static final PcapLogger logger = PcapLoggerFactory
-			.getPcapLogger(PcapCacheableAdvice.class);
-
-	private StringValueResolver stringValueResolver;
-
-	private static final String METRIC_NAME = "pcap.cache.event";
-
-	void publishCacheMetrics(ProceedingJoinPoint pjp, String outcome)
+@Override
+	@PcapCacheable(value = "historicalQuote", keyProvider = QuoteCacheKeyProvider.class)
+	public List<Quote> getHistoricalValuesAsOf(SecurityId securityId, Date endDate,
+			String periodType, Long periods)
 	{
-		boolean isMetricsEnabled = Boolean
-				.parseBoolean(System.getProperty("cache.metrics.enabled", "true"));
-		if (!isMetricsEnabled)
+		if (securityId == null)
+			return null;
+		String symbol = securityId.getSymbol();
+		if (Utils.isNotNull(symbol) && QuoteService.PCAP_CUSTOM_INDICES_MAP.containsKey(symbol))
 		{
-			logger.info("Cache metrics are disabled, skipping metrics publication");
-			return;
-		}
-		String className = getClassName(pjp);
-		String methodName = getMethodName(pjp);
+			SecurityId underlyingSecurityId = QuoteService.PCAP_CUSTOM_INDICES_MAP
+					.get(securityId.getSymbol());
+			log("getHistoricalValuesAsOf", securityId.getSymbol(), endDate, periodType, periods);
 
-		Metrics.counter(METRIC_NAME, "class", className, "method", methodName, "outcome", outcome)
-				.increment();
-		logger.info("Publishing cache metrics - Class: {}, Method: {}, Outcome: {}", className,
-				methodName, outcome);
+			List<Quote> underlyingQuotes = backingQuoteService
+					.getHistoricalValuesAsOf(underlyingSecurityId, endDate, periodType, periods);
+
+			log(symbol, endDate, periods, underlyingQuotes);
+
+			if (underlyingQuotes == null)
+				return null;
+
+			return QuoteServiceUtils.getQuote(securityId, underlyingQuotes);
+		}
+		else if (CryptoCurrencyUtils.isCryptoHolding(securityId.getSymbol()))
+		{
+			log(securityId, endDate, true, "historyValueAsOf");
+			if (!cryptoCacheUtils.isCryptoSymbolSupported(securityId))
+			{
+				log(securityId, "getHistoricalValuesAsOf");
+				return null;
+			}
+			List<Quote> quotes = this.cryptoCompareQuoteService.getHistoricalValuesAsOf(securityId,
+					endDate, periodType, periods);
+			log(securityId, endDate, false, "historyValueAsOf");
+			return quotes;
+		}
+		else
+			return backingQuoteService.getHistoricalValuesAsOf(securityId, endDate, periodType,
+					periods);
 	}
 
-	private String getClassName(ProceedingJoinPoint pjp)
+	protected void log(String symbol, Date endDate, Long periods, List<Quote> underlyingQuotes)
 	{
-		return pjp.getTarget()
-				.getClass()
-				.getSimpleName();
+		// logging for PFM-11304 - issue only happen when period=364, and underlyingQuotes sz=252
+		if (QuoteService.DEFAULT_INDEX_SYMBOLS_LIST_NEW.contains(symbol)
+				&& (periods > 360 || underlyingQuotes.size() > 250))
+		{
+			int quoteListSz = underlyingQuotes.size();
+			logger.info(
+					"AnnotatedCachingQuoteService/getHistoricalValuesAsOf for ticker:{}, endDate:{},"
+							+ " periods:{}, underlyingQuotes sz:{}",
+					symbol, endDate, periods, quoteListSz);
+			Quote quote0 = underlyingQuotes.get(0);
+			Quote quote1 = underlyingQuotes.get(1);
+			Quote quote3rdLast = underlyingQuotes.get(quoteListSz - 3);
+			Quote quote2ndLast = underlyingQuotes.get(quoteListSz - 2);
+			Quote quoteLast = underlyingQuotes.get(quoteListSz - 1);
+			logger.info(
+					"AnnotatedCachingQuoteService/getHistoricalValuesAsOf for ticker:{}, quote0 date:{}, quote0 price:{},"
+							+ " quote1 date:{}, quote1 price:{}, quote3rdLast date:{}, quote3rdLast price:{}, "
+							+ " quote2ndLast date:{}, quote2ndLast price:{}, "
+							+ " quoteLast date:{}, quoteLast price:{}",
+					symbol, quote0.getDate(), quote0.getLast(), quote1.getDate(), quote1.getLast(),
+					quote3rdLast.getDate(), quote3rdLast.getLast(), quote2ndLast.getDate(),
+					quote2ndLast.getLast(), quoteLast.getDate(), quoteLast.getLast());
+		}
 	}
 
-	private String getMethodName(ProceedingJoinPoint pjp)
+	private void log(String method, String symbol, Date endDate, String periodType, Long periods)
 	{
-		return pjp.getSignature()
-				.getName();
+		logger.info(method + " [symbol:{},endDate:{},periodType:{},periods:{}]", symbol, endDate,
+				periodType, periods);
 	}
 
-	@Around("@annotation(pcapCacheable)")
-	public Object doPcapCacheable(ProceedingJoinPoint pjp, PcapCacheable pcapCacheable)
-			throws Throwable
+	private void log(SecurityId securityId, Date date, boolean isStartMsg, String reason)
 	{
-		Method method = null;
-		Object[] args = pjp.getArgs();
-		Class<?> returnType = null;
-
-		Collection<Object> keyArgs = null;
-
-		String resultKeyField = pcapCacheable.resultKeyField();
-		String[] resultKeyFields = pcapCacheable.resultKeyFields();
-
-		boolean cachedValueNullable = pcapCacheable.nullable();
-		String keyPrefix = pcapCacheable.keyPrefix();
-		CacheKeyProvider cacheKeyProvider = null;
-		// get type of cache: default or redis or simple from annotation
-		String cacheName = pcapCacheable.value();
-		RedisType redisType = pcapCacheable.redisType();
-		String key = "";
-		if (StringUtils.isBlank(cacheName))
+		if (isStartMsg)
 		{
-			throw new AopInvocationException(
-					"PcapCacheable needs to have cacheName specified in value element.");
+			logger.info(
+					"Crypto before {} [exchangeCode:{},securityId:{},ticker:{},date:{},dummy:leftblank]",
+					reason, securityId.getExchangeCode(), securityId.getSourceAssetId(),
+					securityId.getTicker(), date);
 		}
-
-		try
+		else
 		{
-			cacheKeyProvider = pcapCacheable.keyProvider()
-					.getDeclaredConstructor()
-					.newInstance();
-			method = CacheAdviceHelper.getMethod(pjp);
-			returnType = method.getReturnType();
-
-			// check expected return type
-			if (returnType.equals(Void.TYPE))
-			{
-				throw new AopInvocationException(
-						"PcapCacheable cannot apply to method without return.");
-			}
-
-			// check if keyIndices are provided for keyName generation
-			int[] keyIndice = pcapCacheable.keys();
-
-			// get Arguments to generate key
-			if (args == null || args.length == 0)
-			{
-				key = CacheUtils.generateKey(cacheName, keyPrefix, null);
-			}
-			else
-			{
-				keyArgs = new ArrayList<Object>();
-				if (keyIndice == null || keyIndice.length == 0)
-				{
-					for (int i = 0; i < args.length; i++)
-					{
-						Object arg = args[i];
-						keyArgs.add(cacheKeyProvider.getKeyField(arg));
-					}
-				}
-				else
-				{
-					// if we provide a list of indices for the args that have to be used for keys,
-					// use
-					// this to generate keys
-					for (int keyIndex : keyIndice)
-					{
-						if (keyIndex >= args.length)
-							continue;
-
-						Object arg = args[keyIndex];
-
-						keyArgs.add(cacheKeyProvider.getKeyField(arg));
-					}
-				}
-
-				// get key generated from all values gathered so far
-				key = CacheUtils.generateKey(cacheName, keyPrefix, keyArgs);
-			}
-			// get cachedValue
-			Object cachedValue = getRedisson(redisType).getBucket(key)
-					.get();
-			if (!(cachedValue == null
-					|| (cachedValue instanceof ObjectUtils.Null && cachedValueNullable == false)))
-			{
-				publishCacheMetrics(pjp, "hit");
-				return CacheUtils.getValue(cachedValue);
-			}
+			logger.info(
+					"Crypto after {} [exchangeCode:{},securityId:{},ticker:{},date:{},dummy:leftblank]",
+					reason, securityId.getExchangeCode(), securityId.getSourceAssetId(),
+					securityId.getTicker(), date);
 		}
-		catch (Exception ex)
-		{
-			logger.info("Caching on {} aborted due to an error. message: {}. stacktrace: {}",
-					pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
-			publishCacheMetrics(pjp, "failure");
-			// PLAT-849 evictFrom redis on exception and proceeds to populate in subsequent call
-			if (!evictFromRedis(redisType, key))
-			{
-				// if eviction fails we fetch from db and return
-				return pjp.proceed();
-			}
-		}
-
-		final Object resultItemForMissed = pjp.proceed(args);
-		publishCacheMetrics(pjp, "miss");
-
-		if (resultItemForMissed == null && cachedValueNullable == false)
-		{
-			return resultItemForMissed;
-		}
-
-		int ttl = pcapCacheable.ttlSeconds();
-		final String ttlExpression = pcapCacheable.ttlExpression();
-
-		int ttlSeconds = resolveTtl(ttlExpression, cacheName, ttl);
-
-		try
-		{
-			// check if something from the result has to be used as part of the key.
-			if (Utils.isNotNull(resultKeyField)
-					|| (resultKeyFields != null && resultKeyFields.length > 0))
-			{
-				// cannot cache null value if result is used for key provider
-				if (resultItemForMissed == null)
-				{
-					return resultItemForMissed;
-				}
-
-				List<Object> keyFieldValues = new ArrayList<Object>();
-
-				if ((resultKeyFields != null && resultKeyFields.length > 0))
-				{
-					// if key is to be derived from result, then get the field from result
-					// using reflection and create the cache key
-					for (int i = 0; i < resultKeyFields.length; i++)
-					{
-						Object keyFieldValue = PropertyAccessorFactory
-								.forBeanPropertyAccess(resultItemForMissed)
-								.getPropertyValue(resultKeyFields[i]);
-						keyFieldValues.add(cacheKeyProvider.getKeyField(keyFieldValue));
-					}
-				}
-				else
-				{// is only one is property is given use that value for key directly
-					Object keyFieldValue = PropertyAccessorFactory
-							.forBeanPropertyAccess(resultItemForMissed)
-							.getPropertyValue(resultKeyField);
-
-					if (keyFieldValue != null)
-					{
-						keyFieldValues.add(cacheKeyProvider.getKeyField(keyFieldValue));
-					}
-				}
-
-				// genearteKey and add the item fetched from db.
-				if (keyFieldValues.size() > 0)
-				{
-					String cacheKey = CacheUtils.generateKey(cacheName, keyPrefix, keyFieldValues,
-							keyArgs);
-					getRedisson(redisType).getBucket(cacheKey)
-							.set(resultItemForMissed, ttlSeconds, TimeUnit.SECONDS);
-					publishCacheMetrics(pjp, "store");
-				}
-			}
-			else
-			{
-				String cacheKey = CacheUtils.generateKey(cacheName, keyPrefix, keyArgs);
-				getRedisson(redisType).getBucket(cacheKey)
-						.set(resultItemForMissed == null ? ObjectUtils.NULL : resultItemForMissed,
-								ttlSeconds, TimeUnit.SECONDS);
-				publishCacheMetrics(pjp, "store");
-			}
-		}
-		catch (Exception ex)
-		{
-			logger.info("Caching on {} aborted due to an error. message: {}. stacktrace: {}",
-					pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
-			publishCacheMetrics(pjp, "failure");
-		}
-
-		return resultItemForMissed;
 	}
 
-	private int resolveTtl(String ttlExpression, String cacheName, int ttl)
+	private void log(SecurityId securityId, String method)
 	{
-		Integer fromProperty = null;
-		if (StringUtils.isNotBlank(ttlExpression))
-		{
-			try
-			{
-				String stringValue = stringValueResolver.resolveStringValue(ttlExpression);
-				if (stringValue != null)
-				{
-					fromProperty = Integer.parseInt(stringValue);
-				}
-			}
-			catch (Exception e)
-			{
-				logger.error("Exception resolving ttl {} for cache name {}", ttlExpression,
-						cacheName);
-			}
-		}
-		return fromProperty == null ? getTtlFromConfiguration(cacheName, ttl) : fromProperty;
+		logger.info(
+				"Crypto coin is not supported [exchangeCode:{},securityId:{},ticker:{}, method:{}]",
+				securityId.getExchangeCode(), securityId.getSourceAssetId(), securityId.getTicker(),
+				method);
+	}
+
+	/**
+	 * Redis key: {bhq}:DBC {bhq}:IAU {bhq}:VEU {bhq}:IGOV {bhq}:AGG {bhq}:VNQ {bhq}:VTI
+	 */
+	@Override
+	@DateRangeCacheable(value = BENCHMARK_HISTORICAL_QUOTE_PREFIX_V2, key = "#securityId.symbol", resultKey = "#result.ticker", dateScoreField = "#result.dateObj", ttl = -1)
+	public List<Quote> getHistoricalValuesDuring(@KeyParam("securityId") SecurityId securityId,
+			@FromDate Date startDate, @ToDate Date endDate, String periodType)
+	{
+		return getHistoricalValuesAsOf(securityId, startDate, endDate, periodType);
 	}
 
 	@Override
-	public void setEmbeddedValueResolver(StringValueResolver stringValueResolver)
+	@DateRangeCachePut(value = BENCHMARK_HISTORICAL_QUOTE_PREFIX_V2, key = "#securityId.symbol", resultKey = "#result.ticker", dateScoreField = "#result.dateObj", uniqueId = "#result.dateObj", ttl = -1)
+	public List<Quote> saveHistoricalValuesDuring(@KeyParam("securityId") SecurityId securityId,
+			@FromDate Date startDate, @ToDate Date endDate, String periodType)
 	{
-		this.stringValueResolver = stringValueResolver;
+		return getHistoricalValuesAsOf(securityId, startDate, endDate, periodType);
 	}
-}
 
+	public List<Quote> getHistoricalValuesAsOf(SecurityId securityId, Date startDate, Date endDate,
+			String periodType)
+	{
+		Long periods = Long
+				.valueOf(DateTimeUtils.getDifferenceInDaysWithOutTimeStamp(startDate, endDate));
+		if (securityId == null)
+			return null;
 
-in this above code, can you analyse if the below snippet is correct:
-				// genearteKey and add the item fetched from db.
-				if (keyFieldValues.size() > 0)
-				{
-					String cacheKey = CacheUtils.generateKey(cacheName, keyPrefix, keyFieldValues,
-							keyArgs);
-					getRedisson(redisType).getBucket(cacheKey)
-							.set(resultItemForMissed, ttlSeconds, TimeUnit.SECONDS);
-					publishCacheMetrics(pjp, "store");
-				}
-			}
-			else			
-			{
-				String cacheKey = CacheUtils.generateKey(cacheName, keyPrefix, keyArgs);
-				getRedisson(redisType).getBucket(cacheKey)
-						.set(resultItemForMissed == null ? ObjectUtils.NULL : resultItemForMissed,
-								ttlSeconds, TimeUnit.SECONDS);
-				publishCacheMetrics(pjp, "store");
-			}
-		}
-		catch (Exception ex)
+		if (Utils.isNotNull(securityId.getSymbol())
+				&& QuoteService.PCAP_CUSTOM_INDICES_MAP.containsKey(securityId.getSymbol()))
 		{
-			logger.info("Caching on {} aborted due to an error. message: {}. stacktrace: {}",
-					pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
-			publishCacheMetrics(pjp, "failure");
-		}
+			SecurityId underlyingSecurityId = QuoteService.PCAP_CUSTOM_INDICES_MAP
+					.get(securityId.getSymbol());
+			log("getHistoricalValuesAsOf", underlyingSecurityId, startDate, endDate, periodType);
+			List<Quote> underlyingQuotes = backingQuoteService
+					.getHistoricalValuesAsOf(underlyingSecurityId, endDate, periodType, periods);
+			if (underlyingQuotes == null)
+				return null;
 
-the placement of "publishCacheMetrics(pjp, "store");"
+			return QuoteServiceUtils.getQuote(securityId, underlyingQuotes);
+		}
+		else
+		{
+			log("getHistoricalValuesAsOf", securityId, startDate, endDate, periodType);
+			return backingQuoteService.getHistoricalValuesAsOf(securityId, endDate, periodType,
+					periods);
+		}
+	}
