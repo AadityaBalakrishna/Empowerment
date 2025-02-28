@@ -281,3 +281,33 @@ public class PcapCacheableAdvice extends CacheAdviceCommons implements EmbeddedV
 		this.stringValueResolver = stringValueResolver;
 	}
 }
+
+
+in this above code, can you analyse if the below snippet is correct:
+				// genearteKey and add the item fetched from db.
+				if (keyFieldValues.size() > 0)
+				{
+					String cacheKey = CacheUtils.generateKey(cacheName, keyPrefix, keyFieldValues,
+							keyArgs);
+					getRedisson(redisType).getBucket(cacheKey)
+							.set(resultItemForMissed, ttlSeconds, TimeUnit.SECONDS);
+					publishCacheMetrics(pjp, "store");
+				}
+			}
+			else			
+			{
+				String cacheKey = CacheUtils.generateKey(cacheName, keyPrefix, keyArgs);
+				getRedisson(redisType).getBucket(cacheKey)
+						.set(resultItemForMissed == null ? ObjectUtils.NULL : resultItemForMissed,
+								ttlSeconds, TimeUnit.SECONDS);
+				publishCacheMetrics(pjp, "store");
+			}
+		}
+		catch (Exception ex)
+		{
+			logger.info("Caching on {} aborted due to an error. message: {}. stacktrace: {}",
+					pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
+			publishCacheMetrics(pjp, "failure");
+		}
+
+the placement of "publishCacheMetrics(pjp, "store");"
