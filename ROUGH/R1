@@ -1,1 +1,792 @@
-rough
+package com.personalcapital.cache.aop;
+
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
+import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.Aspect;
+import org.springframework.aop.AopInvocationException;
+import org.springframework.beans.PropertyAccessorFactory;
+import org.springframework.core.annotation.Order;
+import org.springframework.beans.factory.annotation.Value;
+
+import com.personalcapital.cache.annotation.PcapMultiCacheable;
+import com.personalcapital.cache.annotation.RedisType;
+import com.personalcapital.cache.aop.support.AnnotationOrderConstants;
+import com.personalcapital.cache.aop.support.CacheAdviceHelper;
+import com.personalcapital.cache.aop.support.CacheKeyProvider;
+import com.personalcapital.cache.utils.CacheUtils;
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+import com.safepage.util.Utils;
+import io.micrometer.core.instrument.Metrics;
+
+@Aspect
+@Order(AnnotationOrderConstants.CACHE_MULTI_CACHING_PRECEDENCE)
+public class PcapMultiCacheableAdvice extends CacheAdviceCommons
+{
+	private static final PcapLogger logger = PcapLoggerFactory
+			.getPcapLogger(PcapMultiCacheableAdvice.class);
+	private static final String METRICS_NAME = "pcap.cache.event";
+
+	@Value("${cache.metrics.enabled:false}")
+	private boolean isMetricsEnabled;
+
+	void publishCacheMetrics(ProceedingJoinPoint pjp, String outcome)
+	{
+		if (!isMetricsEnabled)
+		{
+			logger.info("Cache metrics are disabled, skipping metrics publication");
+			return;
+		}
+		String className = getClassName(pjp);
+		String methodName = getMethodName(pjp);
+
+		Metrics.counter(METRICS_NAME, "class", className, "method", methodName, "outcome", outcome)
+				.increment();
+		logger.info("Publishing cache metrics - Class: {}, Method: {}, Outcome: {}", className,
+				methodName, outcome);
+	}
+
+	private String getClassName(ProceedingJoinPoint pjp)
+	{
+		return pjp.getTarget()
+				.getClass()
+				.getSimpleName();
+	}
+
+	private String getMethodName(ProceedingJoinPoint pjp)
+	{
+		return pjp.getSignature()
+				.getName();
+	}
+
+	@SuppressWarnings("unchecked")
+	@Around("@annotation(pcapMultiCacheable)")
+	public Object doMultiCacheable(ProceedingJoinPoint pjp, PcapMultiCacheable pcapMultiCacheable)
+			throws Throwable
+	{
+		Method method = null;
+		Object[] args = pjp.getArgs();
+		Class<?> returnType = null;
+		Integer listKeyArgIndex = null;
+		Collection<Object> listKeyArg = new ArrayList<Object>();
+		Collection<Object> otherKeyArgs = new ArrayList<Object>();
+
+		Collection<Object> missedListKeys = null;
+		Object[] modifiedArgs = null;
+		boolean resultIsCollection = true;
+
+		String resultKeyField = pcapMultiCacheable.resultKeyField();
+		String[] resultKeyFields = pcapMultiCacheable.resultKeyFields();
+
+		boolean cachedValueNullable = pcapMultiCacheable.nullable();
+		String keyPrefix = pcapMultiCacheable.keyPrefix();
+		Collection<Object> collectionResult = null;
+		Map<Object, Object> mapResult = null;
+
+		Map<Object, Object> keyValueMap = new LinkedHashMap<>();
+		String cacheName = pcapMultiCacheable.value();
+		RedisType redisType = pcapMultiCacheable.redisType();
+		// get type of cache: default or redis or simple from annotation
+		if (StringUtils.isBlank(cacheName))
+		{
+			throw new AopInvocationException(
+					"pcapMultiCacheable needs to have cacheName specified in value element.");
+		}
+		CacheKeyProvider cacheKeyProvider = pcapMultiCacheable.keyProvider()
+				.getDeclaredConstructor()
+				.newInstance();
+		try
+		{
+			method = CacheAdviceHelper.getMethod(pjp);
+			returnType = method.getReturnType();
+
+			// check expected return type
+			if (Collection.class.isAssignableFrom(returnType))
+			{
+				resultIsCollection = true;
+				collectionResult = collectionInstance((Class<? extends Collection>) returnType);
+			}
+			else if (Map.class.isAssignableFrom(returnType))
+			{
+				resultIsCollection = false;
+				mapResult = mapInstance((Class<? extends Map>) returnType);
+			}
+			else
+			{
+				throw new AopInvocationException(
+						"pcapMultiCacheable cannot apply to method without return.");
+			}
+
+			// check if keyIndices are provided for keyName generation
+			int[] keyIndice = pcapMultiCacheable.keys();
+
+			if (args == null || args.length == 0)
+			{
+				throw new AopInvocationException(
+						"pcapMultiCacheable cannot apply to method without parameter");
+			}
+
+			// get other Arguments to generate key
+			if (keyIndice == null || keyIndice.length == 0)
+			{
+				for (int i = 0; i < args.length; i++)
+				{
+					Object arg = args[i];
+					/*
+					 * if arguments contain a collection, remember the argument number tp extract
+					 * elements for keyName generation later
+					 */
+					if (Collection.class.isInstance(arg)
+							&& Collection.class.isAssignableFrom(arg.getClass()))
+					{
+						listKeyArgIndex = i;
+					}
+					else
+					{
+						otherKeyArgs.add(cacheKeyProvider.getKeyField(arg));
+					}
+				}
+			}
+			else
+			{
+				// if we provide a list of indices for the args that have to be used for keys, use
+				// this to generate keys
+				for (int keyIndex : keyIndice)
+				{
+					if (keyIndex >= args.length)
+						continue;
+
+					Object arg = args[keyIndex];
+					if (Collection.class.isInstance(arg)
+							&& Collection.class.isAssignableFrom(arg.getClass()))
+					{
+						listKeyArgIndex = keyIndex;
+					}
+					else
+					{
+						otherKeyArgs.add(cacheKeyProvider.getKeyField(arg));
+					}
+				}
+			}
+
+			if (listKeyArgIndex == null)
+			{
+				throw new AopInvocationException(
+						"pcapMultiCacheable must have a Collection parameter as key list");
+			}
+
+			// get the collection arg to generate keys
+			listKeyArg = (Collection<Object>) args[listKeyArgIndex];
+			for (Object listKey : listKeyArg)
+			{
+				// get key generated from all values gathered so far from pcapMultiCacheable
+				String key = CacheUtils.generateKey(cacheName, keyPrefix,
+						cacheKeyProvider.getKeyField(listKey), otherKeyArgs);
+				// get cachedValue
+				Object cachedValue = getRedisson(redisType).getBucket(key)
+						.get();
+				if (cachedValue == null || (cachedValue instanceof ObjectUtils.Null
+						&& cachedValueNullable == false))
+				{
+					if (missedListKeys == null)
+					{
+						// create an empty collection of type of expected cachedValues
+						missedListKeys = collectionInstance(listKeyArg.getClass());
+					}
+
+					// create a collection of keys with no cachedValues
+					((Collection<Object>) missedListKeys).add(listKey);
+					publishCacheMetrics(pjp, "miss");
+				}
+				else
+				{
+					// write keys and corresponding cached values to a keyValue Map
+					((Map<Object, Object>) keyValueMap).put(listKey,
+							CacheUtils.getValue(cachedValue));
+					publishCacheMetrics(pjp, "hit");
+				}
+			}
+
+			// if there are no missed keys just return all the values fetched from cache
+			if (missedListKeys == null || missedListKeys.isEmpty())
+			{
+				if (resultIsCollection)
+					return getCollectionResult(listKeyArg, keyValueMap, collectionResult);
+				else
+					return getMapResult(listKeyArg, keyValueMap, mapResult);
+			}
+
+			// here we update the arguments for the method to only get those records from the db for
+			// which we didn't find an entry in the cache.
+			modifiedArgs = modifiedArgs(args, listKeyArgIndex, missedListKeys);
+		}
+		catch (Exception ex)
+		{
+			logger.info("Caching on {} aborted due to an error. message: {}. stacktrace: {}",
+					pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
+			publishCacheMetrics(pjp, "failure");
+			try
+			{
+				final CacheKeyProvider finalCacheKeyProvider = cacheKeyProvider;
+				final Collection<Object> finalOtherKeyArgs = otherKeyArgs;
+				List<String> keys = listKeyArg.stream()
+						.filter(k -> Objects.nonNull(k))
+						.map(k -> CacheUtils.generateKey(cacheName, keyPrefix,
+								finalCacheKeyProvider.getKeyField(k), finalOtherKeyArgs))
+						.collect(Collectors.toList());
+				if (!evictFromRedis(redisType, keys))
+				{
+					// if eviction fails we fetch from db and return
+					return pjp.proceed();
+				}
+			}
+			catch (Exception e)
+			{
+				logger.info("Eviction on caching failure failed on {}, due to: {}, stacktrace: {}",
+						pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
+				publishCacheMetrics(pjp, "eviction_failure");
+			}
+			// since we evict all the keys we want to fetch and save all the keys again
+			modifiedArgs = args;
+		}
+
+		/*
+		 * so far we have created a key and gotten the corresponding cached values for these keys we
+		 * also have a list of all the keys for which we don't have a value.
+		 */
+		final Object resultForMissed = pjp.proceed(modifiedArgs);
+
+		int ttlSeconds = getTtlFromConfiguration(cacheName, pcapMultiCacheable.ttlSeconds());
+
+		// we now have all the missing collection/data from the database
+		try
+		{
+			if (resultIsCollection)
+			{
+				// get all the newly fetched data
+				Collection<Object> collectionResultForMissed = (Collection<Object>) resultForMissed;
+
+				// check if something from the result has to be used as part of the key.
+				if (Utils.isNotNull(resultKeyField)
+						|| (resultKeyFields != null && resultKeyFields.length > 0))
+				{
+					Collection<Object> mergedResult = getCollectionResult(listKeyArg, keyValueMap,
+							collectionResult);
+
+					// if nothing new was found for the missed keys, just return the existing
+					// collection
+					if (collectionResultForMissed == null || collectionResultForMissed.isEmpty())
+						return mergedResult;
+
+					List<Object> keyFieldValues = new ArrayList<Object>();
+
+					for (Object resultItemForMissed : collectionResultForMissed)
+					{
+						if (resultItemForMissed == null)
+							continue;
+
+						keyFieldValues.clear();
+						if ((resultKeyFields != null && resultKeyFields.length > 0))
+						{
+							// if key is to be derived from result, then get the field from result
+							// using reflection and create the cache key
+							for (int i = 0; i < resultKeyFields.length; i++)
+							{
+								Object keyFieldValue = PropertyAccessorFactory
+										.forBeanPropertyAccess(resultItemForMissed)
+										.getPropertyValue(resultKeyFields[i]);
+								keyFieldValues.add(cacheKeyProvider.getKeyField(keyFieldValue));
+							}
+						}
+						else
+						{// is only one is property is given use that value for key directly
+							Object keyFieldValue = PropertyAccessorFactory
+									.forBeanPropertyAccess(resultItemForMissed)
+									.getPropertyValue(resultKeyField);
+
+							if (keyFieldValue != null)
+							{
+								keyFieldValues.add(cacheKeyProvider.getKeyField(keyFieldValue));
+							}
+						}
+
+						// genearteKey and add the item fetched from db.
+						if (keyFieldValues.size() > 0)
+						{
+							String cacheKey = CacheUtils.generateKey(cacheName, keyPrefix,
+									keyFieldValues, otherKeyArgs);
+							getRedisson(redisType).getBucket(cacheKey)
+									.set(resultItemForMissed, ttlSeconds, TimeUnit.SECONDS);
+							publishCacheMetrics(pjp, "store");
+						}
+						// add found item to resultant collection from cache+db that has to be
+						// returned
+						mergedResult.add(resultItemForMissed);
+					}
+
+					return mergedResult;
+				}
+
+				// if all the generated keys don't have a corresponding value, just generate a list
+				// for the ones that do have it
+				if (collectionResultForMissed == null
+						|| collectionResultForMissed.size() != missedListKeys.size())
+				{
+					logger.warn(
+							"Did not receive a correlated amount of data from the target method: {}. "
+									+ "Result list will be unsorted and won't respect the order of the keys passed in argument.",
+							pjp.toShortString());
+					publishCacheMetrics(pjp, "data_mismatch");
+					Collection<Object> resultFromHit = getCollectionResult(listKeyArg, keyValueMap,
+							collectionResult);
+					if (collectionResultForMissed != null)
+					{
+						collectionResultForMissed.addAll(resultFromHit);
+						return collectionResultForMissed;
+					}
+					return resultFromHit;
+				}
+
+				// if no property of the resulting objects from the object collection has to be used
+				// as part of they key, simply iterate over the missedKeys and missed Values and
+				// create a resultant collection and return it.
+
+				Iterator<Object> missedValueIterator = collectionResultForMissed.iterator();
+				Iterator<Object> missedKeyIterator = missedListKeys.iterator();
+
+				while (missedKeyIterator.hasNext())
+				{
+					Object key = missedKeyIterator.next();
+					Object value = missedValueIterator.next();
+
+					if (value != null || cachedValueNullable)
+					{
+						String cacheKey = CacheUtils.generateKey(cacheName, keyPrefix,
+								cacheKeyProvider.getKeyField(key), otherKeyArgs);
+						getRedisson(redisType).getBucket(cacheKey)
+								.set(value == null ? ObjectUtils.NULL : value, ttlSeconds,
+										TimeUnit.SECONDS);
+						publishCacheMetrics(pjp, "store");
+					}
+
+					keyValueMap.put(key, value);
+				}
+
+				// return a collection of missing objects
+				return getCollectionResult(listKeyArg, keyValueMap, collectionResult);
+			}
+			else
+			{
+				// if result is a map and not a collection
+				Map<Object, Object> mapResultForMissed = (Map<Object, Object>) resultForMissed;
+				Map<Object, Object> mergedResult = getMapResult(listKeyArg, keyValueMap, mapResult);
+				if (mapResultForMissed == null || mapResultForMissed.isEmpty())
+				{
+					return mergedResult;
+				}
+
+				Iterator<Object> missedKeyIterator = missedListKeys.iterator();
+
+				while (missedKeyIterator.hasNext())
+				{
+					Object key = missedKeyIterator.next();
+					Object value = mapResultForMissed.get(key);
+
+					if (value != null || cachedValueNullable)
+					{
+						String cacheKey = CacheUtils.generateKey(cacheName, keyPrefix,
+								cacheKeyProvider.getKeyField(key), otherKeyArgs);
+						getRedisson(redisType).getBucket(cacheKey)
+								.set(value == null ? ObjectUtils.NULL : value, ttlSeconds,
+										TimeUnit.SECONDS);
+						publishCacheMetrics(pjp, "store");
+					}
+
+					mergedResult.put(key, value);
+				}
+
+				return mergedResult;
+			}
+		}
+		catch (Exception ex)
+		{
+			logger.info("Caching on {} aborted due to an error. message: {}. stacktrace: {}",
+					pjp.toShortString(), ex.getMessage(), ExceptionUtils.getStackTrace(ex));
+			publishCacheMetrics(pjp, "failure");
+
+			return pjp.proceed();
+		}
+	}
+
+	private Object[] modifiedArgs(final Object[] originalArgs, int listKeyIndex,
+			Collection<Object> missedListKeys)
+	{
+		Object[] modifiedArgs = new Object[originalArgs.length];
+		System.arraycopy(originalArgs, 0, modifiedArgs, 0, originalArgs.length);
+
+		modifiedArgs[listKeyIndex] = missedListKeys;
+		return modifiedArgs;
+	}
+
+	private Collection<Object> getCollectionResult(Collection<Object> listKeyArg,
+			Map<Object, Object> keyValueMap, Collection<Object> collectionResult)
+	{
+		collectionResult.clear();
+
+		for (Object listKey : listKeyArg)
+		{
+			if (keyValueMap.containsKey(listKey))
+				collectionResult.add(keyValueMap.get(listKey));
+		}
+
+		return collectionResult;
+	}
+
+	/**
+	 * get list of arguments and results for map and create a resultant merged cache+db map
+	 * 
+	 * @param listKeyArg
+	 * @param keyValueMap
+	 * @param mapResult
+	 * @return
+	 */
+	private Map<Object, Object> getMapResult(Collection<Object> listKeyArg,
+			Map<Object, Object> keyValueMap, Map<Object, Object> mapResult)
+	{
+		mapResult.clear();
+
+		for (Object listKey : listKeyArg)
+		{
+			if (keyValueMap.containsKey(listKey))
+				mapResult.put(listKey, keyValueMap.get(listKey));
+		}
+
+		return mapResult;
+	}
+
+	/**
+	 * return a new collection instance with a given type
+	 * 
+	 * @param listType
+	 * @return
+	 */
+	private Collection<Object> collectionInstance(Class<? extends Collection> listType)
+	{
+		Collection<Object> listInstance;
+
+		try
+		{
+			listInstance = listType.getDeclaredConstructor()
+					.newInstance();
+		}
+		catch (Throwable e)
+		{
+			listInstance = new ArrayList<>();
+		}
+
+		return listInstance;
+	}
+
+	/**
+	 * return a new map instance of map type with given non-generic types
+	 * 
+	 * @param mapType
+	 * @return
+	 */
+	private Map<Object, Object> mapInstance(Class<? extends Map> mapType)
+	{
+		Map<Object, Object> mapInstance;
+
+		try
+		{
+			mapInstance = mapType.getDeclaredConstructor()
+					.newInstance();
+		}
+		catch (Throwable e)
+		{
+			mapInstance = new LinkedHashMap<>();
+		}
+
+		return mapInstance;
+	}
+}
+
+package com.personalcapital.cache.aop;
+
+import com.personalcapital.cache.annotation.PcapMultiCacheable;
+import com.personalcapital.cache.annotation.RedisType;
+import com.personalcapital.cache.aop.support.CacheAdviceHelper;
+import com.personalcapital.cache.aop.support.CacheKeyProvider;
+import com.personalcapital.cache.utils.CacheConstants;
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.Signature;
+import org.junit.jupiter.api.*;
+import org.mockito.*;
+import org.redisson.api.RBucket;
+import org.redisson.api.RKeys;
+import org.redisson.api.RedissonClient;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
+
+import java.util.*;
+
+import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
+
+@Disabled("This Test Class is only for Local Verification of Datadog metric publishing")
+@SpringJUnitConfig(locations = "classpath:cachePushAdviceTest-Context.xml")
+public class PcapMultiCacheableAdviceMetricsTest
+{
+	@InjectMocks
+	@Spy
+	@Autowired
+	private PcapMultiCacheableAdvice cacheAdvice;
+
+	private SimpleMeterRegistry meterRegistry;
+	private PcapMultiCacheable mockAnnotation;
+
+	@Autowired
+	@Qualifier(CacheConstants.REDISSON_REGULAR)
+	private RedissonClient redissonClient;
+
+	private static final PcapLogger logger = PcapLoggerFactory
+			.getPcapLogger(PcapMultiCacheableAdviceMetricsTest.class);
+	private static MockedStatic<CacheAdviceHelper> mockedCacheAdviceHelper;
+
+	@BeforeAll
+	static void initMockedStatic()
+	{
+		mockedCacheAdviceHelper = mockStatic(CacheAdviceHelper.class);
+	}
+
+	@BeforeEach
+	void setUp() throws NoSuchMethodException
+	{
+		MockitoAnnotations.openMocks(this);
+		meterRegistry = new SimpleMeterRegistry();
+		Metrics.addRegistry(meterRegistry);
+
+		redissonClient = mock(RedissonClient.class);
+		RBucket<Object> mockBucket = mock(RBucket.class);
+		doReturn(redissonClient).when(cacheAdvice)
+				.getRedisson(RedisType.GEN);
+		when(redissonClient.getBucket(anyString())).thenReturn(mockBucket);
+
+		mockAnnotation = mock(PcapMultiCacheable.class);
+		when(mockAnnotation.value()).thenReturn("testCache");
+		when(mockAnnotation.keys()).thenReturn(new int[]
+		{
+				0
+		});
+		when(mockAnnotation.keyPrefix()).thenReturn("prefix");
+		when(mockAnnotation.redisType()).thenReturn(RedisType.GEN);
+		when(mockAnnotation.keyProvider()).thenAnswer(invocation -> DummyCacheKeyProvider.class);
+
+		mockedCacheAdviceHelper
+				.when(() -> CacheAdviceHelper.getMethod(any(ProceedingJoinPoint.class)))
+				.thenReturn(DummyClass.class.getMethod("dummyMethod"));
+	}
+
+	@Test
+	void testCacheMissAndDataMismatchMetric() throws Throwable
+	{
+		ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+		when(redissonClient.getBucket(anyString())
+				.get()).thenReturn(null);
+		when(mockProceedingJoinPoint().proceed())
+				.thenReturn(Collections.singletonList("dbFetchedValue"));
+
+		executeAndVerifyMetrics(pjp, "miss", "data_mismatch");
+	}
+
+	@Test
+	void testCacheHitMetric() throws Throwable
+	{
+		ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+		when(redissonClient.getBucket(anyString())
+				.get()).thenReturn("cachedValue");
+
+		executeAndVerifyMetrics(pjp, "hit");
+	}
+
+	@Test
+	void testCacheFailureAndDataMismatchMetric() throws Throwable
+	{
+		ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+		mockedCacheAdviceHelper
+				.when(() -> CacheAdviceHelper.getMethod(any(ProceedingJoinPoint.class)))
+				.thenReturn(DummyClass.class.getMethod("failingDummyMethod"));
+
+		when(mockProceedingJoinPoint().proceed()).thenThrow(new RuntimeException("Forced Failure"));
+		executeAndVerifyMetrics(pjp, "failure", "data_mismatch");
+	}
+
+	@Test
+	void testCacheMissAndCacheDataStoreMetric() throws Throwable
+	{
+		ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+		when(redissonClient.getBucket(anyString())
+				.get()).thenReturn(null);
+
+		List<String> expectedDbValues = List.of("dbFetchedValue");
+		when(pjp.proceed(any())).thenReturn(expectedDbValues);
+
+		RBucket<Object> mockBucket = mock(RBucket.class);
+		when(redissonClient.getBucket(anyString())).thenReturn(mockBucket);
+		doNothing().when(mockBucket)
+				.set(any(), anyLong(), any());
+		executeAndVerifyMetrics(pjp, "store", "miss");
+	}
+
+	@Test
+	void testDataEvictionMetric() throws Throwable
+	{
+		ProceedingJoinPoint pjp = mockProceedingJoinPoint();
+		try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class))
+		{
+			Counter mockCounter = mock(Counter.class);
+			mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
+					.thenReturn(mockCounter);
+
+			when(pjp.proceed()).thenThrow(new RuntimeException("Forced Failure"));
+
+			RedissonClient mockRedisson = mock(RedissonClient.class);
+			when(cacheAdvice.getRedisson(RedisType.GEN)).thenReturn(mockRedisson);
+
+			RKeys mockKeys = mock(RKeys.class);
+			when(mockRedisson.getKeys()).thenReturn(mockKeys);
+
+			doThrow(new RuntimeException("Eviction Failed")).when(mockKeys)
+					.delete(any(String[].class));
+
+			Object result;
+			try
+			{
+				result = cacheAdvice.doMultiCacheable(pjp, mockAnnotation);
+			}
+			catch (Exception ignored)
+			{
+				result = Collections.emptyList();
+			}
+			ArgumentCaptor<String> outcomeCaptor = ArgumentCaptor.forClass(String.class);
+
+			assertNotNull(result);
+
+			mockedMetrics.verify(() -> Metrics.counter(eq("pcap.cache.event"), eq("class"),
+					eq("PcapMultiCacheableAdvice"), eq("method"), eq("dummyMethod"), eq("outcome"),
+					outcomeCaptor.capture()), atLeastOnce());
+
+			List<String> capturedMetrics = outcomeCaptor.getAllValues();
+			logger.info("Captured Metrics: {}", capturedMetrics);
+
+			assertTrue(capturedMetrics.contains("failure"));
+			assertTrue(capturedMetrics.contains("eviction_failure"));
+			verify(mockCounter, atLeastOnce()).increment();
+		}
+	}
+
+	private void executeAndVerifyMetrics(ProceedingJoinPoint pjp, String... expectedMetrics)
+			throws Throwable
+	{
+		try (MockedStatic<Metrics> mockedMetrics = mockStatic(Metrics.class))
+		{
+			Counter mockCounter = mock(Counter.class);
+			mockedMetrics.when(() -> Metrics.counter(anyString(), any(String[].class)))
+					.thenReturn(mockCounter);
+
+			Object result = cacheAdvice.doMultiCacheable(pjp, mockAnnotation);
+			ArgumentCaptor<String> outcomeCaptor = ArgumentCaptor.forClass(String.class);
+
+			assertNotNull(result);
+			mockedMetrics.verify(() -> Metrics.counter(eq("pcap.cache.event"), eq("class"),
+					eq("PcapMultiCacheableAdvice"), eq("method"), eq("dummyMethod"), eq("outcome"),
+					outcomeCaptor.capture()), atLeastOnce());
+
+			List<String> capturedMetrics = outcomeCaptor.getAllValues();
+			logger.info("Captured Metrics: {}", capturedMetrics);
+
+			for (String expectedMetric : expectedMetrics)
+			{
+				assertTrue(capturedMetrics.contains(expectedMetric));
+			}
+			verify(mockCounter, atLeastOnce()).increment();
+		}
+	}
+
+	private ProceedingJoinPoint mockProceedingJoinPoint() throws Throwable
+	{
+		ProceedingJoinPoint pjp = mock(ProceedingJoinPoint.class);
+		Signature mockSignature = mock(Signature.class);
+		when(pjp.getTarget()).thenReturn(cacheAdvice);
+		when(pjp.getSignature()).thenReturn(mockSignature);
+		when(mockSignature.getName()).thenReturn("dummyMethod");
+		when(pjp.getArgs()).thenReturn(new Object[]
+		{
+				Collections.singletonList("key1")
+		});
+		when(pjp.proceed()).thenReturn(Collections.singletonList("dbFetchedValue"));
+		return pjp;
+	}
+
+	public static class DummyClass
+	{
+		public static Collection<String> dummyMethod()
+		{
+			return Collections.emptyList();
+		}
+
+		public void failingDummyMethod()
+		{
+			throw new RuntimeException("Forced Failure");
+		}
+	}
+
+	public static class DummyCacheKeyProvider implements CacheKeyProvider
+	{
+		@Override
+		public Object getKeyField(Object value)
+		{
+			return value != null ? value.toString() : "null";
+		}
+	}
+
+	@AfterAll
+	static void releaseMockedStatic()
+	{
+		if (mockedCacheAdviceHelper != null)
+		{
+			mockedCacheAdviceHelper.close();
+			mockedCacheAdviceHelper = null;
+		}
+	}
+
+	@AfterEach
+	void cleanRedis()
+	{
+		if (redissonClient != null)
+		{
+			redissonClient.shutdown();
+		}
+	}
+}
