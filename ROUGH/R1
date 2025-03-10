@@ -1,3 +1,7 @@
+As part of my current task, I am adding a feature in the pcap-server AOP to track caching metrics for methods in pcap-qoute annotated with @PcapMultiCacheable or @PcapCacheable. These metrics will register counts and be displayed in the Datadog monitor.
+
+I wanted to check if the QA team has any existing automation scripts for pcap-qoute that could help validate this feature. If not, do they have automation scripts for any other related applications that might be leveraged for this purpose? 
+
 ARG JDK_BASE_IMAGE=
 FROM ${JDK_BASE_IMAGE}
 
