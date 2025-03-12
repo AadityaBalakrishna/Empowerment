@@ -1,1 +1,19 @@
-POST  https://pcsvc.dt.pcapqa.app/quote-mr-1037/api/quote/getHistoricalQuotesAsOfContent-Type: application/json{  "securityIds": ["AAPL"],  "userGuid": "fa4b5e15d2fa45e2910dcc02c4be3aa8",  "fromDate": "2025-03-04",  "toDate": "2025-03-05",  "periods": 4,  "periodType": "",  "includeYOUHistory": true,  "includePCBlended": true,  "userAccountIdsString": "",  "clientType": "",  "currentDeviceProperties": "",  "sessionId": "",  "initiatedBy": "hukm",  "priceDate": "2025-03-08",  "quotesHistoryAsOf": true}
+curl -X POST "https://pcsvc.dt.pcapqa.app/quote-mr-1037/api/quote/getHistoricalQuotesAsOf" \
+     -H "Content-Type: application/json" \
+     -d '{
+          "securityIds": ["AAPL"],
+          "userGuid": "fa4b5e15d2fa45e2910dcc02c4be3aa8",
+          "fromDate": "2025-03-04",
+          "toDate": "2025-03-05",
+          "periods": 4,
+          "periodType": "",
+          "includeYOUHistory": true,
+          "includePCBlended": true,
+          "userAccountIdsString": "",
+          "clientType": "",
+          "currentDeviceProperties": "",
+          "sessionId": "",
+          "initiatedBy": "hukm",
+          "priceDate": "2025-03-08",
+          "quotesHistoryAsOf": true
+      }'
