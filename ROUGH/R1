@@ -1,160 +1,30 @@
-example of what i found:
-@Override
-	@PcapMultiCacheable(value = "historicalQuote", keyProvider = QuoteCacheKeyProvider.class)
-	public Map<SecurityId, Quote> getHistoricalQuotes(List<SecurityId> securityIds, Date date)
-	{
-		if (CollectionUtils.isEmpty(securityIds))
-		{
-			return new HashMap<SecurityId, Quote>();
-		}
+@Service
+public class CacheMetricsService {
 
-		QuoteArrayApiRequest request = new QuoteArrayApiRequest();
-		List<String> quoteSecurityId = QuoteClientUtils
-				.getSymbolsOrCusipsFromSecurityIds(securityIds);
+    private static final Logger logger = LoggerFactory.getLogger(CacheMetricsService.class);
 
-		String dateStr = DateTimeUtils.format(date, DateTimeUtils.DATE_DB_FORMAT);
-		request.setSecurityIds(quoteSecurityId);
-		request.setPriceDate(dateStr);
-		Map<SecurityId, Quote> returnMap = new HashMap<>();
-		log("getHistoricalQuotes", quoteSecurityId.toString(), dateStr, null, null);
-		try
-		{
-			PcapApiResponse response = quoteServiceDelegate.getHistoricalQuotes(request);
-			if (response.isSuccess())
-			{
-				JSONObject data = response.getData();
-				JSONObject quotes = (JSONObject) data.getJSONObject(QUOTE_HISTORY_KEY);
-				if (quotes == null)
-				{
-					logger.warn(logErrorMessage(
-							"ApiQuoteService/getHistoricalQuotes did not return expected quote for request (quotesStr empty): ",
-							securityIds));
-					return returnMap;
-				}
-				String quotesStr = quotes.toString();
-				if (quotesStr == null)
-				{
-					logger.warn(logErrorMessage(
-							"ApiQuoteService/getHistoricalQuotes did not return expected quote for request (quotesStr empty): ",
-							securityIds));
-					return returnMap;
-				}
-				Map<String, List<com.safepage.invest.quote.QuoteInfo>> map = com.safepage.invest.quote.QuoteInfo
-						.readValueAsMap(quotesStr);
-				if (Utils.isMapEmpty(map))
-				{
-					return returnMap;
-				}
-				for (SecurityId secId : securityIds)
-				{
-					if (map.containsKey(secId.getTicker()))
-					{
-						List<com.safepage.invest.quote.QuoteInfo> quoteInfos = map
-								.get(secId.getTicker());
-						if (CollectionUtils.isNotEmpty(quoteInfos))
-						{
-							Quote constructedQuote = quoteInfos.getFirst()
-									.getQuote(secId);
-							returnMap.put(secId, constructedQuote);
-						}
-						else
-						{
-							logger.warn(
-									"ApiQuoteService/getHistoricalQuotes list did not return expected quote for request(quoteInfos empty): "
-											+ secId);
-						}
-					}
-					else
-					{
-						logger.warn(
-								"ApiQuoteService/getHistoricalQuotes did not return expected quote for request:"
-										+ secId);
-					}
-				}
-				return returnMap;
-			}
-			else
-			{
-				throw new Exception("Unsuccessful Quote Service response: " + response);
-			}
-
-		}
-		catch (Exception e)
-		{
-			logger.error(logErrorMessage(
-					"ApiQuoteService error communicating with quoteService/getHistoricalQuotes - securityIds: ",
-					securityIds), e);
-			return returnMap;
-		}
-	}
-
+    @PcapMultiCacheable(value = "testCache", keys = {42})
+    public List<String> getCachedData() {
+        logger.info("Fetching data for caching...");
+        return List.of("Cached response");
+    }
+}
 
 
 @RestController
-@RequestMapping(value = "/api/quote")
-@Tag(name = "QuoteController", description = "Quote Controller")
-public class QuoteController extends ApiBaseController
-{
-	private PcapLogger logger = PcapLoggerFactory.getPcapLogger(QuoteController.class);
+@RequestMapping("/metrics")
+public class CacheMetricsController {
 
-	@Autowired
-	private BenchmarkHistoryManager quoteBenchmarkHistoryManager;
+    private final CacheMetricsService cacheMetricsService;
 
-	@Autowired
-	private QuoteManagerWrapper quoteManagerWrapper;
+    @Autowired
+    public CacheMetricsController(CacheMetricsService cacheMetricsService) {
+        this.cacheMetricsService = cacheMetricsService;
+    }
 
-	@Autowired
-	private QuoteCacheManager quoteCacheManager;
-
-	@Autowired
-	private UserDao userDao;
-
-	/**
-	 * Get historical quotes for given list of security id with date and periods
-	 * 
-	 * @param quoteRequest
-	 * @return quote api response with quotes map with list of quotes
-	 */
-	@PostMapping(value = "/getHistoricalQuotes", consumes = "application/json")
-	public @ResponseBody QuoteApiResponse getHistoricalQuotes(
-			@RequestBody(required = true) QuoteApiRequest quoteRequest)
-	{
-		QuoteApiResponse response = new QuoteApiResponse();
-		JSONObject jsonResult = new JSONObject();
-		if (quoteRequest == null)
-		{
-			response.setErrors(prepareErrorData("getHistoricalQuotes", "quoteRequest is null"));
-		}
-		else if (quoteRequest.getPriceDateAsDate() == null)
-		{
-			response.setErrors(prepareErrorData("getHistoricalQuotes", "priceDate is null"));
-		}
-		else if (Utils.isCollectionEmpty(quoteRequest.getSecurityIds()))
-		{
-			response.setErrors(prepareErrorData("getHistoricalQuotes", "securityIds are null"));
-		}
-		else
-		{
-			List<SecurityId> quoteSecurityIds = this
-					.convertSecurityIdToList(quoteRequest.getSecurityIds());
-			if (CollectionUtils.isEmpty(quoteSecurityIds))
-			{
-				response.setErrors(prepareErrorData("getHistoricalQuotes",
-						"remove null securityIds resulted in empty securityIds"));
-			}
-			else
-			{
-				JSONObject quotesMap = new JSONObject();
-				quotesMap = quoteManagerWrapper.getHistoricalValuesPriceDateAsJson(quoteSecurityIds,
-						quoteRequest.getPriceDateAsDate());
-				traceNasdaqQuoteAccess(quoteRequest, quotesMap, "getHistoricalQuotes");
-				jsonResult.put("quotesHistory", quotesMap);
-				response.setData(jsonResult);
-			}
-		}
-		response.setData(jsonResult);
-		response.setSuccess(true);
-		return response;
-	}
-
-i've given the service and the controller for it's api ig, and this is hitting in postman, i just want you to refer to this and create a dummy service and controller, which can be only associated with the metrics pat of it, nothing else, i just need to test that 
+    @GetMapping("/test-cache")
+    public ResponseEntity<List<String>> testCache() {
+        List<String> response = cacheMetricsService.getCachedData();
+        return ResponseEntity.ok(response);
+    }
+}
