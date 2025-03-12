@@ -1,1 +1,17 @@
+@RestController
+@RequestMapping("/cache")
+public class CacheTestController {
+    
+    private final CacheTestService cacheTestService;
 
+    @Autowired
+    public CacheTestController(CacheTestService cacheTestService) {
+        this.cacheTestService = cacheTestService;
+    }
+
+    @GetMapping("/test")
+    public ResponseEntity<List<String>> getCachedData() {
+        List<String> response = cacheTestService.getCachedData();
+        return ResponseEntity.ok(response);
+    }
+}
