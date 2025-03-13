@@ -1,4 +1,11 @@
-Hi Pratik, how are you?
-May i know when you are free for a quick call, i wanted to clear up few doubts i had regarding the datadog configurations for a custom metrics
+this is the approach i have used:
  
-please draft a proffessional but short teams message,
+Metrics.counter(METRICS_NAME, "class", className, "method", methodName, "outcome", outcome)
+				.increment();
+ 
+this is the approached used by the "epw.cstmr.sdi.event" metrics in DD dashboard:
+ 
+Counter metricsCount = Metrics.counter(METRICS_NAME, "class", className, "method", methodName, "outcome", outcome);
+metricsCount.increment();
+ 
+do you think this would matter?
