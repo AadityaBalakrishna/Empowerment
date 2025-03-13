@@ -1,14 +1,4 @@
-#!/bin/bash
-
-curl -X POST "https://pcsvc.dt.pcapqa.app/quote-mr-1037/api/quote/getHistoricalQuotesAsOf" \
-     -H "Content-Type: application/json" \
-     -d '{
-          "securityIds": ["AAPL"],
-          "userGuid": "fa4b5e15d2fa45e2910dcc02c4be3aa8",
-          "fromDate": "2025-03-04",
-          "toDate": "2025-03-05",
-          "periods": 4,
-          "quotesHistoryAsOf": true
-         }'
-
-echo "Request sent!"
+Hi Pratik, how are you?
+May i know when you are free for a quick call, i wanted to clear up few doubts i had regarding the datadog configurations for a custom metrics
+ 
+please draft a proffessional but short teams message,
