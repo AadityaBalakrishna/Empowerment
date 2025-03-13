@@ -1,6 +1,5 @@
+Hi Rachna, this is Aaditya from the Plat Team 7 (India). I’m working on a task to instrument a few advices in the pcap-server with custom metrics to capture caching behavior and monitor it in Datadog. (These advices are used by pcap-quote and pcap-ace.)
 
-Hi Rachna, this is aaditya from plat team 7 (from india), and i have a task to instrument few advices in pcap-server with a custom metrics to capture the caching behaviour and monitor it in Datadog, (fyi, these advices are used by pcap-qoute and pcap-ace)
-I was hoping if you could advice me on how to configure such that the custom metrics appears on the metrics explorer of DD.
-(MR: <of my work> ) i have implemented this so far but i would like to know if there conditions that need to be met to view the metrics on DD 
+I was hoping you could guide me on how to configure this so that the custom metrics appear in Datadog’s Metrics Explorer. I’ve implemented part of this already (MR: <link to my work>), but I’d like to understand if there are any specific conditions that need to be met for the metrics to show up in Datadog.
 
-can you draft a professional short but informative message on teams for someone i need to ask help from, they are not from my team, so i need to be careful and informative and non confusing
+Would really appreciate your advice on this
