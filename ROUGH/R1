@@ -1,8 +1,31 @@
-[ERROR] Please refer to /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1037/pcap-quote-app/target/surefire-reports for the individual test results.
-19:30:20  [ERROR] Please refer to dump files (if any exist) [date].dump, [date]-jvmRun[N].dump and [date].dumpstream.
-19:30:20  [ERROR] -> [Help 1]
-19:30:20  org.apache.maven.lifecycle.LifecycleExecutionException: Failed to execute goal org.apache.maven.plugins:maven-surefire-plugin:3.1.2:test (default-test) on project pcap-quote-app: 
-19:30:20  
-19:30:20  Please refer to /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1037/pcap-quote-app/target/surefire-reports for the individual test results.
+#!/bin/bash
 
-how to disable this in jenkins pipeline build?
+# Define API URL
+URL="https://pcsvc.dt.pcapqa.app/quote-mr-1037/api/quote/getHistoricalQuotesAsOf"
+
+# Define JSON Payload
+DATA='{
+  "securityIds": ["AAPL"],
+  "userGuid": "fa4b5e15d2fa45e2910dcc02c4be3aa8",
+  "fromDate": "2025-03-04",
+  "toDate": "2025-03-05",
+  "periods": 4,
+  "periodType": "",
+  "includeYOUHistory": true,
+  "includePCBlended": true,
+  "userAccountIdsString": "",
+  "clientType": "",
+  "currentDeviceProperties": "",
+  "sessionId": "",
+  "initiatedBy": "hukm",
+  "priceDate": "2025-03-08",
+  "quotesHistoryAsOf": true
+}'
+
+# Execute CURL command
+curl -X POST "$URL" \
+     -H "Content-Type: application/json" \
+     -d "$DATA"
+
+# Print message after execution
+echo "API request sent!"
