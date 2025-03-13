@@ -1,11 +1,6 @@
-this is the approach i have used:
- 
-Metrics.counter(METRICS_NAME, "class", className, "method", methodName, "outcome", outcome)
-				.increment();
- 
-this is the approached used by the "epw.cstmr.sdi.event" metrics in DD dashboard:
- 
-Counter metricsCount = Metrics.counter(METRICS_NAME, "class", className, "method", methodName, "outcome", outcome);
-metricsCount.increment();
- 
-do you think this would matter?
+
+Hi Rachna, this is aaditya from plat team 7 (from india), and i have a task to instrument few advices in pcap-server with a custom metrics to capture the caching behaviour and monitor it in Datadog, (fyi, these advices are used by pcap-qoute and pcap-ace)
+I was hoping if you could advice me on how to configure such that the custom metrics appears on the metrics explorer of DD.
+(MR: <of my work> ) i have implemented this so far but i would like to know if there conditions that need to be met to view the metrics on DD 
+
+can you draft a professional short but informative message on teams for someone i need to ask help from, they are not from my team, so i need to be careful and informative and non confusing
