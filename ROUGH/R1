@@ -1,5 +1,32 @@
-Hi Rachna, this is Aaditya from the Plat Team 7 (India). I’m working on a task to instrument a few advices in the pcap-server with custom metrics to capture caching behavior and monitor it in Datadog. (These advices are used by pcap-quote and pcap-ace.)
+@Override
+	public List<Subscription> getByUserGuidAndRegistrationSource(String userGuid,
+			@NonNull SubscriptionUserSource registrationSource)
+	{
+		if (StringUtils.isBlank(userGuid))
+		{
+			final String error = "user guid must be not null or empty when retrieving the user's subscriptions. ";
+			logger.error(error);
+			throw new IllegalArgumentException(error);
+		}
 
-I was hoping you could guide me on how to configure this so that the custom metrics appear in Datadog’s Metrics Explorer. I’ve implemented part of this already (MR: <link to my work>), but I’d like to understand if there are any specific conditions that need to be met for the metrics to show up in Datadog.
+		List<Subscription> subscriptions = this.subscriptionRepository.get(userGuid);
+		subscriptions = subscriptions == null ? new ArrayList<>() : subscriptions;
 
-Would really appreciate your advice on this
+		Map<SubscriptionType, Subscription> entityMap = subscriptions.stream()
+				.collect(Collectors.toMap(k -> SubscriptionType.valueOf(k.getType()), v -> v));
+
+		for (SubscriptionType type : getSubscriptionTypesBasedOnFeatureFlag(userGuid))
+		{
+			Subscription entity = entityMap.get(type);
+			if (entity == null)
+			{
+				subscriptions.add(
+						createSubscriptionWithDefaultValue(type, userGuid, registrationSource));
+			}
+		}
+
+		return subscriptions;
+	}
+
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.12.1:compile (default-compile) on project pcap-ace-service: Compilation failure
+[ERROR] /home/jenkins/agent/workspace/rver_build_ace_pcap-ace_MR-12723/pcap-ace-service/src/main/java/com/personalcapital/service/impl/SubscriptionServiceImpl.java:[899,38] error: incompatible types: @lombok.NonNull SubscriptionUserSource cannot be converted to ProductsEnrolledUserSegment
