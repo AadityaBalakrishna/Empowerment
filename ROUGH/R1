@@ -1,12 +1,44 @@
-stage('Log Environment Variables') {
-  steps {
-    container("maven") {
-      script {
-        echo "HOST_IP: ${env.HOST_IP}"
-        echo "DD_SERVICE: ${env.DD_SERVICE}"
-        echo "DD_ENV: ${env.DD_ENV}"
-        echo "DD_VERSION: ${env.DD_VERSION}"
-      }
-    }
-  }
-}
+@PostMapping(value = "/getHistoricalQuotesAsOfV1", consumes = "application/json")
+	public @ResponseBody QuoteApiResponse getHistoricalQuotesAsOfV1(
+			@RequestBody(required = true) QuoteApiRequest quoteRequest)
+	{
+		QuoteApiResponse response = new QuoteApiResponse();
+		JSONObject jsonResult = new JSONObject();
+		if (quoteRequest == null || !quoteRequest.isValidHistoricalQuotesAsOf())
+		{
+			response.setErrors(prepareErrorData("getHistoricalQuotesAsOf", "invalid inputs"));
+		}
+		else
+		{
+			Date endDate = quoteRequest.getToDateAsDate();
+			Date currentDate = DateTimeUtils.getCurrentTime();
+			if (endDate.after(currentDate))
+			{
+				Date lastClosedTradingDay = DateTimeUtils.getLastClosedTradingDay();
+				logger.info("endDate:{} is after current date:{}, set to lastClosedTradingDay:{}",
+						endDate, currentDate, lastClosedTradingDay);
+				endDate = lastClosedTradingDay;
+			}
+			List<SecurityId> quoteSecurityIds = this
+					.convertSecurityIdToList(quoteRequest.getSecurityIds());
+			if (CollectionUtils.isEmpty(quoteSecurityIds))
+			{
+				response.setErrors(prepareErrorData("getHistoricalQuotesAsOf",
+						"remove null securityIds resulted in empty securityIds"));
+			}
+			else
+			{
+				JSONObject quotesMap = new JSONObject();
+				logger.info("quoteCacheManager.getQuote called");
+				quoteCacheManager.getQuote(
+						quoteSecurityIds);
+				traceNasdaqQuoteAccess(quoteRequest, quotesMap, "getHistoricalQuotesAsOf");
+				jsonResult.put("quotesHistory", quotesMap);
+			}
+		}
+		response.setData(jsonResult);
+		response.setSuccess(true);
+		return response;
+	}
+
+add in this controller the logger statements to print the value of HOST_IP
