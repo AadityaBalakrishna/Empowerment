@@ -1,12 +1,12 @@
-# Enable export of metrics to statsd/Datadog
-cache.metrics.enabled=false
-management.defaults.metrics.export.enabled=true
-management.endpoint.metrics.enabled=true
-management.statsd.metrics.export.enabled=true
-management.statsd.metrics.export.host=${HOST_IP}
-management.statsd.metrics.export.flavor=datadog
-management.metrics.tags.service=${DD_SERVICE}
-management.metrics.tags.env=${DD_ENV}
-management.metrics.tags.version=${DD_VERSION}
-
-this is my appl.prop file, i want to log all that is in ${ }
+stage('Log Environment Variables') {
+  steps {
+    container("maven") {
+      script {
+        echo "HOST_IP: ${env.HOST_IP}"
+        echo "DD_SERVICE: ${env.DD_SERVICE}"
+        echo "DD_ENV: ${env.DD_ENV}"
+        echo "DD_VERSION: ${env.DD_VERSION}"
+      }
+    }
+  }
+}
