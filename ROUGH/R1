@@ -1,82 +1,38 @@
-[ERROR] COMPILATION ERROR : 
-13:45:00  [INFO] -------------------------------------------------------------
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/QuoteApiRequest.java:[12,25] package com.safepage.json does not exist
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/QuoteApiRequest.java:[13,25] cannot find symbol
-13:45:00    symbol:   class DateTimeUtils
-13:45:00    location: package com.safepage.util
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/invest/quote/QuoteInfo.java:[20,25] cannot find symbol
-13:45:00    symbol:   class BaseUtils
-13:45:00    location: package com.safepage.util
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/invest/quote/QuoteInfo.java:[21,25] cannot find symbol
-13:45:00    symbol:   class DateTimeUtils
-13:45:00    location: package com.safepage.util
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/ClassificationApiResponse.java:[3,25] package com.safepage.json does not exist
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/ClassificationApiResponse.java:[4,25] package com.safepage.json does not exist
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/ClassificationApiResponse.java:[5,25] package com.safepage.json does not exist
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/ClassificationApiResponse.java:[20,17] cannot find symbol
-13:45:00    symbol:   class JSONArray
-13:45:00    location: class com.personalcapital.quote.data.ClassificationApiResponse
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/ClassificationApiResponse.java:[29,16] cannot find symbol
-13:45:00    symbol:   class JSONArray
-13:45:00    location: class com.personalcapital.quote.data.ClassificationApiResponse
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/ClassificationApiResponse.java:[34,31] cannot find symbol
-13:45:00    symbol:   class JSONArray
-13:45:00    location: class com.personalcapital.quote.data.ClassificationApiResponse
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/HoldingsApiResponse.java:[4,25] package com.safepage.json does not exist
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/HoldingsApiResponse.java:[5,25] package com.safepage.json does not exist
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/HoldingsApiResponse.java:[6,25] package com.safepage.json does not exist
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/HoldingsApiResponse.java:[23,17] cannot find symbol
-13:45:00    symbol:   class JSONArray
-13:45:00    location: class com.personalcapital.quote.data.HoldingsApiResponse
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/HoldingsApiResponse.java:[45,16] cannot find symbol
-13:45:00    symbol:   class JSONArray
-13:45:00    location: class com.personalcapital.quote.data.HoldingsApiResponse
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/HoldingsApiResponse.java:[50,31] cannot find symbol
-13:45:00    symbol:   class JSONArray
-13:45:00    location: class com.personalcapital.quote.data.HoldingsApiResponse
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/invest/quote/cryptocompare/CryptoQuote.java:[13,25] cannot find symbol
-13:45:00    symbol:   class DateTimeUtils
-13:45:00    location: package com.safepage.util
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/QuoteApiResponse.java:[5,25] package com.safepage.json does not exist
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/QuoteApiResponse.java:[6,25] package com.safepage.json does not exist
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/QuoteApiResponse.java:[7,25] package com.safepage.json does not exist
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/QuoteApiResponse.java:[20,17] cannot find symbol
-13:45:00    symbol:   class JSONArray
-13:45:00    location: class com.personalcapital.quote.data.QuoteApiResponse
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/QuoteApiResponse.java:[24,17] cannot find symbol
-13:45:00    symbol:   class JSONObject
-13:45:00    location: class com.personalcapital.quote.data.QuoteApiResponse
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/QuoteApiResponse.java:[28,17] cannot find symbol
-13:45:00    symbol:   class JSONObject
-13:45:00    location: class com.personalcapital.quote.data.QuoteApiResponse
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/QuoteApiResponse.java:[36,16] cannot find symbol
-13:45:00    symbol:   class JSONArray
-13:45:00    location: class com.personalcapital.quote.data.QuoteApiResponse
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/QuoteApiResponse.java:[41,31] cannot find symbol
-13:45:00    symbol:   class JSONArray
-13:45:00    location: class com.personalcapital.quote.data.QuoteApiResponse
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/QuoteApiResponse.java:[46,16] cannot find symbol
-13:45:00    symbol:   class JSONObject
-13:45:00    location: class com.personalcapital.quote.data.QuoteApiResponse
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/QuoteApiResponse.java:[51,29] cannot find symbol
-13:45:00    symbol:   class JSONObject
-13:45:00    location: class com.personalcapital.quote.data.QuoteApiResponse
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/QuoteApiResponse.java:[56,16] cannot find symbol
-13:45:00    symbol:   class JSONObject
-13:45:00    location: class com.personalcapital.quote.data.QuoteApiResponse
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/QuoteApiResponse.java:[61,39] cannot find symbol
-13:45:00    symbol:   class JSONObject
-13:45:00    location: class com.personalcapital.quote.data.QuoteApiResponse
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/safepage/invest/quote/QuoteInfo.java:[19,25] cannot find symbol
-13:45:00    symbol:   class BaseUtils
-13:45:00    location: package com.safepage.util
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/safepage/invest/quote/QuoteInfo.java:[20,25] cannot find symbol
-13:45:00    symbol:   class DateTimeUtils
-13:45:00    location: package com.safepage.util
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/invest/quote/xignite/XIgniteQuote.java:[23,25] cannot find symbol
-13:45:00    symbol:   class DateTimeUtils
-13:45:00    location: package com.safepage.util
-13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/cache/support/QuoteCacheKeyProvider.java:[10,25] cannot find symbol
+updates on the task:
 
 
-how couldi resolve these compilation errors?
+
+1)Parate, Pratik: @devops_oncall   getting below error for cstmr-service in qastag...
+
+posted in Personal Wealth Technology / DevOps on February 17, 2025 8:59 PM
+
+--> will follow up with Pratik on this error that he posted recently, regardin......i want to update my manager that i'll be asking pratik regarding this error he asked, because our task lacks these logs from Datadog and etc
+
+@devops_oncall
+ 
+getting below error for cstmr-service in qastaging in argocd logs.
+https://argocd.pcapcloud.com/applications/cstmr-service-qastaging?resource=
+ 
+2025-02-17 14:55:59 PM [trace_id: , span_id: ] [main] INFO  org.springframework.boot.web.embedded.tomcat.TomcatWebServer - Tomcat started on port 8080 (http) with context path '/cstmr'
+2025-02-17 14:55:59 PM [trace_id: , span_id: ] [main] INFO  net.devh.boot.grpc.server.serverfactory.AbstractGrpcServerFactory - Registered gRPC service: com.empower.epw.enterprise.household.HouseholdEnterpriseService, bean: householdGrpcService, class: com.empower.epw.cstmr.service.grpc.HouseholdGrpcService
+2025-02-17 14:55:59 PM [trace_id: , span_id: ] [main] INFO  net.devh.boot.grpc.server.serverfactory.AbstractGrpcServerFactory - Registered gRPC service: com.empower.epw.enterprise.person.PersonEnterpriseService, bean: personGrpcService, class: com.empower.epw.cstmr.service.grpc.PersonGrpcService
+2025-02-17 14:55:59 PM [trace_id: , span_id: ] [main] INFO  net.devh.boot.grpc.server.serverfactory.AbstractGrpcServerFactory - Registered gRPC service: com.empower.epw.enterprise.person.PersonaEnterpriseService, bean: personaGrpcService, class: com.empower.epw.cstmr.service.grpc.PersonaGrpcService
+2025-02-17 14:55:59 PM [trace_id: , span_id: ] [main] INFO  net.devh.boot.grpc.server.serverfactory.AbstractGrpcServerFactory - Registered gRPC service: grpc.health.v1.Health, bean: grpcHealthService, class: io.grpc.protobuf.services.HealthServiceImpl
+2025-02-17 14:55:59 PM [trace_id: , span_id: ] [main] INFO  net.devh.boot.grpc.server.serverfactory.AbstractGrpcServerFactory - Registered gRPC service: grpc.reflection.v1alpha.ServerReflection, bean: protoReflectionService, class: io.grpc.protobuf.services.ProtoReflectionService
+2025-02-17 14:55:59 PM [trace_id: , span_id: ] [main] INFO  net.devh.boot.grpc.server.serverfactory.GrpcServerLifecycle - gRPC Server started, listening on address: *, port: 9090
+2025-02-17 14:55:59 PM [trace_id: , span_id: ] [main] INFO  com.empower.epw.cstmr.CstmrApplication - Started CstmrApplication in 13.073 seconds (process running for 16.78)
+2025-02-17 14:56:05 PM [trace_id: , span_id: ] [udp-epoll-2] WARN  io.micrometer.shaded.reactor.netty.channel.FluxReceive - [822fab4c, L:/10.215.74.89:50932 - R:10.215.79.45/10.215.79.45:8125] An exception has been observed post termination, use DEBUG level to see the full stack: java.net.PortUnreachableException: recvAddress(..) failed: Connection refused
+2025-02-17 14:56:08 PM [trace_id: , span_id: ] [http-nio-8080-exec-1] INFO  org.apache.catalina.core.ContainerBase.[Tomcat].[localhost].[/cstmr] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-02-17 14:56:08 PM [trace_id: , span_id: ] [http-nio-8080-exec-1] INFO  org.springframework.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2025-02-17 14:56:08 PM [trace_id: , span_id: ] [http-nio-8080-exec-1] INFO  org.springframework.web.servlet.DispatcherServlet - Completed initialization in 2 ms
+2025-02-17 14:56:08 PM [trace_id: , span_id: ] [udp-epoll-2] WARN  io.micrometer.shaded.reactor.netty.channel.FluxReceive - [822fab4c, L:/10.215.74.89:50932 - R:10.215.79.45/10.215.79.45:8125] An exception has been observed post termination, use DEBUG level to see the full stack: java.net.PortUnreachableException: recvAddress(..) failed: Connection refused
+[dd.trace 2025-02-17 14:57:51:406 +0000] [OkHttp http://10.215.79.45:8126/...] WARN com.datadog.profiling.uploader.ProfileUploader - Failed to upload profile to http://10.215.79.45:8126/profiling/v1/input java.net.ConnectException: Failed to connect to /10.215.79.45:8126 (Will not log errors for 5 minutes)
+[dd.trace 2025-02-17 15:00:52:327 +0000] [dd-trace-processor] WARN datadog.trace.agent.common.writer.ddagent.DDAgentApi - Error while sending 1 (size=816B) traces. Total: 145, Received: 145, Sent: 0, Failed: 145. java.net.ConnectException: Failed to connect to /10.215.79.45:8126 (Will not log errors for 5 minutes)
+[dd.trace 2025-02-17 15:03:51:360 +0000] [OkHttp http://10.215.79.45:8126/...] WARN com.datadog.profiling.uploader.ProfileUploader - Failed to upload profile to http://10.215.79.45:8126/profiling/v1/input java.net.ConnectException: Failed to connect to /10.215.79.45:8126 (Will not log errors for 5 minutes)
+[dd.trace 2025-02-17 15:05:53:415 +0000] [dd-trace-processor] WARN datadog.trace.agent.common.writer.ddagent.DDAgentApi - Error while sending 2 (size=2KB) traces. Total: 277, Received: 277, Sent: 0, Failed: 277. java.net.ConnectException: Failed to connect to /10.215.79.45:8126 (Will not log errors for 5 minutes)
+[dd.trace 2025-02-17 15:09:51:366 +0000] [OkHttp http://10.215.79.45:8126/...] WARN com.datadog.profiling.uploader.ProfileUploader - Failed to upload profile to http://10.215.79.45:8126/profiling/v1/input java.net.ConnectException: Failed to connect to /10.215.79.45:8126 (Will not log errors for 5 minutes)
+[dd.trace 2025-02-17 15:10:53:821 +0000] [dd-trace-processor] WARN datadog.trace.agent.common.writer.ddagent.DDAgentApi - Error while sending 2 (size=6KB) traces. Total: 408, Received: 408, Sent: 0, Failed: 408. java.net.ConnectException: Failed to connect to /10.215.79.45:8126 (Will not log errors for 5 minutes)
+[dd.trace 2025-02-17 15:15:51:373 +0000] [OkHttp http://10.215.79.45:8126/...] WARN com.datadog.profiling.uploader.ProfileUploader - Failed to upload profile to http://10.215.79.45:8126/profiling/v1/input java.net.ConnectException: Failed to connect to /10.215.79.45:8126 (Will not log errors for 5 minutes)
+[dd.trace 2025-02-17 15:15:53:903 +0000] [dd-trace-processor] WARN datadog.trace.agent.common.writer.ddagent.DDAgentApi - Error while sending 2 (size=6KB) traces. Total: 538, Received: 538, Sent: 0, Failed: 538. java.net.ConnectException: Failed to connect to /10.215.79.45:8126 (Will not log errors for 5 minutes)
+ 
+ 
