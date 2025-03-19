@@ -1,1 +1,82 @@
-[ERROR] Failed to execute goal org.codehaus.mojo:versions-maven-plugin:2.18.0:resolve-ranges (default-cli) on project pcap-quote: Found invalid managed dependency io.micrometer:micrometer-registry-statsd:jar without a version -> 
+[ERROR] COMPILATION ERROR : 
+13:45:00  [INFO] -------------------------------------------------------------
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/QuoteApiRequest.java:[12,25] package com.safepage.json does not exist
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/QuoteApiRequest.java:[13,25] cannot find symbol
+13:45:00    symbol:   class DateTimeUtils
+13:45:00    location: package com.safepage.util
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/invest/quote/QuoteInfo.java:[20,25] cannot find symbol
+13:45:00    symbol:   class BaseUtils
+13:45:00    location: package com.safepage.util
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/invest/quote/QuoteInfo.java:[21,25] cannot find symbol
+13:45:00    symbol:   class DateTimeUtils
+13:45:00    location: package com.safepage.util
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/ClassificationApiResponse.java:[3,25] package com.safepage.json does not exist
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/ClassificationApiResponse.java:[4,25] package com.safepage.json does not exist
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/ClassificationApiResponse.java:[5,25] package com.safepage.json does not exist
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/ClassificationApiResponse.java:[20,17] cannot find symbol
+13:45:00    symbol:   class JSONArray
+13:45:00    location: class com.personalcapital.quote.data.ClassificationApiResponse
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/ClassificationApiResponse.java:[29,16] cannot find symbol
+13:45:00    symbol:   class JSONArray
+13:45:00    location: class com.personalcapital.quote.data.ClassificationApiResponse
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/ClassificationApiResponse.java:[34,31] cannot find symbol
+13:45:00    symbol:   class JSONArray
+13:45:00    location: class com.personalcapital.quote.data.ClassificationApiResponse
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/HoldingsApiResponse.java:[4,25] package com.safepage.json does not exist
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/HoldingsApiResponse.java:[5,25] package com.safepage.json does not exist
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/HoldingsApiResponse.java:[6,25] package com.safepage.json does not exist
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/HoldingsApiResponse.java:[23,17] cannot find symbol
+13:45:00    symbol:   class JSONArray
+13:45:00    location: class com.personalcapital.quote.data.HoldingsApiResponse
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/HoldingsApiResponse.java:[45,16] cannot find symbol
+13:45:00    symbol:   class JSONArray
+13:45:00    location: class com.personalcapital.quote.data.HoldingsApiResponse
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/HoldingsApiResponse.java:[50,31] cannot find symbol
+13:45:00    symbol:   class JSONArray
+13:45:00    location: class com.personalcapital.quote.data.HoldingsApiResponse
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/invest/quote/cryptocompare/CryptoQuote.java:[13,25] cannot find symbol
+13:45:00    symbol:   class DateTimeUtils
+13:45:00    location: package com.safepage.util
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/QuoteApiResponse.java:[5,25] package com.safepage.json does not exist
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/QuoteApiResponse.java:[6,25] package com.safepage.json does not exist
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/QuoteApiResponse.java:[7,25] package com.safepage.json does not exist
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/QuoteApiResponse.java:[20,17] cannot find symbol
+13:45:00    symbol:   class JSONArray
+13:45:00    location: class com.personalcapital.quote.data.QuoteApiResponse
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/QuoteApiResponse.java:[24,17] cannot find symbol
+13:45:00    symbol:   class JSONObject
+13:45:00    location: class com.personalcapital.quote.data.QuoteApiResponse
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/QuoteApiResponse.java:[28,17] cannot find symbol
+13:45:00    symbol:   class JSONObject
+13:45:00    location: class com.personalcapital.quote.data.QuoteApiResponse
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/QuoteApiResponse.java:[36,16] cannot find symbol
+13:45:00    symbol:   class JSONArray
+13:45:00    location: class com.personalcapital.quote.data.QuoteApiResponse
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/QuoteApiResponse.java:[41,31] cannot find symbol
+13:45:00    symbol:   class JSONArray
+13:45:00    location: class com.personalcapital.quote.data.QuoteApiResponse
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/QuoteApiResponse.java:[46,16] cannot find symbol
+13:45:00    symbol:   class JSONObject
+13:45:00    location: class com.personalcapital.quote.data.QuoteApiResponse
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/QuoteApiResponse.java:[51,29] cannot find symbol
+13:45:00    symbol:   class JSONObject
+13:45:00    location: class com.personalcapital.quote.data.QuoteApiResponse
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/QuoteApiResponse.java:[56,16] cannot find symbol
+13:45:00    symbol:   class JSONObject
+13:45:00    location: class com.personalcapital.quote.data.QuoteApiResponse
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/quote/data/QuoteApiResponse.java:[61,39] cannot find symbol
+13:45:00    symbol:   class JSONObject
+13:45:00    location: class com.personalcapital.quote.data.QuoteApiResponse
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/safepage/invest/quote/QuoteInfo.java:[19,25] cannot find symbol
+13:45:00    symbol:   class BaseUtils
+13:45:00    location: package com.safepage.util
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/safepage/invest/quote/QuoteInfo.java:[20,25] cannot find symbol
+13:45:00    symbol:   class DateTimeUtils
+13:45:00    location: package com.safepage.util
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/invest/quote/xignite/XIgniteQuote.java:[23,25] cannot find symbol
+13:45:00    symbol:   class DateTimeUtils
+13:45:00    location: package com.safepage.util
+13:45:00  [ERROR] /home/jenkins/agent/workspace/ver_build_pfm_pcap-quote_MR-1041/pcap-quote-data/src/main/java/com/personalcapital/cache/support/QuoteCacheKeyProvider.java:[10,25] cannot find symbol
+
+
+how couldi resolve these compilation errors?
