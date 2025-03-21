@@ -1,1 +1,10 @@
-git add pcap-cache/src/main/java/com/personalcapital/cache/aop/PcapMultiCacheableAdvice.java && git -c user.useConfigOnly=true commit --quiet --allow-empty-message --no-verify -m "PLAT-10560: cleanup"
+initialliy, i had this error:
+Caused by: java.sql.SQLSyntaxErrorException: Unknown column 'is_mcw_strategy' in 'field list'
+
+i executed this command: alter table sp_schema.user_info add column is_mcw_strategy varchar(20) DEFAULT 'PCAP';
+
+and now i'm getting this error, 
+20:21:05.445 [main] ERROR org.hibernate.engine.jdbc.spi.SqlExceptionHelper - Cannot determine value type from string 'PCAP'
+
+help pls
+
