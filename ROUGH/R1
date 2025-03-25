@@ -1,1 +1,334 @@
-huh
+gm@U-32S5Z8YCYR9J9:~$ kubectl logs pod/msg-template-fact-map-json-trans-job-gm-19987-qr6mm
+WARNING: HADOOP_PREFIX has been replaced by HADOOP_HOME. Using value of HADOOP_PREFIX.
+[2025-03-25 04:47:36,144] INFO pcconfig.p_cfg[156]: Initializing AWS w/ path /pcap/etl/staging/universal-cronjob-chart profile: default
+[2025-03-25 04:47:39,602] INFO __main__[29]: arn:aws:iam::500472856650:role/pcap-service-staging-redshift-s3
+[2025-03-25 04:47:39,986] INFO __main__[66]: fs.s3a.access.key property override set in /usr/local/hadoop/etc/hadoop/core-site.xml
+[2025-03-25 04:47:39,986] INFO __main__[66]: fs.s3a.secret.key property override set in /usr/local/hadoop/etc/hadoop/core-site.xml
+[2025-03-25 04:47:39,986] INFO __main__[66]: fs.s3a.session.token property override set in /usr/local/hadoop/etc/hadoop/core-site.xml
++ export TABLE_NAME=message_template_fact_map
++ TABLE_NAME=message_template_fact_map
++ export SCHEMA_NAME=sp_schema
++ SCHEMA_NAME=sp_schema
++ export PRIMARY_KEY=message_template_fact_map_id
++ PRIMARY_KEY=message_template_fact_map_id
++ export SELECTION_EXCLUSION=registration_source
++ SELECTION_EXCLUSION=registration_source
++ export REGISTRATION_SOURCE_CONDITION=True
++ REGISTRATION_SOURCE_CONDITION=True
++ export INSERT_REDSHIFT_CREATED_DATE=True
++ INSERT_REDSHIFT_CREATED_DATE=True
++ export INSERT_REDSHIFT_UPDATED_DATE=True
++ INSERT_REDSHIFT_UPDATED_DATE=True
++ export MYSQL_DATABASE=mysql_ace_schema
++ MYSQL_DATABASE=mysql_ace_schema
++ export MYSQL_HOSTNAME=mysql_ace_host
++ MYSQL_HOSTNAME=mysql_ace_host
++ export MYSQL_PORT=mysql_ace_port
++ MYSQL_PORT=mysql_ace_port
++ export MYSQL_TABLE=message_template_fact_map
++ MYSQL_TABLE=message_template_fact_map
++ python json_transforms/__init__.py
+json-transforms 9.0.76
++ python json_transforms/SSMCache.py
+[2025-03-25 04:47:44,737] INFO pcconfig.p_cfg[156]: Initializing AWS w/ path /pcap/etl/staging/universal-cronjob-chart profile: default
+[2025-03-25 04:47:48,118] INFO json_transforms.LoadYaml[39]: TABLE_NAME is: message_template_fact_map
+[2025-03-25 04:47:48,132] INFO json_transforms.LoadYaml[47]: SCHEMA_NAME is:  sp_schema
+[2025-03-25 04:47:48,146] INFO json_transforms.LoadYaml[71]: PRIMARY_KEY is:  message_template_fact_map_id
+[2025-03-25 04:47:48,160] INFO json_transforms.LoadYaml[55]: STAGING_SCHEMA_NAME is:  default
+[2025-03-25 04:47:48,174] INFO json_transforms.LoadYaml[87]: SELECTION_EXCLUSION is:  registration_source
+[2025-03-25 04:47:48,188] INFO json_transforms.LoadYaml[95]: SELECTION_INCLUSION is:  default
+[2025-03-25 04:47:48,202] INFO json_transforms.LoadYaml[103]: DROP_COLUMN is:  default
+[2025-03-25 04:47:48,217] INFO json_transforms.LoadYaml[111]: INT2_TO_BOOLEAN is:  default
+[2025-03-25 04:47:48,231] INFO json_transforms.LoadYaml[123]: CHUNK_SIZE is:  10000
+[2025-03-25 04:47:48,246] INFO json_transforms.LoadYaml[131]: FLOAT_TO_INT is:  default
+[2025-03-25 04:47:48,260] INFO json_transforms.LoadYaml[140]: BIT_TO_INT is:  default
+[2025-03-25 04:47:48,274] INFO json_transforms.LoadYaml[152]: QUOTECHAR is:  "
+[2025-03-25 04:47:48,288] INFO json_transforms.LoadYaml[164]: DELIMITER is:  |
+[2025-03-25 04:47:48,316] INFO json_transforms.LoadYaml[230]: QUALTRICS_REDSHIFT_QUERY is:  default
+[2025-03-25 04:47:48,330] INFO json_transforms.LoadYaml[275]: OVERRIDE_S3_LOCATION is:  default
+[2025-03-25 04:47:48,345] INFO json_transforms.LoadYaml[172]: ENUM_KEY_MULTI is:  default
+[2025-03-25 04:47:48,359] INFO json_transforms.LoadYaml[181]: ADDITIONAL_ENUM_VALUES is:  default
+[2025-03-25 04:47:48,373] INFO json_transforms.LoadYaml[547]: FLAG_TO_ADD_HASH is:  default
+[2025-03-25 04:47:48,387] INFO json_transforms.LoadYaml[555]: VENDOR_NAME is:  default
+[2025-03-25 04:47:48,401] INFO json_transforms.LoadYaml[563]: THRESHOLD_HOURS is:  default
+[2025-03-25 04:47:48,415] INFO json_transforms.LoadYaml[284]: MYSQL_DATABASE is:  mysql_ace_schema
+[2025-03-25 04:47:48,429] INFO json_transforms.LoadYaml[293]: MYSQL_HOSTNAME is:  mysql_ace_host
+[2025-03-25 04:47:48,444] INFO json_transforms.LoadYaml[301]: MYSQL_PORT is:  mysql_ace_port
+[2025-03-25 04:47:48,458] INFO json_transforms.LoadYaml[239]: QUALTRICS_MYSQL_QUERY is:  default
+[2025-03-25 04:47:48,472] INFO json_transforms.LoadYaml[248]: QUALTRICS_MAILING_LIST_ID is:  default
+[2025-03-25 04:47:48,486] INFO json_transforms.LoadYaml[257]: POST_CHUNK_SIZE is:  default
+[2025-03-25 04:47:48,500] INFO json_transforms.LoadYaml[266]: S3_FILE_KEY is:  default
+[2025-03-25 04:47:48,515] INFO json_transforms.LoadYaml[310]: NO_UPDATED_DATE is:  default
+[2025-03-25 04:47:48,529] INFO json_transforms.LoadYaml[319]: TIMED_COLUMN_NAME is:  default
+[2025-03-25 04:47:48,543] INFO json_transforms.LoadYaml[328]: MYSQL_TABLE is:  message_template_fact_map
+[2025-03-25 04:47:48,557] INFO json_transforms.LoadYaml[337]: FILE_NAMES is:  default
+[2025-03-25 04:47:48,571] INFO json_transforms.LoadYaml[346]: JSON_TRANSFORM is:  default
+[2025-03-25 04:47:48,585] INFO json_transforms.LoadYaml[355]: UNLOAD_S3_KEY is:  default
+[2025-03-25 04:47:48,599] INFO json_transforms.LoadYaml[364]: LOOKUP_FILE_KEY is:  default
+[2025-03-25 04:47:48,613] INFO json_transforms.LoadYaml[373]: LOOKUP_KEY_VALUE is:  default
+[2025-03-25 04:47:48,628] INFO json_transforms.LoadYaml[382]: LOOKUP_KEY is:  default
+[2025-03-25 04:47:48,642] INFO json_transforms.LoadYaml[391]: LOOKUP_VALUE is:  default
+[2025-03-25 04:47:48,656] INFO json_transforms.LoadYaml[400]: INT64 is:  default
+[2025-03-25 04:47:48,670] INFO json_transforms.LoadYaml[409]: LOOKUP_FLATTEN_JSON is:  default
+[2025-03-25 04:47:48,686] INFO json_transforms.LoadYaml[417]: LOOKUP_MAPPER is:  default
+[2025-03-25 04:47:48,699] INFO json_transforms.LoadYaml[426]: COLUMNS_NAME_HEADERS are:  default
+[2025-03-25 04:47:48,713] INFO json_transforms.LoadYaml[435]: JOB_NAME_OVERRIDE are:  default
+[2025-03-25 04:47:48,727] INFO json_transforms.LoadYaml[444]: ETL_LAST_STEP is:  default
+[2025-03-25 04:47:48,741] INFO json_transforms.LoadYaml[189]: INSERT_REDSHIFT_CREATED_DATE is:  True
+[2025-03-25 04:47:48,756] INFO json_transforms.LoadYaml[197]: INSERT_REDSHIFT_UPDATED_DATE is:  True
+[2025-03-25 04:47:48,770] INFO json_transforms.LoadYaml[63]: SQL_SELECT is:  default
+[2025-03-25 04:47:48,784] INFO json_transforms.LoadYaml[452]: LAST_PROCESSED_DATE_QUERY is:  default
+[2025-03-25 04:47:48,812] INFO json_transforms.LoadYaml[473]: DIMENSIONS is:  default
+[2025-03-25 04:47:48,827] INFO json_transforms.LoadYaml[481]: METRICS is:  default
+[2025-03-25 04:47:48,841] INFO json_transforms.LoadYaml[489]: MAPPER_FILE_NAME is:  default
+[2025-03-25 04:47:48,854] INFO json_transforms.LoadYaml[205]: PROCESS_IN_BATCH_MODE is:  default
+[2025-03-25 04:47:48,869] INFO json_transforms.LoadYaml[213]: PROCESS_BATCH_SIZE is:  default
+[2025-03-25 04:47:48,883] INFO json_transforms.LoadYaml[221]: BACKUP_SOURCE_DATA is:  default
+[2025-03-25 04:47:48,897] INFO json_transforms.LoadYaml[611]: BACKFILL TARGET TABLE IS:  default
+[2025-03-25 04:47:48,912] INFO json_transforms.LoadYaml[618]: BACKFILL TARGET SCHEMA IS:  default
+[2025-03-25 04:47:48,926] INFO json_transforms.LoadYaml[539]: JOB_TABLE_NAME is: default
+[2025-03-25 04:47:48,940] INFO json_transforms.LoadYaml[506]: REDSHIFT_WHERE_CONDITION is:  default
+[2025-03-25 04:47:48,954] INFO json_transforms.LoadYaml[497]: REDSHIFT_WHERE_TIMESTAMP_COLUMN is:  default
+[2025-03-25 04:47:48,968] INFO json_transforms.LoadYaml[489]: MAPPER_FILE_NAME is:  default
+[2025-03-25 04:47:48,983] INFO json_transforms.LoadYaml[531]: SQL_WHERE_CONDITION is:  default
+[2025-03-25 04:47:48,997] INFO json_transforms.LoadYaml[522]: SQL_WHERE_TIMESTAMP_COLUMN is:  default
+[2025-03-25 04:47:49,011] INFO json_transforms.LoadYaml[579]: STAFF_PLAN_CONDITION is:  default
+[2025-03-25 04:47:49,026] INFO json_transforms.LoadYaml[571]: STAFF_PLAN_FLAG is:  default
+[2025-03-25 04:47:49,040] INFO json_transforms.LoadYaml[588]: BINARY_TO_HEX is:  default
+[2025-03-25 04:47:49,054] INFO json_transforms.LoadYaml[596]: CPU CORES USED ARE:  default
+[2025-03-25 04:47:49,069] INFO json_transforms.LoadYaml[604]: WINDOW TIME FRAME IS:  default
+[2025-03-25 04:47:49,083] INFO json_transforms.LoadYaml[627]: BACKFILL_TRUE_REM_COUNT_EXEC_DAY is:  default
+[2025-03-25 04:47:49,097] INFO json_transforms.LoadYaml[641]: Report Automation Input Parameters are default
+[2025-03-25 04:47:49,111] INFO json_transforms.LoadYaml[514]: REGISTRATION_SOURCE_CONDITION is:  True
+[2025-03-25 04:47:49,126] INFO json_transforms.LoadYaml[634]: BACKFILL_RANGE is:  default
+[2025-03-25 04:47:49,140] INFO json_transforms.LoadYaml[649]: CLEAN_UP_COLUMN_LIST is:  default
+[2025-03-25 04:47:49,154] INFO json_transforms.LoadYaml[657]: FOLDER is:  default
+[2025-03-25 04:47:49,207] INFO __main__[51]: job name - sp_schema.message_template_fact_map
+[2025-03-25 04:47:49,323] INFO pcdata.job_validation.UpdateJobControl[387]: Connecting to mysql using IAM, user = etl_app_staging
+[2025-03-25 04:47:49,338] INFO pcconfig.p_cfg[156]: Initializing AWS w/ path /pcap/etl/staging/universal-cronjob-chart profile: default
+[2025-03-25 04:47:49,845] INFO pcsql.mysql.query[28]: Mysql conn: IAM = True
+[2025-03-25 04:47:49,845] INFO pcsql.mysql.query[29]: Mysql conn: pcap-staging-sp-schema-app-write.pcapcloud.net:3306/pcap_control as etl_app_staging in region us-west-2
+[2025-03-25 04:47:49,845] INFO pcsql.mysql.query[32]: connecting to mysql using iam authentication
+[2025-03-25 04:47:50,579] INFO pcsql.mysql.query[50]: Mysql endpoint: pcap-staging-aurora-sp-schema-v2.cluster-ckgwc3b8wwrm.us-west-2.rds.amazonaws.com
+[2025-03-25 04:47:50,579] INFO pcsql.mysql.query[54]: Successfully generated temporary token
+[2025-03-25 04:47:50,699] INFO pcdata.job_validation.UpdateJobControl[262]: Checking if job is present = sp_schema.message_template_fact_map
+[2025-03-25 04:47:50,699] INFO pcdata.job_validation.UpdateJobControl[269]: sql to check if job is present = select count(*) from pcap_control.job_control where job_control.name = sp_schema.message_template_fact_map
+[2025-03-25 04:47:50,702] INFO pcdata.job_validation.UpdateJobControl[275]: job exists = sp_schema.message_template_fact_map
+[2025-03-25 04:47:50,702] INFO pcdata.job_validation.UpdateJobControl[410]: select job_control.enabled from pcap_control.job_control where job_control.name = sp_schema.message_template_fact_map;
+[2025-03-25 04:47:50,703] INFO pcdata.job_validation.UpdateJobControl[414]: enabled flag in job control: b'\x01'
+[2025-03-25 04:47:50,703] INFO pcdata.job_validation.UpdateJobControl[416]: Success : Job is enabled, Proceed for next steps
++ python json_transforms/mysql_select_to_s3.py
+[2025-03-25 04:47:53,936] INFO pcconfig.p_cfg[156]: Initializing AWS w/ path /pcap/etl/staging/universal-cronjob-chart profile: default
+[2025-03-25 04:47:55,480] INFO json_transforms.mysql_crud[168]: Conneting to mysql using IAM, user = etl_app_staging
+[2025-03-25 04:47:55,480] INFO json_transforms.mysql_crud[173]: host: pcap-staging-sp-schema-app-write.pcapcloud.net, port: 3306, user: etl_app_staging, db: pcap_control
+[2025-03-25 04:47:55,490] INFO pcconfig.p_cfg[156]: Initializing AWS w/ path /pcap/etl/staging/universal-cronjob-chart profile: default
+[2025-03-25 04:47:56,014] INFO pcsql.mysql.query[28]: Mysql conn: IAM = True
+[2025-03-25 04:47:56,014] INFO pcsql.mysql.query[29]: Mysql conn: pcap-staging-sp-schema-app-write.pcapcloud.net:3306/pcap_control as etl_app_staging in region us-west-2
+[2025-03-25 04:47:56,014] INFO pcsql.mysql.query[32]: connecting to mysql using iam authentication
+[2025-03-25 04:47:56,299] INFO pcsql.mysql.query[50]: Mysql endpoint: pcap-staging-aurora-sp-schema-v2.cluster-ckgwc3b8wwrm.us-west-2.rds.amazonaws.com
+[2025-03-25 04:47:56,300] INFO pcsql.mysql.query[54]: Successfully generated temporary token
+[2025-03-25 04:47:56,884] INFO json_transforms.WriteToS3[357]: checking and deleting stuck csv files, if any!
+[2025-03-25 04:47:56,884] INFO json_transforms.WriteToS3[358]: folder name: pc_cash~BUCKET/sp_schema_message_template_fact_map
+[2025-03-25 04:47:57,151] INFO json_transforms.WriteToS3[361]: staging-redshift-data:pc_cash~BUCKET/sp_schema_message_template_fact_map/sp_schema_message_template_fact_map.part_00000
+[2025-03-25 04:47:57,265] INFO __main__[269]: Step 1: sql select value is: default
+[2025-03-25 04:47:57,265] INFO __main__[274]: Step 2: executing dynamically, retrieve the redshift columns 
+[2025-03-25 04:47:57,265] INFO __main__[277]: self.json_transform: default
+[2025-03-25 04:47:57,372] INFO json_transforms.redshift_crud[50]: redshift iam flag = True
+[2025-03-25 04:47:57,372] INFO json_transforms.redshift_crud[53]: connecting to redshift using iam authentication pcap-epstaging-redshift.pcapcloud.net:5439/eprshiftdw as etl_json_trans_job
+[2025-03-25 04:47:57,372] INFO json_transforms.redshift_crud[58]: connected to redshift db
+[2025-03-25 04:47:57,372] INFO pcsql.rshift.query[37]: Redshift conn: pcap-epstaging-redshift.pcapcloud.net:5439/eprshiftdw as etl_json_trans_job in region us-west-2
+[2025-03-25 04:47:57,372] INFO pcsql.rshift.query[38]: Connecting using IAM = True
+[2025-03-25 04:47:57,372] INFO pcsql.rshift.query[39]: Connecting using roleArn = arn:aws:iam::468085554565:role/PCAP-PCAPEKS-EPSTAGING-EKS-SERVER-ROLES-Etl-Json-Trans-Job
+[2025-03-25 04:47:57,372] INFO pcsql.rshift.query[40]: None
+[2025-03-25 04:47:57,777] INFO pcsql.rshift.query[74]: Successfully generated temporary cluster credentials
+[2025-03-25 04:47:57,814] INFO pcsql.rshift.query[107]: Successfully connected to redshift db
+[2025-03-25 04:47:57,815] INFO json_transforms.redshift_crud[166]: extracting etl fields for sp_schema.message_template_fact_map
+[2025-03-25 04:47:57,815] INFO json_transforms.redshift_crud[171]: select column_name from information_schema.columns where table_name=message_template_fact_map and table_schema=sp_schema and column_name not ilike ('%redshift%') order by ordinal_position;
+[2025-03-25 04:47:58,013] INFO json_transforms.redshift_crud[189]: {'message_template_id', 'deleted_date', 'fact_id', 'created_date', 'updated_date', 'message_template_fact_map_id'}
+[2025-03-25 04:47:58,140] INFO json_transforms.redshift_crud[50]: redshift iam flag = True
+[2025-03-25 04:47:58,141] INFO json_transforms.redshift_crud[53]: connecting to redshift using iam authentication pcap-epstaging-redshift.pcapcloud.net:5439/eprshiftdw as etl_json_trans_job
+[2025-03-25 04:47:58,141] INFO json_transforms.redshift_crud[58]: connected to redshift db
+[2025-03-25 04:47:58,141] INFO pcsql.rshift.query[37]: Redshift conn: pcap-epstaging-redshift.pcapcloud.net:5439/eprshiftdw as etl_json_trans_job in region us-west-2
+[2025-03-25 04:47:58,141] INFO pcsql.rshift.query[38]: Connecting using IAM = True
+[2025-03-25 04:47:58,141] INFO pcsql.rshift.query[39]: Connecting using roleArn = arn:aws:iam::468085554565:role/PCAP-PCAPEKS-EPSTAGING-EKS-SERVER-ROLES-Etl-Json-Trans-Job
+[2025-03-25 04:47:58,141] INFO pcsql.rshift.query[40]: None
+[2025-03-25 04:47:58,296] INFO pcsql.rshift.query[74]: Successfully generated temporary cluster credentials
+[2025-03-25 04:47:58,329] INFO pcsql.rshift.query[107]: Successfully connected to redshift db
+[2025-03-25 04:47:58,329] INFO json_transforms.redshift_crud[166]: extracting etl fields for sp_schema.message_template_fact_map
+[2025-03-25 04:47:58,330] INFO json_transforms.redshift_crud[171]: select column_name from information_schema.columns where table_name=message_template_fact_map and table_schema=sp_schema and column_name not ilike ('%redshift%') order by ordinal_position;
+[2025-03-25 04:47:58,537] INFO json_transforms.redshift_crud[189]: {'message_template_id', 'deleted_date', 'fact_id', 'created_date', 'updated_date', 'message_template_fact_map_id'}
+[2025-03-25 04:47:58,555] INFO __main__[215]: self.insert_redshift_created_date: True
+[2025-03-25 04:47:58,555] INFO __main__[216]: self.insert_redshift_updated_date: True
+[2025-03-25 04:47:58,555] INFO __main__[287]: column names are: message_template_id,deleted_date,fact_id,created_date,updated_date,message_template_fact_map_id,redshift_created_date,redshift_updated_date
+[2025-03-25 04:47:58,569] INFO __main__[301]: Step 3: executing dynamically, generate the sql statement
+[2025-03-25 04:47:58,569] INFO __main__[302]: No Default SQL Statement given. Will generate one dynamically
+[2025-03-25 04:47:58,569] INFO __main__[303]: Execution Step: select to s3
+[2025-03-25 04:47:58,569] INFO __main__[306]: Checking if staff plan data needs to be excluded using multi table join.
+staff plan flag : default
+config property : False
+[2025-03-25 04:47:58,577] INFO __main__[117]: query to get last processed date: select MAX(last_processed_date) as max_val from pcap_control.job_control where job_control.name = 'sp_schema.message_template_fact_map'
+[2025-03-25 04:47:58,578] INFO json_transforms.mysql_crud[145]: mysql IAM flag = True
+[2025-03-25 04:47:58,578] INFO json_transforms.mysql_crud[148]: Conneting to mysql using IAM, user = etl_app_staging
+[2025-03-25 04:47:58,578] INFO pcsql.mysql.query[28]: Mysql conn: IAM = True
+[2025-03-25 04:47:58,578] INFO pcsql.mysql.query[29]: Mysql conn: pcap-staging-sp-schema-app-etl.pcapcloud.net:3306/pcap_control as etl_app_staging in region us-west-2
+[2025-03-25 04:47:58,578] INFO pcsql.mysql.query[32]: connecting to mysql using iam authentication
+[2025-03-25 04:47:58,812] INFO pcsql.mysql.query[50]: Mysql endpoint: pcap-staging-aurora-sp-schema-v2.cluster-ro-ckgwc3b8wwrm.us-west-2.rds.amazonaws.com
+[2025-03-25 04:47:58,813] INFO pcsql.mysql.query[54]: Successfully generated temporary token
+[2025-03-25 04:47:58,963] INFO json_transforms.mysql_crud[226]: Number of rows queried: 1
+[2025-03-25 04:47:58,963] INFO __main__[123]: returning a default value: 2021-11-25 00:00:00
+[2025-03-25 04:47:58,963] INFO __main__[325]: QUERY SELECT message_template_id,deleted_date,fact_id,created_date,updated_date,message_template_fact_map_id,current_timestamp(),current_timestamp() FROM pcap_ace.message_template_fact_map where updated_date >= '2021-11-25 00:00:00'
+[2025-03-25 04:47:58,963] INFO __main__[328]: Checking if staff plan data needs to be excluded.
+staff plan flag : default
+[2025-03-25 04:47:58,963] INFO __main__[330]: Staff plan config : False
+[2025-03-25 04:47:58,963] INFO __main__[342]: dynamic query: SELECT message_template_id,deleted_date,fact_id,created_date,updated_date,message_template_fact_map_id,current_timestamp(),current_timestamp() FROM pcap_ace.message_template_fact_map where updated_date >= '2021-11-25 00:00:00'
+[2025-03-25 04:47:58,963] INFO __main__[344]: Step 4: retrieve data and write to s3
+[2025-03-25 04:47:58,971] INFO __main__[357]: will use pcap_ace as source db is not default
+[2025-03-25 04:47:58,996] INFO json_transforms.mysql_crud[168]: Conneting to mysql using IAM, user = etl_app_staging
+[2025-03-25 04:47:58,996] INFO json_transforms.mysql_crud[173]: host: pcap-staging-ace-app-etl.pcapcloud.net, port: 3306, user: etl_app_staging, db: pcap_ace
+[2025-03-25 04:47:58,997] INFO pcsql.mysql.query[28]: Mysql conn: IAM = True
+[2025-03-25 04:47:58,997] INFO pcsql.mysql.query[29]: Mysql conn: pcap-staging-ace-app-etl.pcapcloud.net:3306/pcap_ace as etl_app_staging in region us-west-2
+[2025-03-25 04:47:58,997] INFO pcsql.mysql.query[32]: connecting to mysql using iam authentication
+[2025-03-25 04:47:59,388] INFO pcsql.mysql.query[50]: Mysql endpoint: pcap-staging-aurora-ace-v2.cluster-ro-ckgwc3b8wwrm.us-west-2.rds.amazonaws.com
+[2025-03-25 04:47:59,389] INFO pcsql.mysql.query[54]: Successfully generated temporary token
+[2025-03-25 04:47:59,751] INFO json_transforms.mysql_crud[168]: Conneting to mysql using IAM, user = etl_app_staging
+[2025-03-25 04:47:59,751] INFO json_transforms.mysql_crud[173]: host: pcap-staging-sp-schema-app-write.pcapcloud.net, port: 3306, user: etl_app_staging, db: pcap_control
+[2025-03-25 04:47:59,751] INFO pcsql.mysql.query[28]: Mysql conn: IAM = True
+[2025-03-25 04:47:59,751] INFO pcsql.mysql.query[29]: Mysql conn: pcap-staging-sp-schema-app-write.pcapcloud.net:3306/pcap_control as etl_app_staging in region us-west-2
+[2025-03-25 04:47:59,751] INFO pcsql.mysql.query[32]: connecting to mysql using iam authentication
+[2025-03-25 04:48:00,017] INFO pcsql.mysql.query[50]: Mysql endpoint: pcap-staging-aurora-sp-schema-v2.cluster-ckgwc3b8wwrm.us-west-2.rds.amazonaws.com
+[2025-03-25 04:48:00,018] INFO pcsql.mysql.query[54]: Successfully generated temporary token
+[2025-03-25 04:48:00,118] INFO json_transforms.mysql_crud[226]: Number of rows queried: 0
+[2025-03-25 04:48:00,125] INFO json_transforms.mysql_crud[226]: Number of rows queried: 1
+[2025-03-25 04:48:00,125] INFO json_transforms.job_control_manager[165]: Total number of active running jobs: [2], maximum number of active running jobs configured: [55].
+[2025-03-25 04:48:00,125] INFO __main__[448]: Query to extract data: SELECT message_template_id,deleted_date,fact_id,created_date,updated_date,message_template_fact_map_id,current_timestamp(),current_timestamp() FROM pcap_ace.message_template_fact_map where updated_date >= '2021-11-25 00:00:00' INTO OUTFILE S3 's3://staging-redshift-data/pc_cash~BUCKET/sp_schema_message_template_fact_map/sp_schema_message_template_fact_map' FIELDS TERMINATED BY '|' ENCLOSED BY '"' LINES TERMINATED BY '
+' OVERWRITE ON
+[2025-03-25 04:48:00,308] INFO json_transforms.mysql_crud[226]: Number of rows queried: 349
+[2025-03-25 04:48:00,308] INFO json_transforms.mysql_crud[168]: Conneting to mysql using IAM, user = etl_app_staging
+[2025-03-25 04:48:00,309] INFO json_transforms.mysql_crud[173]: host: pcap-staging-sp-schema-app-write.pcapcloud.net, port: 3306, user: etl_app_staging, db: pcap_control
+[2025-03-25 04:48:00,309] INFO pcsql.mysql.query[28]: Mysql conn: IAM = True
+[2025-03-25 04:48:00,309] INFO pcsql.mysql.query[29]: Mysql conn: pcap-staging-sp-schema-app-write.pcapcloud.net:3306/pcap_control as etl_app_staging in region us-west-2
+[2025-03-25 04:48:00,309] INFO pcsql.mysql.query[32]: connecting to mysql using iam authentication
+[2025-03-25 04:48:00,540] INFO pcsql.mysql.query[50]: Mysql endpoint: pcap-staging-aurora-sp-schema-v2.cluster-ckgwc3b8wwrm.us-west-2.rds.amazonaws.com
+[2025-03-25 04:48:00,541] INFO pcsql.mysql.query[54]: Successfully generated temporary token
+[2025-03-25 04:48:00,577] INFO json_transforms.mysql_crud[248]: query to execute is UPDATE pcap_control.job_control SET status = 'PENDING' WHERE name = 'sp_schema.message_template_fact_map'
+[2025-03-25 04:48:00,601] INFO __main__[473]: s3_file_key: pc_cash~BUCKET/sp_schema_message_template_fact_map/sp_schema_message_template_fact_map
++ python json_transforms/ExecuteUpsertV1.py
+[2025-03-25 04:48:03,639] INFO __main__[22]: Start: Executing upsert
+[2025-03-25 04:48:03,666] INFO pcconfig.p_cfg[156]: Initializing AWS w/ path /pcap/etl/staging/universal-cronjob-chart profile: default
+[2025-03-25 04:48:04,684] INFO __main__[34]: job name - sp_schema.message_template_fact_map
+[2025-03-25 04:48:04,983] INFO json_transforms.mysql_crud[168]: Conneting to mysql using IAM, user = etl_app_staging
+[2025-03-25 04:48:04,983] INFO json_transforms.mysql_crud[173]: host: pcap-staging-sp-schema-app-write.pcapcloud.net, port: 3306, user: etl_app_staging, db: pcap_control
+[2025-03-25 04:48:04,993] INFO pcconfig.p_cfg[156]: Initializing AWS w/ path /pcap/etl/staging/universal-cronjob-chart profile: default
+[2025-03-25 04:48:05,501] INFO pcsql.mysql.query[28]: Mysql conn: IAM = True
+[2025-03-25 04:48:05,502] INFO pcsql.mysql.query[29]: Mysql conn: pcap-staging-sp-schema-app-write.pcapcloud.net:3306/pcap_control as etl_app_staging in region us-west-2
+[2025-03-25 04:48:05,502] INFO pcsql.mysql.query[32]: connecting to mysql using iam authentication
+[2025-03-25 04:48:05,783] INFO pcsql.mysql.query[50]: Mysql endpoint: pcap-staging-aurora-sp-schema-v2.cluster-ckgwc3b8wwrm.us-west-2.rds.amazonaws.com
+[2025-03-25 04:48:05,784] INFO pcsql.mysql.query[54]: Successfully generated temporary token
+[2025-03-25 04:48:06,079] INFO json_transforms.redshift_crud[50]: redshift iam flag = True
+[2025-03-25 04:48:06,079] INFO json_transforms.redshift_crud[53]: connecting to redshift using iam authentication pcap-epstaging-redshift.pcapcloud.net:5439/eprshiftdw as etl_json_trans_job
+[2025-03-25 04:48:06,079] INFO json_transforms.redshift_crud[58]: connected to redshift db
+[2025-03-25 04:48:06,079] INFO pcsql.rshift.query[37]: Redshift conn: pcap-epstaging-redshift.pcapcloud.net:5439/eprshiftdw as etl_json_trans_job in region us-west-2
+[2025-03-25 04:48:06,079] INFO pcsql.rshift.query[38]: Connecting using IAM = True
+[2025-03-25 04:48:06,079] INFO pcsql.rshift.query[39]: Connecting using roleArn = arn:aws:iam::468085554565:role/PCAP-PCAPEKS-EPSTAGING-EKS-SERVER-ROLES-Etl-Json-Trans-Job
+[2025-03-25 04:48:06,080] INFO pcsql.rshift.query[40]: None
+[2025-03-25 04:48:06,273] INFO pcsql.rshift.query[74]: Successfully generated temporary cluster credentials
+[2025-03-25 04:48:06,347] INFO pcsql.rshift.query[107]: Successfully connected to redshift db
+[2025-03-25 04:48:06,365] INFO json_transforms.redshift_crud[97]: creating a temp table for sp_schema.message_template_fact_map
+[2025-03-25 04:48:06,390] INFO json_transforms.redshift_crud[103]: total records fetched: 0 . 0 is ok because it tells us that the table is created ok
+[2025-03-25 04:48:06,390] INFO json_transforms.redshift_crud[107]: temp table: message_template_fact_map_temp was successfully created.
+[2025-03-25 04:48:06,390] INFO pcdata.copy_from_s3_to_redshift.RedshiftCopyToStaging[74]: copy to staging
+[2025-03-25 04:48:06,456] INFO pcdata.copy_from_s3_to_redshift.RedshiftCopyToStaging[209]: copy to staging: copy message_template_fact_map_temp ( message_template_id,deleted_date,fact_id,created_date,updated_date,message_template_fact_map_id,redshift_created_date,redshift_updated_date )  from 's3://staging-redshift-data/pc_cash~BUCKET/sp_schema_message_template_fact_map/sp_schema_message_template_fact_map' CREDENTIALS 'aws_iam_role=arn:aws:iam::468085554565:role/pcap-service-epstaging-redshift-s3' escape removequotes delimiter '|' ENCODING AS UTF8 IGNOREHEADER as 0 ACCEPTANYDATE EMPTYASNULL  IGNOREBLANKLINES MAXERROR 0 ;commit;
+[2025-03-25 04:48:11,395] INFO pcdata.copy_from_s3_to_redshift.RedshiftCopyToStaging[216]: Checking last copied count...
+[2025-03-25 04:48:11,397] INFO pcdata.copy_from_s3_to_redshift.RedshiftCopyToStaging[239]: Last copied count: 349
+[2025-03-25 04:48:11,440] INFO pcdata.delete_insert.ExecuteDeleteInsert[521]: SELECT MIN(DISTINCT(updated_date)) FROM message_template_fact_map_temp
+[2025-03-25 04:48:11,463] INFO pcdata.delete_insert.ExecuteDeleteInsert[524]: record start date for table: message_template_fact_map_temp is 2021-12-09 12:35:29
+[2025-03-25 04:48:11,477] INFO pcdata.delete_insert.ExecuteDeleteInsert[527]: SELECT MAX(DISTINCT(updated_date)) FROM message_template_fact_map_temp
+[2025-03-25 04:48:11,498] INFO pcdata.delete_insert.ExecuteDeleteInsert[530]: record end date for table: message_template_fact_map_temp is 2025-03-03 13:20:26
+[2025-03-25 04:48:11,526] INFO pcdata.delete_insert.ExecuteDeleteInsert[348]: Table: message_template_fact_map_temp, Successfully copied data to staging!
+[2025-03-25 04:48:11,526] INFO pcdata.delete_insert.ExecuteDeleteInsert[553]: Starting deleting and inserting master table: sp_schema."message_template_fact_map" using staging table: message_template_fact_map_temp...
+[2025-03-25 04:48:11,535] INFO pcdata.delete_insert.ExecuteDeleteInsert[575]: adding registration_source column
+[2025-03-25 04:48:11,535] INFO pcdata.delete_insert.ExecuteDeleteInsert[459]: Start execution phase: executeDeleteInsert...
+[2025-03-25 04:48:11,535] INFO pcdata.delete_insert.ExecuteDeleteInsert[464]: Upsert, execution phase: executeDeleteInsert, SQL: DELETE FROM sp_schema."message_template_fact_map" USING message_template_fact_map_temp rs WHERE sp_schema."message_template_fact_map".message_template_fact_map_id = rs.message_template_fact_map_id;  INSERT INTO sp_schema."message_template_fact_map" (message_template_id,deleted_date,fact_id,created_date,updated_date,message_template_fact_map_id,redshift_created_date,redshift_updated_date,registration_source) SELECT message_template_id,deleted_date,fact_id,created_date,updated_date,message_template_fact_map_id,redshift_created_date,redshift_updated_date,'PCAP' FROM message_template_fact_map_temp rs ; 
+[2025-03-25 04:48:12,231] INFO pcdata.delete_insert.ExecuteDeleteInsert[472]: Upsert, execution phase: executeDeleteInsert, rows affected: 349
+[2025-03-25 04:48:12,231] INFO pcdata.delete_insert.ExecuteDeleteInsert[521]: SELECT MIN(DISTINCT(updated_date)) FROM message_template_fact_map_temp
+[2025-03-25 04:48:12,235] INFO pcdata.delete_insert.ExecuteDeleteInsert[524]: record start date for table: message_template_fact_map_temp is 2021-12-09 12:35:29
+[2025-03-25 04:48:12,250] INFO pcdata.delete_insert.ExecuteDeleteInsert[527]: SELECT MAX(DISTINCT(updated_date)) FROM message_template_fact_map_temp
+[2025-03-25 04:48:12,251] INFO pcdata.delete_insert.ExecuteDeleteInsert[530]: record end date for table: message_template_fact_map_temp is 2025-03-03 13:20:26
+[2025-03-25 04:48:12,265] INFO pcdata.delete_insert.ExecuteDeleteInsert[541]: last processed data: 2025-03-03 13:20:26
+[2025-03-25 04:48:12,308] INFO pcdata.delete_insert.ExecuteDeleteInsert[135]: Connecting to mysql using IAM, user = etl_app_staging
+[2025-03-25 04:48:12,308] INFO pcsql.mysql.query[28]: Mysql conn: IAM = True
+[2025-03-25 04:48:12,308] INFO pcsql.mysql.query[29]: Mysql conn: pcap-staging-sp-schema-app-write.pcapcloud.net:3306/pcap_control as etl_app_staging in region us-west-2
+[2025-03-25 04:48:12,308] INFO pcsql.mysql.query[32]: connecting to mysql using iam authentication
+[2025-03-25 04:48:12,558] INFO pcsql.mysql.query[50]: Mysql endpoint: pcap-staging-aurora-sp-schema-v2.cluster-ckgwc3b8wwrm.us-west-2.rds.amazonaws.com
+[2025-03-25 04:48:12,559] INFO pcsql.mysql.query[54]: Successfully generated temporary token
+[2025-03-25 04:48:12,652] INFO pcdata.delete_insert.ExecuteDeleteInsert[155]: select job_control.offset from pcap_control.job_control where job_control.name = sp_schema.message_template_fact_map;
+[2025-03-25 04:48:12,653] INFO pcdata.delete_insert.ExecuteDeleteInsert[219]: no need of duplicate check, offset is null
+[2025-03-25 04:48:12,653] INFO __main__[55]: will now delete the csv from s3
+[2025-03-25 04:48:12,653] INFO __main__[57]: COMPLETED: Upsert to Redshift
+[2025-03-25 04:48:12,653] INFO __main__[59]: Will now exist with exit code 0
++ python json_transforms/UpdateJobControl.py
+[2025-03-25 04:48:15,442] INFO __main__[27]: Start: Writing Job Control Status
+[2025-03-25 04:48:15,536] INFO pcconfig.p_cfg[156]: Initializing AWS w/ path /pcap/etl/staging/universal-cronjob-chart profile: default
+[2025-03-25 04:48:16,371] INFO __main__[37]: job name - sp_schema.message_template_fact_map
+[2025-03-25 04:48:16,579] INFO json_transforms.mysql_crud[168]: Conneting to mysql using IAM, user = etl_app_staging
+[2025-03-25 04:48:16,579] INFO json_transforms.mysql_crud[173]: host: pcap-staging-sp-schema-app-write.pcapcloud.net, port: 3306, user: etl_app_staging, db: pcap_control
+[2025-03-25 04:48:16,589] INFO pcconfig.p_cfg[156]: Initializing AWS w/ path /pcap/etl/staging/universal-cronjob-chart profile: default
+[2025-03-25 04:48:17,084] INFO pcsql.mysql.query[28]: Mysql conn: IAM = True
+[2025-03-25 04:48:17,084] INFO pcsql.mysql.query[29]: Mysql conn: pcap-staging-sp-schema-app-write.pcapcloud.net:3306/pcap_control as etl_app_staging in region us-west-2
+[2025-03-25 04:48:17,084] INFO pcsql.mysql.query[32]: connecting to mysql using iam authentication
+[2025-03-25 04:48:17,498] INFO pcsql.mysql.query[50]: Mysql endpoint: pcap-staging-aurora-sp-schema-v2.cluster-ckgwc3b8wwrm.us-west-2.rds.amazonaws.com
+[2025-03-25 04:48:17,499] INFO pcsql.mysql.query[54]: Successfully generated temporary token
+[2025-03-25 04:48:17,679] INFO pcdata.job_validation.UpdateJobControl[387]: Connecting to mysql using IAM, user = etl_app_staging
+[2025-03-25 04:48:17,679] INFO pcsql.mysql.query[28]: Mysql conn: IAM = True
+[2025-03-25 04:48:17,679] INFO pcsql.mysql.query[29]: Mysql conn: pcap-staging-sp-schema-app-write.pcapcloud.net:3306/pcap_control as etl_app_staging in region us-west-2
+[2025-03-25 04:48:17,679] INFO pcsql.mysql.query[32]: connecting to mysql using iam authentication
+[2025-03-25 04:48:17,922] INFO pcsql.mysql.query[50]: Mysql endpoint: pcap-staging-aurora-sp-schema-v2.cluster-ckgwc3b8wwrm.us-west-2.rds.amazonaws.com
+[2025-03-25 04:48:17,923] INFO pcsql.mysql.query[54]: Successfully generated temporary token
+[2025-03-25 04:48:17,980] INFO pcdata.job_validation.UpdateJobControl[136]: last processed date for updating job control: 2025-03-03 13:20:26
+[2025-03-25 04:48:17,988] INFO pcdata.job_validation.UpdateJobControl[144]: total cache elements: 26
+[2025-03-25 04:48:17,988] INFO pcdata.job_validation.UpdateJobControl[145]: cache elements: ['MYSQL_EXTRACT_TO_TRANSFORM', 'WRITE_TO_S3', 'COPY_TO_STAGING', 'DELETE_DUPLICATES', 'EXECUTE_UPSERT_UPDATE', 'EXECUTE_UPSERT_INSERT', 'EXECUTE_DELETE_INSERT', 'DOWNLOAD_FROM_S3', 'MixpanelExportData', 'MixpanelPeopleData', 'ValidateExactTarget', 'EXECUTE_UPSERT_DELETE_INSERT', 'DirectMailLastTouchMatchBackProcess', 'RedshiftDeleteCopy', 'ExecuteUpsert', 'EventDataReconciliation', 'ExecuteCustomSql', 'UpdateImpactRegistration', 'UpdateImpactQL', 'UnloadUserPivot', 'UasOnusMonitor', 'LoadMysqlFromS3', 'UseraccountAdvFeeUpdate', 'UnloadStaffPlanUsers', 'update_job_control_condition', 'UnloadUserPivotAtlantis']
+[2025-03-25 04:48:17,988] INFO pcdata.job_validation.UpdateJobControl[147]: write_lpd_flag = True
+[2025-03-25 04:48:17,990] INFO pcdata.job_validation.UpdateJobControl[473]: record_start_date is 2021-12-09 12:35:29
+[2025-03-25 04:48:17,990] INFO pcdata.job_validation.UpdateJobControl[474]: execution phase is redshiftCopyToStaging
+[2025-03-25 04:48:17,990] INFO pcdata.job_validation.UpdateJobControl[495]: including record period to write to job history table for execution phase redshiftCopyToStaging
+[2025-03-25 04:48:17,990] INFO pcdata.job_validation.UpdateJobControl[505]: Sql to insert job history table:
+[2025-03-25 04:48:17,990] INFO pcdata.job_validation.UpdateJobControl[506]: INSERT INTO pcap_control.job_control_history  (job_name, status, details, record_count, execution_phase
+                                      ,record_start_date,record_end_date,host_name,last_processed_date,last_successful_run_date,last_start_date)
+                                      VALUES (sp_schema.message_template_fact_map,COMPLETED,redshiftCopyToStaging,349,redshiftCopyToStaging,2021-12-09 12:35:29,2025-03-03 13:20:26,pcap-staging-sp-schema-app-write.pcapcloud.net,2025-03-03 13:20:26,2025-03-25 04:48:17,2025-03-03 13:20:26)
+[2025-03-25 04:48:17,996] INFO pcdata.job_validation.UpdateJobControl[262]: Checking if job is present = sp_schema.message_template_fact_map
+[2025-03-25 04:48:17,996] INFO pcdata.job_validation.UpdateJobControl[269]: sql to check if job is present = select count(*) from pcap_control.job_control where job_control.name = sp_schema.message_template_fact_map
+[2025-03-25 04:48:17,997] INFO pcdata.job_validation.UpdateJobControl[275]: job exists = sp_schema.message_template_fact_map
+[2025-03-25 04:48:17,997] INFO pcdata.job_validation.UpdateJobControl[308]: Update job control for sp_schema.message_template_fact_map
+[2025-03-25 04:48:17,997] INFO pcdata.job_validation.UpdateJobControl[309]: status: COMPLETED
+[2025-03-25 04:48:17,997] INFO pcdata.job_validation.UpdateJobControl[310]: last_processed_date: 2025-03-03 13:20:26
+[2025-03-25 04:48:17,997] INFO pcdata.job_validation.UpdateJobControl[311]: write_lpd_flag: True
+[2025-03-25 04:48:17,997] INFO pcdata.job_validation.UpdateJobControl[315]: details: redshiftCopyToStaging
+[2025-03-25 04:48:17,998] INFO pcdata.job_validation.UpdateJobControl[473]: record_start_date is 2021-12-09 12:35:29
+[2025-03-25 04:48:17,998] INFO pcdata.job_validation.UpdateJobControl[474]: execution phase is executeDeleteInsert
+[2025-03-25 04:48:17,998] INFO pcdata.job_validation.UpdateJobControl[495]: including record period to write to job history table for execution phase executeDeleteInsert
+[2025-03-25 04:48:17,998] INFO pcdata.job_validation.UpdateJobControl[505]: Sql to insert job history table:
+[2025-03-25 04:48:17,998] INFO pcdata.job_validation.UpdateJobControl[506]: INSERT INTO pcap_control.job_control_history  (job_name, status, details, record_count, execution_phase
+                                      ,record_start_date,record_end_date,host_name,last_processed_date,last_successful_run_date,last_start_date)
+                                      VALUES (sp_schema.message_template_fact_map,COMPLETED,executeDeleteInsert,349,executeDeleteInsert,2021-12-09 12:35:29,2025-03-03 13:20:26,pcap-staging-sp-schema-app-write.pcapcloud.net,2025-03-03 13:20:26,2025-03-25 04:48:17,2025-03-03 13:20:26)
+[2025-03-25 04:48:18,013] INFO pcdata.job_validation.UpdateJobControl[262]: Checking if job is present = sp_schema.message_template_fact_map
+[2025-03-25 04:48:18,013] INFO pcdata.job_validation.UpdateJobControl[269]: sql to check if job is present = select count(*) from pcap_control.job_control where job_control.name = sp_schema.message_template_fact_map
+[2025-03-25 04:48:18,015] INFO pcdata.job_validation.UpdateJobControl[275]: job exists = sp_schema.message_template_fact_map
+[2025-03-25 04:48:18,015] INFO pcdata.job_validation.UpdateJobControl[308]: Update job control for sp_schema.message_template_fact_map
+[2025-03-25 04:48:18,015] INFO pcdata.job_validation.UpdateJobControl[309]: status: COMPLETED
+[2025-03-25 04:48:18,015] INFO pcdata.job_validation.UpdateJobControl[310]: last_processed_date: 2025-03-03 13:20:26
+[2025-03-25 04:48:18,015] INFO pcdata.job_validation.UpdateJobControl[311]: write_lpd_flag: True
+[2025-03-25 04:48:18,015] INFO pcdata.job_validation.UpdateJobControl[315]: details: executeDeleteInsert
+[2025-03-25 04:48:18,016] INFO pcdata.job_validation.UpdateJobControl[585]: Updating job start and end time in job execution history table
+[2025-03-25 04:48:18,020] INFO pcdata.job_validation.UpdateJobControl[594]: sp_schema.message_template_fact_map: JOB COMPLETED at 2025-03-25 04:48:18
+[2025-03-25 04:48:18,020] INFO pcdata.job_validation.UpdateJobControl[601]: Sql to insert job execution history table:
+[2025-03-25 04:48:18,020] INFO pcdata.job_validation.UpdateJobControl[602]: INSERT INTO pcap_control.job_execution_history  (job_name, status, job_start_time, job_end_time, last_processed_date, record_count) VALUES (sp_schema.message_template_fact_map,JOB COMPLETED,2025-03-25 04:47:49,2025-03-25 04:48:18,2025-03-03 13:20:26,None)
+[2025-03-25 04:48:18,525] INFO json_transforms.WriteToS3[307]: Successfully deleted transformed key file: s3://staging-redshift-data/pc_cash~BUCKET/sp_schema_message_template_fact_map/sp_schema_message_template_fact_map from s3.
+[2025-03-25 04:48:18,525] INFO __main__[45]: s3 file deletion COMPLETED
+[2025-03-25 04:48:18,525] INFO __main__[50]: COMPLETED: Writing Job Control Status
+[2025-03-25 04:48:18,525] INFO __main__[51]: Clearing cache now
+[2025-03-25 04:48:18,542] INFO __main__[54]: COMPLETED Successfully. If you see this message, then we acknowledge that the job has executed all the steps Successfully
+[2025-03-25 04:48:18,542] INFO __main__[56]: Will now exist with exit code 0
+gm@U-32S5Z8YCYR9J9:~$ 
+
+
+"provide with the proper steps it is taking to complete the process in detail"
