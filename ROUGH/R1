@@ -1,1 +1,29 @@
-ss
+step1 
+export PATH="$PATH:/home/abalakrishna/glab/PLAT-8240/git-filter-repo"
+
+step2.
+git filter-repo --path pcap-common/src/main/java/com/personalcapital/batch --path pcap-common/src/main/java/com/personalcapital/context --path pcap-common/src/main/java/com/personalcapital/event --path pcap-common/src/main/java/com/personalcapital/json --path pcap-common/src/main/java/com/personalcapital/log --path pcap-common/src/main/java/com/personalcapital/log/mask --path pcap-common/src/main/java/com/personalcapital/rest/context --path pcap-common/src/main/java/com/personalcapital/service/header --path pcap-common/src/main/java/com/personalcapital/service/invoke --path pcap-common/src/main/java/com/personalcapital/service/model --path pcap-common/src/main/java/com/personalcapital/text/util --path pcap-common/src/main/java/com/personalcapital/unittesting/category --path pcap-common/src/main/java/com/personalcapital/util --path pcap-common/src/main/java/com/safepage/error --path pcap-common/src/main/java/com/safepage/exception --path pcap-common/src/main/java/com/safepage/json --path pcap-common/src/main/java/com/safepage/util --path pcap-common/src/main/resources --path pcap-common/src/test/java/com/personalcapital/batch --path pcap-common/src/test/java/com/personalcapital/text/util --path pcap-common/src/test/java/com/personalcapital/util --path pcap-common/src/test/java/com/safepage/json --path pcap-common/src/test/java/com/safepage/util --force
+
+step3.
+git add .
+
+step4.
+git commit -m "pcap-common rel2.7 history commits"
+
+step5.
+cd ../pcap-common-data
+
+step6.
+git config pull.rebase false
+
+step7.
+git remote add pcap-common ../pcap-server
+
+step8.
+git pull pcap-common release/2.7 --allow-unrelated-histories
+
+step9.
+git push
+
+
+i have updated step 1, the rest i need some help because i am new to this transfer of repo with git history, these steps i got from a senior, i want to be able to use it for myself, please help me in replacing the lines with what works for me
