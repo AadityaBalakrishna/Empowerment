@@ -1,29 +1,160 @@
-step1 
-export PATH="$PATH:/home/abalakrishna/glab/PLAT-8240/git-filter-repo"
+ap-command]$ cd ..
+[PCAP\abalakrishna@a-2d96x7pbja7vd pcap-server]$ export PATH="$PATH:/home/abalakrishna/glab/PLAT-8240/git-filter-repo"
+[PCAP\abalakrishna@a-2d96x7pbja7vd pcap-server]$ git filter-repo --path pcap-command/src/main/java/com/personalcapital/command/utils/AdviceQueueCommandUtils.java --path pcap-command/src/main/java/com/personalcapital/command/utils/QueueCommandUtils.java --path pcap-command/src/main/java/com/personalcapital/command/QueueDispatchType.java --path pcap-command/src/main/java/com/personalcapital/et/data/DataExtension.java --path pcap-command/src/main/java/com/personalcapital/et/util/ExactTargetCommandUtils.java --path pcap-command/src/main/java/com/safepage/aggregation/data/QueueStatus.java --path pcap-command/src/test/java/com/personalcapital/command/utils/AdviceQueueCommandUtilsTest.java --path pcap-command/src/test/java/com/personalcapital/command/utils/QueueCommandUtilsTest.java --path pcap-command/src/test/resources/adviceQueueCommandUtilsTest-Context.xml
+Aborting: Refusing to destructively overwrite repo history since
+this does not look like a fresh clone.
+  (expected freshly packed repo)
+Please operate on a fresh clone instead.  If you want to proceed
+anyway, use --force.
+[PCAP\abalakrishna@a-2d96x7pbja7vd pcap-server]$ git filter-repo --path pcap-command/src/main/java/com/personalcapital/command/utils/AdviceQueueCommandUtils.java --path pcap-command/src/main/java/com/personalcapital/command/utils/QueueCommandUtils.java --path pcap-command/src/main/java/com/personalcapital/command/QueueDispatchType.java --path pcap-command/src/main/java/com/personalcapital/et/data/DataExtension.java --path pcap-command/src/main/java/com/personalcapital/et/util/ExactTargetCommandUtils.java --path pcap-command/src/main/java/com/safepage/aggregation/data/QueueStatus.java --path pcap-command/src/test/java/com/personalcapital/command/utils/AdviceQueueCommandUtilsTest.java --path pcap-command/src/test/java/com/personalcapital/command/utils/QueueCommandUtilsTest.java --path pcap-command/src/test/resources/adviceQueueCommandUtilsTest-Context.xml --force
+NOTICE: Removing 'origin' remote; see 'Why is my origin removed?'
+        in the manual if you want to push back there.
+        (was https://gitlab.retirementpartner.com/pwt-cloud-platform/pcap-server.git)
+Parsed 146664 commits
+New history written in 26.68 seconds; now repacking/cleaning...
+Repacking your repo and cleaning out old unneeded objects
+warning: unable to unlink 'mysql_data/.keep': Permission denied
+HEAD is now at 3cf4f554e10 RS-21194: Added custom parameters for StrategyRefreshCommand
+Rewrote the stash.
+Enumerating objects: 3929, done.
+Counting objects: 100% (3929/3929), done.
+Delta compression using up to 4 threads
+Compressing objects: 100% (2671/2671), done.
+Writing objects: 100% (3929/3929), done.
+Total 3929 (delta 355), reused 3920 (delta 350), pack-reused 0
+Completely finished after 29.48 seconds.
+[PCAP\abalakrishna@a-2d96x7pbja7vd pcap-server]$ git add
+Nothing specified, nothing added.
+hint: Maybe you wanted to say 'git add .'?
+hint: Turn this message off by running
+hint: "git config advice.addEmptyPathspec false"
+[PCAP\abalakrishna@a-2d96x7pbja7vd pcap-server]$ git add .
+warning: could not open directory 'mysql_data/pcap_analytics/': Permission denied
+warning: could not open directory 'mysql_data/pcap_cq/': Permission denied
+warning: could not open directory 'mysql_data/sp_schema/': Permission denied
+warning: could not open directory 'mysql_data/sys/': Permission denied
+warning: could not open directory 'mysql_data/mysql/': Permission denied
+warning: could not open directory 'mysql_data/pcap_pcb/': Permission denied
+warning: could not open directory 'mysql_data/pcap_transaction/': Permission denied
+warning: could not open directory 'mysql_data/pcap_fp/': Permission denied
+warning: could not open directory 'mysql_data/pcap_ace/': Permission denied
+warning: could not open directory 'mysql_data/#innodb_redo/': Permission denied
+warning: could not open directory 'mysql_data/pcap_referral/': Permission denied
+warning: could not open directory 'mysql_data/epw_aggregation/': Permission denied
+warning: could not open directory 'mysql_data/user_response/': Permission denied
+warning: could not open directory 'mysql_data/pcap_empower/': Permission denied
+warning: could not open directory 'mysql_data/pcap_privacy/': Permission denied
+warning: could not open directory 'mysql_data/pcap_fp_snapshot/': Permission denied
+warning: could not open directory 'mysql_data/pcap_vca/': Permission denied
+warning: could not open directory 'mysql_data/pcap_snapshot/': Permission denied
+warning: could not open directory 'mysql_data/pcap_batch/': Permission denied
+warning: could not open directory 'mysql_data/#innodb_temp/': Permission denied
+warning: could not open directory 'mysql_data/pcapaudit_schema/': Permission denied
+warning: could not open directory 'mysql_data/performance_schema/': Permission denied
+warning: could not open directory 'mysql_data/data_prep/': Permission denied
+warning: could not open directory 'mysql_data/pcap_payment/': Permission denied
+warning: could not open directory 'mysql_data/epw_account/': Permission denied
+warning: could not open directory 'mysql_data/pcap_feex/': Permission denied
+warning: in the working copy of 'epw-salesforce-helper/target/test-classes/adviceQueueCommandUtilsTest-Context.xml', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'epw-salesforce-helper/target/test-classes/salesforceTenantUserValidatorAdviceTest-Context.xml', CRLF will be replaced by LF the next time Git touches it
+error: open("mysql_data/#ib_16384_0.dblwr"): Permission denied
+error: unable to index file 'mysql_data/#ib_16384_0.dblwr'
+fatal: adding files failed
+[PCAP\abalakrishna@a-2d96x7pbja7vd pcap-server]$ git commit -m "pcap-command files to pcap-common-data rel3.0 history commits"
+On branch feature/PLAT-8240-move-pcap-command-out
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+        .idea/
+        .profiler/
+        epw-salesforce-helper/
+        epw-springockito/
+        mysql_data/
+        pcap-analytics-dao/
+        pcap-aws/
+        pcap-cache/
+        pcap-classification/
+        pcap-command/.profiler/
+        pcap-command/target/
+        pcap-common-webservice/
+        pcap-common/
+        pcap-config/
+        pcap-core-services/
+        pcap-credentials/
+        pcap-data/
+        pcap-event-service/
+        pcap-filecabinet/
+        pcap-frontapp/
+        pcap-mixpanel/
+        pcap-planning-common/
+        pcap-planning/
+        pcap-queue-manager/
+        pcap-rest-common/
+        pcap-service-client/
+        pcap-service/
+        pcap-test-junit5/
+        pcap-test-v3/
+        pcap-test/
+        pcap-webversion-service/
+        pcap-weka/
+        pcap/
+        sp-common/
+        sp-core/
+        sp-data/
+        sp-security/
 
-step2.
-git filter-repo --path pcap-common/src/main/java/com/personalcapital/batch --path pcap-common/src/main/java/com/personalcapital/context --path pcap-common/src/main/java/com/personalcapital/event --path pcap-common/src/main/java/com/personalcapital/json --path pcap-common/src/main/java/com/personalcapital/log --path pcap-common/src/main/java/com/personalcapital/log/mask --path pcap-common/src/main/java/com/personalcapital/rest/context --path pcap-common/src/main/java/com/personalcapital/service/header --path pcap-common/src/main/java/com/personalcapital/service/invoke --path pcap-common/src/main/java/com/personalcapital/service/model --path pcap-common/src/main/java/com/personalcapital/text/util --path pcap-common/src/main/java/com/personalcapital/unittesting/category --path pcap-common/src/main/java/com/personalcapital/util --path pcap-common/src/main/java/com/safepage/error --path pcap-common/src/main/java/com/safepage/exception --path pcap-common/src/main/java/com/safepage/json --path pcap-common/src/main/java/com/safepage/util --path pcap-common/src/main/resources --path pcap-common/src/test/java/com/personalcapital/batch --path pcap-common/src/test/java/com/personalcapital/text/util --path pcap-common/src/test/java/com/personalcapital/util --path pcap-common/src/test/java/com/safepage/json --path pcap-common/src/test/java/com/safepage/util --force
+nothing added to commit but untracked files present (use "git add" to track)
+[PCAP\abalakrishna@a-2d96x7pbja7vd pcap-server]$ cd ../pcap-common-data
+[PCAP\abalakrishna@a-2d96x7pbja7vd pcap-common-data]$ git branch
+* feature/PLAT-8240-move-pcap-command-out
+  feature/PLAT-9812-code_sync_of_rel3_with_master
+  master
+  release/3.0
+[PCAP\abalakrishna@a-2d96x7pbja7vd pcap-common-data]$ git config pull.rebase false
+[PCAP\abalakrishna@a-2d96x7pbja7vd pcap-common-data]$ git remote add pcap-command ../pcap-server
+[PCAP\abalakrishna@a-2d96x7pbja7vd pcap-common-data]$ git pull pcap-command feature/PLAT-8240-move-pcap-command-out --allow-unrelated-histories
+remote: Enumerating objects: 1716, done.
+remote: Counting objects: 100% (1716/1716), done.
+remote: Compressing objects: 100% (539/539), done.
+remote: Total 1716 (delta 328), reused 1711 (delta 324), pack-reused 0
+Receiving objects: 100% (1716/1716), 172.64 KiB | 24.66 MiB/s, done.
+Resolving deltas: 100% (328/328), done.
+From ../pcap-server
+ * branch              feature/PLAT-8240-move-pcap-command-out -> FETCH_HEAD
+ * [new branch]        feature/PLAT-8240-move-pcap-command-out -> pcap-command/feature/PLAT-8240-move-pcap-command-out
+error: Your local changes to the following files would be overwritten by merge:
+  src/main/java/com/personalcapital/command/QueueDispatchType.java src/main/java/com/personalcapital/command/utils/AdviceQueueCommandUtils.java src/main/java/com/personalcapital/command/utils/QueueCommandUtils.java src/main/java/com/personalcapital/et/data/DataExtension.java src/main/java/com/personalcapital/et/utils/ExactTargetCommandUtils.java src/main/java/com/safepage/aggregation/data/QueueStatus.java src/test/java/com/personalcapital/command/utils/AdviceQueueCommandUtilsTest.java src/test/java/com/personalcapital/command/utils/QueueCommandUtilsTest.java src/test/resources/adviceQueueCommandUtilsTest-Context.xml
+Merge with strategy ort failed.
+[PCAP\abalakrishna@a-2d96x7pbja7vd pcap-common-data]$ git status
+On branch feature/PLAT-8240-move-pcap-command-out
+Your branch is up to date with 'origin/feature/PLAT-8240-move-pcap-command-out'.
 
-step3.
-git add .
+Changes to be committed:
+  (use "git restore --staged <file>..." to unstage)
+        new file:   src/main/java/com/personalcapital/command/QueueDispatchType.java
+        new file:   src/main/java/com/personalcapital/command/utils/AdviceQueueCommandUtils.java
+        new file:   src/main/java/com/personalcapital/command/utils/QueueCommandUtils.java
+        new file:   src/main/java/com/personalcapital/et/data/DataExtension.java
+        new file:   src/main/java/com/personalcapital/et/utils/ExactTargetCommandUtils.java
+        new file:   src/main/java/com/safepage/aggregation/data/QueueStatus.java
+        new file:   src/test/java/com/personalcapital/command/utils/AdviceQueueCommandUtilsTest.java
+        new file:   src/test/java/com/personalcapital/command/utils/QueueCommandUtilsTest.java
+        new file:   src/test/resources/adviceQueueCommandUtilsTest-Context.xml
 
-step4.
-git commit -m "pcap-common rel2.7 history commits"
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+        modified:   src/main/java/com/personalcapital/command/QueueDispatchType.java
+        modified:   src/main/java/com/personalcapital/command/utils/AdviceQueueCommandUtils.java
+        modified:   src/main/java/com/personalcapital/command/utils/QueueCommandUtils.java
+        modified:   src/main/java/com/personalcapital/et/data/DataExtension.java
+        modified:   src/main/java/com/personalcapital/et/utils/ExactTargetCommandUtils.java
+        modified:   src/main/java/com/safepage/aggregation/data/QueueStatus.java
+        modified:   src/test/java/com/personalcapital/command/utils/AdviceQueueCommandUtilsTest.java
+        modified:   src/test/java/com/personalcapital/command/utils/QueueCommandUtilsTest.java
+        modified:   src/test/resources/adviceQueueCommandUtilsTest-Context.xml
 
-step5.
-cd ../pcap-common-data
-
-step6.
-git config pull.rebase false
-
-step7.
-git remote add pcap-common ../pcap-server
-
-step8.
-git pull pcap-common release/2.7 --allow-unrelated-histories
-
-step9.
-git push
+[PCAP\abalakrishna@a-2d96x7pbja7vd pcap-common-data]$ ^C
+[PCAP\abalakrishna@a-2d96x7pbja7vd pcap-common-data]$ 
 
 
-i have updated step 1, the rest i need some help because i am new to this transfer of repo with git history, these steps i got from a senior, i want to be able to use it for myself, please help me in replacing the lines with what works for me
+why this error?
