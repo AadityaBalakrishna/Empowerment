@@ -1,1 +1,16 @@
-ss
+[PCAP\abalakrishna@a-2d96x7pbja7vd pcap-common-data]$ git pull pcap-command release/2.7 --allow-unrelated-histories
+remote: Enumerating objects: 21, done.
+remote: Counting objects: 100% (21/21), done.
+remote: Compressing objects: 100% (5/5), done.
+remote: Total 11 (delta 3), reused 10 (delta 2), pack-reused 0
+Unpacking objects: 100% (11/11), 954 bytes | 954.00 KiB/s, done.
+From ../pcap-server
+* branch              release/2.7 -> FETCH_HEAD
+* [new branch]        release/2.7 -> pcap-command/release/2.7
+hint: Waiting for your editor to close the file... 
+[1]+  Stopped                 git pull pcap-command release/2.7 --allow-unrelated-histories
+[PCAP\abalakrishna@a-2d96x7pbja7vd pcap-common-data]$ git pull pcap-command release/2.7 --allow-unrelated-histories
+error: You have not concluded your merge (MERGE_HEAD exists).
+hint: Please, commit your changes before merging.
+fatal: Exiting because of unfinished merge.
+[PCAP\abalakrishna@a-2d96x7pbja7vd pcap-common-data]$
