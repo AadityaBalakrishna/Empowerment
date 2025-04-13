@@ -1,11 +1,1 @@
- on project pcap-common-data: Compilation failure: Compilation failure: 
-[ERROR] /home/abalakrishna/glab/TASK/pcap-common-data/src/test/java/com/personalcapital/command/utils/QueueCommandUtilsTest.java:[6,35] package org.assertj.core.api does not exist
-[ERROR] /home/abalakrishna/glab/TASK/pcap-common-data/src/test/java/com/personalcapital/command/utils/QueueCommandUtilsTest.java:[6,1] static import only from classes and interfaces
-
-
-package com.personalcapital.command.utils;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
-help
+R
