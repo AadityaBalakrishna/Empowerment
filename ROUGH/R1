@@ -1,3 +1,1 @@
-k8s.cluster.name"="pcap-pcapeks-epprod-eks-cluster-v1" "Connection refused" "java.net.PortUnreachableException" | table service.name, time desc| dedup service.name
-
-fix this splunk command
+"k8s.cluster.name"="pcap-pcapeks-epprod-eks-cluster-v1" "Connection refused" "java.net.PortUnreachableException" | table service.name, _time| sort -_time | dedup service.name
