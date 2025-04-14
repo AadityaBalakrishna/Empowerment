@@ -1,1 +1,3 @@
-2025-04-14 13:41:15 PM [udp-epoll-2] trace_id:  span_id:  WARN  io.micrometer.shaded.reactor.netty.channel.FluxReceive - [d9def1ab, L:/10.215.70.14:33480 - R:10.215.70.38/10.215.70.38:8125] An exception has been observed post termination, use DEBUG level to see the full stack: java.net.PortUnreachableException: recvAddress(..) failed: Connection refused
+k8s.cluster.name"="pcap-pcapeks-epprod-eks-cluster-v1" "Connection refused" "java.net.PortUnreachableException" | table service.name, time desc| dedup service.name
+
+fix this splunk command
