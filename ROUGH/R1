@@ -1,4 +1,21 @@
-[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.8.0:compile (default-compile) on project batch-config: Fatal error compiling: java.lang.NoSuchFieldError: Class com.sun.tools.javac.tree.JCTree$JCImport does not have member field 'com.sun.tools.javac.tree.JCTree qualid' -> [Help 1]
-[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.8.0:compile (default-compile) on project pcap-refresh: Fatal error compiling: java.lang.NoSuchFieldError: Class com.sun.tools.javac.tree.JCTree$JCImport does not have member field 'com.sun.tools.javac.tree.JCTree qualid' -> [Help 1]
+[ERROR] Failed to execute goal org.jacoco:jacoco-maven-plugin:0.8.12:check (check) on project pcap-ace-common: Coverage checks have not been met. See log for details. -> [Help 1]
+15:48:09  org.apache.maven.lifecycle.LifecycleExecutionException: Failed to execute goal org.jacoco:jacoco-maven-plugin:0.8.12:check (check) on project pcap-ace-common: Coverage checks have not been met. See log for details.
+15:48:09      at org.apache.maven.lifecycle.internal.MojoExecutor.doExecute2 (MojoExecutor.java:333)
+15:48:09      at org.apache.maven.lifecycle.internal.MojoExecutor.doExecute (MojoExecutor.java:316)
+15:48:09      at org.apache.maven.lifecycle.internal.MojoExecutor.execute (MojoExecutor.java:212)
+15:48:09      at org.apache.maven.lifecycle.internal.MojoExecutor.execute (MojoExecutor.java:174)
+15:48:09      at org.apache.maven.lifecycle.internal.MojoExecutor.access$000 (MojoExecutor.java:75)
+15:48:09      at org.apache.maven.lifecycle.internal.MojoExecutor$1.run (MojoExecutor.java:162)
+15:48:09      at org.apache.maven.plugin.DefaultMojosExecutionStrategy.execute (DefaultMojosExecutionStrategy.java:39)
+15:48:09      at org.apache.maven.lifecycle.internal.MojoExecutor.execute (MojoExecutor.java:159)
+15:48:09      at org.apache.maven.lifecycle.internal.LifecycleModuleBuilder.buildProject (LifecycleModuleBuilder.java:105)
+15:48:09      at org.apache.maven.lifecycle.internal.builder.multithreaded.MultiThreadedBuilder$1.call (MultiThreadedBuilder.java:193)
+15:48:09      at org.apache.maven.lifecycle.internal.builder.multithreaded.MultiThreadedBuilder$1.call (MultiThreadedBuilder.java:180)
+15:48:09      at java.util.concurrent.FutureTask.run (FutureTask.java:317)
+15:48:09      at java.util.concurrent.Executors$RunnableAdapter.call (Executors.java:572)
+15:48:09      at java.util.concurrent.FutureTask.run (FutureTask.java:317)
+15:48:09      at java.util.concurrent.ThreadPoolExecutor.runWorker (ThreadPoolExecutor.java:1144)
+15:48:09      at java.util.concurrent.ThreadPoolExecutor$Worker.run (ThreadPoolExecutor.java:642)
+15:48:09      at java.lang.Thread.run (Thread.java:1583)
 
-possible fix?
+any fix? any dependency fixes?
