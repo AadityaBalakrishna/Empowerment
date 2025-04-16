@@ -1,3 +1,21 @@
-java: java.lang.NoSuchFieldError: Class com.sun.tools.javac.tree.JCTree$JCImport does not have member field 'com.sun.tools.javac.tree.JCTree qualid'
+  com.personalcapital.aggregation.delegate.AggrArrayApiResponse.java
+  com.personalcapital.aggregation.delegate.AggregationServiceDelegate.java
+  com.personalcapital.aggregation.delegate.request.CaptureResponseRequest.java
+  com.personalcapital.aggregation.delegate.request.GetYodleeHoldingsRequest.java
+  com.personalcapital.aggregation.delegate.request.YodleeValidateUserRequest.java
+  com.personalcapital.captcha.google.CaptchaResponseBean.java
+  com.personalcapital.captcha.google.CaptchaVerificationManager.java
+  com.personalcapital.command.delegate.CreateDelegateCommand.java
+  com.personalcapital.email.EmailValidationManager.java
+  com.personalcapital.email.emailhippo.EmailStatusAdditionalStatusCode.java
+  com.personalcapital.email.emailhippo.EmailStatusResponseCode.java
+  com.personalcapital.email.emailhippo.EmailValidationResponseBean.java
+  com.personalcapital.listener.SessionListener.java
+  com.personalcapital.listener.SessionMigrationSessionListener.java
+  com.personalcapital.privacy.delegate.PRVCArrayApiResponse.java
+  com.personalcapital.privacy.delegate.PrivacyServiceDelegate.java
+  com.personalcapital.security.env.DevQARule.java
+  com.personalcapital.security.rules.TotpActivatedRule.java
+  com.personalcapital.user.UserSessionInitializer.java
 
-when i run a test file i get this 
+in pluma, how do i separate the <classname>.java files from the path? using find and replace option?
