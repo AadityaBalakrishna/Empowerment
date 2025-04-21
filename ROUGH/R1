@@ -1,2 +1,15 @@
-[INFO] HTML profiling report has been saved in: /home/abalakrishna/glab/PLAT-8240/pcap-server/pcap/.profiler/profiler-report-2025-04-21-22-16-11.html
-[ERROR] Could not find goal 'cycle' in plugin com.github.ferstl:depgraph-maven-plugin:4.0.1 among available goals aggregate, aggregate-by-groupid, by-groupid, example, for-artifact, graph, help, reactor ->
+<plugin>
+  <groupId>org.classycle</groupId>
+  <artifactId>classycle-maven-plugin</artifactId>
+  <version>1.4.1</version>
+  <executions>
+    <execution>
+      <goals>
+        <goal>analyze</goal>
+      </goals>
+    </execution>
+  </executions>
+  <configuration>
+    <reportFile>${project.build.directory}/classycle-report.txt</reportFile>
+  </configuration>
+</plugin>
