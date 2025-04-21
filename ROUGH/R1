@@ -56,3 +56,33 @@ these are the dep i added:
             </exclusions>
         </dependency>
     </dependencies>
+
+
+<dependency>
+    <groupId>com.safepage</groupId>
+    <artifactId>sp-data</artifactId>
+    <version>3.0.153</version>
+    <exclusions>
+        <exclusion>
+            <groupId>log4j</groupId>
+            <artifactId>log4j</artifactId>
+        </exclusion>
+        <exclusion>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+        </exclusion>
+        <!-- EXCLUDE BANNED ONES BELOW -->
+        <exclusion>
+            <groupId>org.slf4j</groupId>
+            <artifactId>jcl-over-slf4j</artifactId>
+        </exclusion>
+        <exclusion>
+            <groupId>org.slf4j</groupId>
+            <artifactId>jul-to-slf4j</artifactId>
+        </exclusion>
+        <exclusion>
+            <groupId>org.slf4j</groupId>
+            <artifactId>log4j-over-slf4j</artifactId>
+        </exclusion>
+    </exclusions>
+</dependency>
