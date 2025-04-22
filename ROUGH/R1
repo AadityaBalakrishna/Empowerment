@@ -1,15 +1,26 @@
-<plugin>
-  <groupId>org.classycle</groupId>
-  <artifactId>classycle-maven-plugin</artifactId>
-  <version>1.4.1</version>
-  <executions>
-    <execution>
-      <goals>
-        <goal>analyze</goal>
-      </goals>
-    </execution>
-  </executions>
-  <configuration>
-    <reportFile>${project.build.directory}/classycle-report.txt</reportFile>
-  </configuration>
-</plugin>
+I am using this maven dependency:
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <version>${httpclient.version}</version>
+        </dependency>
+
+for this import in my code:
+import org.apache.http.protocol.HTTP;
+
+because of this line of code:
+HTTP.CONN_KEEP_ALIVE
+
+but this is a old version and now we are migrated to springboot 3 and we use this dependency:
+        <dependency>
+            <groupId>org.apache.httpcomponents.client5</groupId>
+            <artifactId>httpclient5</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+please can you give me an up to date alternative for HTTP.CONN_KEEP_ALIVE or for it's import so that i don't use httpclient?
