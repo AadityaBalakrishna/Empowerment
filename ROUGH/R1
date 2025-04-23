@@ -1,1 +1,7 @@
-hi
+[ERROR] Failed to execute goal on project pcap-rest-common: Could not resolve dependencies for project com.empower.epw:pcap-rest-common:jar:3.0.0-SNAPSHOT
+[ERROR] dependency: com.personalcapital:pcap-config:jar:3.0.0-SNAPSHOT (compile)
+[ERROR]         com.personalcapital:pcap-config:jar:3.0.0-SNAPSHOT was not found in https://personalcapital.jfrog.io/artifactory/pcap-virtual during a previous attempt. This failure was cached in the local repository and resolution is not reattempted until the update interval of pcap-virtual has elapsed or updates are forced
+[ERROR]         com.personalcapital:pcap-config:jar:3.0.0-SNAPSHOT was not found in https://personalcapital.jfrog.io/artifactory/sp-snapshots during a previous attempt. This failure was cached in the local repository and resolution is not reattempted until the update interval of sp-snapshots has elapsed or updates are forced
+[ERROR] dependency: com.safepage:sp-data:jar:3.0.0-SNAPSHOT (test)
+[ERROR]         com.safepage:sp-data:jar:3.0.0-SNAPSHOT was not found in https://personalcapital.jfrog.io/artifactory/pcap-virtual during a previous attempt. This failure was cached in the local repository and resolution is not reattempted until the update interval of pcap-virtual has elapsed or updates are forced
+[ERROR]         com.safepage:sp-data:jar:3.0.0-SNAPSHOT was not found in https://personalcapital.jfrog.io/artifactory/sp-snapshots during a previous attempt. This failure was cached in the local repository and resolution is not reattempted until the update interval of sp-snapshots has elapsed or updates are forced
