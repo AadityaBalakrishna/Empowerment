@@ -1,1 +1,3 @@
-[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.8.0:compile (default-compile) on project batch-config: Fatal error compiling: java.lang.NoSuchFieldError: Class com.sun.tools.javac.tree.JCTree$JCImport does not have member field 'com.sun.tools.javac.tree.JCTree qualid' -> [Help 1]
+git add pcap-platform-common-caching-commons/pom.xml pcap-platform-common-caching-commons/src/main/java/com/personalcapital/cache/BaseCache.java pcap-platform-common-caching-commons/src/main/java/com/personalcapital/cache/EhCacheManager.java pcap-platform-common-caching-commons/src/main/java/com/personalcapital/cache/RedisSerializerUtils.java pcap-platform-common-caching-commons/src/test/java/com/personalcapital/cache/EhCacheManagerTest.java pom.xml && git -c  user.useConfigOnly=true commit --quiet --allow-empty-message --no-verify -m "PLAT-7919: code sync"
+
+how do i modify this command if instead of adding i am removing the files?
