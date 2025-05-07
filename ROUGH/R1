@@ -1,11 +1,25 @@
-Java
-Spring
-Spring Boot
-Hibernate
-SQL
-Debugging skills
-Know-how on deployments, current Ci/CD deployment pipelines & set ups
-Know-how on Trace & Tracking tools in place like Splunk, DataDog
-AWS landscape
+Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.10.1:testCompile (default-testCompile) on project pcap-classification: Compilation failure: Compilation failure: 
+18:25:15  [ERROR] /home/jenkins/agent/workspace/uild_common_pcap-server_MR-28205/pcap-classification/src/test/java/com/personalcapital/utils/ClassificationTestHelpers.java:[215,6] error: MockUtil() has private access in MockUtil
+18:25:15  [ERROR] /home/jenkins/agent/workspace/uild_common_pcap-server_MR-28205/pcap-classification/src/test/java/com/personalcapital/utils/ClassificationTestHelpers.java:[301,6] error: MockUtil() has private access in MockUtil
+18:25:15  [ERROR] /home/jenkins/agent/workspace/uild_common_pcap-server_MR-28205/pcap-classification/src/test/java/com/safepage/user/ManualAccountManagerTest.java:[137,22] error: reference to any is ambiguous
+18:25:15  [ERROR]   both method <T#1>any() in Matchers and method <T#2>any() in Mockito match
+18:25:15  [ERROR]   where T#1,T#2 are type-variables:
+18:25:15  [ERROR]     T#1 extends Object declared in method <T#1>any()
+18:25:15  [ERROR]     T#2 extends Object declared in method <T#2>any()
+18:25:15  [ERROR] /home/jenkins/agent/workspace/uild_common_pcap-server_MR-28205/pcap-classification/src/test/java/com/safepage/user/ManualAccountManagerTest.java:[137,29] error: reference to any is ambiguous
+18:25:15  [ERROR]   both method <T#1>any() in Matchers and method <T#2>any() in Mockito match
+18:25:15  [ERROR]   where T#1,T#2 are type-variables:
+18:25:15  [ERROR]     T#1 extends Object declared in method <T#1>any()
+18:25:15  [ERROR]     T#2 extends Object declared in method <T#2>any()
+18:25:15  [ERROR] /home/jenkins/agent/workspace/uild_common_pcap-server_MR-28205/pcap-classification/src/test/java/com/safepage/user/ManualAccountManagerTest.java:[137,36] error: reference to any is ambiguous
+18:25:15  [ERROR]   both method <T#1>any() in Matchers and method <T#2>any() in Mockito match
+18:25:15  [ERROR]   where T#1,T#2 are type-variables:
+18:25:15  [ERROR]     T#1 extends Object declared in method <T#1>any()
+18:25:15  [ERROR]     T#2 extends Object declared in method <T#2>any()
+18:25:15  [ERROR] /home/jenkins/agent/workspace/uild_common_pcap-server_MR-28205/pcap-classification/src/test/java/com/safepage/user/ManualAccountManagerTest.java:[137,43] error: reference to any is ambiguous
+18:25:15  [ERROR]   both method <T#1>any(Class<T#1>) in Matchers and method <T#2>any(Class<T#2>) in Mockito match
+18:25:15  [ERROR]   where T#1,T#2 are type-variables:
+18:25:15  [ERROR]     T#1 extends Object declared in method <T#1>any(Class<T#1>)
+18:25:15  [ERROR]     T#2 extends Object declared in method <T#2>any(Class<T#2>)
 
-i would like to imporve my technical skills in these fields, please help me plan ahead the initial phase of my career
+could please help me fix this error?
