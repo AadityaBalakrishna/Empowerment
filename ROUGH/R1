@@ -1,9 +1,480 @@
-/home/jenkins/agent/workspace/uild_common_pcap-server_MR-28205/pcap-classification/src/test/java/com/safepage/api/test/SecurityInfoManagerTest.java:[349,47] error: reference to any is ambiguous
-18:25:15  [ERROR]   both method <T#1>any(Class<T#1>) in Matchers and method <T#2>any(Class<T#2>) in Mockito match
-18:25:15  [ERROR]   where T#1,T#2 are type-variables:
-18:25:15  [ERROR]     T#1 extends Object declared in method <T#1>any(Class<T#1>)
-18:25:15  [ERROR]     T#2 extends Object declared in method <T#2>any(Class<T#2>)
+19:58:36  [ERROR] /home/jenkins/agent/workspace/uild_common_pcap-server_MR-28205/pcap-classification/src/test/java/com/safepage/user/ManualAccountManagerTest.java:[137,29] error: reference to any is ambiguous
+19:58:36    both method <T#1>any() in Matchers and method <T#2>any() in Mockito match
+19:58:36    where T#1,T#2 are type-variables:
+19:58:36      T#1 extends Object declared in method <T#1>any()
+19:58:36      T#2 extends Object declared in method <T#2>any()
 
-hese are the imports
+code:
+package com.safepage.user;
+
+import com.empower.account.service.AccountProcessService;
+import com.empower.account.service.UserAccountProcessService;
+import com.empower.epw.service.product.ProductBatchProcessService;
+import com.empower.userproduct.service.UserProductProcessService;
+import com.google.common.collect.ImmutableList;
+import com.personalcapital.audit.AuditEventUtils;
+import com.personalcapital.command.YodleeQueueCommandDispatcher;
+import com.personalcapital.data.utils.UserFeatureTypeUtils;
+import com.personalcapital.event.UserEventService;
+import com.personalcapital.rest.zillow.ApiVersion;
+import com.personalcapital.rest.zillow.ZillowHelper;
+import com.personalcapital.rest.zillow.ZillowRequest;
+import com.personalcapital.rest.zillow.ZillowResponse;
+import com.personalcapital.user.data.util.UserDataUtils;
+import com.personalcapital.user.data.util.UserPreferenceUtils;
+import com.safepage.ContextManager;
+import com.safepage.RequestContext;
+import com.safepage.ServerChangeManager;
+import com.safepage.json.JSONObject;
+import com.safepage.site.data.Product;
+import com.safepage.site.data.Site;
+import com.safepage.site.data.impl.ProductType;
+import com.safepage.user.data.Account;
+import com.safepage.user.data.ClientType;
+import com.safepage.user.data.User;
+import com.safepage.user.data.UserAccount;
+import com.safepage.user.data.UserDao;
+import com.safepage.user.data.UserProduct;
+import com.safepage.user.data.UserSite;
+import com.safepage.user.data.impl.UserImpl;
+import com.safepage.user.data.transaction.AccountDetails;
+import com.safepage.user.data.transaction.CashAccountDetails;
+import com.safepage.user.data.transaction.DetailFactory;
+import com.safepage.user.data.transaction.InvestmentAccountDetails;
+import com.safepage.util.DateTimeUtils;
+
+import org.junit.Assert;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.Spy;
+import org.mockito.runners.MockitoJUnitRunner;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.math.BigInteger;
+import java.util.Date;
+import java.util.List;
+import java.util.UUID;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.mockito.Matchers.*;
 import static org.mockito.Mockito.*;
+
+@RunWith(MockitoJUnitRunner.class)
+public class ManualAccountManagerTest
+{
+	@Spy
+	@InjectMocks
+	private ManualAccountManager manualAccountManager;
+
+	@Mock
+	private UserHoldingManager userHoldingManager;
+
+	@Mock
+	private UserPreferenceUtils userPreferenceUtils;
+
+	@Mock
+	private UserEventService userEventService;
+
+	@Mock
+	private ServerChangeManager serverChangeManager;
+
+	@Mock
+	private UserDataUtils userDataUtils;
+
+	@Mock
+	private UserDao userDao;
+
+	@Mock
+	private YodleeQueueCommandDispatcher yodleeQueueCommandDispatcher;
+
+	@Mock
+	private AccountProcessService accountProcessService;
+
+	@Mock
+	private UserAccountProcessService userAccountProcessService;
+
+	@Mock
+	private UserProductProcessService userProductProcessService;
+
+	@Mock
+	private ProductBatchProcessService productBatchProcessService;
+
+	@Mock
+	private DetailFactory detailFactory;
+
+	@Mock
+	private AuditEventUtils auditEventUtils;
+
+	@Mock
+	private ZillowHelper zillowHelper;
+
+	@Mock
+	private UserFeatureTypeUtils userFeatureTypeUtils;
+
+	@Captor
+	ArgumentCaptor<Date> accountTypeDataCaptor;
+
+	@Mock
+	private Product onUsProduct;
+
+	@Mock
+	private Site onUsSite;
+
+	private static String CUSTOM_ONUS_INVEST_PRODUCT_NAME = "Personal Strategy";
+
+	@Captor
+	ArgumentCaptor<JSONObject> accountDetailsOverrideCaptor;
+
+	static List<String> DETAIL_ELEMENTS_WITH_BALANCE = ImmutableList.of(
+			InvestmentAccountDetails.AVAILABLE_BALANCE,
+			InvestmentAccountDetails.DETAIL_CURRENT_BALANCE,
+			InvestmentAccountDetails.DETAIL_BALANCE);
+
+	@Test
+	public void testAddManualAccount() throws Exception
+	{
+		UserAccount userAccount = mock(UserAccount.class);
+		doReturn(userAccount).when(manualAccountManager)
+				.addManualAccount(any(), any(), any(), any(JSONObject.class), any(), any(), any(),
+						any(), any(), any());
+
+		Account account = mock(Account.class);
+		when(account.getAccountName()).thenReturn("TEST");
+		doReturn(account).when(accountProcessService)
+				.getAccount(any(), anyLong());
+
+		// SS-4389 custom firm name
+		JSONObject json = new JSONObject();
+		json.put(InvestmentAccountDetails.DETAILS_IS_ESOG, Boolean.TRUE);
+		json.put(InvestmentAccountDetails.ESOG_MASTER_COMPANY_ID, "");
+		String companyName = "Test ESOG" + System.currentTimeMillis();
+		json.put(InvestmentAccountDetails.ESOG_COMPANY_NAME, companyName);
+		json.put(InvestmentAccountDetails.DETAILS_ESOG_TICKER, "AAPL");
+		json.put(InvestmentAccountDetails.ESOG_IS_MARKET_PRICED, "true");
+
+		User user = new UserImpl();
+		Account returnedAccount = manualAccountManager.addManualAccount(user, "esogtest",
+				ProductType.INVESTMENT, json.toString(), ClientType.TEST, null, "testSiteName",
+				null, null, null);
+		assertEquals(account.getAccountName(), returnedAccount.getAccountName());
+		verify(accountProcessService, times(1)).getAccount(any(), anyLong());
+		verify(auditEventUtils, times(1)).logAuditEvent(anyLong(), any(), any(), any(), any(),
+				any(), any(), any(), any(), any(), any(), any(), any());
+
+		account = manualAccountManager.addManualAccount(user, "esogtest", ProductType.INVESTMENT,
+				json.toString(), ClientType.TEST, null, null, null, null, null);
+		assertEquals(account.getAccountName(), returnedAccount.getAccountName());
+		verify(accountProcessService, times(2)).getAccount(any(), anyLong());
+		verify(auditEventUtils, times(2)).logAuditEvent(anyLong(), any(), any(), any(), any(),
+				any(), any(), any(), any(), any(), any(), any(), any());
+	}
+
+	/**
+	 * [63] SS-5839 During Enrollment flow for Investment Portfolio.
+	 */
+	@Test
+	public void testDetailOverrideLogicForEnrollment() throws Exception
+	{
+		User user = new UserImpl();
+		user.setUserGuid(String.valueOf(System.currentTimeMillis()));
+		user.setId(1L);
+		RequestContext rc = ContextManager.getRequestContext();
+		rc.setAuthUser(user);
+		Site site = mock(Site.class);
+		when(site.getId()).thenReturn(1L);
+		UserSite userSite = mock(UserSite.class);
+		when(userSite.getUser()).thenReturn(user);
+		when(userSite.getSite()).thenReturn(site);
+		when(userSite.getUserSiteGuid()).thenReturn(UUID.randomUUID());
+		Account manualAccount = mock(Account.class);
+		UserAccount userAccount = mock(UserAccount.class);
+		doReturn(user).when(userAccount)
+				.getUser();
+		doReturn(userAccount).when(userAccountProcessService)
+				.getUserAccount(any(User.class), anyLong());
+
+		Product product = mock(Product.class);
+		when(product.getType()).thenReturn(ProductType.INVESTMENT);
+		when(product.getSite()).thenReturn(site);
+
+		UserProduct userProduct = mock(UserProduct.class);
+		when(userProduct.getUser()).thenReturn(user);
+		when(userProduct.getProduct()).thenReturn(product);
+		when(userProduct.getUserSite()).thenReturn(userSite);
+
+		when(manualAccount.getAccountName()).thenReturn("Enrollment ABC");
+		when(manualAccount.getProductType()).thenReturn(ProductType.INVESTMENT);
+		Double balanceFromUser = 1000.0;
+		JSONObject details = new JSONObject();
+		details.put(InvestmentAccountDetails.DETAILS_IS_MANUAL_PORTFOLIO, Boolean.TRUE);
+		details.put(InvestmentAccountDetails.DETAILS_IS_ESOG, Boolean.FALSE);
+		details.put(InvestmentAccountDetails.ACOUNT_NAME, "Enrollment ABC");
+		when(manualAccount.getVendorUserSiteId()).thenReturn(12L);
+
+		doReturn(userProduct).when(manualAccountManager)
+				.createUserProduct(any(), any(), any(), any(), any(), any(), any());
+		doReturn(null).when(manualAccountManager)
+				.createAccountTypeData(any(), any(), any());
+		AccountDetails accountDetails = new CashAccountDetails();
+		doReturn(accountDetails).when(detailFactory)
+				.createAccountDetail(any(), any(), any());
+		Mockito.doNothing()
+				.when(manualAccountManager)
+				.recordServerEventChange(any(), anyLong(), any(), any());
+
+		Account account = mock(Account.class);
+		doReturn("TEST").when(account)
+				.getAccountName();
+		doReturn(account).when(accountProcessService)
+				.getAccount(any(), anyLong());
+		doReturn(mock(UserAccount.class)).when(userAccountProcessService)
+				.getUserAccountInstance();
+		account = manualAccountManager.addManualAccount(user, "Enrollment ABC",
+				ProductType.INVESTMENT, details.toString(), ClientType.TEST, null, "XYZ", null,
+				null, null);
+		Assert.assertNotNull(account);
+
+		/*
+		 * Second step in enrollment flow - update cash holding with value provided by user, so that
+		 * it will represent approx value of added account
+		 */
+		Long userAccountId = manualAccount.getUserAccountId();
+		userHoldingManager.updateHolding(userAccountId, "USER_DESCR_Cash", null, null, 1.0, "Cash",
+				balanceFromUser, null, null);
+		/*
+		 * Third step where Enrollment wizard calls updateAccount Api and provides balances that
+		 * used to be saved in detailOverride on the server
+		 */
+		JSONObject detailsOverride = new JSONObject();
+		for (String element : DETAIL_ELEMENTS_WITH_BALANCE)
+		{
+			detailsOverride.put(element, balanceFromUser);
+		}
+		String overrideJsonStr = detailsOverride.toString();
+		doReturn(true).when(userProduct)
+				.isCalculatedBalance();
+		manualAccountManager.updateManualAccount(userAccount, "Enrollment ABC", "INVESTMENT",
+				overrideJsonStr, ClientType.WEB, null, null, userProduct, true, true, "", null);
+		verify(userAccount).setRawDetailOverride(accountDetailsOverrideCaptor.capture());
+		/*
+		 * Verify that balance related elements should not be there after Enrollment account
+		 * creation {"accountNumber": "JC07264981", "name": "WB Roth IRA", "excludeFromProposal":
+		 * false, "currentBalance": 3051.76, "balance": 3051.76, "availableBalance": 3051.76 }
+		 */
+
+		JSONObject detailOverride = accountDetailsOverrideCaptor.getValue();
+		if (detailOverride != null)
+		{
+			for (String element : DETAIL_ELEMENTS_WITH_BALANCE)
+			{
+				Assert.assertFalse(
+						"Account detail override should not have any balance related elements",
+						detailOverride.containsKey(element));
+			}
+		}
+	}
+
+	@Test
+	public void testUpdateUserAccountWithZillowResults()
+	{
+		UserAccount userAccount = mock(UserAccount.class);
+		UserProduct userProduct = mock(UserProduct.class);
+		String accountDetailsStr = getAccountDetailsString();
+		JSONObject jsonObj = JSONObject.fromObject(accountDetailsStr);
+
+		ZillowResponse zillowResponse = new ZillowResponse();
+		BigInteger statusCode = new BigInteger("200");
+		zillowResponse.setStatusCode(statusCode);
+		zillowResponse.setLastUpdated(new Date());
+		zillowResponse.setAmount(BigInteger.valueOf(500000));
+
+		doReturn(zillowResponse).when(zillowHelper)
+				.searchHomePriceAndAddress(eq(ApiVersion.V2), any(ZillowRequest.class));
+
+		String addressLine = "39883 Pelton Ter";
+		String city = "San Jose";
+		String zip = "94560";
+		String state = "California";
+		manualAccountManager.updateUserAccountWithZillowResults(addressLine, city, state, zip,
+				userAccount, jsonObj, userProduct, true);
+		verify(userAccount).setTransactionsUpdated(accountTypeDataCaptor.capture());
+		Date currentDate = DateTimeUtils.getZeroTimeOfDay(DateTimeUtils.getCurrentTime());
+		assertEquals(DateTimeUtils.getZeroTimeOfDay(currentDate),
+				DateTimeUtils.getZeroTimeOfDay(accountTypeDataCaptor.getValue()));
+	}
+
+	@Test
+	public void testUpdateUserAccountWithZillowResultsNullDate()
+	{
+		UserAccount userAccount = mock(UserAccount.class);
+		UserProduct userProduct = mock(UserProduct.class);
+		String accountDetailsStr = getAccountDetailsString();
+
+		JSONObject jsonObj = JSONObject.fromObject(accountDetailsStr);
+
+		ZillowResponse zillowResponse = new ZillowResponse();
+		BigInteger statusCode = new BigInteger("200");
+		zillowResponse.setStatusCode(statusCode);
+		zillowResponse.setLastUpdated(null);
+		zillowResponse.setAmount(BigInteger.valueOf(500000));
+
+		doReturn(zillowResponse).when(zillowHelper)
+				.searchHomePriceAndAddress(eq(ApiVersion.V2), any(ZillowRequest.class));
+
+		String addressLine = "39883 Pelton Ter";
+		String city = "San Jose";
+		String zip = "94560";
+		String state = "California";
+		manualAccountManager.updateUserAccountWithZillowResults(addressLine, city, state, zip,
+				userAccount, jsonObj, userProduct, true);
+
+		verify(userAccount).setTransactionsUpdated(accountTypeDataCaptor.capture());
+		Date currentDate = DateTimeUtils.getZeroTimeOfDay(DateTimeUtils.getCurrentTime());
+		assertEquals(DateTimeUtils.getZeroTimeOfDay(currentDate),
+				DateTimeUtils.getZeroTimeOfDay(accountTypeDataCaptor.getValue()));
+	}
+
+	@Test
+	public void testUpdateUserAccountWithZillowResultsPastDate()
+	{
+		UserAccount userAccount = mock(UserAccount.class);
+		UserProduct userProduct = mock(UserProduct.class);
+		String accountDetailsStr = getAccountDetailsString();
+
+		JSONObject jsonObj = JSONObject.fromObject(accountDetailsStr);
+
+		ZillowResponse zillowResponse = new ZillowResponse();
+		BigInteger statusCode = new BigInteger("200");
+		zillowResponse.setStatusCode(statusCode);
+		zillowResponse.setLastUpdated(DateTimeUtils.getDaysInPast(1));
+		zillowResponse.setAmount(BigInteger.valueOf(500000));
+
+		doReturn(zillowResponse).when(zillowHelper)
+				.searchHomePriceAndAddress(eq(ApiVersion.V2), any(ZillowRequest.class));
+
+		String addressLine = "39883 Pelton Ter";
+		String city = "San Jose";
+		String zip = "94560";
+		String state = "California";
+		manualAccountManager.updateUserAccountWithZillowResults(addressLine, city, state, zip,
+				userAccount, jsonObj, userProduct, true);
+
+		verify(userAccount).setTransactionsUpdated(accountTypeDataCaptor.capture());
+		Date currentDate = DateTimeUtils.getZeroTimeOfDay(DateTimeUtils.getCurrentTime());
+		assertEquals(DateTimeUtils.getZeroTimeOfDay(currentDate),
+				DateTimeUtils.getZeroTimeOfDay(accountTypeDataCaptor.getValue()));
+	}
+
+	@Test
+	public void testUpdateUserAccountWithZillowResultsNullAmount()
+	{
+		UserAccount userAccount = mock(UserAccount.class);
+		UserProduct userProduct = mock(UserProduct.class);
+		String accountDetailsStr = getAccountDetailsString();
+
+		JSONObject jsonObj = JSONObject.fromObject(accountDetailsStr);
+
+		ZillowResponse zillowResponse = new ZillowResponse();
+		BigInteger statusCode = new BigInteger("200");
+		zillowResponse.setStatusCode(statusCode);
+		zillowResponse.setLastUpdated(DateTimeUtils.getDaysInPast(1));
+		zillowResponse.setAmount(null);
+
+		doReturn(zillowResponse).when(zillowHelper)
+				.searchHomePriceAndAddress(eq(ApiVersion.V2), any(ZillowRequest.class));
+
+		String addressLine = "39883 Pelton Ter";
+		String city = "San Jose";
+		String zip = "94560";
+		String state = "California";
+
+		Date prevUpdatedDate = DateTimeUtils.getDaysInPast(10);
+		doReturn(prevUpdatedDate).when(userAccount)
+				.getTransactionsUpdated();
+
+		manualAccountManager.updateUserAccountWithZillowResults(addressLine, city, state, zip,
+				userAccount, jsonObj, userProduct, true);
+
+		verify(userAccount).setTransactionsUpdated(accountTypeDataCaptor.capture());
+		assertEquals(DateTimeUtils.getZeroTimeOfDay(DateTimeUtils.getCurrentTime()),
+				DateTimeUtils.getZeroTimeOfDay(accountTypeDataCaptor.getValue()));
+	}
+
+	@Test
+	public void getOnusAccountIdentifiedByYodleeAccountId_do_not_return_account_when_YodleeAccountId_is_null()
+	{
+		User user = new UserImpl();
+		user.setUserGuid(String.valueOf(System.currentTimeMillis()));
+		user.setId(1L);
+
+		Account userAccountInDB = mock(Account.class);
+		when(userAccountInDB.getYodleeAccountId()).thenReturn(null);
+		when(userAccountInDB.isOnUs()).thenReturn(true);
+
+		UserAccount userAccountInMemory = mock(UserAccount.class);
+
+		doReturn(List.of(userAccountInDB)).when(accountProcessService)
+				.getAccountsRaw(any(User.class));
+
+		Account account = manualAccountManager.getOnusAccountIdentifiedByYodleeAccountId(user,
+				userAccountInMemory);
+		assertNull(account);
+	}
+
+	@Test
+	public void getOnusAccountIdentifiedByYodleeAccountId_return_account_when_YodleeAccountId_is_not_null_and_matches_user_account()
+	{
+		User user = new UserImpl();
+		user.setUserGuid(String.valueOf(System.currentTimeMillis()));
+		user.setId(1L);
+
+		Account userAccountInDB = mock(Account.class);
+		when(userAccountInDB.getYodleeAccountId()).thenReturn("YodleeAccountId");
+		when(userAccountInDB.isOnUs()).thenReturn(true);
+
+		UserAccount userAccountInMemory = mock(UserAccount.class);
+		when(userAccountInMemory.getYodleeAccountId()).thenReturn("YodleeAccountId");
+
+		doReturn(List.of(userAccountInDB)).when(accountProcessService)
+				.getAccountsRaw(any(User.class));
+
+		Account account = manualAccountManager.getOnusAccountIdentifiedByYodleeAccountId(user,
+				userAccountInMemory);
+		Assert.assertNotNull(account);
+		Assert.assertEquals("YodleeAccountId", account.getYodleeAccountId());
+	}
+
+	private String getAccountDetailsString()
+	{
+		return "{\"userAccountName\":\"\",\"zip\":\"94560\",\"useHomeValuation\":true,\"isEsog\":false,\"isManualPortfolio\":false,"
+				+ "\"customProductName\":\"Home\",\"city\":\"Newark\",\"propertyType\":\"PRIMARY_RESIDENCE\",\"currentBalance\":855817,\"name\":\"39829 "
+				+ "Pelton Ter\",\"addressline\":\"39829 Pelton Ter\",\"state\":\"CA\",\"link\":\"\",\"currency\":\"\",\"accountNumber\":\"\",\"accountHolder"
+				+ "\":\"\",\"memo\":\"\",\"accountName\":\"\",\"routingNumber\":\"\",\"treatedAsInvestment\":false,\"availableBalance\":855817,\"balance\":855817,"
+				+ "\"latitude\":37.520182,\"longitude\":-121.99479,\"homeUrl\":\"https://www.zillow.com/homedetails/39829-Pelton-Ter-Newark-CA-94560/241573133_zpid/\","
+				+ "\"zillowStatus\":\"SUCCESS\"}";
+	}
+
+	@Test
+	public void testLoadOnUsDataIfNeeded_BothNull() throws Exception
+	{
+		Product mockProduct = mock(Product.class);
+		Site mockSite = mock(Site.class);
+		when(productBatchProcessService.getProduct(CUSTOM_ONUS_INVEST_PRODUCT_NAME))
+				.thenReturn(mockProduct);
+		when(onUsProduct.getSite()).thenReturn(onUsSite);
+		ReflectionTestUtils.invokeMethod(manualAccountManager, "loadOnUsDataIfNeeded");
+
+		verify(onUsProduct).getSite();
+		assertEquals(onUsProduct,
+				ReflectionTestUtils.getField(manualAccountManager, "onUsProduct"));
+		assertEquals(onUsSite, ReflectionTestUtils.getField(manualAccountManager, "onUsSite"));
+	}
+
+}
+
