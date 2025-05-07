@@ -1,25 +1,737 @@
 Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.10.1:testCompile (default-testCompile) on project pcap-classification: Compilation failure: Compilation failure: 
 18:25:15  [ERROR] /home/jenkins/agent/workspace/uild_common_pcap-server_MR-28205/pcap-classification/src/test/java/com/personalcapital/utils/ClassificationTestHelpers.java:[215,6] error: MockUtil() has private access in MockUtil
 18:25:15  [ERROR] /home/jenkins/agent/workspace/uild_common_pcap-server_MR-28205/pcap-classification/src/test/java/com/personalcapital/utils/ClassificationTestHelpers.java:[301,6] error: MockUtil() has private access in MockUtil
-18:25:15  [ERROR] /home/jenkins/agent/workspace/uild_common_pcap-server_MR-28205/pcap-classification/src/test/java/com/safepage/user/ManualAccountManagerTest.java:[137,22] error: reference to any is ambiguous
-18:25:15  [ERROR]   both method <T#1>any() in Matchers and method <T#2>any() in Mockito match
-18:25:15  [ERROR]   where T#1,T#2 are type-variables:
-18:25:15  [ERROR]     T#1 extends Object declared in method <T#1>any()
-18:25:15  [ERROR]     T#2 extends Object declared in method <T#2>any()
-18:25:15  [ERROR] /home/jenkins/agent/workspace/uild_common_pcap-server_MR-28205/pcap-classification/src/test/java/com/safepage/user/ManualAccountManagerTest.java:[137,29] error: reference to any is ambiguous
-18:25:15  [ERROR]   both method <T#1>any() in Matchers and method <T#2>any() in Mockito match
-18:25:15  [ERROR]   where T#1,T#2 are type-variables:
-18:25:15  [ERROR]     T#1 extends Object declared in method <T#1>any()
-18:25:15  [ERROR]     T#2 extends Object declared in method <T#2>any()
-18:25:15  [ERROR] /home/jenkins/agent/workspace/uild_common_pcap-server_MR-28205/pcap-classification/src/test/java/com/safepage/user/ManualAccountManagerTest.java:[137,36] error: reference to any is ambiguous
-18:25:15  [ERROR]   both method <T#1>any() in Matchers and method <T#2>any() in Mockito match
-18:25:15  [ERROR]   where T#1,T#2 are type-variables:
-18:25:15  [ERROR]     T#1 extends Object declared in method <T#1>any()
-18:25:15  [ERROR]     T#2 extends Object declared in method <T#2>any()
-18:25:15  [ERROR] /home/jenkins/agent/workspace/uild_common_pcap-server_MR-28205/pcap-classification/src/test/java/com/safepage/user/ManualAccountManagerTest.java:[137,43] error: reference to any is ambiguous
-18:25:15  [ERROR]   both method <T#1>any(Class<T#1>) in Matchers and method <T#2>any(Class<T#2>) in Mockito match
-18:25:15  [ERROR]   where T#1,T#2 are type-variables:
-18:25:15  [ERROR]     T#1 extends Object declared in method <T#1>any(Class<T#1>)
-18:25:15  [ERROR]     T#2 extends Object declared in method <T#2>any(Class<T#2>)
+
+
 
 could please help me fix this error?
+
+
+package com.personalcapital.utils;
+
+import static com.personalcapital.quote.QuoteManager.DAY_INTERVAL_TYPE;
+import static com.safepage.util.DateTimeUtils.getLastClosedTradingDay;
+import static com.safepage.util.DateTimeUtils.isNonTradingDay;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyList;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
+
+import java.io.InputStream;
+import java.lang.reflect.Field;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.TreeMap;
+
+import com.personalcapital.transaction.client.TransactionClientService;
+import org.apache.commons.io.IOUtils;
+import org.mockito.internal.util.MockUtil;
+import org.mockito.stubbing.Answer;
+
+import com.empower.account.service.UserAccountProcessService;
+import com.personalcapital.cache.UserAccountCacheManager;
+import com.personalcapital.cache.UserCacheManager;
+import com.personalcapital.cache.util.CacheUtils;
+import com.personalcapital.esog.util.UserEsogUtils;
+import com.personalcapital.investing.ClassificationUtils;
+import com.personalcapital.user.data.impl.TargetPortfolio;
+import com.personalcapital.user.data.util.HoldingDetailsUtils;
+import com.safepage.ServerChangeManager;
+import com.safepage.invest.data.HoldingAndSecurityInfo;
+import com.safepage.invest.data.SecurityId;
+import com.safepage.invest.data.SecurityInfo;
+import com.safepage.invest.data.SecurityInfoProvider;
+import com.safepage.invest.quote.Quote;
+import com.safepage.invest.quote.QuoteService;
+import com.personalcapital.quote.ConstructedQuote;
+import com.personalcapital.quote.QuoteManager;
+import com.safepage.user.UserEventManager;
+import com.safepage.user.data.transaction.HoldingDetails;
+
+public class ClassificationTestHelpers
+{
+
+	public final static void initUserEsogUtils(ServerChangeManager serverChangeManager,
+			UserEventManager userEventManager, UserAccountProcessService userAccountProcessService,
+			TransactionClientService transactionClientService) throws Exception
+	{
+		Field svrField = UserEsogUtils.class.getDeclaredField("serverChangeManager");
+		svrField.setAccessible(true);
+		svrField.set(null, serverChangeManager);
+
+		Field uEMfield = UserEsogUtils.class.getDeclaredField("userEventManager");
+		uEMfield.setAccessible(true);
+		uEMfield.set(null, userEventManager);
+
+		Field uACfield = UserEsogUtils.class.getDeclaredField("userAccountProcessService");
+		uACfield.setAccessible(true);
+		uACfield.set(null, userAccountProcessService);
+
+		Field utCfield = UserEsogUtils.class.getDeclaredField("transactionClientService");
+		utCfield.setAccessible(true);
+		utCfield.set(null, transactionClientService);
+	}
+
+	public final static List<SecurityId> buildSecurityIDS(List<String> ids)
+	{
+
+		final List<SecurityId> securityIds = new ArrayList<SecurityId>();
+		ids.forEach(securityId ->
+		{
+			HoldingDetails holding = new HoldingDetails(SecurityInfoProvider.PCAP);
+			holding.setSymbol(securityId);
+			SecurityId goodSecurityId = holding.getSecurityId();
+			securityIds.add(goodSecurityId);
+
+		});
+
+		return securityIds;
+	}
+
+	public final static void initCacheUtils(UserCacheManager userCacheManager,
+			UserAccountCacheManager userAccountCacheManager) throws Exception
+	{
+		Field cacheField = CacheUtils.class.getDeclaredField("userCacheManager");
+		cacheField.setAccessible(true);
+		cacheField.set(null, userCacheManager);
+
+		Field userCacheField = CacheUtils.class.getDeclaredField("userAccountCacheManager");
+		userCacheField.setAccessible(true);
+		userCacheField.set(null, userAccountCacheManager);
+	}
+
+	public final static Quote constructedQuote(SecurityId securityId, double price, Date date,
+			double previousClose)
+	{
+		double dailyChangePercent = (1.0 - previousClose / price) * 100;
+		ConstructedQuote constructedQuote = new ConstructedQuote(securityId, price, date,
+				previousClose, dailyChangePercent);
+		return constructedQuote;
+	}
+
+	public static TargetPortfolio buildTargetPortfolio5()
+	{
+		TargetPortfolio targetPortfolio = new TargetPortfolio("5", "Moderate",
+				"Personal Strategy - Comprehensive 5", "PS5",
+				"A long term growth strategy with significantly lower volatility than an all stock portfolio. "
+						+ "The allocation is globally diversified and features all six major liquid asset classes.",
+				"A long term growth socially responsible strategy with significantly lower volatility than an all stock portfolio. "
+						+ "The allocation is globally diversified and features all six major liquid asset classes.",
+				"A multi-asset class global strategy which seeks to balance long-term growth with reduced volatility, but with a tilt toward growth. "
+						+ "US equity exposure is market-capitalization weighted. ",
+				44.60, 19.15, 21.30, 4.10, 1.0, 9.85, 0.11);
+		return targetPortfolio;
+	}
+
+	public static TargetPortfolio buildTargetPortfolio1()
+	{
+		TargetPortfolio targetPortfolio1 = new TargetPortfolio("1", "Aggressive",
+				"Personal Strategy - Comprehensive 1", "PS1",
+				"An aggressive growth strategy intended for those with a long time horizon "
+						+ "and willing to assume equity-like volatility in pursuit of higher returns. "
+						+ "The allocation is globally diversified and features all six major liquid asset classes.",
+				"An aggressive growth socially responsible strategy intended for "
+						+ "those with a long time horizon and willing to assume equity-like volatility "
+						+ "in pursuit of higher returns. The allocation is globally diversified and "
+						+ "features all six major liquid asset classes.",
+				"A multi-asset class global strategy which seeks to maximize long-term growth with expected volatility similar to an all stock portfolio. "
+						+ "US equity exposure is market-capitalization weighted.",
+				60.2, 25.8, 2.5, 0.9, 0.5, 10.1, 0.06);
+		return targetPortfolio1;
+
+	}
+
+	public static List<Quote> buildQuote(List<SecurityId> securityIds, Date startDate)
+	{
+		final List<Quote> quotes = new ArrayList<>();
+		final Random rand = new Random(1234);
+		int min = 10;
+		int max = 250;
+		final LocalDate stDate = startDate.toInstant()
+				.atZone(ZoneId.systemDefault())
+				.toLocalDate();
+
+		securityIds.forEach(securityId ->
+		{
+			Date dt = Date.from(stDate.atStartOfDay(ZoneId.systemDefault())
+					.toInstant());
+			int price = rand.nextInt((max - min) + 1) + min;
+			final Quote quote = constructedQuote(securityId, price * 0.05, dt, price * 0.5 - 0.10);
+			quotes.add(quote);
+		});
+		return quotes;
+	}
+
+	public static List<Quote> buildQuotes(List<SecurityId> securityIds, Date startDate,
+			int duration)
+	{
+		final List<Quote> quotes = new ArrayList<>();
+		final double[] prices = generateIncreasingPrices(500, 100);
+		final LocalDate stDate = startDate.toInstant()
+				.atZone(ZoneId.systemDefault())
+				.toLocalDate();
+		securityIds.forEach(securityId ->
+		{
+			int i = 0;
+			for (LocalDate date = stDate; i < duration; i++)
+			{
+				Date dt = Date.from(date.atStartOfDay(ZoneId.systemDefault())
+						.toInstant());
+				double price = prices[i + 1];
+				double oldprice = prices[i];
+				final Quote quote = constructedQuote(securityId, price * 1.05, dt,
+						oldprice * 1.1 - 0.10);
+				quotes.add(quote);
+			}
+		});
+		return quotes;
+	}
+
+	public static Map<SecurityId, Quote> buildQuotesMap(List<SecurityId> securityIds,
+			Date startDate)
+	{
+		final Map<SecurityId, Quote> quotes = new HashMap<>();
+		final Random rand = new Random(1234);
+		int min = 10;
+		int max = 250;
+		final LocalDate stDate = startDate.toInstant()
+				.atZone(ZoneId.systemDefault())
+				.toLocalDate();
+
+		securityIds.forEach(securityId ->
+		{
+			Date dt = Date.from(stDate.atStartOfDay(ZoneId.systemDefault())
+					.toInstant());
+			int price = rand.nextInt((max - min) + 1) + min;
+			final Quote quote = constructedQuote(securityId, price * 0.05, dt, price * 0.5 - 0.10);
+			quotes.put(securityId, quote);
+
+		});
+		return quotes;
+	}
+
+	public static void buildQuotesMockServices(QuoteService quoteService,
+			List<SecurityId> securityIds, Date endDate, long periods)
+	{
+		if (new MockUtil().isMock(quoteService))
+		{
+			Date startDate = QuoteManager.getStartDate(endDate, DAY_INTERVAL_TYPE, periods);
+			if (isNonTradingDay(startDate))
+				startDate = getLastClosedTradingDay(startDate);
+			final LocalDate stDate = startDate.toInstant()
+					.atZone(ZoneId.systemDefault())
+					.toLocalDate();
+			final LocalDate edDate = endDate.toInstant()
+					.atZone(ZoneId.systemDefault())
+					.toLocalDate();
+			Map<SecurityId, Quote> finalquotes = null;
+			final Map<LocalDate, Map<SecurityId, Quote>> localDateMapMap = new TreeMap<>();
+			final Map<SecurityId, List<Quote>> securityIdQuoteMap = new HashMap<>();
+			int i = 0;
+			final double[] prices = generateIncreasingPrices(1000, 100);
+			for (LocalDate date = stDate.minusDays(1); date
+					.isBefore(edDate.plusDays(1)); date = date.plusDays(1))
+			{
+				final Map<SecurityId, Quote> quotes = new HashMap<>();
+
+				final Date dt = Date.from(date.atStartOfDay(ZoneId.systemDefault())
+						.toInstant());
+				final LocalDate localDate = date;
+				for (SecurityId securityId : securityIds)
+				{
+					double price = prices[i + 1];
+					double oldprice = prices[i];
+					final Quote quote = constructedQuote(securityId, price * 1.1, dt,
+							oldprice * 1.025);
+					quotes.put(securityId, quote);
+					doReturn(quote).when(quoteService)
+							.getHistoricalQuote(eq(securityId), eq(dt));
+					i++;
+					doAnswer((Answer<Quote>) invocation ->
+					{
+						final Date dt1 = (Date) invocation.getArguments()[2];
+						if (dt1.getDate() == dt.getDate() && dt1.getMonth() == dt.getMonth()
+								&& dt1.getYear() == dt.getYear())
+						{
+							return quote;
+						}
+						return null;
+
+					}).when(quoteService)
+							.getHistoricalQuote(securityId, dt);
+
+					doReturn(quote).when(quoteService)
+							.getQuote(eq(securityId));
+					localDateMapMap.put(localDate, quotes);
+					final List<Quote> quotesLst = securityIdQuoteMap.getOrDefault(securityId,
+							new ArrayList<>());
+					quotesLst.add(quote);
+					securityIdQuoteMap.put(securityId, quotesLst);
+				}
+				finalquotes = quotes;
+			}
+			securityIds.forEach(securityId ->
+			{
+				doReturn(securityIdQuoteMap.get(securityId)).when(quoteService)
+						.getHistoricalValuesAsOf(securityId, endDate, DAY_INTERVAL_TYPE, periods);
+			});
+
+			doReturn(securityIdQuoteMap).when(quoteService)
+					.getHistoricalValuesAsOf(securityIds, endDate, DAY_INTERVAL_TYPE, periods);
+
+			doAnswer((Answer<Map<SecurityId, Quote>>) invocation ->
+			{
+				final Date dt1 = (Date) invocation.getArguments()[1];
+				final LocalDate localDate = dt1.toInstant()
+						.atZone(ZoneId.systemDefault())
+						.toLocalDate();
+
+				return localDateMapMap.get(localDate);
+
+			}).when(quoteService)
+					.getHistoricalQuotes(anyList(), any());
+			doReturn(finalquotes).when(quoteService)
+					.getQuotes(anyList());
+
+		}
+	}
+
+	public static void buildQuotesMockServices(QuoteService quoteService,
+			List<SecurityId> securityIds, Date startDate, Date endDate)
+	{
+		if (new MockUtil().isMock(quoteService))
+		{
+			final LocalDate stDate = startDate.toInstant()
+					.atZone(ZoneId.systemDefault())
+					.toLocalDate();
+			final LocalDate edDate = endDate.toInstant()
+					.atZone(ZoneId.systemDefault())
+					.toLocalDate();
+			Map<SecurityId, Quote> finalquotes = null;
+			final Map<LocalDate, Map<SecurityId, Quote>> localDateMapMap = new TreeMap<>();
+			for (LocalDate date = stDate; date
+					.isBefore(edDate.plusDays(1)); date = date.plusDays(1))
+			{
+				final Map<SecurityId, Quote> quotes = new HashMap<>();
+				final Random rand = new Random(1234);
+				int min = 10;
+				int max = 20;
+				final Date dt = Date.from(date.atStartOfDay(ZoneId.systemDefault())
+						.toInstant());
+				final LocalDate localDate = date;
+				securityIds.forEach(securityId ->
+				{
+					int price = rand.nextInt((max - min) + 1) + min;
+					final Quote quote = constructedQuote(securityId, price, dt,
+							price - price * rand.nextInt(max - min) / 30);
+					quotes.put(securityId, quote);
+					doReturn(quote).when(quoteService)
+							.getHistoricalQuote(eq(securityId), eq(dt));
+
+					doAnswer((Answer<Quote>) invocation ->
+					{
+						final Date dt1 = (Date) invocation.getArguments()[2];
+						if (dt1.getDate() == dt.getDate() && dt1.getMonth() == dt.getMonth()
+								&& dt1.getYear() == dt.getYear())
+						{
+							return quote;
+						}
+						return null;
+
+					}).when(quoteService)
+							.getHistoricalQuote(securityId, dt);
+
+					doReturn(quote).when(quoteService)
+							.getQuote(eq(securityId));
+					localDateMapMap.put(localDate, quotes);
+				});
+
+				finalquotes = quotes;
+			}
+
+			doAnswer((Answer<Map<SecurityId, Quote>>) invocation ->
+			{
+				final Date dt1 = (Date) invocation.getArguments()[1];
+				final LocalDate localDate = dt1.toInstant()
+						.atZone(ZoneId.systemDefault())
+						.toLocalDate();
+
+				return localDateMapMap.get(localDate);
+
+			}).when(quoteService)
+					.getHistoricalQuotes(anyList(), any());
+			doReturn(finalquotes).when(quoteService)
+					.getQuotes(anyList());
+
+		}
+	}
+
+	public static Map<SecurityId, List<Quote>> buildQuotesMap(List<SecurityId> securityIds,
+			Date startDate, Date endDate)
+	{
+		final Map<SecurityId, List<Quote>> quotes = new HashMap<>();
+		final Random rand = new Random(1234);
+		int min = 10;
+		int max = 250;
+		final LocalDate stDate = startDate.toInstant()
+				.atZone(ZoneId.systemDefault())
+				.toLocalDate();
+		final LocalDate edDate = endDate.toInstant()
+				.atZone(ZoneId.systemDefault())
+				.toLocalDate();
+		securityIds.forEach(securityId ->
+		{
+			for (LocalDate date = stDate; date.isBefore(edDate); date = date.plusDays(1))
+			{
+				Date dt = Date.from(date.atStartOfDay(ZoneId.systemDefault())
+						.toInstant());
+				int price = rand.nextInt((max - min) + 1) + min;
+				final Quote quote = constructedQuote(securityId, price * 0.05, dt,
+						price * 0.5 - 0.10);
+
+				List<Quote> quoteLst = quotes.get(securityId);
+				if (null == quoteLst)
+					quoteLst = new ArrayList<>();
+				quotes.put(securityId, quoteLst);
+				quoteLst.add(quote);
+
+			}
+
+		});
+		return quotes;
+	}
+
+	public static List<Quote> buildQuote(List<SecurityId> securityIds, Date startDate, Date endDate)
+	{
+		final List<Quote> quotes = new ArrayList<>();
+		final Random rand = new Random(1234);
+		int min = 10;
+		int max = 250;
+		final LocalDate stDate = startDate.toInstant()
+				.atZone(ZoneId.systemDefault())
+				.toLocalDate();
+		final LocalDate edDate = endDate.toInstant()
+				.atZone(ZoneId.systemDefault())
+				.toLocalDate();
+
+		securityIds.forEach(securityId ->
+		{
+			for (LocalDate date = stDate; date.isBefore(edDate); date = date.plusDays(1))
+			{
+				Date dt = Date.from(date.atStartOfDay(ZoneId.systemDefault())
+						.toInstant());
+				int price = rand.nextInt((max - min) + 1) + min;
+				final Quote quote = constructedQuote(securityId, price * 0.05, dt,
+						price * 0.5 - 0.10);
+				quotes.add(quote);
+
+			}
+		});
+		return quotes;
+	}
+
+	public static List<Quote> buildQuote(SecurityId securityId, Date startDate, Date endDate)
+	{
+		final List<Quote> quotes = new ArrayList<>();
+		final Random rand = new Random(1234);
+		int min = 10;
+		int max = 250;
+		final LocalDate stDate = startDate.toInstant()
+				.atZone(ZoneId.systemDefault())
+				.toLocalDate();
+		final LocalDate edDate = endDate.toInstant()
+				.atZone(ZoneId.systemDefault())
+				.toLocalDate();
+
+		for (LocalDate date = stDate; date.isBefore(edDate); date = date.plusDays(1))
+		{
+			Date dt = Date.from(date.atStartOfDay(ZoneId.systemDefault())
+					.toInstant());
+			int price = rand.nextInt((max - min) + 1) + min;
+			final Quote quote = constructedQuote(securityId, price * 0.05, dt, price * 0.5 - 0.10);
+			quotes.add(quote);
+
+		}
+		return quotes;
+	}
+
+	public static Quote buildQuote(SecurityId securityId, Date startDate)
+	{
+		final Random rand = new Random(1234);
+		int min = 10;
+		int max = 250;
+		final LocalDate stDate = startDate.toInstant()
+				.atZone(ZoneId.systemDefault())
+				.toLocalDate();
+
+		Date dt = Date.from(stDate.atStartOfDay(ZoneId.systemDefault())
+				.toInstant());
+		int price = rand.nextInt((max - min) + 1) + min;
+		final Quote quote = constructedQuote(securityId, price * 0.05, dt, price * 0.5 - 0.10);
+		return quote;
+	}
+
+	public static List<Quote> buildQuote(SecurityId securityId, Date startDate, int duration)
+	{
+		final List<Quote> quotes = new ArrayList<>();
+
+		final Random rand = new Random(1234);
+		int min = 10;
+		int max = 250;
+		final LocalDate stDate = startDate.toInstant()
+				.atZone(ZoneId.systemDefault())
+				.toLocalDate();
+		int i = 0;
+		for (LocalDate date = stDate; i < duration; i++)
+		{
+			Date dt = Date.from(date.atStartOfDay(ZoneId.systemDefault())
+					.toInstant());
+			int price = rand.nextInt((max - min) + 1) + min;
+			final Quote quote = constructedQuote(securityId, price * 0.05, dt, price * 0.5 - 0.10);
+			quotes.add(quote);
+		}
+		return quotes;
+	}
+
+	public static class ClassificationManagerMapBuilder
+	{
+		public static void initializeClassificationManagerTypeMaps(
+				ClassificationUtils classificationUtils)
+		{
+			try
+			{
+				injectClassificationMap(classificationUtils, buildByTypeMap(),
+						"treeStructureHoldingsByType");
+				injectClassificationMap(classificationUtils, buildBySeven(),
+						"treeStructureAssetAllocationSevenBox");
+				injectClassificationMap(classificationUtils, buildBySector(),
+						"treeStructureUSStockBySector");
+				injectClassificationMap(classificationUtils, buildTreeStructureAssetAllocation(),
+						"treeStructureAssetAllocation");
+			}
+			catch (Exception e)
+			{
+				throw new RuntimeException(e);
+			}
+		}
+
+		private static Map<String, Object> buildTreeStructureAssetAllocation()
+		{
+			Map<String, Object> treeStructureAssetAllocation = new HashMap<>();
+			treeStructureAssetAllocation.put("Cash", "Cash");
+			Map<String, Object> bonds = new HashMap<>();
+			treeStructureAssetAllocation.put("Bonds", bonds);
+			bonds.put("Bonds", "Bonds");
+
+			Map<String, Object> intlBonds = new HashMap<>();
+			bonds.put("Intl Bonds", intlBonds);
+
+			intlBonds.put("Intl Bonds", "BondsIntl");
+			intlBonds.put("Government", "BondsIntlGovernment");
+			intlBonds.put("Corporate", "BondsIntlCorporate");
+
+			Map<String, Object> usBonds = new HashMap<>();
+			bonds.put("US Bonds", usBonds);
+
+			usBonds.put("US Bonds", "BondsUS");
+			usBonds.put("Government", "BondsUSGovernment");
+			usBonds.put("Municipal", "BondsUSMunicipal");
+			usBonds.put("Corporate", "BondsUSCorporate");
+
+			Map<String, Object> stocks = new HashMap<>();
+			treeStructureAssetAllocation.put("Stocks", stocks);
+
+			stocks.put("Stocks", "Stocks");
+			Map<String, Object> intlStocks = new HashMap<>();
+			intlStocks.put("Intl Stocks", "StocksIntl");
+			intlStocks.put("Emerging", "StocksIntlEmerging");
+			intlStocks.put("Developed", "StocksIntlDeveloped");
+			stocks.put("Intl Stocks", intlStocks);
+			Map<String, Object> usStocks = new HashMap<>();
+			stocks.put("U.S. Stocks", usStocks);
+			usStocks.put("U.S. Stocks", "StocksUS");
+
+			Map<String, Object> largeCap = new HashMap<>();
+			usStocks.put("Large Cap", largeCap);
+			Map<String, Object> midCap = new HashMap<>();
+			usStocks.put("Mid Cap", midCap);
+			Map<String, Object> smallCap = new HashMap<>();
+			usStocks.put("Small Cap", smallCap);
+
+			largeCap.put("Large Cap", "StocksUSLargeCap");
+			largeCap.put("Large Cap Value", "StocksUSLargeCapValue");
+			largeCap.put("Large Cap Core", "StocksUSLargeCapCore");
+			largeCap.put("Large Cap Growth", "StocksUSLargeCapGrowth");
+
+			midCap.put("Mid Cap", "StocksUSMidCap");
+			midCap.put("Mid Cap Value", "StocksUSMidCapValue");
+			midCap.put("Mid Cap Core", "StocksUSMidCapCore");
+			midCap.put("Mid Cap Growth", "StocksUSMidCapGrowth");
+			smallCap.put("Small Cap", "StocksUSSmallCap");
+			smallCap.put("Small Cap Value", "StocksUSSmallCapValue");
+			smallCap.put("Small Cap Core", "StocksUSSmallCapCore");
+			smallCap.put("Small Cap Growth", "StocksUSSmallCapGrowth");
+
+			Map<String, Object> alt = new HashMap<>();
+
+			treeStructureAssetAllocation.put("Alternatives", alt);
+			alt.put("Real Estate", "AlternativesRealEstate");
+			alt.put("Gold", "AlternativesGold");
+			alt.put("Energy", "AlternativesEnergy");
+			alt.put("Commodities", "AlternativesCommodities");
+			alt.put("Other", "AlternativesOther");
+
+			treeStructureAssetAllocation.put("Unclassified", "Unclassified");
+			return treeStructureAssetAllocation;
+		}
+
+		private static Map<String, Object> buildBySeven()
+		{
+			Map<String, Object> treeStructureAssetAllocationSevenBox = new HashMap<>();
+			treeStructureAssetAllocationSevenBox.put("Cash", "Cash");
+			Map<String, Object> intl = new HashMap<>();
+			treeStructureAssetAllocationSevenBox.put("Intl Bonds", intl);
+			intl.put("Government", "BondsIntlGovernment");
+			intl.put("Corporate", "BondsIntlCorporate");
+			Map<String, Object> us = new HashMap<>();
+			treeStructureAssetAllocationSevenBox.put("U.S. Bonds", us);
+			us.put("Government", "BondsUSGovernment");
+			us.put("Municipal", "BondsUSMunicipal");
+			us.put("Corporate", "BondsUSCorporate");
+			Map<String, Object> intlS = new HashMap<>();
+			treeStructureAssetAllocationSevenBox.put("Intl Stocks", intlS);
+			intlS.put("Emerging", "StocksIntlEmerging");
+			intlS.put("Developed", "StocksIntlDeveloped");
+			Map<String, Object> usS = new HashMap<>();
+			treeStructureAssetAllocationSevenBox.put("U.S. Stocks", usS);
+			usS.put("Large Cap Value", "StocksUSLargeCapValue");
+			usS.put("Large Cap Core", "StocksUSLargeCapCore");
+			usS.put("Large Cap Growth", "StocksUSLargeCapGrowth");
+			usS.put("Mid Cap Value", "StocksUSMidCapValue");
+			usS.put("Mid Cap Core", "StocksUSMidCapCore");
+			usS.put("Mid Cap Growth", "StocksUSMidCapGrowth");
+			usS.put("Small Cap Value", "StocksUSSmallCapValue");
+			usS.put("Small Cap Core", "StocksUSSmallCapCore");
+			usS.put("Small Cap Growth", "StocksUSSmallCapGrowth");
+			Map<String, Object> alt = new HashMap<>();
+
+			treeStructureAssetAllocationSevenBox.put("Alternatives", alt);
+			alt.put("Real Estate", "AlternativesRealEstate");
+			alt.put("Gold", "AlternativesGold");
+			alt.put("Energy", "AlternativesEnergy");
+			alt.put("Commodities", "AlternativesCommodities");
+			alt.put("Other", "AlternativesOther");
+
+			treeStructureAssetAllocationSevenBox.put("Unclassified", "Unclassified");
+			return treeStructureAssetAllocationSevenBox;
+		}
+
+		private static Map<String, Object> buildBySector()
+		{
+			Map<String, Object> treeStructureUSStockBySector = new HashMap<>();
+			treeStructureUSStockBySector.put("Basic Materials", "StocksUSSectorBasicMaterials");
+			treeStructureUSStockBySector.put("Communication Services",
+					"StocksUSSectorCommunicationServices");
+			treeStructureUSStockBySector.put("Consumer Cyclical", "StocksUSSectorConsumerCyclical");
+			treeStructureUSStockBySector.put("Consumer Defensive",
+					"StocksUSSectorConsumerDefensive");
+			treeStructureUSStockBySector.put("Energy", "StocksUSSectorEnergy");
+			treeStructureUSStockBySector.put("Financial Services",
+					"StocksUSSectorFinancialServices");
+			treeStructureUSStockBySector.put("Healthcare", "StocksUSSectorHealthcare");
+			treeStructureUSStockBySector.put("Industrials", "StocksUSSectorIndustrials");
+			treeStructureUSStockBySector.put("Technology", "StocksUSSectorTechnology");
+			treeStructureUSStockBySector.put("Utilities", "StocksUSSectorUtilities");
+			treeStructureUSStockBySector.put("Unknown", "StocksUSSectorUnknown");
+
+			return treeStructureUSStockBySector;
+		}
+
+		private static Map<String, Object> buildByTypeMap()
+		{
+			Map<String, Object> byType = new HashMap<>();
+			byType.put("Cash Assets", "Cash");
+			byType.put("Bonds", "Bonds");
+			byType.put("Stocks", "Stocks");
+			byType.put("Mutual Funds", "MutualFunds");
+			byType.put("ETFs", "ETFs");
+			byType.put("Other Assets", "OtherAssets");
+			byType.put("Unclassified", "Unclassified");
+			return byType;
+		}
+
+		private static void injectClassificationMap(ClassificationUtils classificationUtils,
+				Map<String, Object> stringObjectMap, String fieldName) throws Exception
+		{
+			Field field = ClassificationUtils.class.getDeclaredField(fieldName);
+			field.setAccessible(true);
+			field.set(classificationUtils, stringObjectMap);
+		}
+
+	}
+
+	public static class HoldingAndSecurityInfoBuilder
+	{
+		public static HoldingAndSecurityInfo build(HoldingDetails holdingDetails,
+				SecurityInfo securityInfo, Quote quote)
+		{
+			HoldingAndSecurityInfo holdingAndSecurityInfo;
+			holdingAndSecurityInfo = new HoldingAndSecurityInfo(holdingDetails, securityInfo, null,
+					null);
+			holdingAndSecurityInfo.setQuote(quote);
+			return holdingAndSecurityInfo;
+		}
+
+		public static HoldingDetails getHoldingDetails(String json)
+		{
+			// now deserialize
+			HoldingDetails holdingDetails;
+			holdingDetails = HoldingDetailsUtils.getHoldingDetails(json);
+			return holdingDetails;
+		}
+
+		public static HoldingDetails getPCAPHoldingDetails(String securityId)
+		{
+			HoldingDetails holding = new HoldingDetails(SecurityInfoProvider.PCAP);
+			holding.setSymbol(securityId);
+			SecurityId goodSecurityId = holding.getSecurityId();
+			return holding;
+		}
+	}
+
+	public static String readJSONFromFile(String jsonFileName)
+	{
+		try
+		{
+			InputStream is = ClassificationTestHelpers.class.getClassLoader()
+					.getResourceAsStream(jsonFileName);
+			String json = IOUtils.toString(is, "UTF-8"); // read from file
+			return json;
+		}
+		catch (Exception ex)
+		{
+			throw new RuntimeException(ex);
+		}
+	}
+
+	public static double[] generateIncreasingPrices(int amount, int max)
+	{
+		double[] randomNumbers = new double[amount];
+		Random random = new Random(1234);
+		for (int i = 0; i < randomNumbers.length; i++)
+		{
+			double randomValue = 10 + (max - 10) * random.nextDouble();
+			randomNumbers[i] = randomValue * 100 / 100;
+		}
+		Arrays.sort(randomNumbers);
+		return randomNumbers;
+	}
+}
