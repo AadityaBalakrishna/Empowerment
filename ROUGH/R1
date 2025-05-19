@@ -1,5 +1,6 @@
-2025-05-16 04:57:00,824 WARN main [org.springframework.context.support.GenericApplicationContext] [] [] [] [1234] - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanDefinitionStoreException: Invalid bean definition with name 'hikariDataSourceSpSchemaConfig' defined in URL [file:/home/jenkins/agent/workspace/_common_pcap-apps-common_MR-5359/spring/sp-security-test.xml]: Could not resolve placeholder 'db.password' in value "${db.password}"
- 
-Caused by: org.springframework.beans.factory.BeanDefinitionStoreException: Invalid bean definition with name 'hikariDataSourceSpSchemaConfig' defined in URL [file:/home/jenkins/agent/workspace/_common_pcap-apps-common_MR-5359/spring/sp-security-test.xml]: Could not resolve placeholder 'db.password' in value "${db.password}"
- 
-Caused by: org.springframework.util.PlaceholderResolutionException: Could not resolve placeholder 'db.password' in value "${db.password}"
+/home/abalakrishna/glab/pcap-server/epw-salesforce-helper/src/test/java/com/safepage/helper/SalesforceTenantUserValidatorAdviceTest.java:72:20
+java: cannot find symbol
+  symbol:   method verifyZeroInteractions(com.personalcapital.command.QueueCommandDispatcher)
+  location: class org.mockito.Mockito
+
+this is from an older repo with java version as 11 and spring boot 2.7
