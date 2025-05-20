@@ -1,23 +1,179 @@
-let me give you more context for what i am about to ask you,
+18:52:19  [ERROR] Tests run: 16, Failures: 0, Errors: 15, Skipped: 0, Time elapsed: 1.044 s <<< FAILURE! - in com.safepage.helper.SalesForceHelperMockedTest
+18:52:19  [ERROR] testRetryRegistrationWithAffiliatedUserOn11Run(com.safepage.helper.SalesForceHelperMockedTest)  Time elapsed: 0.008 s  <<< ERROR!
+18:52:19  org.mockito.exceptions.misusing.RedundantListenerException: 
+18:52:19  
+18:52:19  Problems adding Mockito listener.
+18:52:19  Listener of type 'MismatchReportingTestListener' has already been added and not removed.
+18:52:19  It indicates that previous listener was not removed according to the API.
+18:52:19  When you add a listener, don't forget to remove the listener afterwards:
+18:52:19    Mockito.framework().removeListener(myListener);
+18:52:19  For more information, see the javadoc for RedundantListenerException class.
+18:52:19  
+18:52:19  [ERROR] testRetryRegistrationWithD2CUserOn11Run(com.safepage.helper.SalesForceHelperMockedTest)  Time elapsed: 0 s  <<< ERROR!
+18:52:19  org.mockito.exceptions.misusing.RedundantListenerException: 
+18:52:19  
+18:52:19  Problems adding Mockito listener.
+18:52:19  Listener of type 'MismatchReportingTestListener' has already been added and not removed.
+18:52:19  It indicates that previous listener was not removed according to the API.
+18:52:19  When you add a listener, don't forget to remove the listener afterwards:
+18:52:19    Mockito.framework().removeListener(myListener);
+18:52:19  For more information, see the javadoc for RedundantListenerException class.
+18:52:19  
+18:52:19  [ERROR] testTriggerOnusBankSync(com.safepage.helper.SalesForceHelperMockedTest)  Time elapsed: 0 s  <<< ERROR!
+18:52:19  org.mockito.exceptions.misusing.RedundantListenerException: 
+18:52:19  
+18:52:19  Problems adding Mockito listener.
+18:52:19  Listener of type 'MismatchReportingTestListener' has already been added and not removed.
+18:52:19  It indicates that previous listener was not removed according to the API.
+18:52:19  When you add a listener, don't forget to remove the listener afterwards:
+18:52:19    Mockito.framework().removeListener(myListener);
+18:52:19  For more information, see the javadoc for RedundantListenerException class.
+18:52:19  
+18:52:19  [ERROR] getSmsActivityTypeInboundSales(com.safepage.helper.SalesForceHelperMockedTest)  Time elapsed: 0 s  <<< ERROR!
+18:52:19  org.mockito.exceptions.misusing.RedundantListenerException: 
+18:52:19  
+18:52:19  Problems adding Mockito listener.
+18:52:19  Listener of type 'MismatchReportingTestListener' has already been added and not removed.
+18:52:19  It indicates that previous listener was not removed according to the API.
+18:52:19  When you add a listener, don't forget to remove the listener afterwards:
+18:52:19    Mockito.framework().removeListener(myListener);
+18:52:19  For more information, see the javadoc for RedundantListenerException class.
+18:52:19  
+18:52:19  [ERROR] getSmsActivityTypeOutboundService(com.safepage.helper.SalesForceHelperMockedTest)  Time elapsed: 0 s  <<< ERROR!
+18:52:19  org.mockito.exceptions.misusing.RedundantListenerException: 
+18:52:19  
+18:52:19  Problems adding Mockito listener.
+18:52:19  Listener of type 'MismatchReportingTestListener' has already been added and not removed.
+18:52:19  It indicates that previous listener was not removed according to the API.
+18:52:19  When you add a listener, don't forget to remove the listener afterwards:
+18:52:19    Mockito.framework().removeListener(myListener);
+18:52:19  For more information, see the javadoc for RedundantListenerException class.
+18:52:19  
+18:52:19  [ERROR] triggerSyncUserTermsVersionToSalesforce_withValidInputs_shouldSubmitCommand(com.safepage.helper.SalesForceHelperMockedTest)  Time elapsed: 0 s  <<< ERROR!
+18:52:19  org.mockito.exceptions.misusing.RedundantListenerException: 
+18:52:19  
+18:52:19  Problems adding Mockito listener.
+18:52:19  Listener of type 'MismatchReportingTestListener' has already been added and not removed.
+18:52:19  It indicates that previous listener was not removed according to the API.
+18:52:19  When you add a listener, don't forget to remove the listener afterwards:
+18:52:19    Mockito.framework().removeListener(myListener);
+18:52:19  For more information, see the javadoc for RedundantListenerException class.
+18:52:19  
+18:52:19  [ERROR] createOrUpdateActivity(com.safepage.helper.SalesForceHelperMockedTest)  Time elapsed: 0 s  <<< ERROR!
+18:52:19  org.mockito.exceptions.misusing.RedundantListenerException: 
+18:52:19  
+18:52:19  Problems adding Mockito listener.
+18:52:19  Listener of type 'MismatchReportingTestListener' has already been added and not removed.
+18:52:19  It indicates that previous listener was not removed according to the API.
+18:52:19  When you add a listener, don't forget to remove the listener afterwards:
+18:52:19    Mockito.framework().removeListener(myListener);
+18:52:19  For more information, see the javadoc for RedundantListenerException class.
+18:52:19  
+18:52:19  [ERROR] syncExactTargetWithAdvisorAssignment(com.safepage.helper.SalesForceHelperMockedTest)  Time elapsed: 0 s  <<< ERROR!
+18:52:19  org.mockito.exceptions.misusing.RedundantListenerException: 
+18:52:19  
+18:52:19  Problems adding Mockito listener.
+18:52:19  Listener of type 'MismatchReportingTestListener' has already been added and not removed.
+18:52:19  It indicates that previous listener was not removed according to the API.
+18:52:19  When you add a listener, don't forget to remove the listener afterwards:
+18:52:19    Mockito.framework().removeListener(myListener);
+18:52:19  For more information, see the javadoc for RedundantListenerException class.
+18:52:19  
+18:52:19  [ERROR] testCreateServiceRequestForProfileChange(com.safepage.helper.SalesForceHelperMockedTest)  Time elapsed: 0 s  <<< ERROR!
+18:52:19  org.mockito.exceptions.misusing.RedundantListenerException: 
+18:52:19  
+18:52:19  Problems adding Mockito listener.
+18:52:19  Listener of type 'MismatchReportingTestListener' has already been added and not removed.
+18:52:19  It indicates that previous listener was not removed according to the API.
+18:52:19  When you add a listener, don't forget to remove the listener afterwards:
+18:52:19    Mockito.framework().removeListener(myListener);
+18:52:19  For more information, see the javadoc for RedundantListenerException class.
+18:52:19  
+18:52:19  [ERROR] getSmsActivityTypeOutboundSales(com.safepage.helper.SalesForceHelperMockedTest)  Time elapsed: 0 s  <<< ERROR!
+18:52:19  org.mockito.exceptions.misusing.RedundantListenerException: 
+18:52:19  
+18:52:19  Problems adding Mockito listener.
+18:52:19  Listener of type 'MismatchReportingTestListener' has already been added and not removed.
+18:52:19  It indicates that previous listener was not removed according to the API.
+18:52:19  When you add a listener, don't forget to remove the listener afterwards:
+18:52:19    Mockito.framework().removeListener(myListener);
+18:52:19  For more information, see the javadoc for RedundantListenerException class.
+18:52:19  
+18:52:19  [ERROR] testPayloadForExecuteServiceRequestForCashRaiseFailure(com.safepage.helper.SalesForceHelperMockedTest)  Time elapsed: 0 s  <<< ERROR!
+18:52:19  org.mockito.exceptions.misusing.RedundantListenerException: 
+18:52:19  
+18:52:19  Problems adding Mockito listener.
+18:52:19  Listener of type 'MismatchReportingTestListener' has already been added and not removed.
+18:52:19  It indicates that previous listener was not removed according to the API.
+18:52:19  When you add a listener, don't forget to remove the listener afterwards:
+18:52:19    Mockito.framework().removeListener(myListener);
+18:52:19  For more information, see the javadoc for RedundantListenerException class.
+18:52:19  
+18:52:19  [ERROR] testRetryRegistrationWithAffiliatedUserOn7Run(com.safepage.helper.SalesForceHelperMockedTest)  Time elapsed: 0 s  <<< ERROR!
+18:52:19  org.mockito.exceptions.misusing.RedundantListenerException: 
+18:52:19  
+18:52:19  Problems adding Mockito listener.
+18:52:19  Listener of type 'MismatchReportingTestListener' has already been added and not removed.
+18:52:19  It indicates that previous listener was not removed according to the API.
+18:52:19  When you add a listener, don't forget to remove the listener afterwards:
+18:52:19    Mockito.framework().removeListener(myListener);
+18:52:19  For more information, see the javadoc for RedundantListenerException class.
+18:52:19  
+18:52:19  [ERROR] testRetryRegistrationWithD2CUserOn7Run(com.safepage.helper.SalesForceHelperMockedTest)  Time elapsed: 0 s  <<< ERROR!
+18:52:19  org.mockito.exceptions.misusing.RedundantListenerException: 
+18:52:19  
+18:52:19  Problems adding Mockito listener.
+18:52:19  Listener of type 'MismatchReportingTestListener' has already been added and not removed.
+18:52:19  It indicates that previous listener was not removed according to the API.
+18:52:19  When you add a listener, don't forget to remove the listener afterwards:
+18:52:19    Mockito.framework().removeListener(myListener);
+18:52:19  For more information, see the javadoc for RedundantListenerException class.
+18:52:19  
+18:52:19  [ERROR] testTriggerOnusBankSyncNoData(com.safepage.helper.SalesForceHelperMockedTest)  Time elapsed: 0.001 s  <<< ERROR!
+18:52:19  org.mockito.exceptions.misusing.RedundantListenerException: 
+18:52:19  
+18:52:19  Problems adding Mockito listener.
+18:52:19  Listener of type 'MismatchReportingTestListener' has already been added and not removed.
+18:52:19  It indicates that previous listener was not removed according to the API.
+18:52:19  When you add a listener, don't forget to remove the listener afterwards:
+18:52:19    Mockito.framework().removeListener(myListener);
+18:52:19  For more information, see the javadoc for RedundantListenerException class.
+18:52:19  
+18:52:19  [ERROR] testExecuteServiceRequestForCashRaiseFailure(com.safepage.helper.SalesForceHelperMockedTest)  Time elapsed: 0 s  <<< ERROR!
+18:52:19  org.mockito.exceptions.misusing.RedundantListenerException: 
+18:52:19  
+18:52:19  Problems adding Mockito listener.
+18:52:19  Listener of type 'MismatchReportingTestListener' has already been added and not removed.
+18:52:19  It indicates that previous listener was not removed according to the API.
+18:52:19  When you add a listener, don't forget to remove the listener afterwards:
+18:52:19    Mockito.framework().removeListener(myListener);
+18:52:19  For more information, see the javadoc for RedundantListenerException class.
+18:52:19  
+18:52:19  [INFO] Running com.safepage.helper.SalesforceTenantUserValidatorAdviceTest
+18:52:19  [INFO] Tests run: 13, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.088 s - in com.safepage.helper.SalesforceTenantUserValidatorAdviceTest
+18:52:19  [INFO] 
+18:52:19  [INFO] Results:
+18:52:19  [INFO] 
+18:52:19  [ERROR] Errors: 
+18:52:19  [ERROR]   SalesForceHelperMockedTest.createOrUpdateActivity » RedundantListener 
+18:52:19  Problem...
+18:52:19  [ERROR]   SalesForceHelperMockedTest.getSmsActivityTypeInboundSales » RedundantListener ...
+18:52:19  [ERROR]   SalesForceHelperMockedTest.getSmsActivityTypeOutboundSales » RedundantListener
+18:52:19  [ERROR]   SalesForceHelperMockedTest.getSmsActivityTypeOutboundService » RedundantListener
+18:52:19  [ERROR]   SalesForceHelperMockedTest.syncExactTargetWithAdvisorAssignment » RedundantListener
+18:52:19  [ERROR]   SalesForceHelperMockedTest.testCreateServiceRequestForProfileChange » RedundantListener
+18:52:19  [ERROR]   SalesForceHelperMockedTest.testExecuteServiceRequestForCashRaiseFailure » RedundantListener
+18:52:19  [ERROR]   SalesForceHelperMockedTest.testPayloadForExecuteServiceRequestForCashRaiseFailure » RedundantListener
+18:52:19  [ERROR]   SalesForceHelperMockedTest.testRetryRegistrationWithAffiliatedUserOn11Run » RedundantListener
+18:52:19  [ERROR]   SalesForceHelperMockedTest.testRetryRegistrationWithAffiliatedUserOn7Run » RedundantListener
+18:52:19  [ERROR]   SalesForceHelperMockedTest.testRetryRegistrationWithD2CUserOn11Run » RedundantListener
+18:52:19  [ERROR]   SalesForceHelperMockedTest.testRetryRegistrationWithD2CUserOn7Run » RedundantListener
+18:52:19  [ERROR]   SalesForceHelperMockedTest.testTriggerOnusBankSync » RedundantListener 
+18:52:19  Proble...
+18:52:19  [ERROR]   SalesForceHelperMockedTest.testTriggerOnusBankSyncNoData » RedundantListener 
+18:52:19  ...
+18:52:19  [ERROR]   SalesForceHelperMockedTest.triggerSyncUserTermsVersionToSalesforce_withValidInputs_shouldSubmitCommand » RedundantListener
+18:52:19  [INFO] 
+18:52:19  [ERROR] Tests run: 50, Failures: 0, Errors: 15, Skipped: 0
 
-i need to move a module called pcap-command from pcap-server to pcap-batch
-so now what i have done is, in pcap-command module in pcap-server, i have deleted the src folder, and removed all dependencies in the pom.xml file and added the dependency of the 
-same module from the other repo as the only dependecny in the pcap-command pom file in pcap-server and epw-salesforce-helper is using this pcap-command module
-
-now, pcap-server has a lot of modules, in that one of them is epw-salesforce-helper, and i am facing this error in it:
-
-18:06:56  [ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.10.1:testCompile (default-testCompile) on project epw-salesforce-helper: Compilation failure: Compilation failure: 
-18:06:56  [ERROR] /home/jenkins/agent/workspace/uild_common_pcap-server_MR-28339/epw-salesforce-helper/src/test/java/com/safepage/helper/SalesforceTenantUserValidatorAdviceTest.java:[72,10] error: cannot find symbol
-18:06:56  [ERROR]   symbol:   method verifyZeroInteractions(QueueCommandDispatcher)
-18:06:56  [ERROR]   location: class Mockito
-18:06:56  [ERROR] /home/jenkins/agent/workspace/uild_common_pcap-server_MR-28339/epw-salesforce-helper/src/test/java/com/safepage/helper/SalesforceTenantUserValidatorAdviceTest.java:[117,10] error: cannot find symbol
-18:06:56  [ERROR]   symbol:   method verifyZeroInteractions(QueueCommandDispatcher)
-18:06:56  [ERROR]   location: class Mockito
-18:06:56  [ERROR] /home/jenkins/agent/workspace/uild_common_pcap-server_MR-28339/epw-salesforce-helper/src/test/java/com/safepage/helper/SalesforceTenantUserValidatorAdviceTest.java:[166,10] error: cannot find symbol
-18:06:56  [ERROR]   symbol:   method verifyZeroInteractions(QueueCommandDispatcher)
-18:06:56  [ERROR]   location: class Mockito
-18:06:56  [ERROR] /home/jenkins/agent/workspace/uild_common_pcap-server_MR-28339/epw-salesforce-helper/src/test/java/com/safepage/helper/SalesforceTenantUserValidatorAdviceTest.java:[216,10] error: cannot find symbol
-18:06:56  [ERROR]   symbol:   method verifyZeroInteractions(QueueCommandDispatcher)
-18:06:56  [ERROR]   location: class Mockito
-
-there's no changes done at all compared to the main branch that is building successfully in jenkins
+this is the error now
