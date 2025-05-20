@@ -1,6 +1,15 @@
-/home/abalakrishna/glab/pcap-server/epw-salesforce-helper/src/test/java/com/safepage/helper/SalesforceTenantUserValidatorAdviceTest.java:72:20
-java: cannot find symbol
-  symbol:   method verifyZeroInteractions(com.personalcapital.command.QueueCommandDispatcher)
-  location: class org.mockito.Mockito
-
-this is from an older repo with java version as 11 and spring boot 2.7
+15:29:51  [ERROR] Errors: 
+15:29:51  [ERROR]   SalesForceHelperMockedTest.initializationError » NoSuchMethod 'org.mockito.int...
+15:29:51  [ERROR]   SalesforceTenantUserValidatorAdviceTest.createServiceRequestForAddressChangeEmpowerTest:159->mockRetailContextMethods:414 NoClassDefFound
+15:29:51  [ERROR]   SalesforceTenantUserValidatorAdviceTest.createServiceRequestForAddressChangePostMigrationD2CUserTest:270 NoClassDefFound
+15:29:51  [ERROR]   SalesforceTenantUserValidatorAdviceTest.createServiceRequestForAddressChangeWhenIsMigratedIsFalseTest:305 » IllegalAccess
+15:29:51  [ERROR]   SalesforceTenantUserValidatorAdviceTest.fetchAccountsByUserGuidStringTest:223 NoClassDefFound
+15:29:51  [ERROR]   SalesforceTenantUserValidatorAdviceTest.before:54 UnfinishedVerification 
+15:29:51  Miss...
+15:29:51  [ERROR]   SalesforceTenantUserValidatorAdviceTest.testAdviceForD2CUserPersonalStrategyFlagGA:319->mockRetailContextMethods:414 NoClassDefFound
+15:29:51  [ERROR]   SalesforceTenantUserValidatorAdviceTest.testAdviceForEmpowerUserPersonalStrategyFlagDisabled:353->mockRetailContextMethods:414 NoClassDefFound
+15:29:51  [ERROR]   SalesforceTenantUserValidatorAdviceTest.testAdviceForEmpowerUserPersonalStrategyFlagGA:342->mockRetailContextMethods:414 NoClassDefFound
+15:29:51  [ERROR]   SalesforceTenantUserValidatorAdviceTest.before:54 UnfinishedVerification 
+15:29:51  Miss...
+15:29:51  [ERROR]   SalesforceTenantUserValidatorAdviceTest.testAdviceForEmpowerUserPremierFlagGA:379->mockRetailContextMethods:414 NoClassDefFound
+15:29:51  [ERROR]   SalesforceTenantUserValidatorAdviceTest.testAdviceForRegularUserPremierFlagGA:368->mockRetailContextMethods:414 NoClassDefFound
