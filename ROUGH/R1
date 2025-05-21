@@ -1,9 +1,6 @@
 package com.safepage.helper;
-
 import java.math.BigDecimal;
-
 import java.util.Date;
-
 import com.personalcapital.agent.data.Proposal;
 import com.personalcapital.salesforce.data.ServiceRequestStatus;
 import com.personalcapital.salesforce.data.ServiceRequestType;
@@ -21,7 +18,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.*;
 import org.mockito.runners.MockitoJUnitRunner;
-
 import com.personalcapital.advisor.data.UserAdvisorRole;
 import com.personalcapital.command.QueueCommandDispatcher;
 import com.personalcapital.command.QueueCommandRequest;
@@ -33,7 +29,6 @@ import com.safepage.user.data.ClientType;
 import com.safepage.user.data.InitiatedType;
 import com.safepage.user.data.User;
 import com.safepage.user.data.impl.UserImpl;
-
 import static com.safepage.aggregation.data.QueueCommandType.SALESFORCE_ACTIVITY_CREATE_OR_UPDATE;
 import static com.safepage.helper.SalesForceHelper.*;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -53,20 +48,15 @@ public class SalesForceHelperMockedTest
 	@InjectMocks
 	@Spy
 	SalesForceHelper salesForceHelper;
-
 	@Mock
 	private QueueCommandRequest queueCommandRequest;
-
 	@Mock
 	private QueueCommandDispatcher queueCommandDispatcher;
-
 	@Captor
 	private ArgumentCaptor<QueueCommandRequest> queueCommandRequestArgumentCaptor;
-
 	private final static Long USER_ID = 0l;
 	private final static String USER_NAME = "donya.izadi.pcb@personalcapital.com";
 	private User user;
-
 	@Before
 	public void setUp()
 	{
@@ -74,7 +64,6 @@ public class SalesForceHelperMockedTest
 		user.setId(USER_ID);
 		user.setUsername(USER_NAME);
 	}
-
 	@Test
 	public void syncExactTargetWithAdvisorAssignment()
 	{
@@ -89,7 +78,6 @@ public class SalesForceHelperMockedTest
 
 		verify(salesForceHelper, times(1)).syncExactTargetDataExtension(eq(userDataRecord));
 	}
-
 	@Test
 	public void testTriggerOnusBankSyncNoData()
 	{
@@ -97,47 +85,40 @@ public class SalesForceHelperMockedTest
 				InitiatedType.TEST);
 		verify(queueCommandDispatcher, times(0)).sendQueueCommand(Mockito.any());
 	}
-
 	@Test
 	public void testTriggerOnusBankSync()
 	{
 		Boolean IS_ONUS_BANK_HOLDER = true;
 		Date ACCOUNT_OPEN_DATE = new Date();
 		Double AUD_BALANCE = null;
-
 		salesForceHelper.triggerOnusBankSync(user, IS_ONUS_BANK_HOLDER, ACCOUNT_OPEN_DATE,
 				AUD_BALANCE, InitiatedType.TEST.name(), InitiatedType.TEST);
 		verify(queueCommandDispatcher).sendQueueCommand(Mockito.any());
 	}
-
 	@Test
 	public void getSmsActivityTypeOutboundSales()
 	{
 		String activityType = salesForceHelper.getSmsActivityType(true, UserAdvisorRole.SALES);
 		assertEquals(SMS_FROM_ADVISOR_OUTBOUND_TYPE, activityType);
 	}
-
 	@Test
 	public void getSmsActivityTypeInboundSales()
 	{
 		String activityType = salesForceHelper.getSmsActivityType(false, UserAdvisorRole.SALES);
 		assertEquals(SMS_FROM_ADVISOR_INBOUND_TYPE, activityType);
 	}
-
 	@Test
 	public void getSmsActivityTypeOutboundService()
 	{
 		String activityType = salesForceHelper.getSmsActivityType(true, UserAdvisorRole.SERVICE);
 		assertEquals(SMS_FROM_ADVISOR_SERVICE_OUTBOUND_TYPE, activityType);
 	}
-
 	@Test
 	public void getSmsActivityTypeInboundService()
 	{
 		String activityType = salesForceHelper.getSmsActivityType(false, UserAdvisorRole.SERVICE);
 		assertEquals(SMS_FROM_ADVISOR_SERVICE_INBOUND_TYPE, activityType);
 	}
-
 	@Test
 	public void createOrUpdateActivity()
 	{
@@ -160,7 +141,6 @@ public class SalesForceHelperMockedTest
 		assertThat(payload.toString()).contains(DEFAULT_PRIORITY_LEVEL);
 		verify(queueCommandDispatcher, times(1)).sendQueueCommand(eq(queueCommandRequest));
 	}
-
 	@Test
 	public void testCreateServiceRequestForProfileChange() throws SafePageException
 	{
@@ -170,7 +150,6 @@ public class SalesForceHelperMockedTest
 		profileUpdateRequest.put("PROFILE_NAME_CHANGE", true);
 		profileUpdateRequest.put("PROFILE_SSN_CHANGE", true);
 		boolean isCashUser = true;
-
 		ArgumentCaptor<QueueCommandRequest> queueCommandRequestArgument = ArgumentCaptor
 				.forClass(QueueCommandRequest.class);
 		salesForceHelper.createServiceRequestForProfileChange(user, personId, ClientType.WEB,
@@ -190,7 +169,6 @@ public class SalesForceHelperMockedTest
 		assertEquals(isCashUser, payLoad.getJsonObject()
 				.getBoolean(SalesForceHelper.IS_CASH_USRE));
 	}
-
 	@Test
 	public void triggerSyncUserTermsVersionToSalesforce_withValidInputs_shouldSubmitCommand()
 			throws Exception
@@ -200,7 +178,6 @@ public class SalesForceHelperMockedTest
 				QueuePriority.TOP);
 		verify(queueCommandDispatcher, times(1)).sendQueueCommand(Mockito.any());
 	}
-
 	@Test
 	public void testRetryRegistrationWithAffiliatedUserOn11Run()
 	{
@@ -221,7 +198,6 @@ public class SalesForceHelperMockedTest
 		Assert.assertNotNull(jsonObject.getString(PsNigoHelper.ISSUE_SUMMARY));
 		Assert.assertEquals(ClientType.WEB, queueCommandRequest.getClientType());
 	}
-
 	@Test
 	public void testRetryRegistrationWithAffiliatedUserOn7Run()
 	{
@@ -237,7 +213,6 @@ public class SalesForceHelperMockedTest
 				queueCommandRequest.getQueueCommandType());
 		Assert.assertEquals(ClientType.WEB, queueCommandRequest.getClientType());
 	}
-
 	@Test
 	public void testRetryRegistrationWithD2CUserOn7Run()
 	{
@@ -251,7 +226,6 @@ public class SalesForceHelperMockedTest
 				queueCommandRequest.getQueueCommandType());
 		Assert.assertEquals(ClientType.WEB, queueCommandRequest.getClientType());
 	}
-
 	@Test
 	public void testRetryRegistrationWithD2CUserOn11Run()
 	{
@@ -260,7 +234,6 @@ public class SalesForceHelperMockedTest
 		Mockito.verify(queueCommandDispatcher, times(0))
 				.sendQueueCommand(any());
 	}
-
 	@Test
 	public void testExecuteServiceRequestForCashRaiseFailure()
 	{
@@ -286,17 +259,14 @@ public class SalesForceHelperMockedTest
 				queueCommandRequest.getQueueCommandType());
 		Assert.assertEquals(ClientType.WEB, queueCommandRequest.getClientType());
 	}
-
 	@Test
 	public void testPayloadForExecuteServiceRequestForCashRaiseFailure()
 	{
 		User user = getUser(232L, "ABC");
 		user.setTenantName("EMPOWER");
 		user.setTenantUserId("ep");
-
 		String userAccountId = "test";
 		BigDecimal withdrawableAmount = new BigDecimal("100.1");
-
 		JSONObject taskRequest = new JSONObject();
 		taskRequest.put("type", "AUTOMATED_WITHDRAWAL_FAILURE");
 		taskRequest.put("subject", CASH_RAISE_FAILURE_SUBJECT);
@@ -307,25 +277,20 @@ public class SalesForceHelperMockedTest
 		taskRequest.put("priority", DEFAULT_PRIORITY_LEVEL);
 		taskRequest.put("userAccountId", userAccountId);
 		taskRequest.put("withdrawableAmount", withdrawableAmount);
-
 		PayLoad payLoad = new PayLoad();
 		JSONObject json = new JSONObject();
 		json.put(Proposal.TASK_REQUEST, taskRequest);
 		json.put(SALESFORCE_SERVICE_REQUEST_TYPE, "AUTOMATED_WITHDRAWAL_FAILURE");
 		payLoad.setJsonObject(json);
-
 		Mockito.when(queueCommandRequest.getPayLoad())
 				.thenReturn(payLoad);
 		QueueCommandRequest queueCommandRequest = new QueueCommandRequest();
 		queueCommandRequest.setQueueCommandType(QueueCommandType.SALESFORCE_CREATE_SERVICE_REQUEST);
 		queueCommandRequest.setClientType(ClientType.WEB);
-
 		Mockito.when(salesForceHelper.createQueueCommandRequest(any(), any()))
 				.thenReturn(queueCommandRequest);
-
 		salesForceHelper.executeServiceRequestForCashRaiseFailure(user, ClientType.WEB,
 				InitiatedType.USER, userAccountId, withdrawableAmount);
-
 		Assert.assertNotNull(queueCommandRequest);
 		Assert.assertEquals(QueueCommandType.SALESFORCE_CREATE_SERVICE_REQUEST,
 				queueCommandRequest.getQueueCommandType());
@@ -333,7 +298,6 @@ public class SalesForceHelperMockedTest
 		System.out.println(queueCommandRequest.getPayLoad());
 		Assert.assertEquals(ClientType.WEB, queueCommandRequest.getClientType());
 	}
-
 	private User getUser(Long userId, String userGuid)
 	{
 		UserImpl user = new UserImpl();
@@ -344,5 +308,18 @@ public class SalesForceHelperMockedTest
 		return user;
 	}
 }
+
+
+error:
+23:41:10  [ERROR] testExecuteServiceRequestForCashRaiseFailure(com.safepage.helper.SalesForceHelperMockedTest)  Time elapsed: 0 s  <<< ERROR!
+23:41:10  org.mockito.exceptions.misusing.RedundantListenerException: 
+23:41:10  Problems adding Mockito listener.
+23:41:10  Listener of type 'MismatchReportingTestListener' has already been added and not removed.
+23:41:10  It indicates that previous listener was not removed according to the API.
+23:41:10  When you add a listener, don't forget to remove the listener afterwards:
+23:41:10    Mockito.framework().removeListener(myListener);
+23:41:10  For more information, see the javadoc for RedundantListenerException class.
+
+for all the test classes, in jenkins, pls give solution
 
 this is the code
