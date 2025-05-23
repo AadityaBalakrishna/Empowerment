@@ -1,3 +1,14 @@
-java: java.lang.ExceptionInInitializerError
-com.sun.tools.javac.code.TypeTag :: UNKNOWN
-java: java.lang.ExceptionInInitializerError
+18:01:59  org.apache.maven.lifecycle.LifecycleExecutionException: Failed to execute goal on project pcap-command: Could not resolve dependencies for project com.personalcapital:pcap-command:jar:MR-28399-SNAPSHOT
+18:01:59  dependency: com.safepage:sp-data:jar:MR-28399-SNAPSHOT (compile)
+ 
+18:01:59  dependency: com.safepage:sp-common:jar:MR-28399-SNAPSHOT (compile)
+ 
+18:01:59  dependency: com.personalcapital:pcap-cache:jar:MR-28399-SNAPSHOT (compile)
+ 
+18:01:59  dependency: com.safepage:sp-security:jar:MR-28399-SNAPSHOT (compile)
+ 
+18:01:59  dependency: com.personalcapital:pcap-mixpanel:jar:MR-28399-SNAPSHOT (compile)
+ 
+18:01:59  dependency: com.personalcapital:pcap-data:jar:MR-28399-SNAPSHOT (compile)
+ 
+18:01:59  dependency: com.personalcapital:pcap-aws:jar:MR-28399-SNAPSHOT (compile)
