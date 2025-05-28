@@ -1,1 +1,31 @@
-[ERROR] Failed to execute goal org.openrewrite.maven:rewrite-maven-plugin:4.39.0:dryRun (DetectEpwAccountDao) on project pcap-credentials: Execution DetectEpwAccountDao of goal org.openrewrite.maven:rewrite-maven-plugin:4.39.0:dryRun failed: Recipes not found: com.empower.DetectEpwAccountDao ->
+<plugin>
+					<groupId>org.openrewrite.maven</groupId>
+					<artifactId>rewrite-maven-plugin</artifactId>
+					<version>${maven-rewrite.version}</version>
+					<configuration>
+						<runPerSubmodule>true</runPerSubmodule>
+						<skipMavenParsing>true</skipMavenParsing>
+						<activeRecipes>
+							<recipe>com.empower.DetectEpwAccountDao</recipe>
+						</activeRecipes>
+						<failOnDryRunResults>true</failOnDryRunResults>
+						<exclusions>
+							<exclude>**/helm/**</exclude>
+							<exclude>**/target/**</exclude>
+							<exclude>helm/**</exclude>
+							<exclude>**/resources/**</exclude>
+						</exclusions>
+						<configLocation>${maven-rewrite.configLocation}/rewrite.yml</configLocation>
+					</configuration>
+					<executions>
+						<execution>
+							<id>DetectEpwAccountDao</id>
+							<goals>
+								<goal>dryRun</goal>
+							</goals>
+							<phase>compile</phase>
+						</execution>
+					</executions>
+				</plugin>
+
+this is how it's used
