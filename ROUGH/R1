@@ -1,26 +1,22 @@
 ace-email-event  
 empower-mtr  
 empower-rpp-core  
-empower-rpp-core  
-epower-rpp-core  
 epw-batch-fcdx  
 epw-batch-mc  
 epw-batch-plat  
+epw-batch-rs
 epw-custodian-transfer  
 epw-edu  
 epw-esign  
 epw-wm-artifacts  
 pcap-ace  
-pcap-admin  
-pcap-agent  
+pcap-admin   (mocked through xml file)
+pcap-agent  (mocked through xml file)
 pcap-apps-common  
-pcap-appointment-service  
 pcap-batch  
-pcap-cq  
 pcap-custodian  
 pcap-cv  
 pcap-empower  
-pcap-epws  
 pcap-feex  
 pcap-fp-service  
 pcap-jobs  
@@ -28,10 +24,10 @@ pcap-mv
 pcap-pcb  
 pcap-prvc  
 pcap-quote  
-pcap-referral  
 pcap-salesforce  
-pcap-servless  
 pcap-snap  
 pcap-stripe  
 pcap-vca  
 pcap-root  
+
+compile all this in a single para separted by coma
