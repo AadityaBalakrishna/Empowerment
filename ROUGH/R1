@@ -1,31 +1,39 @@
-<plugin>
-					<groupId>org.openrewrite.maven</groupId>
-					<artifactId>rewrite-maven-plugin</artifactId>
-					<version>${maven-rewrite.version}</version>
-					<configuration>
-						<runPerSubmodule>true</runPerSubmodule>
-						<skipMavenParsing>true</skipMavenParsing>
-						<activeRecipes>
-							<recipe>com.empower.DetectEpwAccountDao</recipe>
-						</activeRecipes>
-						<failOnDryRunResults>true</failOnDryRunResults>
-						<exclusions>
-							<exclude>**/helm/**</exclude>
-							<exclude>**/target/**</exclude>
-							<exclude>helm/**</exclude>
-							<exclude>**/resources/**</exclude>
-						</exclusions>
-						<configLocation>${maven-rewrite.configLocation}/rewrite.yml</configLocation>
-					</configuration>
-					<executions>
-						<execution>
-							<id>DetectEpwAccountDao</id>
-							<goals>
-								<goal>dryRun</goal>
-							</goals>
-							<phase>compile</phase>
-						</execution>
-					</executions>
-				</plugin>
+pcap-pcb
+epw-esign
+pcap-stripe
+pcap-referral
+pcap-salesforce
+epw-custodian-transfer
+pcap-empower
+pcap-ace
+ace-email-event
+pcap-feex
+empower-mtr
+pcap-fp-service
+pcap-quote
+pcap-snap
+pcap-cq
+epw-batch-plat
+pcap-custodian
+epower-rpp-core
+pcap-prvc
+epw-edu
+pcap-servless
+epw-wm-artifacts
+pcap-jobs
+pcap-mv
+pcap-appointment-service
+pcap-batch
+epw-batch-fcdx
+pcap-vca
+epw-batch-mc
+pcap-admin
+pcap-apps-common
+pcap-cv
+epw-batch-rs
+pcap-root
+pcap-epws
+empower-rpp-core
+pcap-agent
 
-this is how it's used
+can you arrange this in alphabetical order of the repo names?
