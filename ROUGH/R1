@@ -1,4 +1,257 @@
-21:15:33  Caused by: org.eclipse.aether.collection.UnsolvableVersionConflictException: Could not resolve version conflict among [com.personalcapital:pcap-weka:jar:2.7.954 -> com.personalcapital:pcap-core-services:jar:2.7.954 -> com.personalcapital:pcap-command:jar:2.7.954, com.personalcapital:pcap-weka:jar:2.7.954 -> com.safepage:epw-salesforce-helper:jar:2.7.954 -> com.personalcapital:pcap-command:jar:2.7.954, com.safepage:sp-core:jar:2.7.954 -> com.personalcapital:pcap-command:jar:2.7.954, com.personalcapital:pcap-classification:jar:2.7.954 -> com.personalcapital:pcap-command:jar:2.7.954, com.personalcapital:pcap-frontapp:jar:2.7.954 -> com.personalcapital:pcap-command:jar:2.7.954, com.personalcapital:pcap-dwm-core:jar:2.7.376 -> com.personalcapital:pcap-command:jar:2.7.953, com.personalcapital:pcap-ace-service-client:jar:2.7.191 -> com.personalcapital:pcap-ace-data:jar:2.7.191 -> com.empower.epw:batch-service:jar:2.7.26 -> com.personalcapital:pcap-command:jar:[2.7.291,2.7.291], com.personalcapital:pcap-ace-service-client:jar:2.7.191 -> com.personalcapital:pcap-ace-data:jar:2.7.191 -> com.personalcapital:pcap-planning:jar:2.7.954 -> com.personalcapital:pcap-command:jar:2.7.954, com.personalcapital:pcap-queue-manager:jar:2.7.954 -> com.personalcapital:pcap-command:jar:2.7.954, com.personalcapital:pcap-planning-common:jar:2.7.954 -> com.personalcapital:pcap-command:jar:2.7.954, com.personalcapital:pcap-core-services:jar:tests:2.7.954 -> com.personalcapital:pcap-command:jar:2.7.954, com.personalcapital:pcap-core-services:jar:tests:2.7.954 -> com.personalcapital:pcap-filecabinet:jar:2.7.954 -> com.personalcapital:pcap-command:jar:2.7.954, com.personalcapital:pcap-snapshots:jar:2.7.48 -> com.personalcapital:pcap-command:jar:[2.7.889,2.7.889]]
+package com.personalcapital.advice;
 
-how to fix this?
-and explain the error
+import static org.junit.Assert.assertNotNull;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.*;
+
+import com.personalcapital.agent.data.ProposalType;
+import com.personalcapital.proposal.data.ProposalDTO;
+import com.personalcapital.proposal.data.ProposalRequest;
+import com.personalcapital.proposal.data.ProposalResponse;
+import com.personalcapital.user.data.UserInfo;
+import com.personalcapital.user.data.impl.Strategy;
+import com.personalcapital.user.data.util.UserDataUtils;
+import com.safepage.exception.SafePageException;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.runners.MockitoJUnitRunner;
+
+import com.personalcapital.fp.salesforce.Suitability;
+import com.personalcapital.fp.salesforce.service.SalesForceService;
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+import com.personalcapital.proposal.service.ProposalService;
+import com.safepage.helper.SalesForceHelper;
+import com.safepage.helper.SuitabilitySyncResult;
+import com.safepage.user.data.InitiatedType;
+import com.safepage.user.data.User;
+import com.safepage.user.data.impl.UserImpl;
+import com.safepage.util.Utils;
+
+import java.util.Collections;
+import java.util.List;
+
+@RunWith(MockitoJUnitRunner.class)
+public class ProposalServiceTest
+{
+	public static PcapLogger logger = PcapLoggerFactory.getPcapLogger(ProposalServiceTest.class);
+	@InjectMocks
+	private ProposalService proposalService;
+
+	@Mock
+	private SalesForceHelper salesforceHelper;
+
+	@Mock
+	private SalesForceService salesForceService;
+
+	@Mock
+	private com.personalcapital.planning.service.ProposalService iProposalService;
+
+	@Mock
+	private UserDataUtils userDataUtils;
+
+	private User user;
+
+	@Before
+	public void initialize()
+	{
+		user = new UserImpl();
+		user.setUsername("testid1pc@gmail.com");
+		user.setUserGuid(Utils.generateGuid());
+		user.setSalesforceId("testsalesforceid");
+	}
+
+	@Test
+	public void testValidateSuitabilityStage_AUTO_STRATEGY_ASSIGNED()
+	{
+		SuitabilitySyncResult suitabiltySyncResult = new SuitabilitySyncResult();
+		suitabiltySyncResult.setStatus(true);
+		suitabiltySyncResult.setSuitabilityStage(SalesForceHelper.AUTO_STRATEGY_ASSIGNED);
+		try
+		{
+			doReturn(suitabiltySyncResult).when(salesforceHelper)
+					.getSuitabilitySyncResults(any(User.class), any(String.class),
+							any(InitiatedType.class), any(String.class));
+		}
+		catch (Exception e)
+		{
+			logger.error("Exception during initialization: " + e.getMessage(), e);
+			Assert.assertTrue(false);
+		}
+
+		User user = new UserImpl();
+		user.setUsername("testid1pc@gmail.com");
+		user.setUserGuid(Utils.generateGuid());
+		user.setSalesforceId("testsalesforceid");
+		try
+		{
+			proposalService.validateSuitabilityStageForProposalCreation("ravinukala@empower.com",
+					user);
+			Assert.assertTrue(true);
+		}
+		catch (Exception e)
+		{
+			logger.error(
+					"Exception while processing the validateSuitabilityStage for Proposal for User: "
+							+ user,
+					e);
+			Assert.assertTrue(false);
+		}
+
+	}
+
+	@Test
+	public void testValidateSuitabilityStage_STRATEGY_SELECTED()
+	{
+		initizalizeResponse(SalesForceHelper.STRATEGY_SELECTED);
+
+		try
+		{
+			proposalService.validateSuitabilityStageForProposalCreation("ravinukala@empower.com",
+					user);
+			Assert.assertTrue(true);
+		}
+		catch (Exception e)
+		{
+			logger.error(
+					"Exception while processing the validateSuitabilityStage for Proposal for User: "
+							+ user,
+					e);
+			Assert.assertTrue(false);
+		}
+
+	}
+
+	@Test
+	public void testValidateSuitabilityStage_STRATEGY_REVIEW_REQUIRED()
+	{
+		initizalizeResponse(SalesForceHelper.STRATEGY_REVIEW_REQUIRED);
+
+		User user = new UserImpl();
+		user.setUsername("testid2pc@gmail.com");
+		user.setUserGuid(Utils.generateGuid());
+		user.setSalesforceId("testsalesforceid");
+		try
+		{
+			proposalService.validateSuitabilityStageForProposalCreation("testid2pc@gmail.com",
+					user);
+			Assert.assertTrue(false);
+		}
+		catch (Exception e)
+		{
+			Assert.assertTrue(true);
+		}
+
+	}
+
+	@Test
+	public void testGetProposalV2IsNonPersonalStrategy() throws SafePageException
+	{
+
+		User user = new UserImpl();
+		user.setUsername("testid2pc@gmail.com");
+		user.setUserGuid(Utils.generateGuid());
+
+		List<Long> userAccountIds = Collections.singletonList(1L);
+		List<Long> retirementAccountIds = Collections.singletonList(2L);
+
+		ProposalDTO response = new ProposalDTO();
+		response.setProposalType(ProposalType.MA_RETIREMENT_REVIEW);
+
+		ProposalResponse proposalResponse = new ProposalResponse();
+		proposalResponse.setProposalDTOJson(response.toJson());
+
+		when(iProposalService.executeProposalService(any(ProposalRequest.class)))
+				.thenReturn(proposalResponse);
+
+		ProposalDTO result = proposalService.generateProposalV2(user, userAccountIds, null, false,
+				retirementAccountIds, "whatIfTargetAllocation",
+				ProposalType.MA_RETIREMENT_REVIEW.getProposalType());
+
+		assertNotNull(result);
+
+		verify(iProposalService, times(1)).executeProposalService(any(ProposalRequest.class));
+		verifyNoMoreInteractions(userDataUtils);
+	}
+
+	@Test
+	public void testGetProposalV2IsPersonalStrategy() throws SafePageException
+	{
+
+		User user = new UserImpl();
+		user.setUsername("testid2pc@gmail.com");
+		user.setUserGuid(Utils.generateGuid());
+
+		List<Long> userAccountIds = Collections.singletonList(1L);
+		List<Long> retirementAccountIds = Collections.singletonList(2L);
+
+		ProposalDTO response = new ProposalDTO();
+		response.setProposalType(ProposalType.WEALTH_MANAGEMENT);
+
+		ProposalResponse proposalResponse = new ProposalResponse();
+		proposalResponse.setProposalDTOJson(response.toJson());
+
+		Strategy strategy = new Strategy();
+		strategy.setSource("WEB");
+
+		UserInfo userInfo = mock(UserInfo.class);
+
+		when(iProposalService.executeProposalService(any(ProposalRequest.class)))
+				.thenReturn(proposalResponse);
+		when(userInfo.getStrategy()).thenReturn(strategy);
+		when(userDataUtils.getUserInfoForUser(any())).thenReturn(userInfo);
+
+		ProposalDTO result = proposalService.generateProposalV2(user, userAccountIds, null, false,
+				retirementAccountIds, "whatIfTargetAllocation",
+				ProposalType.WEALTH_MANAGEMENT.getProposalType());
+
+		assertNotNull(result);
+
+		verify(iProposalService, times(1)).executeProposalService(any(ProposalRequest.class));
+	}
+
+	/**
+	 * This method is used to initializeResponse for each suitability stage
+	 */
+	private void initizalizeResponse(String suitabilityStage)
+	{
+		Suitability suitabilty = new Suitability();
+		suitabilty.setSuitabilityStage(suitabilityStage);
+		try
+		{
+			doReturn(suitabilty).when(salesForceService)
+					.getSuitabilityBySfClientId(any(String.class));
+		}
+		catch (Exception e)
+		{
+			Assert.assertTrue(false);
+		}
+	}
+}
+
+Error:
+java.lang.NoSuchMethodError: 'org.mockito.internal.runners.RunnerImpl org.mockito.internal.runners.RunnerFactory.create(java.lang.Class)'
+java.lang.NoSuchMethodError: 'org.mockito.internal.runners.RunnerImpl org.mockito.internal.runners.RunnerFactory.create(java.lang.Class)'
+
+	at org.mockito.runners.MockitoJUnitRunner.<init>(MockitoJUnitRunner.java:57)
+	at java.base/jdk.internal.reflect.NativeConstructorAccessorImpl.newInstance0(Native Method)
+	at java.base/jdk.internal.reflect.NativeConstructorAccessorImpl.newInstance(NativeConstructorAccessorImpl.java:62)
+	at java.base/jdk.internal.reflect.DelegatingConstructorAccessorImpl.newInstance(DelegatingConstructorAccessorImpl.java:45)
+	at java.base/java.lang.reflect.Constructor.newInstance(Constructor.java:490)
+	at org.junit.internal.builders.AnnotatedBuilder.buildRunner(AnnotatedBuilder.java:104)
+	at org.junit.internal.builders.AnnotatedBuilder.runnerForClass(AnnotatedBuilder.java:86)
+	at org.junit.runners.model.RunnerBuilder.safeRunnerForClass(RunnerBuilder.java:70)
+	at org.junit.internal.builders.AllDefaultPossibilitiesBuilder.runnerForClass(AllDefaultPossibilitiesBuilder.java:37)
+	at org.junit.runners.model.RunnerBuilder.safeRunnerForClass(RunnerBuilder.java:70)
+	at org.junit.internal.requests.ClassRequest.createRunner(ClassRequest.java:28)
+	at org.junit.internal.requests.MemoizingRequest.getRunner(MemoizingRequest.java:19)
+	at com.intellij.junit4.JUnit4IdeaTestRunner.startRunnerWithArgs(JUnit4IdeaTestRunner.java:50)
+	at com.intellij.rt.junit.IdeaTestRunner$Repeater$1.execute(IdeaTestRunner.java:38)
+	at com.intellij.rt.execution.junit.TestsRepeater.repeat(TestsRepeater.java:11)
+	at com.intellij.rt.junit.IdeaTestRunner$Repeater.startRunnerWithArgs(IdeaTestRunner.java:35)
+	at com.intellij.rt.junit.JUnitStarter.prepareStreamsAndStart(JUnitStarter.java:232)
+	at com.intellij.rt.junit.JUnitStarter.main(JUnitStarter.java:55)
