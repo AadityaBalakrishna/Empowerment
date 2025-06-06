@@ -1,1 +1,6 @@
-ace-email-event, empower-mtr, empower-rpp-core, epw-batch-fcdx, epw-batch-mc, epw-batch-plat, epw-batch-rs, epw-custodian-transfer, epw-edu, epw-esign, epw-wm-artifacts, pcap-ace, pcap-admin (mocked through xml file), pcap-agent (mocked through xml file), pcap-apps-common, pcap-batch, pcap-custodian, pcap-cv, pcap-empower, pcap-feex, pcap-fp-service, pcap-jobs, pcap-mv, pcap-pcb, pcap-prvc, pcap-quote, pcap-salesforce, pcap-snap, pcap-stripe, pcap-vca, pcap-root
+16:15:47  [ERROR] /home/jenkins/agent/workspace/_build_ace_ace-email-event_MR-65/ace-eml-evnt-app/src/main/java/com/empower/epw/mc/aceemlevnt/config/QueueConfig.java:[18,33] cannot access com.personalcapital.queue.PcapQueueDeploymentType
+16:15:47    bad class file: /home/jenkins/.m2/ace-email-event/MR/com/personalcapital/pcap-aws/3.0.432/pcap-aws-3.0.432.jar(/com/personalcapital/queue/PcapQueueDeploymentType.class)
+16:15:47      class file has wrong version 65.0, should be 55.0
+16:15:47      Please remove or make sure it appears in the correct subdirectory of the classpath.
+
+what is this error and how to correct it?
