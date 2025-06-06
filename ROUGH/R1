@@ -1,257 +1,42 @@
-package com.personalcapital.advice;
 
-import static org.junit.Assert.assertNotNull;
-import static org.mockito.Matchers.any;
-import static org.mockito.Mockito.*;
+java.lang.AbstractMethodError: Receiver class org.powermock.api.mockito.internal.mockmaker.PowerMockMaker does not define or inherit an implementation of the resolved method 'abstract org.mockito.plugins.MockMaker$TypeMockability isTypeMockable(java.lang.Class)' of interface org.mockito.plugins.MockMaker.
 
-import com.personalcapital.agent.data.ProposalType;
-import com.personalcapital.proposal.data.ProposalDTO;
-import com.personalcapital.proposal.data.ProposalRequest;
-import com.personalcapital.proposal.data.ProposalResponse;
-import com.personalcapital.user.data.UserInfo;
-import com.personalcapital.user.data.impl.Strategy;
-import com.personalcapital.user.data.util.UserDataUtils;
-import com.safepage.exception.SafePageException;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.runners.MockitoJUnitRunner;
-
-import com.personalcapital.fp.salesforce.Suitability;
-import com.personalcapital.fp.salesforce.service.SalesForceService;
-import com.personalcapital.log.PcapLogger;
-import com.personalcapital.log.PcapLoggerFactory;
-import com.personalcapital.proposal.service.ProposalService;
-import com.safepage.helper.SalesForceHelper;
-import com.safepage.helper.SuitabilitySyncResult;
-import com.safepage.user.data.InitiatedType;
-import com.safepage.user.data.User;
-import com.safepage.user.data.impl.UserImpl;
-import com.safepage.util.Utils;
-
-import java.util.Collections;
-import java.util.List;
-
-@RunWith(MockitoJUnitRunner.class)
-public class ProposalServiceTest
-{
-	public static PcapLogger logger = PcapLoggerFactory.getPcapLogger(ProposalServiceTest.class);
-	@InjectMocks
-	private ProposalService proposalService;
-
-	@Mock
-	private SalesForceHelper salesforceHelper;
-
-	@Mock
-	private SalesForceService salesForceService;
-
-	@Mock
-	private com.personalcapital.planning.service.ProposalService iProposalService;
-
-	@Mock
-	private UserDataUtils userDataUtils;
-
-	private User user;
-
-	@Before
-	public void initialize()
-	{
-		user = new UserImpl();
-		user.setUsername("testid1pc@gmail.com");
-		user.setUserGuid(Utils.generateGuid());
-		user.setSalesforceId("testsalesforceid");
-	}
-
-	@Test
-	public void testValidateSuitabilityStage_AUTO_STRATEGY_ASSIGNED()
-	{
-		SuitabilitySyncResult suitabiltySyncResult = new SuitabilitySyncResult();
-		suitabiltySyncResult.setStatus(true);
-		suitabiltySyncResult.setSuitabilityStage(SalesForceHelper.AUTO_STRATEGY_ASSIGNED);
-		try
-		{
-			doReturn(suitabiltySyncResult).when(salesforceHelper)
-					.getSuitabilitySyncResults(any(User.class), any(String.class),
-							any(InitiatedType.class), any(String.class));
-		}
-		catch (Exception e)
-		{
-			logger.error("Exception during initialization: " + e.getMessage(), e);
-			Assert.assertTrue(false);
-		}
-
-		User user = new UserImpl();
-		user.setUsername("testid1pc@gmail.com");
-		user.setUserGuid(Utils.generateGuid());
-		user.setSalesforceId("testsalesforceid");
-		try
-		{
-			proposalService.validateSuitabilityStageForProposalCreation("ravinukala@empower.com",
-					user);
-			Assert.assertTrue(true);
-		}
-		catch (Exception e)
-		{
-			logger.error(
-					"Exception while processing the validateSuitabilityStage for Proposal for User: "
-							+ user,
-					e);
-			Assert.assertTrue(false);
-		}
-
-	}
-
-	@Test
-	public void testValidateSuitabilityStage_STRATEGY_SELECTED()
-	{
-		initizalizeResponse(SalesForceHelper.STRATEGY_SELECTED);
-
-		try
-		{
-			proposalService.validateSuitabilityStageForProposalCreation("ravinukala@empower.com",
-					user);
-			Assert.assertTrue(true);
-		}
-		catch (Exception e)
-		{
-			logger.error(
-					"Exception while processing the validateSuitabilityStage for Proposal for User: "
-							+ user,
-					e);
-			Assert.assertTrue(false);
-		}
-
-	}
-
-	@Test
-	public void testValidateSuitabilityStage_STRATEGY_REVIEW_REQUIRED()
-	{
-		initizalizeResponse(SalesForceHelper.STRATEGY_REVIEW_REQUIRED);
-
-		User user = new UserImpl();
-		user.setUsername("testid2pc@gmail.com");
-		user.setUserGuid(Utils.generateGuid());
-		user.setSalesforceId("testsalesforceid");
-		try
-		{
-			proposalService.validateSuitabilityStageForProposalCreation("testid2pc@gmail.com",
-					user);
-			Assert.assertTrue(false);
-		}
-		catch (Exception e)
-		{
-			Assert.assertTrue(true);
-		}
-
-	}
-
-	@Test
-	public void testGetProposalV2IsNonPersonalStrategy() throws SafePageException
-	{
-
-		User user = new UserImpl();
-		user.setUsername("testid2pc@gmail.com");
-		user.setUserGuid(Utils.generateGuid());
-
-		List<Long> userAccountIds = Collections.singletonList(1L);
-		List<Long> retirementAccountIds = Collections.singletonList(2L);
-
-		ProposalDTO response = new ProposalDTO();
-		response.setProposalType(ProposalType.MA_RETIREMENT_REVIEW);
-
-		ProposalResponse proposalResponse = new ProposalResponse();
-		proposalResponse.setProposalDTOJson(response.toJson());
-
-		when(iProposalService.executeProposalService(any(ProposalRequest.class)))
-				.thenReturn(proposalResponse);
-
-		ProposalDTO result = proposalService.generateProposalV2(user, userAccountIds, null, false,
-				retirementAccountIds, "whatIfTargetAllocation",
-				ProposalType.MA_RETIREMENT_REVIEW.getProposalType());
-
-		assertNotNull(result);
-
-		verify(iProposalService, times(1)).executeProposalService(any(ProposalRequest.class));
-		verifyNoMoreInteractions(userDataUtils);
-	}
-
-	@Test
-	public void testGetProposalV2IsPersonalStrategy() throws SafePageException
-	{
-
-		User user = new UserImpl();
-		user.setUsername("testid2pc@gmail.com");
-		user.setUserGuid(Utils.generateGuid());
-
-		List<Long> userAccountIds = Collections.singletonList(1L);
-		List<Long> retirementAccountIds = Collections.singletonList(2L);
-
-		ProposalDTO response = new ProposalDTO();
-		response.setProposalType(ProposalType.WEALTH_MANAGEMENT);
-
-		ProposalResponse proposalResponse = new ProposalResponse();
-		proposalResponse.setProposalDTOJson(response.toJson());
-
-		Strategy strategy = new Strategy();
-		strategy.setSource("WEB");
-
-		UserInfo userInfo = mock(UserInfo.class);
-
-		when(iProposalService.executeProposalService(any(ProposalRequest.class)))
-				.thenReturn(proposalResponse);
-		when(userInfo.getStrategy()).thenReturn(strategy);
-		when(userDataUtils.getUserInfoForUser(any())).thenReturn(userInfo);
-
-		ProposalDTO result = proposalService.generateProposalV2(user, userAccountIds, null, false,
-				retirementAccountIds, "whatIfTargetAllocation",
-				ProposalType.WEALTH_MANAGEMENT.getProposalType());
-
-		assertNotNull(result);
-
-		verify(iProposalService, times(1)).executeProposalService(any(ProposalRequest.class));
-	}
-
-	/**
-	 * This method is used to initializeResponse for each suitability stage
-	 */
-	private void initizalizeResponse(String suitabilityStage)
-	{
-		Suitability suitabilty = new Suitability();
-		suitabilty.setSuitabilityStage(suitabilityStage);
-		try
-		{
-			doReturn(suitabilty).when(salesForceService)
-					.getSuitabilityBySfClientId(any(String.class));
-		}
-		catch (Exception e)
-		{
-			Assert.assertTrue(false);
-		}
-	}
-}
-
-Error:
-java.lang.NoSuchMethodError: 'org.mockito.internal.runners.RunnerImpl org.mockito.internal.runners.RunnerFactory.create(java.lang.Class)'
-java.lang.NoSuchMethodError: 'org.mockito.internal.runners.RunnerImpl org.mockito.internal.runners.RunnerFactory.create(java.lang.Class)'
-
-	at org.mockito.runners.MockitoJUnitRunner.<init>(MockitoJUnitRunner.java:57)
-	at java.base/jdk.internal.reflect.NativeConstructorAccessorImpl.newInstance0(Native Method)
-	at java.base/jdk.internal.reflect.NativeConstructorAccessorImpl.newInstance(NativeConstructorAccessorImpl.java:62)
-	at java.base/jdk.internal.reflect.DelegatingConstructorAccessorImpl.newInstance(DelegatingConstructorAccessorImpl.java:45)
-	at java.base/java.lang.reflect.Constructor.newInstance(Constructor.java:490)
-	at org.junit.internal.builders.AnnotatedBuilder.buildRunner(AnnotatedBuilder.java:104)
-	at org.junit.internal.builders.AnnotatedBuilder.runnerForClass(AnnotatedBuilder.java:86)
-	at org.junit.runners.model.RunnerBuilder.safeRunnerForClass(RunnerBuilder.java:70)
-	at org.junit.internal.builders.AllDefaultPossibilitiesBuilder.runnerForClass(AllDefaultPossibilitiesBuilder.java:37)
-	at org.junit.runners.model.RunnerBuilder.safeRunnerForClass(RunnerBuilder.java:70)
-	at org.junit.internal.requests.ClassRequest.createRunner(ClassRequest.java:28)
-	at org.junit.internal.requests.MemoizingRequest.getRunner(MemoizingRequest.java:19)
-	at com.intellij.junit4.JUnit4IdeaTestRunner.startRunnerWithArgs(JUnit4IdeaTestRunner.java:50)
+	at org.mockito.internal.util.MockUtil.typeMockabilityOf(MockUtil.java:33)
+	at org.mockito.internal.util.MockCreationValidator.validateType(MockCreationValidator.java:22)
+	at org.mockito.internal.creation.MockSettingsImpl.validatedSettings(MockSettingsImpl.java:250)
+	at org.mockito.internal.creation.MockSettingsImpl.build(MockSettingsImpl.java:232)
+	at org.mockito.internal.MockitoCore.mock(MockitoCore.java:94)
+	at org.mockito.Mockito.mock(Mockito.java:1965)
+	at org.mockito.internal.configuration.MockAnnotationProcessor.processAnnotationForMock(MockAnnotationProcessor.java:66)
+	at org.mockito.internal.configuration.MockAnnotationProcessor.process(MockAnnotationProcessor.java:27)
+	at org.mockito.internal.configuration.MockAnnotationProcessor.process(MockAnnotationProcessor.java:24)
+	at org.mockito.internal.configuration.IndependentAnnotationEngine.createMockFor(IndependentAnnotationEngine.java:44)
+	at org.mockito.internal.configuration.IndependentAnnotationEngine.process(IndependentAnnotationEngine.java:72)
+	at org.mockito.internal.configuration.InjectingAnnotationEngine.processIndependentAnnotations(InjectingAnnotationEngine.java:73)
+	at org.mockito.internal.configuration.InjectingAnnotationEngine.process(InjectingAnnotationEngine.java:47)
+	at org.mockito.MockitoAnnotations.openMocks(MockitoAnnotations.java:81)
+	at org.mockito.internal.runners.DefaultInternalRunner$1$1.evaluate(DefaultInternalRunner.java:50)
+	at org.junit.runners.ParentRunner$3.evaluate(ParentRunner.java:306)
+	at org.junit.runners.BlockJUnit4ClassRunner$1.evaluate(BlockJUnit4ClassRunner.java:100)
+	at org.junit.runners.ParentRunner.runLeaf(ParentRunner.java:366)
+	at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:103)
+	at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:63)
+	at org.junit.runners.ParentRunner$4.run(ParentRunner.java:331)
+	at org.junit.runners.ParentRunner$1.schedule(ParentRunner.java:79)
+	at org.junit.runners.ParentRunner.runChildren(ParentRunner.java:329)
+	at org.junit.runners.ParentRunner.access$100(ParentRunner.java:66)
+	at org.junit.runners.ParentRunner$2.evaluate(ParentRunner.java:293)
+	at org.junit.runners.ParentRunner$3.evaluate(ParentRunner.java:306)
+	at org.junit.runners.ParentRunner.run(ParentRunner.java:413)
+	at org.mockito.internal.runners.DefaultInternalRunner$1.run(DefaultInternalRunner.java:100)
+	at org.mockito.internal.runners.DefaultInternalRunner.run(DefaultInternalRunner.java:107)
+	at org.mockito.internal.runners.StrictRunner.run(StrictRunner.java:41)
+	at org.mockito.junit.MockitoJUnitRunner.run(MockitoJUnitRunner.java:163)
+	at org.junit.runner.JUnitCore.run(JUnitCore.java:137)
+	at com.intellij.junit4.JUnit4IdeaTestRunner.startRunnerWithArgs(JUnit4IdeaTestRunner.java:69)
 	at com.intellij.rt.junit.IdeaTestRunner$Repeater$1.execute(IdeaTestRunner.java:38)
 	at com.intellij.rt.execution.junit.TestsRepeater.repeat(TestsRepeater.java:11)
 	at com.intellij.rt.junit.IdeaTestRunner$Repeater.startRunnerWithArgs(IdeaTestRunner.java:35)
 	at com.intellij.rt.junit.JUnitStarter.prepareStreamsAndStart(JUnitStarter.java:232)
 	at com.intellij.rt.junit.JUnitStarter.main(JUnitStarter.java:55)
+
