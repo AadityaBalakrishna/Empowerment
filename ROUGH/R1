@@ -1,3 +1,51 @@
-Caused by: org.eclipse.aether.collection.UnsolvableVersionConflictException: Could not resolve version conflict among [com.personalcapital:pcap-ace-batch-jobs:jar:2.7.191 -> com.personalcapital:pcap-referral:jar:2.7.24 -> com.personalcapital:pcap-command:jar:2.7.915, com.personalcapital:pcap-ace-batch-service-client:jar:2.7.191 -> com.personalcapital:pcap-ace-data:jar:2.7.191 -> com.personalcapital:pcap-planning:jar:2.7.954 -> com.personalcapital:pcap-command:jar:2.7.954, com.safepage:sp-core:jar:2.7.954 -> com.personalcapital:pcap-core-services:jar:2.7.954 -> com.personalcapital:pcap-command:jar:2.7.954, com.safepage:sp-core:jar:2.7.954 -> com.personalcapital:pcap-command:jar:2.7.954, com.safepage:sp-core:jar:2.7.954 -> com.personalcapital:pcap-planning-common:jar:2.7.954 -> com.personalcapital:pcap-command:jar:2.7.954, com.safepage:sp-core:jar:2.7.954 -> com.personalcapital:pcap-classification:jar:2.7.954 -> com.personalcapital:pcap-command:jar:2.7.954, com.safepage:sp-core:jar:2.7.954 -> com.safepage:epw-salesforce-helper:jar:2.7.954 -> com.personalcapital:pcap-command:jar:2.7.954, com.safepage:pcap-mvc:jar:2.7.976 -> com.personalcapital:pcap-command:jar:2.7.954, com.safepage:pcap-mvc:jar:2.7.976 -> com.personalcapital:pcap-frontapp:jar:2.7.954 -> com.personalcapital:pcap-command:jar:2.7.954, com.safepage:pcap-mvc:jar:2.7.976 -> com.personalcapital:pcap-dwm-core:jar:2.7.376 -> com.personalcapital:pcap-command:jar:2.7.953, com.safepage:pcap-mvc:jar:2.7.976 -> com.personalcapital:pcap-snapshots:jar:2.7.48 -> com.personalcapital:pcap-command:jar:[2.7.889,2.7.889], com.personalcapital:pcap-mvc-admin:jar:2.7.976 -> com.personalcapital:pcap-command:jar:2.7.954, com.personalcapital:pcap-mvc-admin:jar:2.7.976 -> com.empower.epw:pcap-refresh:jar:2.7.26 -> com.personalcapital:pcap-command:jar:[2.7.291,2.7.291], com.personalcapital:pcap-mvc-admin:jar:2.7.976 -> com.empower.epw:pcap-refresh:jar:2.7.26 -> com.personalcapital:pcap-salesforce-integration:jar:2.7.37.1 -> com.personalcapital:pcap-command:jar:2.7.828, com.personalcapital:pcap-mvc-admin:jar:2.7.976 -> com.empower.epw:pcap-refresh:jar:2.7.26 -> com.personalcapital:pcap-salesforce-integration:jar:2.7.37.1 -> com.personalcapital:pcap-cv:jar:1.0.56 -> com.personalcapital:pcap-command:jar:1.0.1424, com.personalcapital:pcap-weka:jar:2.7.954 -> com.personalcapital:pcap-queue-manager:jar:2.7.954 -> com.personalcapital:pcap-command:jar:2.7.954, com.personalcapital:pcap-mvc-admin:jar:tests:2.7.976 -> com.personalcapital:pcap-command:jar:2.7.954, com.safepage:pcap-mvc:jar:tests:2.7.976 -> com.personalcapital:pcap-command:jar:2.7.954, com.personalcapital:pcap-core-services:jar:tests:2.7.954 -> com.personalcapital:pcap-command:jar:2.7.954, com.personalcapital:pcap-core-services:jar:tests:2.7.954 -> com.personalcapital:pcap-filecabinet:jar:2.7.954 -> com.personalcapital:pcap-command:jar:2.7.954]
+pcap-ace-email-service
+epw-batch-mc
+epw-mcarlo
+pcap-ace
+empower-rpp-integration
+pcap-pcb
+epw-batch-fcdx
+epw-wm-artifacts
+pcap-cq
+empower-rpp-investment
+epw-pile
+empower-rpp-core
+pcap-platform
+epw-hello-maven
+pcap-hello-java
+epw-custodian-transfer
+pcap-quote
+pcap-pvrc
+epw-batch-rs
+epw-suitability
+epw-ic
+pcap-pcb
+pcap-ace-user-response
+epw-auth
+pcap-custodian
+epw-batch-plat
+epw-fp-service
+pcap-stripe
+pcap-aggregation
+empower-mtr
+pcap-apps-common
+pcap-epws
+pcap-jobs
+pcap-empower
+pcap-appointment-service
+epw-edu
+pcap-stripe
+epw-rp
+pcap-salesforce
+epw-batch-mc
+pcap-cv
+epw-auth
+pcap-snap
+pcap-root
+pcap-epws
+epw-custodian-transfer
+pcap-agent
+pcap-admin
+pcap-mv
 
-how to fix this issue?
+arrange in alpabetical order
