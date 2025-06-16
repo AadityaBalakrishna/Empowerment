@@ -1,12 +1,1 @@
-Bread, Yerriswamy - u made a wiki for old repo , artifact name, and migrated new repo name, link, and artifact group, name etc?
 
-not dependency links, u can add that.
-tomorrow someone needs to add something into pcap-config ..they will come to pcap-server repo...and they wont find it. this will waste time
- 
-for that v have to keep a wiki that same prev details , and moved to which repo details  (incl repo link, group id, artifact id, jfrog link to find latest, so on...)
- 
-and also what is the version name used like pcap-batch.version
-
-
-make space for this information in the table too? won't that make it more informative?
-also add a section in that table to tell if files were moved to pcap-common-data, if yes the names of the files will be mentioned else it'll be told none of the files were moved to pcap-common-data
