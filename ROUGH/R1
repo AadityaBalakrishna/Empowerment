@@ -1,41 +1,31 @@
 Reflection on the Last Six Months
 Most Impactful Contributions:
 
-Decomposed pcap-server into independent modules with full Git history.
-
-Added cache metrics tracking via Datadog for better observability.
-
-Maintained compatibility across release/2.7 and release/3.0 branches.
+Decomposed two modules in pcap-server into independent modules with full Git history.
+Implemented cache metrics tracking; completed core logic, with final integration support from a senior
 
 Meeting Expectations:
 
-Delivered key refactors on time and with high quality.
-
+Delivered key refactors on time
 Communicated blockers proactively.
-
 Took initiative in reducing tech debt.
 
 Challenges Faced:
 
 Managing cross-repo dependencies during module separation.
-
 Ensuring Jenkins pipelines stayed stable post-restructure.
 
 Cultural Contributions:
 
 Supported peers during migrations and onboardings.
-
 Shared knowledge in team forums and retrospectives.
-
-Embodied values of ownership, collaboration, and transparency.
+Embodied values of ownership and collaboration
 
 Priorities for the Next Six Months
 Key Focus Areas:
 
-Complete full migration to release/3.0.
-
-Roll out cache metric dashboards.
-
+Complete pcap-server decomposition, phase 1.
+Roll out cache metric dashboards for pending advices.
 Create internal documentation for modular repo setup.
 
 Support Needed:
