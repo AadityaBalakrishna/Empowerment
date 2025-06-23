@@ -1,7 +1,10 @@
+22:29:38  [INFO] Running com.personalcapital.investing.ICProfileHelperTest
+22:29:38  09:59:38.111 [main] ERROR com.personalcapital.investing.ICProfileHelper - Exception while processing icProfileMap file identified by: non_existent_file.csv.
+22:29:38  java.lang.NullPointerException: null
+22:29:38  [WARNING] Tests run: 5, Failures: 0, Errors: 0, Skipped: 1, Time elapsed: 0.014 s - in com.personalcapital.investing.ICProfileHelperTest
+22:29:38  [INFO] Running com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest
 22:29:44  [ERROR] Tests run: 2, Failures: 0, Errors: 2, Skipped: 0, Time elapsed: 6.177 s <<< FAILURE! - in com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest
 22:29:44  [ERROR] com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest.testCalculateTargetPortfolioCompletionForCloseToRetirement  Time elapsed: 0.001 s  <<< ERROR!
 22:29:44  java.lang.IllegalStateException: Failed to load ApplicationContext for [MergedContextConfiguration@7c03ab15 testClass = com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest, locations = ["classpath:pcapPlanningApplicationContext.xml"], classes = [], contextInitializerClasses = [], activeProfiles = [], propertySourceDescriptors = [PropertySourceDescriptor[locations=[classpath:application-test-planning.properties], ignoreResourceNotFound=false, name=null, propertySourceFactory=null, encoding=null]], propertySourceProperties = [], contextCustomizers = [org.springframework.test.context.support.DynamicPropertiesContextCustomizer@0], contextLoader = org.springframework.test.context.support.DelegatingSmartContextLoader, parent = null]
 22:29:44  Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'entityManagerFactory' defined in class path resource [sp-data-common.xml]: null
 22:29:44  Caused by: java.lang.AssertionError
-
-new error, after using only hibernate core 6.5.3.Final
