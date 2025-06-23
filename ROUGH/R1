@@ -1,1 +1,22 @@
-S
+15:16:02  [INFO] Running com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest
+15:16:12  [ERROR] Tests run: 2, Failures: 0, Errors: 2, Skipped: 0, Time elapsed: 8.593 s <<< FAILURE! - in com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest
+15:16:12  [ERROR] com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest.testCalculateTargetPortfolioCompletionForCloseToRetirement  Time elapsed: 0.001 s  <<< ERROR!
+15:16:12  java.lang.IllegalStateException: Failed to load ApplicationContext for [MergedContextConfiguration@398d36c9 testClass = com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest, locations = ["classpath:pcapPlanningApplicationContext.xml"], classes = [], contextInitializerClasses = [], activeProfiles = [], propertySourceDescriptors = [PropertySourceDescriptor[locations=[classpath:application-test-planning.properties], ignoreResourceNotFound=false, name=null, propertySourceFactory=null, encoding=null]], propertySourceProperties = [], contextCustomizers = [org.springframework.test.context.support.DynamicPropertiesContextCustomizer@0], contextLoader = org.springframework.test.context.support.DelegatingSmartContextLoader, parent = null]
+15:16:12  Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'entityManagerFactory' defined in class path resource [sp-data-common.xml]: Must start with Java agent to use InstrumentationLoadTimeWeaver. See Spring documentation.
+15:16:12  Caused by: java.lang.IllegalStateException: Must start with Java agent to use InstrumentationLoadTimeWeaver. See Spring documentation.
+15:16:12  
+15:16:12  [ERROR] com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest.testCalculateTargetPortfolioCompletionForNotCloseToRetirement  Time elapsed: 0 s  <<< ERROR!
+15:16:12  java.lang.IllegalStateException: ApplicationContext failure threshold (1) exceeded: skipping repeated attempt to load context for [MergedContextConfiguration@398d36c9 testClass = com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest, locations = ["classpath:pcapPlanningApplicationContext.xml"], classes = [], contextInitializerClasses = [], activeProfiles = [], propertySourceDescriptors = [PropertySourceDescriptor[locations=[classpath:application-test-planning.properties], ignoreResourceNotFound=false, name=null, propertySourceFactory=null, encoding=null]], propertySourceProperties = [], contextCustomizers = [org.springframework.test.context.support.DynamicPropertiesContextCustomizer@0], contextLoader = org.springframework.test.context.support.DelegatingSmartContextLoader, parent = null]
+15:16:12  
+15:16:12  [INFO] Running com.personalcapital.investmentcheckup.data.InvestmentCheckupDTOTest
+15:16:12  [INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.051 s - in com.personalcapital.investmentcheckup.data.InvestmentCheckupDTOTest
+15:16:13  [INFO] 
+15:16:13  [INFO] Results:
+15:16:13  [INFO] 
+15:16:13  [ERROR] Errors: 
+15:16:13  [ERROR]   TargetPortfolioAccuracyCalculatorTest.testCalculateTargetPortfolioCompletionForCloseToRetirement » IllegalState
+15:16:13  [ERROR]   TargetPortfolioAccuracyCalculatorTest.testCalculateTargetPortfolioCompletionForNotCloseToRetirement » IllegalState
+15:16:13  [INFO] 
+15:16:13  [ERROR] Tests run: 55, Failures: 0, Errors: 2, Skipped: 7
+
+meaning of this error and how to fix it?
