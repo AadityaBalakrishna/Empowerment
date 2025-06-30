@@ -1,19 +1,22 @@
+// First case: no flagged IP in system (getIPAddress returns null)
+when(iPManager.getIPAddress(TEST_IP_ADDRESS)).thenReturn(null);
+boolean validated = iPClusteringRule.validate();
+Assertions.assertTrue(validated); // ✅ Should pass
+
+// Second case: flagged IP but whitelisted
+FlaggedIpAddress ip = new FlaggedIpAddressImpl();
+ip.setIpAddrString(TEST_IP_ADDRESS);
+ip.setSuspicious(true);
+ip.setWhiteListed(true);
+when(iPManager.getIPAddress(TEST_IP_ADDRESS)).thenReturn(ip);
+
+user.setSuspicious(false); // reset if it was marked suspicious
 validated = iPClusteringRule.validate();
-		Assertions.assertTrue(validated);
+Assertions.assertTrue(validated); // ✅ Should pass
 
-org.opentest4j.AssertionFailedError: 
-Expected :true
-Actual   :false
-<Click to see difference>
+// Third case: flagged IP and NOT whitelisted
+ip.setWhiteListed(false);
+when(iPManager.getIPAddress(TEST_IP_ADDRESS)).thenReturn(ip);
 
-
-	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
-	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
-	at org.junit.jupiter.api.AssertTrue.failNotTrue(AssertTrue.java:63)
-	at org.junit.jupiter.api.AssertTrue.assertTrue(AssertTrue.java:36)
-	at org.junit.jupiter.api.AssertTrue.assertTrue(AssertTrue.java:31)
-	at org.junit.jupiter.api.Assertions.assertTrue(Assertions.java:183)
-	at com.safepage.security.rules.IPClusteringRuleTest.testValidate(IPClusteringRuleTest.java:135)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+validated = iPClusteringRule.validate();
+Assertions.assertFalse(validated); // ✅ Should pass
