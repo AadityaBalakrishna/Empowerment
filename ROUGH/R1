@@ -1,184 +1,100 @@
-package com.safepage.security.rules;
+public class IPClusteringRuleTest {
+    private IPClusteringRule iPClusteringRule;
+    private CacheManager cacheManager;
+    private static Cache securityCache;
+    private IPManager iPManager;  // <-- made this a class field
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+    private UserDao userDao;
+    private UserEventManager userEventManager;
+    private UserFeatureTypeUtils userFeatureTypeUtils;
 
-import com.personalcapital.security.UserSuspicionUtils;
-import com.safepage.security.IPManager;
-import jakarta.servlet.http.HttpServletRequest;
+    private static final String TEST_IP_ADDRESS = "235.156.38.71";
 
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
-import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
-import org.springframework.test.util.ReflectionTestUtils;
+    @BeforeEach
+    public void setUp() {
+        iPClusteringRule = new IPClusteringRule();
 
-import com.personalcapital.cache.utils.CacheConstants;
-import com.personalcapital.data.utils.UserFeatureTypeUtils;
-import com.safepage.ContextManager;
-import com.safepage.RequestContext;
-import com.safepage.exception.SafePageException;
-import com.safepage.security.fraud.rules.IPClusteringRule;
-import com.safepage.user.UserEventManager;
-import com.safepage.user.data.EventType;
-import com.safepage.user.data.FeatureName;
-import com.safepage.user.data.FlaggedIpAddress;
-import com.safepage.user.data.SuspicionReasonType;
-import com.safepage.user.data.User;
-import com.safepage.user.data.UserDao;
-import com.safepage.user.data.impl.FlaggedIpAddressImpl;
-import com.safepage.user.data.impl.UserImpl;
+        userDao = mock(UserDao.class);
+        userEventManager = mock(UserEventManager.class);
+        userFeatureTypeUtils = mock(UserFeatureTypeUtils.class);
+        iPManager = mock(IPManager.class); // <-- moved here
 
-// @SpringJUnitConfig(locations = "classpath:pcapCredentialsApplicationContext.xml")
-public class IPClusteringRuleTest
-{
-	private IPClusteringRule iPClusteringRule;
-	private CacheManager cacheManager;
+        cacheManager = mock(CacheManager.class);
+        securityCache = mock(Cache.class);
+        when(cacheManager.getCache("security")).thenReturn(securityCache);
 
-	private static Cache securityCache;
+        UserSuspicionUtils userSuspicionUtils = mock(UserSuspicionUtils.class);
+        when(userSuspicionUtils.isSetToNonSuspicious(any())).thenReturn(false);
 
-	private UserDao userDao;
-	private UserEventManager userEventManager;
-	private UserFeatureTypeUtils userFeatureTypeUtils;
+        // Inject mocks
+        ReflectionTestUtils.setField(iPClusteringRule, "userDao", userDao);
+        ReflectionTestUtils.setField(iPClusteringRule, "userEventManager", userEventManager);
+        ReflectionTestUtils.setField(iPClusteringRule, "userFeatureTypeUtils", userFeatureTypeUtils);
+        ReflectionTestUtils.setField(iPClusteringRule, "iPManager", iPManager);
+        ReflectionTestUtils.setField(iPClusteringRule, "userSuspicionUtils", userSuspicionUtils);
 
-	private static final String TEST_IP_ADDRESS = "235.156.38.71";
+        Mockito.doNothing().when(userEventManager).addUserEvent(any(), any(), any());
 
-	@BeforeEach
-    public void setUp()
-	{
-		iPClusteringRule = new IPClusteringRule();
-		userDao = mock(UserDao.class);
-		ReflectionTestUtils.setField(iPClusteringRule, "userDao", userDao);
+        setupUpdateIsSuspicious();
+    }
 
-		userEventManager = mock(UserEventManager.class);
-		ReflectionTestUtils.setField(iPClusteringRule, "userEventManager", userEventManager);
-		Mockito.doNothing()
-				.when(userEventManager)
-				.addUserEvent(any(EventType.class), any(String.class),
-						any(String.class));
+    private void setupUpdateIsSuspicious() {
+        when(userDao.updateIsSuspicious(any(User.class), any(Boolean.class), any(SuspicionReasonType.class)))
+            .thenAnswer(invocation -> {
+                User user = invocation.getArgument(0);
+                ((UserImpl) user).setSuspicious(invocation.getArgument(1));
+                ((UserImpl) user).setSuspicionReason(invocation.getArgument(2));
+                return user;
+            });
+    }
 
-		userFeatureTypeUtils = mock(UserFeatureTypeUtils.class);
-		ReflectionTestUtils.setField(iPClusteringRule, "userFeatureTypeUtils",
-				userFeatureTypeUtils);
-		when(userFeatureTypeUtils.isUserFeatureEnabled(Mockito.anyLong(),
-				any(FeatureName.class))).thenReturn(false)
-						.thenReturn(true);
+    @Test
+    public void testValidate() throws SafePageException {
+        UserImpl user = new UserImpl();
+        user.setId(1L);
 
-		cacheManager = mock(CacheManager.class);
-		securityCache = mock(Cache.class);
-		when(cacheManager.getCache("security")).thenReturn(securityCache);
+        HttpServletRequest request = mock(org.springframework.mock.web.MockHttpServletRequest.class);
+        RequestContext rc = ContextManager.getRequestContext(request, mock(org.springframework.mock.web.MockHttpServletResponse.class), true);
+        rc.setAttribute("USER_ATTRIBUTE", user);
 
-		UserSuspicionUtils userSuspicionUtils = mock(UserSuspicionUtils.class);
-		ReflectionTestUtils.setField(iPClusteringRule, "userSuspicionUtils",userSuspicionUtils);
-		when(userSuspicionUtils.isSetToNonSuspicious(any())).thenReturn(false);
+        when(request.getRemoteAddr()).thenReturn(TEST_IP_ADDRESS);
+        when(request.getHeader("user-agent")).thenReturn("Mozilla/5.0");
+        when(request.getMethod()).thenReturn("POST");
 
-		IPManager ipManager = mock(IPManager.class);
-		ReflectionTestUtils.setField(iPClusteringRule, "iPManager", ipManager);
-		FlaggedIpAddress flaggedIp = new FlaggedIpAddressImpl();
-		flaggedIp.setIpAddrString(TEST_IP_ADDRESS);
-		flaggedIp.setSuspicious(true);
-		flaggedIp.setWhiteListed(false);
-		when(ipManager.getIPAddress(TEST_IP_ADDRESS)).thenReturn(null);
+        // Case 1: IP not flagged
+        when(iPManager.getIPAddress(TEST_IP_ADDRESS)).thenReturn(null);
+        boolean validated = iPClusteringRule.validate();
+        Assertions.assertTrue(validated);
 
-		setupUpdateIsSuspicious();
-	}
+        // Case 2: IP flagged but whitelisted
+        FlaggedIpAddress ip = new FlaggedIpAddressImpl();
+        ip.setIpAddrString(TEST_IP_ADDRESS);
+        ip.setSuspicious(true);
+        ip.setWhiteListed(true);
+        when(iPManager.getIPAddress(TEST_IP_ADDRESS)).thenReturn(ip);
 
-	private void setupUpdateIsSuspicious()
-	{
-		/*
-		 * When we access DB we update the inputs passed to Mock
-		 */
-		when(userDao.updateIsSuspicious(any(User.class), any(Boolean.class),
-				any(SuspicionReasonType.class))).thenAnswer(new Answer<User>()
-				{
-					public User answer(InvocationOnMock invocation)
-					{
-						Object[] args = invocation.getArguments();
-						User user = (User) args[0];
-						((UserImpl) user).setSuspicious((Boolean) args[1]);
-						((UserImpl) user).setSuspicionReason((SuspicionReasonType) args[2]);
-						return user;
-					}
-				});
-	}
+        user.setSuspicious(false);
+        validated = iPClusteringRule.validate();
+        Assertions.assertTrue(validated);
 
-	@Test
-	public void testValidate() throws SafePageException
-	{
-		setUp();
-		UserImpl user = new UserImpl();
-		user.setId(1l);
+        // Case 3: IP flagged and not whitelisted
+        ip.setWhiteListed(false);
+        when(iPManager.getIPAddress(TEST_IP_ADDRESS)).thenReturn(ip);
 
-		HttpServletRequest request = mock(
-				org.springframework.mock.web.MockHttpServletRequest.class);
-		RequestContext rc = ContextManager.getRequestContext(request,
-				mock(org.springframework.mock.web.MockHttpServletResponse.class), true);
-		rc.setAttribute("USER_ATTRIBUTE", user);
+        validated = iPClusteringRule.validate();
+        Assertions.assertFalse(validated);
 
-		boolean validated = false;
+        // Case 4: Using securityCache instead of DB
+        user.setSuspicious(false);
+        securityCache.put("ip:" + TEST_IP_ADDRESS, ip);
+        validated = iPClusteringRule.validate();
+        Assertions.assertFalse(validated);  // Since it's not whitelisted
+    }
 
-		when(request.getRemoteAddr()).thenReturn(TEST_IP_ADDRESS);
-		when(request.getHeader("user-agent"))
-				.thenReturn("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5");
-		when(request.getMethod()).thenReturn("POST");
-
-		// First case: no flagged IP in system (getIPAddress returns null)
-		when(iPManager.getIPAddress(TEST_IP_ADDRESS)).thenReturn(null);
-		boolean validated = iPClusteringRule.validate();
-		Assertions.assertTrue(validated); // ✅ Should pass
-
-// Second case: flagged IP but whitelisted
-		FlaggedIpAddress ip = new FlaggedIpAddressImpl();
-		ip.setIpAddrString(TEST_IP_ADDRESS);
-		ip.setSuspicious(true);
-		ip.setWhiteListed(true);
-		when(iPManager.getIPAddress(TEST_IP_ADDRESS)).thenReturn(ip);
-
-		user.setSuspicious(false); // reset if it was marked suspicious
-		validated = iPClusteringRule.validate();
-		Assertions.assertTrue(validated); // ✅ Should pass
-
-// Third case: flagged IP and NOT whitelisted
-		ip.setWhiteListed(false);
-		when(iPManager.getIPAddress(TEST_IP_ADDRESS)).thenReturn(ip);
-
-		validated = iPClusteringRule.validate();
-		Assertions.assertFalse(validated); // ✅ Should pass
-		
-		Assertions.assertTrue(validated);
-
-		user.setSuspicious(false);
-		securityCache = cacheManager.getCache("security");
-		FlaggedIpAddress ip = new FlaggedIpAddressImpl();
-		ip.setIpAddrString(TEST_IP_ADDRESS);
-		ip.setSuspicious(true);
-		ip.setWhiteListed(true);
-		securityCache.put("ip:" + TEST_IP_ADDRESS, ip);
-		validated = iPClusteringRule.validate();
-		Assertions.assertTrue(validated);
-
-		ip.setWhiteListed(false);
-		securityCache.put("ip:" + TEST_IP_ADDRESS, ip);
-		validated = iPClusteringRule.validate();
-		Assertions.assertFalse(validated);
-	}
-
-	@AfterAll
-	public static void clearUp(){
-		if(securityCache != null){
-			securityCache.evict("ip:" + TEST_IP_ADDRESS);
-		}
-	}
+    @AfterAll
+    public static void clearUp() {
+        if (securityCache != null) {
+            securityCache.evict("ip:" + TEST_IP_ADDRESS);
+        }
+    }
 }
-
-
-fix in this, your guidlines are a bit confusing
