@@ -1,1 +1,1 @@
-java.lang.NullPointerException: Cannot invoke "org.springframework.cache.Cache.evict(Object)" because "com.safepage.security.rules.IPClusteringRuleTest.securityCache" is null
+com.safepage.exception.SafePageException: Cannot invoke "com.personalcapital.security.UserSuspicionUtils.isSetToNonSuspicious(com.safepage.user.data.User)" because "this.userSuspicionUtils" is null
