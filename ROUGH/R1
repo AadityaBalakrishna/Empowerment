@@ -1,1 +1,1 @@
-com.safepage.exception.SafePageException: Cannot invoke "com.personalcapital.security.UserSuspicionUtils.isSetToNonSuspicious(com.safepage.user.data.User)" because "this.userSuspicionUtils" is null
+com.safepage.exception.SafePageException: Cannot invoke "com.safepage.security.IPManager.getIPAddress(String)" because "this.iPManager" is null
