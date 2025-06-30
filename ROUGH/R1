@@ -1,6 +1,160 @@
-14:51:42  [ERROR] com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest.testCalculateTargetPortfolioCompletionForCloseToRetirement  Time elapsed: 0.001 s  <<< ERROR!
-14:51:42  java.lang.IllegalStateException: Failed to load ApplicationContext for [MergedContextConfiguration@1037a234 testClass = com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest, locations = ["classpath:pcapPlanningApplicationContext.xml"], classes = [], contextInitializerClasses = [], activeProfiles = [], propertySourceDescriptors = [PropertySourceDescriptor[locations=[classpath:application-test-planning.properties], ignoreResourceNotFound=false, name=null, propertySourceFactory=null, encoding=null]], propertySourceProperties = [], contextCustomizers = [org.springframework.test.context.support.DynamicPropertiesContextCustomizer@0], contextLoader = org.springframework.test.context.support.DelegatingSmartContextLoader, parent = null]
-14:51:42  Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'entityManagerFactory' defined in class path resource [sp-data-common.xml]: Must start with Java agent to use InstrumentationLoadTimeWeaver. See Spring documentation.
-14:51:42  Caused by: java.lang.IllegalStateException: Must start with Java agent to use InstrumentationLoadTimeWeaver. See Spring documentation.
+package com.safepage.security.rules;
 
-solve this error pls
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import jakarta.servlet.http.HttpServletRequest;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.MockitoAnnotations;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import com.personalcapital.data.utils.UserFeatureTypeUtils;
+import com.safepage.ContextManager;
+import com.safepage.RequestContext;
+import com.safepage.SessionContextImpl;
+import com.safepage.SessionContextTestUtils;
+import com.safepage.exception.SafePageException;
+import com.safepage.security.PhoneNumberManager;
+import com.safepage.security.fraud.rules.PhoneNumberClusteringRule;
+import com.safepage.user.UserEventManager;
+import com.safepage.user.data.EventType;
+import com.safepage.user.data.FeatureName;
+import com.safepage.user.data.FlaggedPhoneNumber;
+import com.safepage.user.data.FlaggedPhoneNumberDao;
+import com.safepage.user.data.UserDao;
+import com.safepage.user.data.impl.FlaggedPhoneNumberImpl;
+import com.safepage.user.data.impl.UserImpl;
+
+@SpringJUnitConfig(locations = "classpath:pcapCredentialsApplicationContext.xml")
+public class PhoneNumberClusteringRuleTest
+{
+	@Autowired
+	private PhoneNumberClusteringRule phoneNumberClusteringRule;
+
+	@Mock
+	private FlaggedPhoneNumberDao flaggedPhoneNumberDao;
+
+	@Autowired
+	private PhoneNumberManager phoneNumberManager;
+
+	private UserDao userDao;
+	private UserEventManager userEventManager;
+	private UserFeatureTypeUtils userFeatureTypeUtils;
+
+	private final String TEST_PHONE_NUMBER_HASH = "Version3ksdjfkjdfkjkjfadsf";
+
+	private void setUp()
+	{
+		MockitoAnnotations.openMocks(this);
+		userDao = mock(UserDao.class);
+		ReflectionTestUtils.setField(phoneNumberClusteringRule, "userDao", userDao);
+
+		userEventManager = mock(UserEventManager.class);
+		ReflectionTestUtils.setField(phoneNumberClusteringRule, "userEventManager",
+				userEventManager);
+
+		Mockito.doNothing()
+				.when(userEventManager)
+				.addUserEvent(Mockito.any(EventType.class), Mockito.any(String.class),
+						Mockito.any(String.class));
+
+		userFeatureTypeUtils = mock(UserFeatureTypeUtils.class);
+		ReflectionTestUtils.setField(phoneNumberClusteringRule, "userFeatureTypeUtils",
+				userFeatureTypeUtils);
+		when(userFeatureTypeUtils.isUserFeatureEnabled(Mockito.anyLong(),
+				Mockito.any(FeatureName.class))).thenReturn(false)
+						.thenReturn(true);
+
+		ReflectionTestUtils.setField(phoneNumberManager, "flaggedPhoneNumberDao",
+				flaggedPhoneNumberDao);
+
+	}
+
+	private void setupUpdateCounter()
+	{
+		/*
+		 * When we access DB we update the inputs passed to Mock
+		 */
+		when(flaggedPhoneNumberDao.updatePhoneNumberCounter(Mockito.any(FlaggedPhoneNumber.class),
+				Mockito.any(Integer.class))).thenAnswer(new Answer<FlaggedPhoneNumber>()
+				{
+					public FlaggedPhoneNumber answer(InvocationOnMock invocation)
+					{
+						Object[] args = invocation.getArguments();
+						FlaggedPhoneNumber phoneNumber = (FlaggedPhoneNumber) args[0];
+						((FlaggedPhoneNumberImpl) phoneNumber)
+								.setCounter(phoneNumber.getCounter() + 1);
+						return phoneNumber;
+					}
+				});
+	}
+
+	@Test
+	public void testValidate() throws SafePageException
+	{
+		setUp();
+		UserImpl user = new UserImpl();
+		user.setId(1l);
+
+		HttpServletRequest request = mock(
+				org.springframework.mock.web.MockHttpServletRequest.class);
+		RequestContext rc = ContextManager.getRequestContext(request,
+				mock(org.springframework.mock.web.MockHttpServletResponse.class), true);
+		rc.setAttribute("USER_ATTRIBUTE", user);
+		SessionContextImpl sessionContext = new SessionContextImpl();
+		SessionContextTestUtils.addAttribute(sessionContext, RequestContext.PHONE_HASH,
+				TEST_PHONE_NUMBER_HASH);
+		rc.setSessionContext(sessionContext);
+
+		when(request.getMethod()).thenReturn("POST");
+
+		when(flaggedPhoneNumberDao.getFlaggedPhoneNumberByPhoneHash(Mockito.any(String.class)))
+				.thenReturn(null);
+
+		boolean validated = false;
+		validated = phoneNumberClusteringRule.validate();
+		Assertions.assertTrue(validated);
+
+		user.setSuspicious(false);
+		FlaggedPhoneNumber phoneNumber = new FlaggedPhoneNumberImpl();
+		phoneNumber.setPhoneHash(TEST_PHONE_NUMBER_HASH);
+		phoneNumber.setSuspicious(true);
+		phoneNumber.setWhiteListed(true);
+		phoneNumber.setCounter(2);
+		when(flaggedPhoneNumberDao.getFlaggedPhoneNumberByPhoneHash(Mockito.any(String.class)))
+				.thenReturn(phoneNumber);
+
+		validated = phoneNumberClusteringRule.validate();
+		Assertions.assertTrue(validated);
+
+		phoneNumber.setWhiteListed(false);
+		setupUpdateCounter();
+		validated = phoneNumberClusteringRule.validate();
+		Assertions.assertFalse(validated);
+		Assertions.assertTrue(phoneNumber.getCounter() == 3);
+	}
+}
+
+
+please help me with this test class, 
+on commenting the xml file i am getting this error:
+java.lang.IllegalArgumentException: Either targetObject or targetClass for the field must be specified
+
+	at org.springframework.util.Assert.isTrue(Assert.java:116)
+	at org.springframework.test.util.ReflectionTestUtils.setField(ReflectionTestUtils.java:180)
+	at org.springframework.test.util.ReflectionTestUtils.setField(ReflectionTestUtils.java:108)
+	at org.springframework.test.util.ReflectionTestUtils.setField(ReflectionTestUtils.java:92)
+	at com.safepage.security.rules.PhoneNumberClusteringRuleTest.setUp(PhoneNumberClusteringRuleTest.java:58)
+	at com.safepage.security.rules.PhoneNumberClusteringRuleTest.testValidate(PhoneNumberClusteringRuleTest.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+
+i would like to exclude the xml file because the xml file is importing some beans which are failing the test class, i want the test class to pass without xml file
