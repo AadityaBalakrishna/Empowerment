@@ -1,3 +1,164 @@
-19:58:52.272 [main] ERROR com.safepage.security.fraud.rules.PhoneNumberClusteringRule - FRAUD_DETECTION_RULE_FAILED due to: Cannot invoke "com.personalcapital.security.UserSuspicionUtils.isSetToNonSuspicious(com.safepage.user.data.User)" because "this.userSuspicionUtils" is null
+thanks that worked, can you do the same for this:
 
-com.safepage.exception.SafePageException: Cannot invoke "com.personalcapital.security.UserSuspicionUtils.isSetToNonSuspicious(com.safepage.user.data.User)" because "this.userSuspicionUtils" is null
+package com.safepage.security.rules;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import jakarta.servlet.http.HttpServletRequest;
+
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
+import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import com.personalcapital.cache.utils.CacheConstants;
+import com.personalcapital.data.utils.UserFeatureTypeUtils;
+import com.safepage.ContextManager;
+import com.safepage.RequestContext;
+import com.safepage.exception.SafePageException;
+import com.safepage.security.fraud.rules.IPClusteringRule;
+import com.safepage.user.UserEventManager;
+import com.safepage.user.data.EventType;
+import com.safepage.user.data.FeatureName;
+import com.safepage.user.data.FlaggedIpAddress;
+import com.safepage.user.data.SuspicionReasonType;
+import com.safepage.user.data.User;
+import com.safepage.user.data.UserDao;
+import com.safepage.user.data.impl.FlaggedIpAddressImpl;
+import com.safepage.user.data.impl.UserImpl;
+
+// @SpringJUnitConfig(locations = "classpath:pcapCredentialsApplicationContext.xml")
+public class IPClusteringRuleTest
+{
+	// @Autowired
+	private IPClusteringRule iPClusteringRule;
+
+	@Autowired
+	@Qualifier(CacheConstants.REDIS_CACHE_MANAGER_HIGH_AVAILABILITY)
+	private CacheManager cacheManager;
+
+	private static Cache securityCache;
+
+	private UserDao userDao;
+	private UserEventManager userEventManager;
+	private UserFeatureTypeUtils userFeatureTypeUtils;
+
+	private static final String TEST_IP_ADDRESS = "235.156.38.71";
+
+	private void setUp()
+	{
+		iPClusteringRule = new IPClusteringRule();
+		userDao = mock(UserDao.class);
+		ReflectionTestUtils.setField(iPClusteringRule, "userDao", userDao);
+
+		userEventManager = mock(UserEventManager.class);
+		ReflectionTestUtils.setField(iPClusteringRule, "userEventManager", userEventManager);
+		Mockito.doNothing()
+				.when(userEventManager)
+				.addUserEvent(Mockito.any(EventType.class), Mockito.any(String.class),
+						Mockito.any(String.class));
+
+		userFeatureTypeUtils = mock(UserFeatureTypeUtils.class);
+		ReflectionTestUtils.setField(iPClusteringRule, "userFeatureTypeUtils",
+				userFeatureTypeUtils);
+		when(userFeatureTypeUtils.isUserFeatureEnabled(Mockito.anyLong(),
+				Mockito.any(FeatureName.class))).thenReturn(false)
+						.thenReturn(true);
+
+		cacheManager = mock(CacheManager.class);
+		securityCache = mock(Cache.class);
+		when(cacheManager.getCache("security")).thenReturn(securityCache);
+		ReflectionTestUtils.setField(iPClusteringRule, "cacheManager", cacheManager);
+
+		setupUpdateIsSuspicious();
+	}
+
+	private void setupUpdateIsSuspicious()
+	{
+		/*
+		 * When we access DB we update the inputs passed to Mock
+		 */
+		when(userDao.updateIsSuspicious(Mockito.any(User.class), Mockito.any(Boolean.class),
+				Mockito.any(SuspicionReasonType.class))).thenAnswer(new Answer<User>()
+				{
+					public User answer(InvocationOnMock invocation)
+					{
+						Object[] args = invocation.getArguments();
+						User user = (User) args[0];
+						((UserImpl) user).setSuspicious((Boolean) args[1]);
+						((UserImpl) user).setSuspicionReason((SuspicionReasonType) args[2]);
+						return user;
+					}
+				});
+	}
+
+	@Test
+	public void testValidate() throws SafePageException
+	{
+		// setUp();
+		UserImpl user = new UserImpl();
+		user.setId(1l);
+
+		HttpServletRequest request = mock(
+				org.springframework.mock.web.MockHttpServletRequest.class);
+		RequestContext rc = ContextManager.getRequestContext(request,
+				mock(org.springframework.mock.web.MockHttpServletResponse.class), true);
+		rc.setAttribute("USER_ATTRIBUTE", user);
+
+		boolean validated = false;
+
+		when(request.getRemoteAddr()).thenReturn(TEST_IP_ADDRESS);
+		when(request.getHeader("user-agent"))
+				.thenReturn("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5");
+		when(request.getMethod()).thenReturn("POST");
+
+		validated = iPClusteringRule.validate();
+		Assertions.assertTrue(validated);
+
+		user.setSuspicious(false);
+		securityCache = cacheManager.getCache("security");
+		FlaggedIpAddress ip = new FlaggedIpAddressImpl();
+		ip.setIpAddrString(TEST_IP_ADDRESS);
+		ip.setSuspicious(true);
+		ip.setWhiteListed(true);
+		securityCache.put("ip:" + TEST_IP_ADDRESS, ip);
+		validated = iPClusteringRule.validate();
+		Assertions.assertTrue(validated);
+
+		ip.setWhiteListed(false);
+		securityCache.put("ip:" + TEST_IP_ADDRESS, ip);
+		validated = iPClusteringRule.validate();
+		Assertions.assertFalse(validated);
+	}
+
+	@AfterAll
+	public static void clearUp()
+	{
+		securityCache.evict("ip:" + TEST_IP_ADDRESS);
+	}
+}
+
+
+java.lang.NullPointerException: Cannot invoke "com.safepage.security.fraud.rules.IPClusteringRule.validate()" because "this.iPClusteringRule" is null
+
+	at com.safepage.security.rules.IPClusteringRuleTest.testValidate(IPClusteringRuleTest.java:122)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+
+java.lang.NullPointerException: Cannot invoke "org.springframework.cache.Cache.evict(Object)" because "com.safepage.security.rules.IPClusteringRuleTest.securityCache" is null
+
+	at com.safepage.security.rules.IPClusteringRuleTest.clearUp(IPClusteringRuleTest.java:144)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.Collections$UnmodifiableCollection.forEach(Collections.java:1116)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
