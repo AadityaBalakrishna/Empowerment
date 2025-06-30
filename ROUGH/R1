@@ -1,1 +1,19 @@
-com.safepage.exception.SafePageException: Cannot invoke "com.safepage.security.IPManager.getIPAddress(String)" because "this.iPManager" is null
+validated = iPClusteringRule.validate();
+		Assertions.assertTrue(validated);
+
+org.opentest4j.AssertionFailedError: 
+Expected :true
+Actual   :false
+<Click to see difference>
+
+
+	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+	at org.junit.jupiter.api.AssertTrue.failNotTrue(AssertTrue.java:63)
+	at org.junit.jupiter.api.AssertTrue.assertTrue(AssertTrue.java:36)
+	at org.junit.jupiter.api.AssertTrue.assertTrue(AssertTrue.java:31)
+	at org.junit.jupiter.api.Assertions.assertTrue(Assertions.java:183)
+	at com.safepage.security.rules.IPClusteringRuleTest.testValidate(IPClusteringRuleTest.java:135)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
