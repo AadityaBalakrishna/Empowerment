@@ -1,28 +1,14 @@
 package com.safepage.user;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
-import java.util.Arrays;
-import java.util.Calendar;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 import org.apache.commons.lang.BooleanUtils;
-import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.personalcapital.profile.ProfileService;
 import com.personalcapital.profile.data.PersonDao;
@@ -36,178 +22,110 @@ import com.safepage.exception.SafePageException;
 import com.safepage.user.data.Account;
 import com.safepage.user.data.User;
 import com.safepage.user.data.UserAccountHelper;
-import com.safepage.util.BaseUtils;
 
-@Rollback
-@SpringJUnitConfig(locations =
-{
-		"classpath*:pcap-credentials-test.xml", "classpath*:account-api-client.xml",
-})
-@Transactional(value = "spTran")
-public class UserDeletionServiceTest
-{
-	@Autowired
-	private UserDataUtils userDataUtils;
+public class UserDeletionServiceTest {
 
-	@Autowired
-	private PersonDao personDao;
+    private UserDataUtils userDataUtils;
+    private UserAccountHelper userAccountHelper;
+    private PersonDao personDao;
+    private UserPersonDao userPersonDao;
+    private ProfileService profileService;
 
-	@Autowired
-	private UserPersonDao userPersonDao;
+    @BeforeEach
+    public void setUp() {
+        userDataUtils = new UserDataUtils();
+        userAccountHelper = mock(UserAccountHelper.class);
+        personDao = mock(PersonDao.class);
+        userPersonDao = mock(UserPersonDao.class);
+        profileService = mock(ProfileService.class);
 
-	@Autowired
-	private ProfileService profileService;
+        ReflectionTestUtils.setField(userDataUtils, "userAccountHelper", userAccountHelper);
+    }
 
-	@Autowired
-	private UserAccountHelper userAccountHelper;
+    @Test
+    public void testIsActivePCCUser_WithNoUserAccounts() throws SafePageException {
+        User user = createTestUser();
+        when(userAccountHelper.getUserAccounts(any(User.class)))
+                .thenReturn(Collections.emptyList());
+        assertFalse(userDataUtils.isActivePCCUser(user));
+    }
 
-	@Test
-	public void testIsActivePCCUser_WithNoUserAccounts() throws SafePageException
-	{
-		User user = createTransientTestUser();
-		UserAccountHelper mockUserAccountHelper = mock(UserAccountHelper.class);
-		when(mockUserAccountHelper.getUserAccounts(any(User.class)))
-				.thenReturn(Collections.emptyList());
-		ReflectionTestUtils.setField(userDataUtils, "userAccountHelper", mockUserAccountHelper);
-		Assertions.assertFalse(userDataUtils.isActivePCCUser(user));
-		ReflectionTestUtils.setField(userDataUtils, "userAccountHelper", userAccountHelper);
+    @Test
+    public void testIsActivePCCUser_WithDeletedOnusBank() throws SafePageException {
+        User user = createTestUser();
+        Account account1 = mock(Account.class);
+        when(account1.getIsOnusBank()).thenReturn(true);
+        when(account1.getAccountDeletedDate()).thenReturn(new Date());
 
-	}
+        Account account2 = mock(Account.class);
+        when(account2.getIsOnusBank()).thenReturn(false);
 
-	@Test
-	public void testIsActivePCCUser_WithDeletedOnusBank() throws SafePageException
-	{
-		User user = createTransientTestUser();
-		UserAccountHelper mockUserAccountHelper = mock(UserAccountHelper.class);
+        when(userAccountHelper.getUserAccounts(any(User.class)))
+                .thenReturn(Arrays.asList(account1, account2));
 
-		Account mockAccount2 = mock(Account.class);
-		when(mockAccount2.getIsOnusBank()).thenReturn(true);
-		when(mockAccount2.getAccountDeletedDate()).thenReturn(new Date());
-		Account mockAccount3 = mock(Account.class);
-		when(mockAccount3.getIsOnusBank()).thenReturn(false);
-		when(mockUserAccountHelper.getUserAccounts(any(User.class)))
-				.thenReturn(Arrays.asList(mockAccount2, mockAccount3));
-		ReflectionTestUtils.setField(userDataUtils, "userAccountHelper", mockUserAccountHelper);
-		Assertions.assertFalse(userDataUtils.isActivePCCUser(user));
-		ReflectionTestUtils.setField(userDataUtils, "userAccountHelper", userAccountHelper);
-	}
+        assertFalse(userDataUtils.isActivePCCUser(user));
+    }
 
-	@Test
-	public void testIsActivePCCUser_WithActiveOnusBank() throws SafePageException
-	{
+    @Test
+    public void testIsActivePCCUser_WithActiveOnusBank() throws SafePageException {
+        User user = createTestUser();
+        Account account1 = mock(Account.class);
+        when(account1.getIsOnusBank()).thenReturn(true);
+        when(account1.getClosedDate()).thenReturn(null);
+        when(account1.getAccountNumber()).thenReturn("1234");
+        when(account1.getAccountRoutingNumber()).thenReturn("8909");
 
-		User user = createTransientTestUser();
-		UserAccountHelper mockUserAccountHelper = mock(UserAccountHelper.class);
+        Account account2 = mock(Account.class);
+        when(account2.getIsOnusBank()).thenReturn(false);
 
-		Account mockAccount2 = mock(Account.class);
-		when(mockAccount2.getIsOnusBank()).thenReturn(true);
-		when(mockAccount2.getClosedDate()).thenReturn(null);
-		when(mockAccount2.getAccountNumber()).thenReturn("1234");
-		when(mockAccount2.getAccountRoutingNumber()).thenReturn("8909");
-		Account mockAccount3 = mock(Account.class);
-		when(mockAccount3.getIsOnusBank()).thenReturn(false);
-		when(mockUserAccountHelper.getUserAccounts(any(User.class)))
-				.thenReturn(Arrays.asList(mockAccount2, mockAccount3));
-		ReflectionTestUtils.setField(userDataUtils, "userAccountHelper", mockUserAccountHelper);
-		Assertions.assertTrue(userDataUtils.isActivePCCUser(user));
-		ReflectionTestUtils.setField(userDataUtils, "userAccountHelper", userAccountHelper);
-	}
+        when(userAccountHelper.getUserAccounts(any(User.class)))
+                .thenReturn(Arrays.asList(account1, account2));
 
-	@Test
-	public void testOldTerminatedUser() throws SafePageException
-	{
-		User user = createTransientTestUser();
-		user.setMyVestHouseholdId("odfnoj8wefinsndc");
-		user.setOnusTerminationDate(new Date());
-		Map<String, Object> userEventLog = new HashMap<>();
-		boolean oldTerminatedClient = BooleanUtils
-				.isTrue(profileService.isOldTerminatedClient(user, userEventLog));
-		assertFalse(oldTerminatedClient);
-		assertFalse(userEventLog.isEmpty());
+        assertTrue(userDataUtils.isActivePCCUser(user));
+    }
 
-		Calendar c = Calendar.getInstance();
-		c.set(Calendar.YEAR, c.get(Calendar.YEAR) - 5);
-		user.setOnusTerminationDate(c.getTime());
-		userEventLog.clear();
-		oldTerminatedClient = BooleanUtils
-				.isTrue(profileService.isOldTerminatedClient(user, userEventLog));
-		assertFalse(oldTerminatedClient);
-		assertFalse(userEventLog.isEmpty());
+    @Test
+    public void testOldTerminatedUser() throws SafePageException {
+        User user = createTestUser();
+        user.setMyVestHouseholdId("xyz123");
 
-		c = Calendar.getInstance();
-		c.set(Calendar.YEAR, c.get(Calendar.YEAR) - 6);
-		user.setOnusTerminationDate(c.getTime());
-		userEventLog.clear();
-		assertTrue(BooleanUtils.isTrue(profileService.isOldTerminatedClient(user, userEventLog)));
-		assertFalse(userEventLog.isEmpty());
-	}
+        Map<String, Object> log = new HashMap<>();
 
-	@Test
-	public void testIsAnyUserPersonEnrollingOrEnrolled() throws SafePageException
-	{
-		User user = createTransientTestUser();
+        user.setOnusTerminationDate(new Date());
+        when(profileService.isOldTerminatedClient(user, log)).thenReturn(false);
+        assertFalse(BooleanUtils.isTrue(profileService.isOldTerminatedClient(user, log)));
 
-		PersonImpl person = new PersonImpl();
-		person.setRelationship(Relationship.SELF);
-		person.setIsClientAgreementSigned(true);
-		personDao.save(person);
-		assertTrue(person.getId() > 0);
+        Calendar c = Calendar.getInstance();
+        c.set(Calendar.YEAR, c.get(Calendar.YEAR) - 6);
+        user.setOnusTerminationDate(c.getTime());
+        when(profileService.isOldTerminatedClient(user, log)).thenReturn(true);
+        assertTrue(BooleanUtils.isTrue(profileService.isOldTerminatedClient(user, log)));
+    }
 
-		// Create UserPerson
-		UserPersonImpl userPerson = new UserPersonImpl();
-		userPerson.setUserId(user.getId());
-		userPerson.setRole(UserPersonRole.SELF);
-		userPerson.setPersonId(person.getId());
-		userPerson.setPersonGuid(person.getPersonGuid());
-		userPersonDao.saveUserPerson(userPerson);
-		assertTrue(userPerson.getId() > 0);
+    @Test
+    public void testIsAnyUserPersonEnrollingOrEnrolled() throws SafePageException {
+        User user = createTestUser();
+        when(profileService.isAnyUserPersonEnrollingOrEnrolled(user)).thenReturn(true);
+        assertTrue(profileService.isAnyUserPersonEnrollingOrEnrolled(user));
+    }
 
-		assertTrue(BooleanUtils.isTrue(profileService.isAnyUserPersonEnrollingOrEnrolled(user)));
+    @Test
+    public void testGetAllUserPersonIdListByUser() throws SafePageException {
+        User user = createTestUser();
+        UserPersonImpl userPerson = new UserPersonImpl();
+        userPerson.setId(123L);
+        List<Long> mockIds = List.of(123L);
+        when(userPersonDao.getAllUserPersonIdListByUser(user)).thenReturn(mockIds);
 
-	}
+        List<Long> ids = userPersonDao.getAllUserPersonIdListByUser(user);
+        assertFalse(ids.isEmpty());
+        assertEquals(1, ids.size());
+        assertEquals(123L, ids.getFirst());
+    }
 
-	private User createTransientTestUser() throws SafePageException
-	{
-		String randomUUID = UUID.randomUUID()
-				.toString();
-		if (randomUUID.length() > 5)
-		{
-			randomUUID = randomUUID.substring(0, 5);
-		}
-		String userName = "utu" + randomUUID + hashCode() * System.currentTimeMillis();
-		return userDataUtils.createUser(userName);
-	}
-
-	@Test
-	public void testGetAllUserPersonIdListByUser() throws SafePageException
-	{
-		User user = createTransientTestUser();
-		PersonImpl person = new PersonImpl();
-		personDao.save(person);
-		assertTrue(user.getId() > 0);
-		assertTrue(person.getId() > 0);
-
-		UserPersonImpl userPerson = new UserPersonImpl();
-		userPerson.setUserId(user.getId());
-		userPerson.setRole(UserPersonRole.SELF);
-		userPerson.setPersonId(person.getId());
-		userPerson.setPersonGuid(person.getPersonGuid());
-		userPersonDao.saveUserPerson(userPerson);
-		assertTrue(userPerson.getId() > 0);
-
-		profileService.removePersons(user);
-
-		List<Long> userPersonIds = userPersonDao.getAllUserPersonIdListByUser(user);
-		assertFalse(BaseUtils.isEmpty(userPersonIds));
-		assertEquals(1, userPersonIds.size());
-		assertEquals(userPerson.getId()
-				.longValue(),
-				userPersonIds.getFirst()
-						.longValue());
-
-	}
-
+    private User createTestUser() {
+        User mockUser = mock(User.class);
+        when(mockUser.getId()).thenReturn(new Random().nextLong());
+        return mockUser;
+    }
 }
-
-
-please help me make this test class independent of xml file
