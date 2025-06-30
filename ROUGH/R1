@@ -1,12 +1,119 @@
-java.lang.IllegalArgumentException: Could not find field 'cacheManager' of type [null] on target object [com.safepage.security.fraud.rules.IPClusteringRule@53b1a3f8] or target class [class com.safepage.security.fraud.rules.IPClusteringRule]
+package com.safepage.security.fraud.rules;
 
-	at org.springframework.test.util.ReflectionTestUtils.setField(ReflectionTestUtils.java:192)
-	at org.springframework.test.util.ReflectionTestUtils.setField(ReflectionTestUtils.java:108)
-	at org.springframework.test.util.ReflectionTestUtils.setField(ReflectionTestUtils.java:92)
-	at com.safepage.security.rules.IPClusteringRuleTest.setUp(IPClusteringRuleTest.java:76)
-	at com.safepage.security.rules.IPClusteringRuleTest.testValidate(IPClusteringRuleTest.java:102)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+import org.springframework.beans.factory.annotation.Autowired;
 
-getting this error now
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+import com.safepage.ContextManager;
+import com.safepage.RequestContext;
+import com.safepage.error.SafePageErrorType;
+import com.safepage.exception.SafePageException;
+import com.safepage.json.JSONObject;
+import com.safepage.security.IPManager;
+import com.safepage.user.data.FlaggedIpAddress;
+import com.safepage.user.data.InitiatedType;
+import com.safepage.user.data.SuspicionReasonType;
+import com.safepage.user.data.User;
+import com.safepage.user.data.UserEvent;
+import com.safepage.util.Utils;
+
+public class IPClusteringRule extends BaseFraudRule
+{
+	private static PcapLogger logger = PcapLoggerFactory.getPcapLogger(IPClusteringRule.class);
+
+	@Autowired
+	private IPManager iPManager;
+
+	@Override
+	public boolean validate() throws SafePageException
+	{
+		try
+		{
+			RequestContext rc = ContextManager.getRequestContext();
+			/*
+			 * Don't check on GET logingController.registerUser() request
+			 */
+			if (!rc.isPostRequest())
+			{
+				return true;
+			}
+
+			if (rc.optAuthUser() == null)
+			{
+				logger.error("IPClusteringRule failed because User is null");
+				return false;
+			}
+			if (rc.optAuthUser()
+					.isPersonDelegate()
+					|| Utils.isTestAccount(rc.optAuthUser()
+							.getUser()
+							.getUsername()))
+			{
+				return true;
+			}
+
+			String geo = rc.getCurrentDeviceProperties();
+			if (Utils.isNull(geo))
+			{
+				logger.error("IPClusteringRule failed because CurrentDeviceProperties is null");
+				return false;
+			}
+			JSONObject geoJson = JSONObject.fromObject(geo);
+			String ipAddrString = geoJson.getString(UserEvent.GEO_IP_ATTRIBUTE);
+			if (Utils.isNull(ipAddrString))
+			{
+				logger.error("IPClusteringRule failed because IP is null");
+				return false;
+			}
+
+			User user = rc.optUser();
+
+			if (!isIPClusteringRuleEnabled(user) || isSetToNonSuspicious(user)
+					|| user.getMyVestHouseholdId() != null
+					|| Utils.isTestAccount(user.getUsername()))
+			{
+				return true;
+			}
+
+			if (user.isSuspicious())
+			{
+				logger.info("User is suspicious, no need to check for IPClusteringRule; user: "
+						+ user.getUsername());
+				return true;
+			}
+			FlaggedIpAddress ip = iPManager.getIPAddress(ipAddrString);
+			if (ip == null)
+			{
+				return true;
+			}
+			if (ip.isSuspicious() && !ip.isWhiteListed())
+			{
+				logger.info("Suspicious user: " + user.getUsername() + " reason: "
+						+ SuspicionReasonType.SUSPICIOUS_IP.getMessage() + "; IP Address: "
+						+ ipAddrString);
+				updateUserAsSuspicious(user, SuspicionReasonType.SUSPICIOUS_IP, rc);
+				return false;
+			}
+			return true;
+		}
+		catch (Exception e)
+		{
+			logger.error("FRAUD_DETECTION_RULE_FAILED due to: " + e.getMessage(), e);
+			throw new SafePageException(SafePageErrorType.FRAUD_DETECTION_RULE_FAILED,
+					e.getMessage());
+		}
+	}
+
+	public Boolean isIPClusteringRuleEnabled(User user)
+	{
+		// feature is GA
+		return true;
+	}
+
+	public void revertUserSuspiciousStatusIfApplicable(User user, InitiatedType initiatedType)
+	{
+		super.revertUserSuspiciousStatusIfApplicable(user, SuspicionReasonType.SUSPICIOUS_IP,
+				initiatedType);
+	}
+
+}
