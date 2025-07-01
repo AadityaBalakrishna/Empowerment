@@ -1,131 +1,94 @@
-package com.safepage.user;
+package com.personalcapital.profile;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
-
-import java.util.*;
-
-import org.apache.commons.lang.BooleanUtils;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
-import com.personalcapital.profile.ProfileService;
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+import com.personalcapital.profile.data.Person;
 import com.personalcapital.profile.data.PersonDao;
-import com.personalcapital.profile.data.Relationship;
-import com.personalcapital.profile.data.UserPersonDao;
-import com.personalcapital.profile.data.UserPersonRole;
-import com.personalcapital.profile.data.impl.PersonImpl;
-import com.personalcapital.profile.data.impl.UserPersonImpl;
+import com.personalcapital.user.data.UserInfo;
 import com.personalcapital.user.data.util.UserDataUtils;
-import com.safepage.exception.SafePageException;
-import com.safepage.user.data.Account;
 import com.safepage.user.data.User;
-import com.safepage.user.data.UserAccountHelper;
+import com.safepage.user.data.UserDao;
 
-public class UserDeletionServiceTest {
+/**
+ * @author rnukala Date: Sep 6, 2013
+ */
+@SpringJUnitConfig(locations = "classpath:pcapPlanningApplicationContext.xml")
+@TestPropertySource(locations =
+{
+		"classpath:application-test.properties"
+})
+public class TargetPortfolioAccuracyCalculatorTest
+{
+	private static final PcapLogger logger = PcapLoggerFactory
+			.getPcapLogger(TargetPortfolioAccuracyCalculatorTest.class);
+	private static final String USER_NAME = "testqa+test@personalcapital.com";
 
-    private UserDataUtils userDataUtils;
-    private UserAccountHelper userAccountHelper;
-    private PersonDao personDao;
-    private UserPersonDao userPersonDao;
-    private ProfileService profileService;
+	@Autowired
+	private UserDao userDao;
 
-    @BeforeEach
-    public void setUp() {
-        userDataUtils = new UserDataUtils();
-        userAccountHelper = mock(UserAccountHelper.class);
-        personDao = mock(PersonDao.class);
-        userPersonDao = mock(UserPersonDao.class);
-        profileService = mock(ProfileService.class);
+	@Autowired
+	private UserDataUtils userDataUtils;
 
-        ReflectionTestUtils.setField(userDataUtils, "userAccountHelper", userAccountHelper);
-    }
+	@Autowired
+	private PersonDao personDao;
 
-    @Test
-    public void testIsActivePCCUser_WithNoUserAccounts() throws SafePageException {
-        User user = createTestUser();
-        when(userAccountHelper.getUserAccounts(any(User.class)))
-                .thenReturn(Collections.emptyList());
-        assertFalse(userDataUtils.isActivePCCUser(user));
-    }
+	@Autowired
+	private TargetPortfolioAccuracyCalculator targetPortfolioAccuracyCalculator;
 
-    @Test
-    public void testIsActivePCCUser_WithDeletedOnusBank() throws SafePageException {
-        User user = createTestUser();
-        Account account1 = mock(Account.class);
-        when(account1.getIsOnusBank()).thenReturn(true);
-        when(account1.getAccountDeletedDate()).thenReturn(new Date());
+	/**
+	 * Test case to calculate target portfolio completion for close to retirement
+	 */
+	@Test
+	public void testCalculateTargetPortfolioCompletionForCloseToRetirement()
+	{
+		User user = userDao.getUserAssociatedWithEmail(USER_NAME);
+		try
+		{
+			UserInfo userInfo = userDataUtils.getUserInfoForUser(user);
+			Assertions.assertNotNull(userInfo);
+			Person person = personDao.getSelfPersonForUser(user);
+			Assertions.assertNotNull(person);
+			Double portfolioCompletion = targetPortfolioAccuracyCalculator
+					.calculateTargetPortfolioCompletion(user, person, userInfo, false);
+			Assertions.assertNotNull(portfolioCompletion);
+		}
+		catch (Exception e)
+		{
+			logger.error("Exception while processing the portfolio completion: " + e.getMessage(),
+					e);
+		}
+	}
 
-        Account account2 = mock(Account.class);
-        when(account2.getIsOnusBank()).thenReturn(false);
+	/**
+	 * Test case to calculate target portfolio completion for not close to retirement
+	 */
+	@Test
+	public void testCalculateTargetPortfolioCompletionForNotCloseToRetirement()
+	{
+		User user = userDao.getUserAssociatedWithEmail(USER_NAME);
+		try
+		{
+			UserInfo userInfo = userDataUtils.getUserInfoForUser(user);
+			Person person = personDao.getSelfPersonForUser(user);
+			Double portfolioCompletion = targetPortfolioAccuracyCalculator
+					.calculateTargetPortfolioCompletion(user, person, userInfo, true);
+			Assertions.assertNotNull(portfolioCompletion);
+		}
+		catch (Exception e)
+		{
+			logger.error("Exception while processing the portfolio completion: " + e.getMessage(),
+					e);
+		}
 
-        when(userAccountHelper.getUserAccounts(any(User.class)))
-                .thenReturn(Arrays.asList(account1, account2));
-
-        assertFalse(userDataUtils.isActivePCCUser(user));
-    }
-
-    @Test
-    public void testIsActivePCCUser_WithActiveOnusBank() throws SafePageException {
-        User user = createTestUser();
-        Account account1 = mock(Account.class);
-        when(account1.getIsOnusBank()).thenReturn(true);
-        when(account1.getClosedDate()).thenReturn(null);
-        when(account1.getAccountNumber()).thenReturn("1234");
-        when(account1.getAccountRoutingNumber()).thenReturn("8909");
-
-        Account account2 = mock(Account.class);
-        when(account2.getIsOnusBank()).thenReturn(false);
-
-        when(userAccountHelper.getUserAccounts(any(User.class)))
-                .thenReturn(Arrays.asList(account1, account2));
-
-        assertTrue(userDataUtils.isActivePCCUser(user));
-    }
-
-    @Test
-    public void testOldTerminatedUser() throws SafePageException {
-        User user = createTestUser();
-        user.setMyVestHouseholdId("xyz123");
-
-        Map<String, Object> log = new HashMap<>();
-
-        user.setOnusTerminationDate(new Date());
-        when(profileService.isOldTerminatedClient(user, log)).thenReturn(false);
-        assertFalse(BooleanUtils.isTrue(profileService.isOldTerminatedClient(user, log)));
-
-        Calendar c = Calendar.getInstance();
-        c.set(Calendar.YEAR, c.get(Calendar.YEAR) - 6);
-        user.setOnusTerminationDate(c.getTime());
-        when(profileService.isOldTerminatedClient(user, log)).thenReturn(true);
-        assertTrue(BooleanUtils.isTrue(profileService.isOldTerminatedClient(user, log)));
-    }
-
-    @Test
-    public void testIsAnyUserPersonEnrollingOrEnrolled() throws SafePageException {
-        User user = createTestUser();
-        when(profileService.isAnyUserPersonEnrollingOrEnrolled(user)).thenReturn(true);
-        assertTrue(profileService.isAnyUserPersonEnrollingOrEnrolled(user));
-    }
-
-    @Test
-    public void testGetAllUserPersonIdListByUser() throws SafePageException {
-        User user = createTestUser();
-        UserPersonImpl userPerson = new UserPersonImpl();
-        userPerson.setId(123L);
-        List<Long> mockIds = List.of(123L);
-        when(userPersonDao.getAllUserPersonIdListByUser(user)).thenReturn(mockIds);
-
-        List<Long> ids = userPersonDao.getAllUserPersonIdListByUser(user);
-        assertFalse(ids.isEmpty());
-        assertEquals(1, ids.size());
-        assertEquals(123L, ids.getFirst());
-    }
-
-    private User createTestUser() {
-        User mockUser = mock(User.class);
-        when(mockUser.getId()).thenReturn(new Random().nextLong());
-        return mockUser;
-    }
+	}
 }
+
+
+how to make this code independent of the spig context?
+please give full code
