@@ -1,2 +1,38 @@
-'describeKey(String)' in 'com.safepage.security.service.impl.KMSServiceV2Impl' clashes with 'describeKey(String)' in 'com.safepage.security.service.KMSService'; incompatible return type
-'getKeyAliases(String)' in 'com.safepage.security.service.impl.KMSServiceV2Impl' clashes with 'getKeyAliases(String)' in 'com.safepage.security.service.KMSService'; incompatible return type
+package com.safepage.security.service;
+
+import com.amazonaws.services.kms.model.DescribeKeyResult;
+import com.amazonaws.services.kms.model.ListAliasesResult;
+import com.safepage.exception.SafePageException;
+
+/**
+ * Using AWS KMS to store our Master Key, which is called "Customer master key (CMK)". This class
+ * will be used to Encrypt/Decrypt System Secondary keys (in db) under customer master key.
+ * 
+ * @author dizadi
+ * @since 01/28/2019
+ */
+public interface KMSService
+{
+	/**
+	 * The Encrypt operation is designed to encrypt data keys, but it is not frequently used.
+	 * 
+	 * @param plainDataKey
+	 * @return
+	 */
+	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException;
+
+	/**
+	 * To decrypt data keys
+	 * 
+	 * @param cipheredDataKey
+	 * @return
+	 */
+	public String decryptUsingAWSKey(String cipherText) throws SafePageException;
+
+	public ListAliasesResult getKeyAliases(String awsCmkKeyAlias);
+
+	public DescribeKeyResult describeKey(String awsCmkKeyAlias);
+}
+
+
+old service
