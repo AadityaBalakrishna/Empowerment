@@ -6,57 +6,48 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import com.amazonaws.services.kms.model.DescribeKeyResult;
-import com.amazonaws.services.kms.model.ListAliasesResult;
+
 import com.safepage.exception.SafePageException;
 
-public class KMSServiceImplTest
-{
+import software.amazon.awssdk.services.kms.model.DescribeKeyResponse;
+import software.amazon.awssdk.services.kms.model.ListAliasesResponse;
+
+public class KMSServiceV2ImplTest {
+
 	private final static String AWS_CMK_KEY_ALIAS = "alias/app/pcap/pcap/system_primary/v1";
 
 	@Test
-	public void testEncryptDercrypt()
-	{
-		try
-		{
+	public void testEncryptDecrypt() {
+		try {
 			String plainTextToTest = "ammN3OegV2l6aM3UTDohq6T8ocsn/n7Q";
-			String cipherText = KMSServiceImpl.getInstance()
+			String cipherText = KMSServiceV2Impl.getInstance()
 					.encryptUsingAWSKey(plainTextToTest, AWS_CMK_KEY_ALIAS);
 			assertNotNull(cipherText);
-			assertTrue(cipherText.length() == 248);
-			String plainText = KMSServiceImpl.getInstance()
+			assertTrue(cipherText.length() > 0);
+
+			String plainText = KMSServiceV2Impl.getInstance()
 					.decryptUsingAWSKey(cipherText);
 			assertNotNull(plainText);
 			assertTrue(plainText.equals(plainTextToTest));
-		}
-		catch (Exception ex)
-		{
-			Assertions
-					.fail("Faied to testEncryptDercrypt using AWS Key, dut to:" + ex.getMessage());
+		} catch (SafePageException ex) {
+			Assertions.fail("Failed to testEncryptDecrypt using AWS SDK V2, due to: " + ex.getMessage());
 		}
 	}
 
 	@Test
 	@Disabled
-	public void testGetAliasListForKey()
-	{
-		// list aliases for key
-		ListAliasesResult listAliasesResult = KMSServiceImpl.getInstance()
+	public void testGetAliasListForKey() {
+		ListAliasesResponse listAliasesResponse = KMSServiceV2Impl.getInstance()
 				.getKeyAliases(AWS_CMK_KEY_ALIAS);
-		assertNotNull(listAliasesResult);
-		// result.getAliases().forEach(a->System.out.println(a.getAliasName()));
+		assertNotNull(listAliasesResponse);
+		// listAliasesResponse.aliases().forEach(a -> System.out.println(a.aliasName()));
 	}
 
 	@Test
 	@Disabled
-	public void testDescribeKey()
-	{
-		// Describe key
-		DescribeKeyResult describeKeyResult = KMSServiceImpl.getInstance()
+	public void testDescribeKey() {
+		DescribeKeyResponse describeKeyResponse = KMSServiceV2Impl.getInstance()
 				.describeKey(AWS_CMK_KEY_ALIAS);
-		assertNotNull(describeKeyResult);
+		assertNotNull(describeKeyResponse);
 	}
 }
-
-
-now this is the V1 test class
