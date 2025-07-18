@@ -1,53 +1,11 @@
-package com.safepage.security.service.impl;
+great, now i have similar sets one for v1 and one for v2:
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+now the real task is:
+o through the KMS Migration Guide
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
+. Perform a quick smoke test to confirm that data encrypted with the v2 adapter can be successfully decrypted.
+Acceptance Criteria:
 
-import com.safepage.exception.SafePageException;
-
-import software.amazon.awssdk.services.kms.model.DescribeKeyResponse;
-import software.amazon.awssdk.services.kms.model.ListAliasesResponse;
-
-public class KMSServiceV2ImplTest {
-
-	private final static String AWS_CMK_KEY_ALIAS = "alias/app/pcap/pcap/system_primary/v1";
-
-	@Test
-	public void testEncryptDecrypt() {
-		try {
-			String plainTextToTest = "ammN3OegV2l6aM3UTDohq6T8ocsn/n7Q";
-			String cipherText = KMSServiceV2Impl.getInstance()
-					.encryptUsingAWSKey(plainTextToTest, AWS_CMK_KEY_ALIAS);
-			assertNotNull(cipherText);
-			assertTrue(cipherText.length() > 0);
-
-			String plainText = KMSServiceV2Impl.getInstance()
-					.decryptUsingAWSKey(cipherText);
-			assertNotNull(plainText);
-			assertTrue(plainText.equals(plainTextToTest));
-		} catch (SafePageException ex) {
-			Assertions.fail("Failed to testEncryptDecrypt using AWS SDK V2, due to: " + ex.getMessage());
-		}
-	}
-
-	@Test
-	@Disabled
-	public void testGetAliasListForKey() {
-		ListAliasesResponse listAliasesResponse = KMSServiceV2Impl.getInstance()
-				.getKeyAliases(AWS_CMK_KEY_ALIAS);
-		assertNotNull(listAliasesResponse);
-		// listAliasesResponse.aliases().forEach(a -> System.out.println(a.aliasName()));
-	}
-
-	@Test
-	@Disabled
-	public void testDescribeKey() {
-		DescribeKeyResponse describeKeyResponse = KMSServiceV2Impl.getInstance()
-				.describeKey(AWS_CMK_KEY_ALIAS);
-		assertNotNull(describeKeyResponse);
-	}
-}
+A known piece of plaintext is successfully encrypted using the v2 adapter.
+The resulting ciphertext is successfully decrypted.
+The decrypted text exactly matches the original plaintext.
