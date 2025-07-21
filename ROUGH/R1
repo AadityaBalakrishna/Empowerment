@@ -1,3 +1,11 @@
-Class 'DecryptRequestDTO' may use Lombok @Getter
+epwKmsService = new EpwKmsServiceV2Impl(kmsClient);
+Default constructor is invoked with arguments
 
-i keep getting this, what do i do with this warning?
+String cipherText = epwKmsService.encrypt(encryptRequest);
+Incompatible types. Found: 'com.safepage.security.epw.dto.EncryptResponseDTO', required: 'java.lang.String'
+
+DecryptRequestDTO decryptRequest = new DecryptRequestDTO(cipherText);
+Cannot resolve constructor 'DecryptRequestDTO(String)'
+
+String decryptedText = epwKmsService.decrypt(decryptRequest);
+Incompatible types. Found: 'com.safepage.security.epw.dto.DecryptResponseDTO', required: 'java.lang.String'
