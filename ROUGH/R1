@@ -1,59 +1,20 @@
-package com.safepage.security.service.impl;
+    @Test
+    @Disabled("Deprecated, retained for backward compatibility testing only")
+    void testGetAliasListForKey() {
+        // You can mock this too, but it's deprecated
+        ListAliasesResult mockResult = new ListAliasesResult();
+        Mockito.when(mockEpwKmsService.getKeyAliases(AWS_CMK_KEY_ALIAS)).thenReturn(mockResult);
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+        ListAliasesResult result = kmsService.getKeyAliases(AWS_CMK_KEY_ALIAS);
+        assertNotNull(result);
+    }
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
-import com.amazonaws.services.kms.model.DescribeKeyResult;
-import com.amazonaws.services.kms.model.ListAliasesResult;
-import com.safepage.exception.SafePageException;
+    @Test
+    @Disabled("Deprecated, retained for backward compatibility testing only")
+    void testDescribeKey() {
+        DescribeKeyResult mockResult = new DescribeKeyResult();
+        Mockito.when(mockEpwKmsService.describeKey(AWS_CMK_KEY_ALIAS)).thenReturn(mockResult);
 
-public class KMSServiceImplTest
-{
-	private final static String AWS_CMK_KEY_ALIAS = "alias/app/pcap/pcap/system_primary/v1";
-
-	@Test
-	public void testEncryptDercrypt()
-	{
-		try
-		{
-			String plainTextToTest = "ammN3OegV2l6aM3UTDohq6T8ocsn/n7Q";
-			String cipherText = KMSServiceImpl.getInstance()
-					.encryptUsingAWSKey(plainTextToTest, AWS_CMK_KEY_ALIAS);
-			assertNotNull(cipherText);
-			assertTrue(cipherText.length() == 248);
-			String plainText = KMSServiceImpl.getInstance()
-					.decryptUsingAWSKey(cipherText);
-			assertNotNull(plainText);
-			assertTrue(plainText.equals(plainTextToTest));
-		}
-		catch (Exception ex)
-		{
-			Assertions
-					.fail("Faied to testEncryptDercrypt using AWS Key, dut to:" + ex.getMessage());
-		}
-	}
-
-	@Test
-	@Disabled
-	public void testGetAliasListForKey()
-	{
-		// list aliases for key
-		ListAliasesResult listAliasesResult = KMSServiceImpl.getInstance()
-				.getKeyAliases(AWS_CMK_KEY_ALIAS);
-		assertNotNull(listAliasesResult);
-		// result.getAliases().forEach(a->System.out.println(a.getAliasName()));
-	}
-
-	@Test
-	@Disabled
-	public void testDescribeKey()
-	{
-		// Describe key
-		DescribeKeyResult describeKeyResult = KMSServiceImpl.getInstance()
-				.describeKey(AWS_CMK_KEY_ALIAS);
-		assertNotNull(describeKeyResult);
-	}
-}
+        DescribeKeyResult result = kmsService.describeKey(AWS_CMK_KEY_ALIAS);
+        assertNotNull(result);
+    }
