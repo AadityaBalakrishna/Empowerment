@@ -1,52 +1,11 @@
-package com.safepage.security.service;
+what was done so far:
+Created AWS KMS V2 versions of KMSService.java, KMSServiceImpl.java, and KMSServiceImplTest.java. Tested these changes in the KMSCompatibilityTest.java file to verify that any data encrypted using the V1 implementation can be successfully decrypted using the V2 implementation, and any data encrypted using the V2 implementation can be successfully decrypted using the V1 implementation, ensuring the original plaintext value is retained.
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+New task:
 
-import com.safepage.exception.SafePageException;
-import com.safepage.security.service.impl.KMSServiceImpl;
-import com.safepage.security.service.impl.KMSServiceV2Impl;
+Create the new, clean EpwKmsService interface and any necessary DTOs.
+Create the empty class files for EpwKmsServiceImpl(v1) and EpwKmsServiceImpl(v2).
+Set up the integration test class with Testcontainers and LocalStack.
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-public class KMSInteropTest {
-
-    private static final String AWS_CMK_KEY_ALIAS = "alias/app/pcap/pcap/system_primary/v1";
-
-    @Test
-    @DisplayName("Encrypt with V1 → Decrypt with V2")
-    public void testEncryptWithV1_DecryptWithV2() throws SafePageException {
-        String knownPlainText = "InteroperabilityTestV1toV2";
-
-        // Encrypt with v1
-        String encrypted = KMSServiceImpl.getInstance()
-                .encryptUsingAWSKey(knownPlainText, AWS_CMK_KEY_ALIAS);
-        assertNotNull(encrypted, "Encryption (v1) returned null");
-
-        // Decrypt with v2
-        String decrypted = KMSServiceV2Impl.getInstance()
-                .decryptUsingAWSKey(encrypted);
-        assertNotNull(decrypted, "Decryption (v2) returned null");
-
-        assertEquals(knownPlainText, decrypted, "V1-encrypted text failed to decrypt with V2");
-    }
-
-    @Test
-    @DisplayName("Encrypt with V2 → Decrypt with V1")
-    public void testEncryptWithV2_DecryptWithV1() throws SafePageException {
-        String knownPlainText = "InteroperabilityTestV2toV1";
-
-        // Encrypt with v2
-        String encrypted = KMSServiceV2Impl.getInstance()
-                .encryptUsingAWSKey(knownPlainText, AWS_CMK_KEY_ALIAS);
-        assertNotNull(encrypted, "Encryption (v2) returned null");
-
-        // Decrypt with v1
-        String decrypted = KMSServiceImpl.getInstance()
-                .decryptUsingAWSKey(encrypted);
-        assertNotNull(decrypted, "Decryption (v1) returned null");
-
-        assertEquals(knownPlainText, decrypted, "V2-encrypted text failed to decrypt with V1");
-    }
-}
+Self-Validation:
+Write a simple unit test to ensure the new DTOs work as expected.
