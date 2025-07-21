@@ -1,1 +1,3 @@
-'encrypt(EncryptRequestDTO)' in 'com.safepage.security.epw.impl.EpwKmsServiceV2Impl' clashes with 'encrypt(EncryptRequestDTO)' in 'com.safepage.security.epw.EpwKmsService'; overridden method does not throw 'SafePageException'
+Class 'DecryptRequestDTO' may use Lombok @Getter
+
+i keep getting this, what do i do with this warning?
