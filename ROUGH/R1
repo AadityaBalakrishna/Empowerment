@@ -1,176 +1,70 @@
-package com.empower.epw.sdk.v1.adapter.kms;
-
-import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
+package com.safepage.security.service.impl;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.springframework.stereotype.Service;
 
-import com.amazonaws.services.kms.AWSKMS;
-import com.amazonaws.services.kms.AWSKMSClient;
-import com.amazonaws.services.kms.model.DecryptRequest;
-import com.amazonaws.services.kms.model.DecryptResult;
-import com.amazonaws.services.kms.model.DisabledException;
-import com.amazonaws.services.kms.model.EncryptRequest;
-import com.amazonaws.services.kms.model.EncryptResult;
-import com.amazonaws.services.kms.model.InvalidCiphertextException;
-import com.amazonaws.services.kms.model.KeyUnavailableException;
+import com.empower.epw.aws.api.kms.EpwKmsService;
 import com.empower.epw.aws.api.kms.dto.DecryptRequestDTO;
-import com.empower.epw.aws.api.kms.dto.DecryptResponseDTO;
 import com.empower.epw.aws.api.kms.dto.EncryptRequestDTO;
+import com.empower.epw.aws.api.kms.dto.DecryptResponseDTO;
 import com.empower.epw.aws.api.kms.dto.EncryptResponseDTO;
-import com.personalcapital.aws.AWSCredentialsManager;
 import com.personalcapital.log.PcapLogger;
 import com.personalcapital.log.PcapLoggerFactory;
 import com.safepage.error.SafePageErrorType;
 import com.safepage.exception.SafePageException;
-import com.empower.epw.aws.api.kms.EpwKmsService;
-import com.safepage.util.Utils;
+import com.safepage.security.service.KMSService;
 
-@Service("epwKmsServiceV1")
-public class EpwKmsServiceImpl implements EpwKmsService
-{
+public class KMSServiceImpl implements KMSService {
 
-	private static final PcapLogger logger = PcapLoggerFactory
-			.getPcapLogger(EpwKmsServiceImpl.class);
-	private static final Charset charset = StandardCharsets.UTF_8;
+    private static final PcapLogger logger = PcapLoggerFactory.getPcapLogger(KMSServiceImpl.class);
 
-	private AWSKMS kmsClient;
+    private final EpwKmsService epwKmsService;
 
-	private AWSKMS getKMSClient()
-	{
-		if (kmsClient == null)
-		{
-			AWSCredentialsManager awsCredentialsManager = new AWSCredentialsManager();
-			kmsClient = (AWSKMS) awsCredentialsManager
-					.getClientBuilderWithCredentials(AWSKMSClient.builder())
-					.build();
-		}
-		return kmsClient;
-	}
+    public KMSServiceImpl(EpwKmsService epwKmsService) {
+        this.epwKmsService = epwKmsService;
+        logger.info("Initialized KMSServiceImpl with EpwKmsService: {}", epwKmsService.getClass().getSimpleName());
+    }
 
-	@Override
-	public EncryptResponseDTO encrypt(EncryptRequestDTO request) throws SafePageException {
-		if (StringUtils.isEmpty(request.getPlaintext())){
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
-		}
-		if (StringUtils.isEmpty(request.getKeyId())){
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
-		}
-		try
-		{
-			EncryptRequest encryptRequest = new EncryptRequest().withKeyId(request.getKeyId())
-					.withPlaintext(getByteBuffer(request.getPlaintext()));
-			long start = System.currentTimeMillis();
-			EncryptResult result = getKMSClient().encrypt(encryptRequest);
-			if (result != null && result.getCiphertextBlob() != null)
-			{
-				long end = System.currentTimeMillis();
-				logger.info("encryptData took {} " + (end - start));
+    @Override
+    public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException {
+        if (StringUtils.isEmpty(plainText)) {
+            throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
+        }
+        if (StringUtils.isEmpty(keyId)) {
+            throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
+        }
 
-				String encoded = Utils.encodeBase64(result.getCiphertextBlob()
-						.array());
-				return new EncryptResponseDTO(encoded);
-			}
-			logger.error("encryptUsingAWSKey failed, EncryptResult is null!");
-			return new EncryptResponseDTO(null);
-		}
-		catch (DisabledException de)
-		{
-			logger.error(
-					"Failed to encryptUsingAWSKey(DisabledException), plainText:{}, keyId:{}, due to:{}",
-					request.getPlaintext(), request.getKeyId(), ExceptionUtils.getMessage(de), de);
-		}
-		catch (KeyUnavailableException kue)
-		{
-			logger.error(
-					"Failed to encryptUsingAWSKey(KeyUnavailableException), plainText:{}, keyId:{}, due to:{}",
-					request.getPlaintext(), request.getKeyId(), ExceptionUtils.getMessage(kue), kue);
-		}
-		catch (Exception ex)
-		{
-			logger.error("Failed to encryptUsingAWSKey, plainText:{}, keyId:{}, due to:{}",
-					request.getPlaintext(), request.getKeyId(), ExceptionUtils.getMessage(ex), ex);
-		}
-		return null;
-	}
+        try {
+            long start = System.currentTimeMillis();
+            EncryptRequestDTO request = new EncryptRequestDTO(plainText, keyId);
+            EncryptResponseDTO response = epwKmsService.encrypt(request);
+            long end = System.currentTimeMillis();
+            logger.info("encryptUsingAWSKey took {} ms", (end - start));
+            return response != null ? response.getEncrypted() : null;
+        } catch (Exception ex) {
+            logger.error("Failed to encryptUsingAWSKey, plainText:{}, keyId:{}, due to:{}",
+                    plainText, keyId, ExceptionUtils.getMessage(ex), ex);
+            return null;
+        }
+    }
 
-	@Override
-	public DecryptResponseDTO decrypt(DecryptRequestDTO request) throws SafePageException {
-		if (StringUtils.isEmpty(request.getCiphertext())){
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
-		}
-		try{
-			byte[] decodedCipherText = Utils.decodeBase64(request.getCiphertext());
-			DecryptRequest decryptRequest = new DecryptRequest()
-					.withCiphertextBlob(ByteBuffer.wrap(decodedCipherText));
-			long start = System.currentTimeMillis();
-			DecryptResult result = getKMSClient().decrypt(decryptRequest);
-			long end = System.currentTimeMillis();
-			logger.info("decryptData took {}" + (end - start));
-			ByteBuffer plainTextBlob = result.getPlaintext();
-			String decrypted = getString(plainTextBlob);
-			return new DecryptResponseDTO(decrypted);
-		}
-		catch (KeyUnavailableException kue)
-		{
-			// The request was rejected because the specified CMK was not available. The request can
-			// be retried.
-			logger.error(
-					"Failed to decryptUsingAWSKey(KeyUnavailableException), cipherText:{}, due to:{}",
-					request.getCiphertext(), ExceptionUtils.getMessage(kue), kue);
-		}
-		catch (InvalidCiphertextException ice)
-		{
-			// The request was rejected because the specified ciphertext, or additional
-			// authenticated data incorporated
-			// into the ciphertext, such as the encryption context, is corrupted, missing, or
-			// otherwise invalid.
-			logger.error(
-					"Failed to decryptUsingAWSKey(InvalidCiphertextException), cipherText:{}, due to:{}",
-					request.getCiphertext(), ExceptionUtils.getMessage(ice), ice);
-		}
-		catch (DisabledException de)
-		{
-			logger.error(
-					"Failed to decryptUsingAWSKey(DisabledException), cipherText:{}, due to:{}",
-					request.getCiphertext(), ExceptionUtils.getMessage(de), de);
-		}
-		catch (Exception ex)
-		{
-			logger.error("Failed to decryptUsingAWSKey, cipherText:{}, due to:{}", request.getCiphertext(),
-					ExceptionUtils.getMessage(ex), ex);
-		}
-		return null;
-	}
+    @Override
+    public String decryptUsingAWSKey(String cipherText) throws SafePageException {
+        if (StringUtils.isEmpty(cipherText)) {
+            throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
+        }
 
-	/**
-	 * Converts a String to a ByteBuffer using the specified charset.
-	 *
-	 * @param string
-	 *            the String to convert
-	 * @return the ByteBuffer representation of the String
-	 */
-	public static ByteBuffer getByteBuffer(String string)
-	{
-		return ByteBuffer.wrap(string.getBytes(charset));
-	}
-
-	/**
-	 * Converts a ByteBuffer to a String using the specified charset.
-	 *
-	 * @param byteBuffer
-	 *            the ByteBuffer to convert
-	 * @return the String representation of the ByteBuffer
-	 */
-	public static String getString(ByteBuffer byteBuffer)
-	{
-		byte[] byteArray = new byte[byteBuffer.remaining()];
-		byteBuffer.get(byteArray);
-		return new String(byteArray, charset);
-	}
+        try {
+            long start = System.currentTimeMillis();
+            DecryptRequestDTO request = new DecryptRequestDTO(cipherText);
+            DecryptResponseDTO response = epwKmsService.decrypt(request);
+            long end = System.currentTimeMillis();
+            logger.info("decryptUsingAWSKey took {} ms", (end - start));
+            return response != null ? response.getDecrypted() : null;
+        } catch (Exception ex) {
+            logger.error("Failed to decryptUsingAWSKey, cipherText:{}, due to:{}",
+                    cipherText, ExceptionUtils.getMessage(ex), ex);
+            return null;
+        }
+    }
 }
-
-this is the new EpwKmsServiceImpl,that you gave me, so see and make the necessary refactoring in KmsServiceImpl
