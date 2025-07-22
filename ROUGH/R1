@@ -1,70 +1,103 @@
-package com.safepage.security.service.impl;
+package com.empower.epw.aws.api.kms.dto;
 
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.exception.ExceptionUtils;
+public class EncryptResponseDTO {
+    private String ciphertext;
 
-import com.empower.epw.aws.api.kms.EpwKmsService;
-import com.empower.epw.aws.api.kms.dto.DecryptRequestDTO;
-import com.empower.epw.aws.api.kms.dto.EncryptRequestDTO;
-import com.empower.epw.aws.api.kms.dto.DecryptResponseDTO;
-import com.empower.epw.aws.api.kms.dto.EncryptResponseDTO;
-import com.personalcapital.log.PcapLogger;
-import com.personalcapital.log.PcapLoggerFactory;
-import com.safepage.error.SafePageErrorType;
-import com.safepage.exception.SafePageException;
-import com.safepage.security.service.KMSService;
-
-public class KMSServiceImpl implements KMSService {
-
-    private static final PcapLogger logger = PcapLoggerFactory.getPcapLogger(KMSServiceImpl.class);
-
-    private final EpwKmsService epwKmsService;
-
-    public KMSServiceImpl(EpwKmsService epwKmsService) {
-        this.epwKmsService = epwKmsService;
-        logger.info("Initialized KMSServiceImpl with EpwKmsService: {}", epwKmsService.getClass().getSimpleName());
+    // Default Constructor
+    public EncryptResponseDTO() {
     }
 
-    @Override
-    public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException {
-        if (StringUtils.isEmpty(plainText)) {
-            throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
-        }
-        if (StringUtils.isEmpty(keyId)) {
-            throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
-        }
-
-        try {
-            long start = System.currentTimeMillis();
-            EncryptRequestDTO request = new EncryptRequestDTO(plainText, keyId);
-            EncryptResponseDTO response = epwKmsService.encrypt(request);
-            long end = System.currentTimeMillis();
-            logger.info("encryptUsingAWSKey took {} ms", (end - start));
-            return response != null ? response.getEncrypted() : null;
-        } catch (Exception ex) {
-            logger.error("Failed to encryptUsingAWSKey, plainText:{}, keyId:{}, due to:{}",
-                    plainText, keyId, ExceptionUtils.getMessage(ex), ex);
-            return null;
-        }
+    // Parameterized Constructor
+    public EncryptResponseDTO(String ciphertext) {
+        this.ciphertext = ciphertext;
     }
 
-    @Override
-    public String decryptUsingAWSKey(String cipherText) throws SafePageException {
-        if (StringUtils.isEmpty(cipherText)) {
-            throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
-        }
-
-        try {
-            long start = System.currentTimeMillis();
-            DecryptRequestDTO request = new DecryptRequestDTO(cipherText);
-            DecryptResponseDTO response = epwKmsService.decrypt(request);
-            long end = System.currentTimeMillis();
-            logger.info("decryptUsingAWSKey took {} ms", (end - start));
-            return response != null ? response.getDecrypted() : null;
-        } catch (Exception ex) {
-            logger.error("Failed to decryptUsingAWSKey, cipherText:{}, due to:{}",
-                    cipherText, ExceptionUtils.getMessage(ex), ex);
-            return null;
-        }
+    // Getters and Setters
+    public String getCiphertext() {
+        return ciphertext;
+    }
+    public void setCiphertext(String ciphertext) {
+        this.ciphertext = ciphertext;
     }
 }
+
+package com.empower.epw.aws.api.kms.dto;
+
+public class EncryptRequestDTO {
+    private String plaintext;
+    private String keyId;
+
+    // Default Constructor
+    public EncryptRequestDTO() {
+    }
+
+    // Parameterized Constructor
+    public EncryptRequestDTO(String plaintext, String keyId) {
+        this.plaintext = plaintext;
+        this.keyId = keyId;
+    }
+
+    // Getters and Setters
+    public String getPlaintext() {
+        return plaintext;
+    }
+
+    public void setPlaintext(String plaintext) {
+        this.plaintext = plaintext;
+    }
+
+    public String getKeyId() {
+        return keyId;
+    }
+
+    public void setKeyId(String keyId) {
+        this.keyId = keyId;
+    }
+}
+
+package com.empower.epw.aws.api.kms.dto;
+
+public class DecryptResponseDTO {
+    private String plaintext;
+
+    // Default Constructor
+    public DecryptResponseDTO() {
+    }
+
+    // Parameterized Constructor
+    public DecryptResponseDTO(String plaintext) {
+        this.plaintext = plaintext;
+    }
+
+    // Getters and Setters
+    public String getPlaintext() {
+        return plaintext;
+    }
+
+    public void setPlaintext(String plaintext) {
+        this.plaintext = plaintext;
+    }
+}
+package com.empower.epw.aws.api.kms.dto;
+
+public class DecryptRequestDTO {
+    private String ciphertext;
+
+    // Default Constructor
+    public DecryptRequestDTO() {
+    }
+    // Parameterized Constructor
+    public DecryptRequestDTO(String ciphertext) {
+        this.ciphertext = ciphertext;
+    }
+    // Getters and Setters
+    public String getCiphertext() {
+        return ciphertext;
+    }
+    public void setCiphertext(String ciphertext) {
+        this.ciphertext = ciphertext;
+    }
+}
+
+
+these are all the dtos i have
