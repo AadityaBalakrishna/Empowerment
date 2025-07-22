@@ -1,1 +1,178 @@
-java.lang.IllegalStateException: Unable to find a @SpringBootConfiguration by searching packages upwards from the test. You can use @ContextConfiguration, @SpringBootTest(classes=...) or other Spring Test supported mechanisms to explicitly declare the configuration classes to load. Classes annotated with @TestConfiguration are not considered.
+package com.safepage.security.epw.impl;
+
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.springframework.stereotype.Service;
+
+import com.amazonaws.services.kms.AWSKMS;
+import com.amazonaws.services.kms.AWSKMSClient;
+import com.amazonaws.services.kms.model.DecryptRequest;
+import com.amazonaws.services.kms.model.DecryptResult;
+import com.amazonaws.services.kms.model.DescribeKeyResult;
+import com.amazonaws.services.kms.model.DisabledException;
+import com.amazonaws.services.kms.model.EncryptRequest;
+import com.amazonaws.services.kms.model.EncryptResult;
+import com.amazonaws.services.kms.model.InvalidCiphertextException;
+import com.amazonaws.services.kms.model.KeyUnavailableException;
+import com.amazonaws.services.kms.model.ListAliasesResult;
+import com.personalcapital.aws.AWSCredentialsManager;
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+import com.safepage.error.SafePageErrorType;
+import com.safepage.exception.SafePageException;
+import com.safepage.security.epw.EpwKmsService;
+import com.safepage.util.Utils;
+
+@Service("epwKmsServiceV1")
+public class EpwKmsServiceV1Impl implements EpwKmsService {
+
+    private static final PcapLogger logger = PcapLoggerFactory.getPcapLogger(EpwKmsServiceV1Impl.class);
+    private static final Charset charset = StandardCharsets.UTF_8;
+
+    private AWSKMS kmsClient;
+    private AWSKMS getKMSClient() {
+        if (kmsClient == null) {
+            AWSCredentialsManager awsCredentialsManager = new AWSCredentialsManager();
+            kmsClient = (AWSKMS) awsCredentialsManager
+                    .getClientBuilderWithCredentials(AWSKMSClient.builder())
+                    .build();
+        }
+        return kmsClient;
+    }
+
+    @Override
+    public String encrypt(String plainText, String keyId) throws SafePageException {
+        if (org.apache.commons.lang3.StringUtils.isEmpty(plainText))
+        {
+            throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
+        }
+        if (StringUtils.isEmpty(keyId))
+        {
+            throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
+        }
+
+        try
+        {
+            EncryptRequest encryptRequest = new EncryptRequest().withKeyId(keyId)
+                    .withPlaintext(getByteBuffer(plainText));
+            long start = System.currentTimeMillis();
+            EncryptResult result = getKMSClient().encrypt(encryptRequest);
+            if (result != null && result.getCiphertextBlob() != null)
+            {
+                long end = System.currentTimeMillis();
+                logger.info("encryptData took {} " + (end - start));
+                return Utils.encodeBase64(result.getCiphertextBlob()
+                        .array());
+            }
+            logger.error("encryptUsingAWSKey failed, EncryptResult is null!");
+            return null;
+        }
+        catch (DisabledException de)
+        {
+            logger.error(
+                    "Failed to encryptUsingAWSKey(DisabledException), plainText:{}, keyId:{}, due to:{}",
+                    plainText, keyId, ExceptionUtils.getMessage(de), de);
+        }
+        catch (KeyUnavailableException kue)
+        {
+            logger.error(
+                    "Failed to encryptUsingAWSKey(KeyUnavailableException), plainText:{}, keyId:{}, due to:{}",
+                    plainText, keyId, ExceptionUtils.getMessage(kue), kue);
+        }
+        catch (Exception ex)
+        {
+            logger.error("Failed to encryptUsingAWSKey, plainText:{}, keyId:{}, due to:{}",
+                    plainText, keyId, ExceptionUtils.getMessage(ex), ex);
+        }
+        return null;
+    }
+
+    @Override
+    public String decrypt(String cipherText) throws SafePageException {
+        if (StringUtils.isEmpty(cipherText))
+        {
+            throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
+        }
+        try
+        {
+            byte[] decodedCipherText = Utils.decodeBase64(cipherText);
+            DecryptRequest decryptRequest = new DecryptRequest()
+                    .withCiphertextBlob(ByteBuffer.wrap(decodedCipherText));
+            long start = System.currentTimeMillis();
+            DecryptResult result = getKMSClient().decrypt(decryptRequest);
+            long end = System.currentTimeMillis();
+            logger.info("decryptData took {}" + (end - start));
+            ByteBuffer plainTextBlob = result.getPlaintext();
+            return getString(result.getPlaintext());
+        }
+        catch (KeyUnavailableException kue)
+        {
+            // The request was rejected because the specified CMK was not available. The request can
+            // be retried.
+            logger.error(
+                    "Failed to decryptUsingAWSKey(KeyUnavailableException), cipherText:{}, due to:{}",
+                    cipherText, ExceptionUtils.getMessage(kue), kue);
+        }
+        catch (InvalidCiphertextException ice)
+        {
+            // The request was rejected because the specified ciphertext, or additional
+            // authenticated data incorporated
+            // into the ciphertext, such as the encryption context, is corrupted, missing, or
+            // otherwise invalid.
+            logger.error(
+                    "Failed to decryptUsingAWSKey(InvalidCiphertextException), cipherText:{}, due to:{}",
+                    cipherText, ExceptionUtils.getMessage(ice), ice);
+        }
+        catch (DisabledException de)
+        {
+            logger.error(
+                    "Failed to decryptUsingAWSKey(DisabledException), cipherText:{}, due to:{}",
+                    cipherText, ExceptionUtils.getMessage(de), de);
+        }
+        catch (Exception ex)
+        {
+            logger.error("Failed to decryptUsingAWSKey, cipherText:{}, due to:{}", cipherText,
+                    ExceptionUtils.getMessage(ex), ex);
+        }
+        return null;
+    }
+
+    @Override
+    public DescribeKeyResult describeKey(String keyId) {
+        return null;
+    }
+
+    @Override
+    public ListAliasesResult getKeyAliases(String keyId) {
+        return null;
+    }
+
+    /**
+     * Converts a String to a ByteBuffer using the specified charset.
+     *
+     * @param string the String to convert
+     * @return the ByteBuffer representation of the String
+     */
+    public static ByteBuffer getByteBuffer(String string) {
+        return ByteBuffer.wrap(string.getBytes(charset));
+    }
+
+    /**
+     * Converts a ByteBuffer to a String using the specified charset.
+     *
+     * @param byteBuffer the ByteBuffer to convert
+     * @return the String representation of the ByteBuffer
+     */
+    public static String getString(ByteBuffer byteBuffer) {
+        byte[] byteArray = new byte[byteBuffer.remaining()];
+        byteBuffer.get(byteArray);
+        return new String(byteArray, charset);
+    }
+}
+
+
+but the DescribeKeyResult and ListAliasesKeyResult returns null, compared to the previous KMSServiceImpl, here it returns null
