@@ -1,59 +1,8 @@
-package com.safepage.security.service.impl;
+/home/abalakrishna/glab/pcap-server/sp-security/src/main/java/com/safepage/security/service/impl/KMSServiceImpl.java:35:29
+java: method encrypt in interface com.empower.epw.aws.api.kms.EpwKmsService cannot be applied to given types;
+  required: com.empower.epw.aws.api.kms.dto.EncryptRequestDTO
+  found:    java.lang.String,java.lang.String
+  reason: actual and formal argument lists differ in length
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
-import com.amazonaws.services.kms.model.DescribeKeyResult;
-import com.amazonaws.services.kms.model.ListAliasesResult;
-import com.safepage.security.epw.config.ApplicationContextProvider;
-import com.safepage.exception.SafePageException;
-import com.empower.epw.aws.api.kms.EpwKmsService;
-import com.safepage.security.service.KMSService;
-
-/**
- * @author dizadi
- */
-@Service
-public class KMSServiceImpl implements KMSService
-{
-	private final EpwKmsService epwKmsService;
-
-	@Autowired
-	public KMSServiceImpl(EpwKmsService epwKmsService)
-	{
-		this.epwKmsService = epwKmsService;
-	}
-
-	public static KMSService getInstance()
-	{
-		return ApplicationContextProvider.getBean(KMSService.class);
-	}
-
-	@Override
-	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
-	{
-		return epwKmsService.encrypt(plainText, keyId);
-	}
-
-	@Override
-	public String decryptUsingAWSKey(String cipherText) throws SafePageException
-	{
-		return epwKmsService.decrypt(cipherText);
-	}
-
-	@Override
-	@Deprecated
-	public DescribeKeyResult describeKey(String keyId)
-	{
-		return epwKmsService.describeKey(keyId);
-	}
-
-	@Override
-	@Deprecated
-	public ListAliasesResult getKeyAliases(String keyId)
-	{
-		return epwKmsService.getKeyAliases(keyId);
-	}
-}
-
-how must this be refactored
+/home/abalakrishna/glab/pcap-server/sp-security/src/main/java/com/safepage/security/service/impl/KMSServiceImpl.java:41:38
+java: incompatible types: java.lang.String cannot be converted to com.empower.epw.aws.api.kms.dto.DecryptRequestDTO
