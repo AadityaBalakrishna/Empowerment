@@ -1,6 +1,6 @@
-public String encrypt(String plainText, String keyId) throws SafePageException
+public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
 	{
-		if (org.apache.commons.lang3.StringUtils.isEmpty(plainText))
+		if (StringUtils.isEmpty(plainText))
 		{
 			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
 		}
@@ -8,7 +8,6 @@ public String encrypt(String plainText, String keyId) throws SafePageException
 		{
 			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
 		}
-
 		try
 		{
 			EncryptRequest encryptRequest = new EncryptRequest().withKeyId(keyId)
@@ -45,4 +44,5 @@ public String encrypt(String plainText, String keyId) throws SafePageException
 		return null;
 	}
 
-refactor this exactly like how it is with DTOs
+
+sorry this is the original V1 code, refactro this with DTOs
