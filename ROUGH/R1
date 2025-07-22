@@ -1,4 +1,4 @@
-package com.safepage.security.service.impl;
+package com.empower.epw.sdk.v1.adapter.kms;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -6,37 +6,38 @@ import java.nio.charset.StandardCharsets;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.springframework.stereotype.Service;
 
 import com.amazonaws.services.kms.AWSKMS;
 import com.amazonaws.services.kms.AWSKMSClient;
 import com.amazonaws.services.kms.model.DecryptRequest;
 import com.amazonaws.services.kms.model.DecryptResult;
-import com.amazonaws.services.kms.model.DescribeKeyRequest;
-import com.amazonaws.services.kms.model.DescribeKeyResult;
 import com.amazonaws.services.kms.model.DisabledException;
 import com.amazonaws.services.kms.model.EncryptRequest;
 import com.amazonaws.services.kms.model.EncryptResult;
 import com.amazonaws.services.kms.model.InvalidCiphertextException;
 import com.amazonaws.services.kms.model.KeyUnavailableException;
-import com.amazonaws.services.kms.model.ListAliasesRequest;
-import com.amazonaws.services.kms.model.ListAliasesResult;
+import com.empower.epw.aws.api.kms.dto.DecryptRequestDTO;
+import com.empower.epw.aws.api.kms.dto.DecryptResponseDTO;
+import com.empower.epw.aws.api.kms.dto.EncryptRequestDTO;
+import com.empower.epw.aws.api.kms.dto.EncryptResponseDTO;
 import com.personalcapital.aws.AWSCredentialsManager;
 import com.personalcapital.log.PcapLogger;
 import com.personalcapital.log.PcapLoggerFactory;
 import com.safepage.error.SafePageErrorType;
 import com.safepage.exception.SafePageException;
-import com.safepage.security.service.KMSService;
+import com.empower.epw.aws.api.kms.EpwKmsService;
 import com.safepage.util.Utils;
 
-/**
- * @author dizadi
- */
-public class KMSServiceImpl implements KMSService
+@Service("epwKmsServiceV1")
+public class EpwKmsServiceImpl implements EpwKmsService
 {
-	private AWSKMS kmsClient = null;
-	private static PcapLogger logger = PcapLoggerFactory.getPcapLogger(KMSServiceImpl.class);
 
-	private static Charset charset = StandardCharsets.UTF_8;
+	private static final PcapLogger logger = PcapLoggerFactory
+			.getPcapLogger(EpwKmsServiceImpl.class);
+	private static final Charset charset = StandardCharsets.UTF_8;
+
+	private AWSKMS kmsClient;
 
 	private AWSKMS getKMSClient()
 	{
@@ -50,107 +51,59 @@ public class KMSServiceImpl implements KMSService
 		return kmsClient;
 	}
 
-	// private constructor
-	private KMSServiceImpl()
-	{
-		/*
-		 * 1. can only be initialized using inner static class on first access.
-		 */
-		logger.info("Initialized the KMSServiceImpl");
-	}
-
-	/*
-	 * Bill Pugh Singleton creation using static inner class, thread safe and no synchronized block
-	 */
-	private static class KMSServiceHolder
-	{
-		private static final KMSService INSTANCE = new KMSServiceImpl();
-	}
-
-	public static KMSService getInstance()
-	{
-		/*
-		 * only when someone calls the method, this class gets loaded and creates the Singleton
-		 * class instance
-		 */
-		return KMSServiceHolder.INSTANCE;
-
-	}
-
-	/**
-	 * Encrypt data key (system secondary key) under AWS CMK Key using IAM role to access the key
-	 * AWS CMK
-	 * 
-	 * @throws SafePageException
-	 */
 	@Override
-	// @Retryable(value =
-	// {
-	// Exception.class
-	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
-	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
-	{
-		if (StringUtils.isEmpty(plainText))
-		{
+	public EncryptResponseDTO encrypt(EncryptRequestDTO request) throws SafePageException {
+		if (StringUtils.isEmpty(request.getPlaintext())){
 			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
 		}
-		if (StringUtils.isEmpty(keyId))
-		{
+		if (StringUtils.isEmpty(request.getKeyId())){
 			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
 		}
 		try
 		{
-			EncryptRequest encryptRequest = new EncryptRequest().withKeyId(keyId)
-					.withPlaintext(getByteBuffer(plainText));
+			EncryptRequest encryptRequest = new EncryptRequest().withKeyId(request.getKeyId())
+					.withPlaintext(getByteBuffer(request.getPlaintext()));
 			long start = System.currentTimeMillis();
 			EncryptResult result = getKMSClient().encrypt(encryptRequest);
 			if (result != null && result.getCiphertextBlob() != null)
 			{
 				long end = System.currentTimeMillis();
 				logger.info("encryptData took {} " + (end - start));
-				return Utils.encodeBase64(result.getCiphertextBlob()
+
+				String encoded = Utils.encodeBase64(result.getCiphertextBlob()
 						.array());
+				return new EncryptResponseDTO(encoded);
 			}
 			logger.error("encryptUsingAWSKey failed, EncryptResult is null!");
-			return null;
+			return new EncryptResponseDTO(null);
 		}
 		catch (DisabledException de)
 		{
 			logger.error(
 					"Failed to encryptUsingAWSKey(DisabledException), plainText:{}, keyId:{}, due to:{}",
-					plainText, keyId, ExceptionUtils.getMessage(de), de);
+					request.getPlaintext(), request.getKeyId(), ExceptionUtils.getMessage(de), de);
 		}
 		catch (KeyUnavailableException kue)
 		{
 			logger.error(
 					"Failed to encryptUsingAWSKey(KeyUnavailableException), plainText:{}, keyId:{}, due to:{}",
-					plainText, keyId, ExceptionUtils.getMessage(kue), kue);
+					request.getPlaintext(), request.getKeyId(), ExceptionUtils.getMessage(kue), kue);
 		}
 		catch (Exception ex)
 		{
 			logger.error("Failed to encryptUsingAWSKey, plainText:{}, keyId:{}, due to:{}",
-					plainText, keyId, ExceptionUtils.getMessage(ex), ex);
+					request.getPlaintext(), request.getKeyId(), ExceptionUtils.getMessage(ex), ex);
 		}
 		return null;
 	}
 
-	/**
-	 * Decrypt encrypted data key under AWS CMK Key using IAM role to access the key
-	 */
 	@Override
-	// @Retryable(value =
-	// {
-	// Exception.class
-	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
-	public String decryptUsingAWSKey(String cipherText) throws SafePageException
-	{
-		if (StringUtils.isEmpty(cipherText))
-		{
+	public DecryptResponseDTO decrypt(DecryptRequestDTO request) throws SafePageException {
+		if (StringUtils.isEmpty(request.getCiphertext())){
 			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
 		}
-		try
-		{
-			byte[] decodedCipherText = Utils.decodeBase64(cipherText);
+		try{
+			byte[] decodedCipherText = Utils.decodeBase64(request.getCiphertext());
 			DecryptRequest decryptRequest = new DecryptRequest()
 					.withCiphertextBlob(ByteBuffer.wrap(decodedCipherText));
 			long start = System.currentTimeMillis();
@@ -158,7 +111,8 @@ public class KMSServiceImpl implements KMSService
 			long end = System.currentTimeMillis();
 			logger.info("decryptData took {}" + (end - start));
 			ByteBuffer plainTextBlob = result.getPlaintext();
-			return getString(plainTextBlob);
+			String decrypted = getString(plainTextBlob);
+			return new DecryptResponseDTO(decrypted);
 		}
 		catch (KeyUnavailableException kue)
 		{
@@ -166,7 +120,7 @@ public class KMSServiceImpl implements KMSService
 			// be retried.
 			logger.error(
 					"Failed to decryptUsingAWSKey(KeyUnavailableException), cipherText:{}, due to:{}",
-					cipherText, ExceptionUtils.getMessage(kue), kue);
+					request.getCiphertext(), ExceptionUtils.getMessage(kue), kue);
 		}
 		catch (InvalidCiphertextException ice)
 		{
@@ -176,63 +130,47 @@ public class KMSServiceImpl implements KMSService
 			// otherwise invalid.
 			logger.error(
 					"Failed to decryptUsingAWSKey(InvalidCiphertextException), cipherText:{}, due to:{}",
-					cipherText, ExceptionUtils.getMessage(ice), ice);
+					request.getCiphertext(), ExceptionUtils.getMessage(ice), ice);
 		}
 		catch (DisabledException de)
 		{
 			logger.error(
 					"Failed to decryptUsingAWSKey(DisabledException), cipherText:{}, due to:{}",
-					cipherText, ExceptionUtils.getMessage(de), de);
+					request.getCiphertext(), ExceptionUtils.getMessage(de), de);
 		}
 		catch (Exception ex)
 		{
-			logger.error("Failed to decryptUsingAWSKey, cipherText:{}, due to:{}", cipherText,
+			logger.error("Failed to decryptUsingAWSKey, cipherText:{}, due to:{}", request.getCiphertext(),
 					ExceptionUtils.getMessage(ex), ex);
 		}
-
 		return null;
 	}
 
-	public static String getString(ByteBuffer byteBuffer)
-	{
-		byte[] byteArray = new byte[byteBuffer.remaining()];
-		byteBuffer.get(byteArray);
-		return new String(byteArray, charset);
-	}
-
+	/**
+	 * Converts a String to a ByteBuffer using the specified charset.
+	 *
+	 * @param string
+	 *            the String to convert
+	 * @return the ByteBuffer representation of the String
+	 */
 	public static ByteBuffer getByteBuffer(String string)
 	{
 		return ByteBuffer.wrap(string.getBytes(charset));
 	}
 
 	/**
-	 * Create a new customer master key. <br>
-	 * Customer master key (CMK) is designed to encrypt and decrypt data keys (System Secondary
-	 * Key). CMK cannot be used to encrypt/decrypt data more than 4 KB (4096 bytes) of data.
+	 * Converts a ByteBuffer to a String using the specified charset.
+	 *
+	 * @param byteBuffer
+	 *            the ByteBuffer to convert
+	 * @return the String representation of the ByteBuffer
 	 */
-	// public void createCMK()
-	// {
-	// String desc = "PCAP Master Key for encrypting system secondary keys";
-	// CreateKeyRequest req = new CreateKeyRequest().withDescription(desc);
-	// CreateKeyResult result = getKMSClient().createKey(req);
-	// }
-
-	@Override
-	public DescribeKeyResult describeKey(String keyId)
+	public static String getString(ByteBuffer byteBuffer)
 	{
-		DescribeKeyRequest describeKeyRequest = new DescribeKeyRequest().withKeyId(keyId);
-		DescribeKeyResult result = getKMSClient().describeKey(describeKeyRequest);
-		return result;
-	}
-
-	@Override
-	public ListAliasesResult getKeyAliases(String keyId)
-	{
-		ListAliasesRequest listAliasesRequest = new ListAliasesRequest().withLimit(10);
-		ListAliasesResult result = getKMSClient().listAliases(listAliasesRequest);
-		return result;
+		byte[] byteArray = new byte[byteBuffer.remaining()];
+		byteBuffer.get(byteArray);
+		return new String(byteArray, charset);
 	}
 }
 
-
-give me the refactored KMSServiceImpl
+this is the new EpwKmsServiceImpl,that you gave me, so see and make the necessary refactoring in KmsServiceImpl
