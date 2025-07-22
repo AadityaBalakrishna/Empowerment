@@ -1,53 +1,20 @@
-public String decryptUsingAWSKey(String cipherText) throws SafePageException
+	@Override
+	public DescribeKeyResult describeKey(String keyId)
 	{
-		if (StringUtils.isEmpty(cipherText))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
-		}
-		try
-		{
-			byte[] decodedCipherText = Utils.decodeBase64(cipherText);
-			DecryptRequest decryptRequest = new DecryptRequest()
-					.withCiphertextBlob(ByteBuffer.wrap(decodedCipherText));
-			long start = System.currentTimeMillis();
-			DecryptResult result = getKMSClient().decrypt(decryptRequest);
-			long end = System.currentTimeMillis();
-			logger.info("decryptData took {}" + (end - start));
-			ByteBuffer plainTextBlob = result.getPlaintext();
-			return getString(plainTextBlob);
-		}
-		catch (KeyUnavailableException kue)
-		{
-			// The request was rejected because the specified CMK was not available. The request can
-			// be retried.
-			logger.error(
-					"Failed to decryptUsingAWSKey(KeyUnavailableException), cipherText:{}, due to:{}",
-					cipherText, ExceptionUtils.getMessage(kue), kue);
-		}
-		catch (InvalidCiphertextException ice)
-		{
-			// The request was rejected because the specified ciphertext, or additional
-			// authenticated data incorporated
-			// into the ciphertext, such as the encryption context, is corrupted, missing, or
-			// otherwise invalid.
-			logger.error(
-					"Failed to decryptUsingAWSKey(InvalidCiphertextException), cipherText:{}, due to:{}",
-					cipherText, ExceptionUtils.getMessage(ice), ice);
-		}
-		catch (DisabledException de)
-		{
-			logger.error(
-					"Failed to decryptUsingAWSKey(DisabledException), cipherText:{}, due to:{}",
-					cipherText, ExceptionUtils.getMessage(de), de);
-		}
-		catch (Exception ex)
-		{
-			logger.error("Failed to decryptUsingAWSKey, cipherText:{}, due to:{}", cipherText,
-					ExceptionUtils.getMessage(ex), ex);
-		}
+		DescribeKeyRequest describeKeyRequest = new DescribeKeyRequest().withKeyId(keyId);
+		DescribeKeyResult result = getKMSClient().describeKey(describeKeyRequest);
+		return result;
+	}
 
-		return null;
+	@Override
+	public ListAliasesResult getKeyAliases(String keyId)
+	{
+		ListAliasesRequest listAliasesRequest = new ListAliasesRequest().withLimit(10);
+		ListAliasesResult result = getKMSClient().listAliases(listAliasesRequest);
+		return result;
 	}
 
 
-now let's do the same for decrypt
+although this will be annotated deprecated and now used in test class, how to tackle this with the new DTOs if required in service and in impl class, 
+
+the above snippet is how it's used in the v1 version of the code
