@@ -1,8 +1,58 @@
-/home/abalakrishna/glab/pcap-server/sp-security/src/main/java/com/safepage/security/service/impl/KMSServiceImpl.java:35:29
-java: method encrypt in interface com.empower.epw.aws.api.kms.EpwKmsService cannot be applied to given types;
-  required: com.empower.epw.aws.api.kms.dto.EncryptRequestDTO
-  found:    java.lang.String,java.lang.String
-  reason: actual and formal argument lists differ in length
+package com.empower.epw.aws.service.config;
 
-/home/abalakrishna/glab/pcap-server/sp-security/src/main/java/com/safepage/security/service/impl/KMSServiceImpl.java:41:38
-java: incompatible types: java.lang.String cannot be converted to com.empower.epw.aws.api.kms.dto.DecryptRequestDTO
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import software.amazon.awssdk.services.s3.S3Client;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+
+@Configuration
+public class AwsS3Configuration
+{
+
+	// Shared AmazonS3 client for AWS SDK v1
+	@Bean
+	@ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v1", matchIfMissing = true)
+	public AmazonS3 amazonS3Client()
+	{
+		return AmazonS3ClientBuilder.standard()
+				.build();
+	}
+
+	// Shared S3Client for AWS SDK v2
+	@Bean
+	@ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v2")
+	public S3Client s3Client()
+	{
+		return S3Client.builder()
+				.build();
+	}
+
+	@Bean
+	@ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v2")
+	public S3Presigner s3Presigner()
+	{
+		return S3Presigner.builder()
+				.build();
+	}
+
+	// Conditional adapter for AWS SDK v1
+	@Bean(name = "awsS3Service")
+	@ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v1", matchIfMissing = true)
+	public com.empower.epw.sdk.v1.adapter.AwsS3ServiceImpl awsS3ServiceV1(AmazonS3 amazonS3Client)
+	{
+		return new com.empower.epw.sdk.v1.adapter.AwsS3ServiceImpl(amazonS3Client);
+	}
+
+	// Conditional adapter for AWS SDK v2
+	@Bean(name = "awsS3Service")
+	@ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v2")
+	public com.empower.epw.sdk.v2.adapter.AwsS3ServiceImpl awsS3ServiceV2(S3Client s3Client,
+			S3Presigner s3Presigner)
+	{
+		return new com.empower.epw.sdk.v2.adapter.AwsS3ServiceImpl(s3Client, s3Presigner);
+	}
+
+}
