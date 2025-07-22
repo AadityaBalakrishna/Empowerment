@@ -1,51 +1,33 @@
-package com.empower.epw.aws.api.kms.dto;
+@Override
+public DescribeKeyDTO describeKey(String keyId) {
+    DescribeKeyRequest request = new DescribeKeyRequest().withKeyId(keyId);
+    DescribeKeyResult result = getKMSClient().describeKey(request);
 
-public class DescribeKeyDTO {
-    private String keyId;
-    private String keyArn;
-    private String keyState;
-
-    // Getters and Setters
-    public String getKeyId() {
-        return keyId;
+    if (result != null && result.getKeyMetadata() != null) {
+        KeyMetadata metadata = result.getKeyMetadata();
+        DescribeKeyDTO dto = new DescribeKeyDTO();
+        dto.setKeyId(metadata.getKeyId());
+        dto.setKeyArn(metadata.getArn());
+        dto.setKeyState(metadata.getKeyState());
+        return dto;
     }
 
-    public void setKeyId(String keyId) {
-        this.keyId = keyId;
-    }
-
-    public String getKeyArn() {
-        return keyArn;
-    }
-
-    public void setKeyArn(String keyArn) {
-        this.keyArn = keyArn;
-    }
-
-    public String getKeyState() {
-        return keyState;
-    }
-
-    public void setKeyState(String keyState) {
-        this.keyState = keyState;
-    }
+    return null;
 }
 
-package com.empower.epw.aws.api.kms.dto;
+@Override
+public ListAliasesDTO getKeyAliases(String keyId) {
+    ListAliasesRequest request = new ListAliasesRequest().withLimit(10); // keyId unused here, keeping as-is
+    ListAliasesResult result = getKMSClient().listAliases(request);
 
-import java.util.List;
-
-public class ListAliasesDTO {
-    private List<String> aliases;
-
-    // Getters and Setters
-    public List<String> getAliases() {
-        return aliases;
+    ListAliasesDTO dto = new ListAliasesDTO();
+    if (result != null && result.getAliases() != null) {
+        List<String> aliasNames = result.getAliases()
+            .stream()
+            .map(AliasListEntry::getAliasName)
+            .collect(Collectors.toList());
+        dto.setAliases(aliasNames);
     }
 
-    public void setAliases(List<String> aliases) {
-        this.aliases = aliases;
-    }
+    return dto;
 }
-
-what about these two already created by copilot?
