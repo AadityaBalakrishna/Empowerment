@@ -1,49 +1,27 @@
-package com.epw.aws.service.config;
+private static final String DEFAULT_AWS_REGION = "us-west-2";
+	public static final String AWS_REGION_KEY = "aws.region";
+	public static final String AWS_PROFILE = "aws.profile";
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
-
-import com.amazonaws.services.kms.AWSKMS;
-import com.amazonaws.services.kms.AWSKMSClientBuilder;
-import com.empower.epw.aws.api.kms.EpwKmsService;
-import com.empower.epw.sdk.v1.adapter.kms.EpwKmsServiceImpl;
-import software.amazon.awssdk.services.kms.KmsClient;
-
-@Configuration
-public class EpwAwsKmsAutoConfig
-{
-
+	/**
+	 * Provides an AWSCredentialsProvider that uses a specific profile if the "aws.profile" system
+	 * property is set, otherwise falls back to the standard credentials provider chain.
+	 *
+	 * @return AWSCredentialsProvider instance
+	 */
 	@Bean
-	@ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v1", matchIfMissing = true)
-	public AWSKMS awsKmsClient()
+	public AWSCredentialsProvider awsCredentialsProvider()
 	{
-		return AWSKMSClientBuilder.standard()
-				.build();
+		String profileName = System.getProperty(AWS_PROFILE);
+
+		if (StringUtils.hasText(profileName))
+		{
+			return new ProfileCredentialsProvider(profileName);
+		}
+		else
+		{
+			return DefaultAWSCredentialsProviderChain.getInstance();
+		}
 	}
 
-	@Bean
-	@ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v2")
-	public KmsClient kmsClient()
-	{
-		return KmsClient.create();
-	}
 
-	@Bean
-	@Primary
-	@ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v1", matchIfMissing = true)
-	public EpwKmsService epwKmsService(AWSKMS awsKmsClient)
-	{
-		return new EpwKmsServiceImpl(awsKmsClient);
-	}
-
-	// @Bean
-	// @ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v2")
-	// public EpwKmsService epwKmsService(KmsClient kmsClient) {
-	// return new EpwKmsServiceImpl(kmsClient);
-	// }
-}
-
-
-this is my autocofing, can you refactor it accordingly?
+can this method be used?
