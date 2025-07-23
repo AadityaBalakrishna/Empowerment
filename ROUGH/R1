@@ -1,90 +1,26 @@
-public class CryptEngine implements ApplicationListener<ContextRefreshedEvent>, Encryptor, Decryptor
-{
-	protected static PcapLogger logger = PcapLoggerFactory.getPcapLogger(CryptEngine.class);
-
-	@Value("${user.seed.minIdlePoolsize:10}")
-	private int minIdleSeedPoolSize;
-
-	@Value("${user.seed.maxIdlePoolsize:50}")
-	private int maxIdleUserSeedPoolSize;
-
-	@Value("${user.seed.maxPoolsize:1000}")
-	private int maxUserSeedPoolSize;
-
-	@Value("${user.seed.timeBetweenEvictionRunsInSeconds:30}")
-	private int timeBetweenEvictionRunsInSeconds;
-
-	static final String SAFEPAGE_USER_ID = "SAFEPAGE_USER_ID";
-	static final String SAFEPAGE_PAYLOAD = "SAFEPAGE_PAYLOAD";
-
-	public static final int GCM_INITIAL_VECTOR_LENGTH_BYTE = 12;
-	public static final int GCM_AUTHENTICATION_TAG_LENGTH_BITS = 128;
-
-	private final int MINIMUM_LENGTH_FOR_ENCRYPTED_STRINGS = 24;
-
-	@Autowired
-	private BeanFactory beanFactory;
-
-	private KeyManager keyManager;
-
-	private ObjectPool<String> pool;
-
-	private SafePageExecutor spExecutor;
-
-	private KMSServiceImpl kmsService;
-
-this is how it starts......
-these are the two places where it is used:
-protected String encryptUsingSystemPrimaryKey(String rawValue) throws Exception
+	@Override
+	public void onApplicationEvent(ContextRefreshedEvent applicationEvent)
 	{
-		if (this.getKeyManager()
-				.isSystmePrimaryKeyMigratedToAWS())
-		{
-			if (StringUtils.isEmpty(this.getKeyManager()
-					.getSystemPrimaryAliasName()))
-			{
-				throw new SafePageException("systemPrimaryAliasName is null!");
-			}
-			String result = kmsService.encryptUsingAWSKey(rawValue, this.getKeyManager()
-					.getSystemPrimaryAliasName());
-			if (StringUtils.isNoneEmpty(result))
-			{
-				return CryptType.SYSTEM_PRIMARY.getVersion() + result;
-			}
-		}
-		return null;
-	}
-
-protected String decryptUsingSystemPrimaryKey(String encryptedValue) throws Exception
-	{
-		if (StringUtils.isEmpty(encryptedValue))
-		{
-			return null;
-		}
 		try
 		{
-			/*
-			 * Data encrypted with system primary keys are formatted as [version][encrypted data];
-			 * e.g. V1encrypteddata
-			 */
-			String version = CryptType.getVersionFromEncryptedData(encryptedValue);
-			if (StringUtils.isNotEmpty(version))
+			ServerConfigurer serverConfigurer = (ServerConfigurer) beanFactory
+					.getBean("serverConfigurer");
+			if (serverConfigurer == null || serverConfigurer.isDevOrLocalEnvironment()
+					|| AppType.ROOT != serverConfigurer.getAppType())
 			{
-				encryptedValue = encryptedValue.substring(CryptType.SEED_VERSION_LENGTH);
-				// System Primary key in AWS KMS will be version V2
-				if (CryptType.V2.equals(version))
-				{
-					return kmsService.decryptUsingAWSKey(encryptedValue);
-				}
+				return;
 			}
+
+			logger.info("Initializing KeySeed pool");
+
+			CreatePrimaryKeySeed createPrimaryKeySeed = new CreatePrimaryKeySeed();
+			this.getSafePageExecutor()
+					.execute(createPrimaryKeySeed);
 		}
-		catch (Exception anException)
+		catch (BeansException ex)
 		{
-			logger.warn("Failed to decrypt because: ", anException);
+			// bean not found
 		}
-		return null;
 	}
 
-
-
-
+i should make changes in this?
