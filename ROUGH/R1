@@ -1,55 +1,20 @@
-Parent task description: 
-The KMSService is a critical, widely-used component for encryption and decryption across many services using CryptEngine and various background jobs.
-This task is to refactor the KMS functionality to support both SDK v1 and v2 simultaneously
-Currently, its interface and implementation are tightly coupled to the old AWS SDK v1, which blocks our platform-wide upgrade to SDK v2.
-Add @Deprecated annotations to the describeKey and getKeyAliases methods in the old KMSService interface. The existing KMSService will be refactored to delegate calls to this new system, ensuring 100% backward compatibility for all existing consumers
+4 modules created: (epw-aws, epw-aws-api, epw-aws-sdk-v1-adapter, epw-aws-sdk-v2-adapter)
 
-Acceptance Criteria:
-KMS Service should support both v1 and v2.
-Validate Keys encrypted using v1 should decrypt using v2 - Test case
+Contents of these modules
+1. epw-aws:
+- epw-aws/src/main/java/com/epw/aws/service/config/EpwAwsKmsAutoConfig.java
+- epw-aws/src/main/resources/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports
 
-Sub task 1 :
-1) Go through the KMS Migration Guide  --> yet to be done
-2) Perform a quick smoke test to confirm that data encrypted with the v2 adapter can be successfully decrypted. -- done
-Acceptance Criteria:
-A known piece of plaintext is successfully encrypted using the v2 adapter.
-The resulting ciphertext is successfully decrypted.
-The decrypted text exactly matches the original plaintext.
+2. epw-aws-api
+- epw-aws-api/src/main/java/com/empower/epw/aws/api/kms/dto/DecryptRequestDTO.java
+- epw-aws-api/src/main/java/com/empower/epw/aws/api/kms/dto/DecryptResponseDTO.java
+- epw-aws-api/src/main/java/com/empower/epw/aws/api/kms/dto/EncryptRequestDTO.java
+- epw-aws-api/src/main/java/com/empower/epw/aws/api/kms/dto/EncryptResponseDTO.java
+- epw-aws-api/src/main/java/com/empower/epw/aws/api/kms/EpwKmsService.java
 
-Sub task 2: 
-Description
-Create the new, clean EpwKmsService interface and any necessary DTOs.
-Create the empty class files for EpwKmsServiceImpl(v1) and EpwKmsServiceImpl(v2).
-Set up the integration test class with Testcontainers and LocalStack.
-Self-Validation:
-Write a simple unit test to ensure the new DTOs work as expected.
+3. epw-aws-sdk-v1-adapter
+- epw-aws-sdk-v1-adapter/src/main/java/com/empower/epw/sdk/v1/adapter/kms/EpwKmsServiceImpl.java
+- epw-aws-sdk-v1-adapter/src/test/java/com/empower/epw/sdk/v1/adapter/kms/EpwKmsServiceImplIntegrationTest.java
 
-Sub Task 3:
-Implement the EpwKmsServiceV1Impl by "lifting and shifting" the existing logic.
-Refactor the old KMSServiceImpl from a manual singleton to a Spring that injects and delegates to the new EpwKmsService.
-Self-Validation:
-Run the existing unit tests for KMSServiceImpl. They must all pass after the refactoring to prove nothing was broken.
-
-Sub Task 4:
-Implement the EpwKmsServiceV2Impl using the new AWS SDK v2.
-Self-Validation:
-Write a simple integration test that calls the encrypt and decrypt methods on the v2 adapter to prove the core logic works against the local container.
-
-Sub Task 5:
-Find all internal consumers that use KMSServiceImpl.getInstance() (like crypt-engine).
-Refactor them to use @Autowired dependency injection.
-Self-Validation:
-Ensure the entire pcap-server compiles successfully.
-Update and run the unit tests for the refactored consumer classes.
-
-Sub Task 6:
-Write the complete integration test suite to cover all methods in the EpwKmsService interface.
-Self-Validation:
-Run the full integration test suite twice: once with the system defaulted to v1 and once with the configuration switched to v2, ensuring all tests pass in both modes.
-Identify a key service that uses crypt-engine. Run that consuming service locally, point it to your local built snapshot. Perform a manual smoke test on the main encryption features to validate that the end-to-end flow works correctly.
-Run the pcap-server as MR container, perform end-to-end validation. The test involves running the root service with both the v1 and v2 adapters (changing using pcap-config) and verifying success by checking Splunk logs for the correct v1 and v2.
-
-Sub Task 7:
-Create the Merge Request with all the changes and address any peer review feedback.
-Write the draft documentation for the new EpwKmsService.
-Create the formal QA test plan. 
+4. epw-aws-sdk-v2-adapter
+- epw-aws-sdk-v2-adapter/src/main/java/com/empower/epw/sdk/v2/adapter/kms/EpwKmsServiceImpl.java
