@@ -1,22 +1,78 @@
+From kmsserviceimpl
+	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
+	{
+		if (StringUtils.isEmpty(plainText))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
+		}
+		if (StringUtils.isEmpty(keyId))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
+		}
+
+		EncryptRequestDTO request = new EncryptRequestDTO(plainText, keyId);
+		EncryptResponseDTO response = epwKmsService.encrypt(request);
+
+		if (response == null || StringUtils.isEmpty(response.getCiphertext()))
+		{
+			logger.error("KMS encryption returned null or empty ciphertext.");
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "Encryption failed.");
+		}
+		return response.getCiphertext();
+	}
+
+from cryptengine:
+protected String encryptUsingSystemPrimaryKey(String rawValue) throws Exception
+	{
+		if (this.getKeyManager()
+				.isSystmePrimaryKeyMigratedToAWS())
+		{
+			if (StringUtils.isEmpty(this.getKeyManager()
+					.getSystemPrimaryAliasName()))
+			{
+				throw new SafePageException("systemPrimaryAliasName is null!");
+			}
+			String result = kmsService.encryptUsingAWSKey(rawValue, this.getKeyManager()
+					.getSystemPrimaryAliasName());
+			if (StringUtils.isNoneEmpty(result))
+			{
+				return CryptType.SYSTEM_PRIMARY.getVersion() + result;
+			}
+		}
+		return null;
+	}
+
+
+test that is failing:
+org.opentest4j.AssertionFailedError: expected: not <null>
+
 @Test
-    void testEncryptDecryptWithAlias() {
-        String plaintext = "hello-localstack-kms";
+	public void testEncryptDecryptUsingSystemPrimaryKey_AWS() throws Exception
+	{
+		when(keyManager.isSystmePrimaryKeyMigratedToAWS()).thenReturn(true);
+		when(keyManager.getSystemPrimaryAliasName())
+				.thenReturn("alias/app/pcap/pcap/system_primary/v1");
+		String plainSeedValue = rawSystemSecondaryKeySeed;
+		// Encrypt using system primary key
+		String encryptedSystemSecondaryKeySeed = cryptEngine
+				.encryptUsingSystemPrimaryKey(plainSeedValue);
+		assertNotNull(encryptedSystemSecondaryKeySeed);
+		assertTrue(
+				encryptedSystemSecondaryKeySeed.startsWith(CryptType.SYSTEM_PRIMARY.getVersion()));
 
-        // Encrypt
-        EncryptRequest encryptRequest = new EncryptRequest()
-                .withKeyId(KEY_ALIAS)
-                .withPlaintext(ByteBuffer.wrap(plaintext.getBytes(StandardCharsets.UTF_8)));
+		// Decrypt using system primary key
+		String decryptedSystemSecondaryKeySeed = cryptEngine
+				.decryptUsingSystemPrimaryKey(encryptedSystemSecondaryKeySeed);
+		assertNotNull(decryptedSystemSecondaryKeySeed);
+		assertEquals(decryptedSystemSecondaryKeySeed, plainSeedValue);
+	}
 
-        EncryptResult encryptResult = awsKms.encrypt(encryptRequest);
-        ByteBuffer ciphertextBlob = encryptResult.getCiphertextBlob();
-        assertNotNull(ciphertextBlob);
+mocks used in test
+/ Mock kmsService and inject it
+		KMSServiceImpl kmsService = mock(KMSServiceImpl.class);
+		setField(cryptEngine,"kmsService", kmsService);
 
-        // Decrypt
-        DecryptRequest decryptRequest = new DecryptRequest()
-                .withCiphertextBlob(ciphertextBlob);
+		// Mock behavior for kmsService.encryptUsingAWSKey
+		when(kmsService.encryptUsingAWSKey(anyString(), anyString())).thenReturn("mockedEncryptedValue");
+		when(kmsService.decryptUsingAWSKey(anyString())).thenReturn("mockedDecryptedValue");
 
-        DecryptResult decryptResult = awsKms.decrypt(decryptRequest);
-        String decryptedText = StandardCharsets.UTF_8.decode(decryptResult.getPlaintext()).toString();
-
-        assertEquals(plaintext, decryptedText);
-    }
