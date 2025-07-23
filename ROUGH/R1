@@ -1,26 +1,15 @@
-	@Override
-	public void onApplicationEvent(ContextRefreshedEvent applicationEvent)
-	{
-		try
-		{
-			ServerConfigurer serverConfigurer = (ServerConfigurer) beanFactory
-					.getBean("serverConfigurer");
-			if (serverConfigurer == null || serverConfigurer.isDevOrLocalEnvironment()
-					|| AppType.ROOT != serverConfigurer.getAppType())
-			{
-				return;
-			}
+20:35:14  2025-07-23 08:05:14,477 ERROR main [com.personalcapital.user.data.util.UserDataUtils] [] [] [] [] - Failed to generate user primary key: Cannot invoke "org.springframework.beans.factory.BeanFactory.getBean(String)" because "<local2>.beanFactory" is null
+20:35:14  java.lang.NullPointerException: Cannot invoke "org.springframework.beans.factory.BeanFactory.getBean(String)" because "<local2>.beanFactory" is null
+20:35:14  	at com.safepage.security.CryptEngine.getKeyManager(CryptEngine.java:134) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
+20:35:14  	at com.safepage.security.CryptEngine.generateUserPrimaryKey(CryptEngine.java:876) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
+20:35:14  	at com.safepage.security.CryptEngineFacade.generateUserPrimaryKey(CryptEngineFacade.java:62) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
+20:35:14  	at com.personalcapital.user.data.util.UserDataUtils.createUser(UserDataUtils.java:514) ~[classes/:?]
 
-			logger.info("Initializing KeySeed pool");
 
-			CreatePrimaryKeySeed createPrimaryKeySeed = new CreatePrimaryKeySeed();
-			this.getSafePageExecutor()
-					.execute(createPrimaryKeySeed);
-		}
-		catch (BeansException ex)
-		{
-			// bean not found
-		}
-	}
 
-i should make changes in this?
+20:35:23  2025-07-23 08:05:23,723 WARN main [com.safepage.security.CryptEngine] [] [] [] [] - Failed to decrypt because:
+20:35:23  java.lang.NullPointerException: Cannot invoke "com.safepage.security.service.impl.KMSServiceImpl.decryptUsingAWSKey(String)" because "<local3>.kmsService" is null
+20:35:23  	at com.safepage.security.CryptEngine.decryptUsingSystemPrimaryKey(CryptEngine.java:515) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
+
+20:35:23  2025-07-23 08:05:23,725 WARN main [com.safepage.security.CryptEngine] [] [] [] [] - Failed to decrypt because: java.lang.NullPointerException
+20:35:23  java.lang.NullPointerException: null
