@@ -1,123 +1,22 @@
-package com.empower.epw.sdk.v1.adapter.kms;
+@Test
+    void testEncryptDecryptWithAlias() {
+        String plaintext = "hello-localstack-kms";
 
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
+        // Encrypt
+        EncryptRequest encryptRequest = new EncryptRequest()
+                .withKeyId(KEY_ALIAS)
+                .withPlaintext(ByteBuffer.wrap(plaintext.getBytes(StandardCharsets.UTF_8)));
 
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.localstack.LocalStackContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
+        EncryptResult encryptResult = awsKms.encrypt(encryptRequest);
+        ByteBuffer ciphertextBlob = encryptResult.getCiphertextBlob();
+        assertNotNull(ciphertextBlob);
 
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.services.kms.AWSKMS;
-import com.amazonaws.services.kms.AWSKMSClientBuilder;
-import com.amazonaws.services.kms.model.DescribeKeyResult;
-import com.empower.epw.aws.api.kms.EpwKmsService;
-import com.safepage.exception.SafePageException;
+        // Decrypt
+        DecryptRequest decryptRequest = new DecryptRequest()
+                .withCiphertextBlob(ciphertextBlob);
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+        DecryptResult decryptResult = awsKms.decrypt(decryptRequest);
+        String decryptedText = StandardCharsets.UTF_8.decode(decryptResult.getPlaintext()).toString();
 
-@SpringBootTest( classes = {
-        EpwKmsServiceImpl.class,
-        EpwKmsServiceImplIntegrationTest.KMSTestConfig.class
-})
-@Testcontainers
-public class EpwKmsServiceImplIntegrationTest {
-
-        @Container
-        static LocalStackContainer localStack = new LocalStackContainer(
-                DockerImageName.parse("localstack/localstack:latest"))
-                .withServices(LocalStackContainer.Service.KMS)
-                .withReuse(true);
-
-        @DynamicPropertySource
-        static void overrideProperties(DynamicPropertyRegistry registry){
-                registry.add("cloud.aws.region.static", localStack::getRegion);
-                registry.add("cloud.aws.credentials.access-key", localStack::getAccessKey);
-                registry.add("cloud.aws.credentials.secret-key", localStack::getSecretKey);
-        }
-
-        @TestConfiguration
-        static class KMSTestConfig {
-                // Additional test configuration can be added here if needed
-                @Bean
-                public AWSKMS awskms(){
-                        return AWSKMSClientBuilder.standard()
-                                .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(
-                                        localStack.getEndpointOverride(LocalStackContainer.Service.KMS).toString(),
-                                        localStack.getRegion()))
-                                .withCredentials(new AWSStaticCredentialsProvider(
-                                        new BasicAWSCredentials(localStack.getAccessKey(), localStack.getSecretKey())))
-                                .build();
-                }
-
-                @Bean
-                public EpwKmsService epwKmsService(AWSKMS awskms) {
-                        return new EpwKmsServiceImpl(awskms);
-                }
-        }
-
-        @Autowired
-        private EpwKmsService epwKmsService;
-}
-
-
-
-public class KMSServiceImplTest
-{
-	private final static String AWS_CMK_KEY_ALIAS = "alias/app/pcap/pcap/system_primary/v1";
-
-	@Test
-	public void testEncryptDercrypt()
-	{
-		try
-		{
-			String plainTextToTest = "ammN3OegV2l6aM3UTDohq6T8ocsn/n7Q";
-			String cipherText = KMSServiceImpl.getInstance()
-					.encryptUsingAWSKey(plainTextToTest, AWS_CMK_KEY_ALIAS);
-			assertNotNull(cipherText);
-			assertTrue(cipherText.length() == 248);
-			String plainText = KMSServiceImpl.getInstance()
-					.decryptUsingAWSKey(cipherText);
-			assertNotNull(plainText);
-			assertTrue(plainText.equals(plainTextToTest));
-		}
-		catch (Exception ex)
-		{
-			Assertions
-					.fail("Faied to testEncryptDercrypt using AWS Key, dut to:" + ex.getMessage());
-		}
-	}
-
-	@Test
-	@Disabled
-	public void testGetAliasListForKey()
-	{
-		// list aliases for key
-		ListAliasesResult listAliasesResult = KMSServiceImpl.getInstance()
-				.getKeyAliases(AWS_CMK_KEY_ALIAS);
-		assertNotNull(listAliasesResult);
-		// result.getAliases().forEach(a->System.out.println(a.getAliasName()));
-	}
-
-	@Test
-	@Disabled
-	public void testDescribeKey()
-	{
-		// Describe key
-		DescribeKeyResult describeKeyResult = KMSServiceImpl.getInstance()
-				.describeKey(AWS_CMK_KEY_ALIAS);
-		assertNotNull(describeKeyResult);
-	}
-}
-
+        assertEquals(plaintext, decryptedText);
+    }
