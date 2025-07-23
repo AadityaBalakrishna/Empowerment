@@ -1,2 +1,90 @@
-[ERROR] Medium: Read of unwritten field kmsService in com.safepage.security.CryptEngine.decryptUsingSystemPrimaryKey(String) [com.safepage.security.CryptEngine] At CryptEngine.java:[line 511] NP_UNWRITTEN_FIELD
-20:07:51  [ERROR] Medium: Read of unwritten field kmsService in com.safepage.security.CryptEngine.encryptUsingSystemPrimaryKey(String) [com.safepage.security.CryptEngine] At CryptEngine.java:[line 350] NP_UNWRITTEN_FIELD
+public class CryptEngine implements ApplicationListener<ContextRefreshedEvent>, Encryptor, Decryptor
+{
+	protected static PcapLogger logger = PcapLoggerFactory.getPcapLogger(CryptEngine.class);
+
+	@Value("${user.seed.minIdlePoolsize:10}")
+	private int minIdleSeedPoolSize;
+
+	@Value("${user.seed.maxIdlePoolsize:50}")
+	private int maxIdleUserSeedPoolSize;
+
+	@Value("${user.seed.maxPoolsize:1000}")
+	private int maxUserSeedPoolSize;
+
+	@Value("${user.seed.timeBetweenEvictionRunsInSeconds:30}")
+	private int timeBetweenEvictionRunsInSeconds;
+
+	static final String SAFEPAGE_USER_ID = "SAFEPAGE_USER_ID";
+	static final String SAFEPAGE_PAYLOAD = "SAFEPAGE_PAYLOAD";
+
+	public static final int GCM_INITIAL_VECTOR_LENGTH_BYTE = 12;
+	public static final int GCM_AUTHENTICATION_TAG_LENGTH_BITS = 128;
+
+	private final int MINIMUM_LENGTH_FOR_ENCRYPTED_STRINGS = 24;
+
+	@Autowired
+	private BeanFactory beanFactory;
+
+	private KeyManager keyManager;
+
+	private ObjectPool<String> pool;
+
+	private SafePageExecutor spExecutor;
+
+	private KMSServiceImpl kmsService;
+
+this is how it starts......
+these are the two places where it is used:
+protected String encryptUsingSystemPrimaryKey(String rawValue) throws Exception
+	{
+		if (this.getKeyManager()
+				.isSystmePrimaryKeyMigratedToAWS())
+		{
+			if (StringUtils.isEmpty(this.getKeyManager()
+					.getSystemPrimaryAliasName()))
+			{
+				throw new SafePageException("systemPrimaryAliasName is null!");
+			}
+			String result = kmsService.encryptUsingAWSKey(rawValue, this.getKeyManager()
+					.getSystemPrimaryAliasName());
+			if (StringUtils.isNoneEmpty(result))
+			{
+				return CryptType.SYSTEM_PRIMARY.getVersion() + result;
+			}
+		}
+		return null;
+	}
+
+protected String decryptUsingSystemPrimaryKey(String encryptedValue) throws Exception
+	{
+		if (StringUtils.isEmpty(encryptedValue))
+		{
+			return null;
+		}
+		try
+		{
+			/*
+			 * Data encrypted with system primary keys are formatted as [version][encrypted data];
+			 * e.g. V1encrypteddata
+			 */
+			String version = CryptType.getVersionFromEncryptedData(encryptedValue);
+			if (StringUtils.isNotEmpty(version))
+			{
+				encryptedValue = encryptedValue.substring(CryptType.SEED_VERSION_LENGTH);
+				// System Primary key in AWS KMS will be version V2
+				if (CryptType.V2.equals(version))
+				{
+					return kmsService.decryptUsingAWSKey(encryptedValue);
+				}
+			}
+		}
+		catch (Exception anException)
+		{
+			logger.warn("Failed to decrypt because: ", anException);
+		}
+		return null;
+	}
+
+
+
+
