@@ -1,240 +1,190 @@
-package com.empower.epw.sdk.v1.adapter.sqs;
+package com.empower.epw.sdk.v1.adapter.kms;
 
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.services.sqs.AmazonSQS;
-import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
-import com.empower.epw.aws.dto.sqs.request.*;
-import com.empower.epw.aws.dto.sqs.result.SQSMessage;
-import com.empower.epw.aws.dto.sqs.result.SQSMessageBatchResponse;
-import org.junit.jupiter.api.Test;
-import org.mockito.Spy;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.localstack.LocalStackContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 
-import java.util.ArrayList;
-import java.util.List;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.springframework.stereotype.Service;
 
-import static org.junit.jupiter.api.Assertions.*;
+import com.amazonaws.services.kms.AWSKMS;
+import com.amazonaws.services.kms.model.DecryptRequest;
+import com.amazonaws.services.kms.model.DecryptResult;
+import com.amazonaws.services.kms.model.DescribeKeyRequest;
+import com.amazonaws.services.kms.model.DescribeKeyResult;
+import com.amazonaws.services.kms.model.DisabledException;
+import com.amazonaws.services.kms.model.EncryptRequest;
+import com.amazonaws.services.kms.model.EncryptResult;
+import com.amazonaws.services.kms.model.InvalidCiphertextException;
+import com.amazonaws.services.kms.model.KeyUnavailableException;
+import com.amazonaws.services.kms.model.ListAliasesRequest;
+import com.amazonaws.services.kms.model.ListAliasesResult;
+import com.empower.epw.aws.api.kms.dto.DecryptRequestDTO;
+import com.empower.epw.aws.api.kms.dto.DecryptResponseDTO;
+import com.empower.epw.aws.api.kms.dto.EncryptRequestDTO;
+import com.empower.epw.aws.api.kms.dto.EncryptResponseDTO;
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+import com.safepage.error.SafePageErrorType;
+import com.safepage.exception.SafePageException;
+import com.empower.epw.aws.api.kms.EpwKmsService;
+import com.safepage.util.Utils;
 
+@Service
+public class EpwKmsServiceImpl implements EpwKmsService
+{
 
-@SpringBootTest(classes = {
-        EpwSQSServiceImpl.class,
-        EpwSQSServiceImplIntegrationTest.SQSTestConfig.class
-})
-@Testcontainers
-public class EpwSQSServiceImplIntegrationTest {
+	private static final PcapLogger logger = PcapLoggerFactory
+			.getPcapLogger(EpwKmsServiceImpl.class);
+	private static final Charset charset = StandardCharsets.UTF_8;
 
-    public static final String DELETE_QUEUE_TEST = "delete-queue-test";
-    public static final String PURGE_QUEUE_TEST = "purge-queue-test";
-    public static final String DELETE_MESSAGE_TEST = "delete-message-test";
-    public static final String BATCH_QUEUE_TEST = "batch-queue-test";
+	private AWSKMS kmsClient;
 
-    @Container
-    static LocalStackContainer localStack = new LocalStackContainer(
-            DockerImageName.parse("localstack/localstack:0.11.3"))
-            .withServices(LocalStackContainer.Service.SQS)
-            .withReuse(true);
+	public EpwKmsServiceImpl(AWSKMS kmsClient)
+	{
+		this.kmsClient = kmsClient;
+	}
 
-    @TestConfiguration
-    static class SQSTestConfig {
-        @Bean
-        public AmazonSQS amazonSQS() {
-            return AmazonSQSClientBuilder.standard()
-                    .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(
-                            localStack.getEndpointOverride(LocalStackContainer.Service.SQS)
-                                    .toString(),
-                            localStack.getRegion()))
-                    .withCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials(localStack.getAccessKey(),
-                            localStack.getSecretKey())))
-                    .build();
-        }
-    }
+	@Override
+	public EncryptResponseDTO encrypt(EncryptRequestDTO request) throws SafePageException
+	{
+		if (StringUtils.isEmpty(request.getPlaintext()))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
+		}
+		if (StringUtils.isEmpty(request.getKeyId()))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
+		}
+		try
+		{
+			EncryptRequest encryptRequest = new EncryptRequest().withKeyId(request.getKeyId())
+					.withPlaintext(getByteBuffer(request.getPlaintext()));
+			long start = System.currentTimeMillis();
+			EncryptResult result = kmsClient.encrypt(encryptRequest);
+			if (result != null && result.getCiphertextBlob() != null)
+			{
+				long end = System.currentTimeMillis();
+				logger.info("encryptData took {} " + (end - start));
 
-    @DynamicPropertySource
-    static void overrideProperties(DynamicPropertyRegistry registry) {
-        registry.add("cloud.aws.region.static", localStack::getRegion);
-        registry.add("cloud.aws.credentials.access-key", localStack::getAccessKey);
-        registry.add("cloud.aws.credentials.secret-key", localStack::getSecretKey);
+				String encoded = Utils.encodeBase64(result.getCiphertextBlob()
+						.array());
+				return new EncryptResponseDTO(encoded);
+			}
+			logger.error("encryptUsingAWSKey failed, EncryptResult is null!");
+			return new EncryptResponseDTO(null);
+		}
+		catch (DisabledException de)
+		{
+			logger.error(
+					"Failed to encryptUsingAWSKey(DisabledException), plainText:{}, keyId:{}, due to:{}",
+					request.getPlaintext(), request.getKeyId(), ExceptionUtils.getMessage(de), de);
+		}
+		catch (KeyUnavailableException kue)
+		{
+			logger.error(
+					"Failed to encryptUsingAWSKey(KeyUnavailableException), plainText:{}, keyId:{}, due to:{}",
+					request.getPlaintext(), request.getKeyId(), ExceptionUtils.getMessage(kue),
+					kue);
+		}
+		catch (Exception ex)
+		{
+			logger.error("Failed to encryptUsingAWSKey, plainText:{}, keyId:{}, due to:{}",
+					request.getPlaintext(), request.getKeyId(), ExceptionUtils.getMessage(ex), ex);
+		}
+		return null;
+	}
 
-        registry.add("cloud.aws.sqs.endpoint",
-                () -> localStack.getEndpointOverride(LocalStackContainer.Service.SQS)
-                        .toString());
-    }
+	@Override
+	public DecryptResponseDTO decrypt(DecryptRequestDTO request) throws SafePageException
+	{
+		if (StringUtils.isEmpty(request.getCiphertext()))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
+		}
+		try
+		{
+			byte[] decodedCipherText = Utils.decodeBase64(request.getCiphertext());
+			DecryptRequest decryptRequest = new DecryptRequest()
+					.withCiphertextBlob(ByteBuffer.wrap(decodedCipherText));
+			long start = System.currentTimeMillis();
+			DecryptResult result = kmsClient.decrypt(decryptRequest);
+			long end = System.currentTimeMillis();
+			logger.info("decryptData took {}" + (end - start));
+			ByteBuffer plainTextBlob = result.getPlaintext();
+			String decrypted = getString(plainTextBlob);
+			return new DecryptResponseDTO(decrypted);
+		}
+		catch (KeyUnavailableException kue)
+		{
+			// The request was rejected because the specified CMK was not available. The request can
+			// be retried.
+			logger.error(
+					"Failed to decryptUsingAWSKey(KeyUnavailableException), cipherText:{}, due to:{}",
+					request.getCiphertext(), ExceptionUtils.getMessage(kue), kue);
+		}
+		catch (InvalidCiphertextException ice)
+		{
+			// The request was rejected because the specified ciphertext, or additional
+			// authenticated data incorporated
+			// into the ciphertext, such as the encryption context, is corrupted, missing, or
+			// otherwise invalid.
+			logger.error(
+					"Failed to decryptUsingAWSKey(InvalidCiphertextException), cipherText:{}, due to:{}",
+					request.getCiphertext(), ExceptionUtils.getMessage(ice), ice);
+		}
+		catch (DisabledException de)
+		{
+			logger.error(
+					"Failed to decryptUsingAWSKey(DisabledException), cipherText:{}, due to:{}",
+					request.getCiphertext(), ExceptionUtils.getMessage(de), de);
+		}
+		catch (Exception ex)
+		{
+			logger.error("Failed to decryptUsingAWSKey, cipherText:{}, due to:{}",
+					request.getCiphertext(), ExceptionUtils.getMessage(ex), ex);
+		}
+		return null;
+	}
 
-    @SpringBootApplication(exclude = DataSourceAutoConfiguration.class)
-    static class TestApplication {
-    }
+	/**
+	 * Converts a String to a ByteBuffer using the specified charset.
+	 *
+	 * @param string
+	 *            the String to convert
+	 * @return the ByteBuffer representation of the String
+	 */
+	public static ByteBuffer getByteBuffer(String string)
+	{
+		return ByteBuffer.wrap(string.getBytes(charset));
+	}
 
-    @Autowired
-    private EpwSQSServiceImpl sqsService;
+	/**
+	 * Converts a ByteBuffer to a String using the specified charset.
+	 *
+	 * @param byteBuffer
+	 *            the ByteBuffer to convert
+	 * @return the String representation of the ByteBuffer
+	 */
+	public static String getString(ByteBuffer byteBuffer)
+	{
+		byte[] byteArray = new byte[byteBuffer.remaining()];
+		byteBuffer.get(byteArray);
+		return new String(byteArray, charset);
+	}
 
-    @Autowired
-    private AmazonSQS amazonSQSClient;
+	@Override
+	@Deprecated
+	public ListAliasesResult listAliases(ListAliasesRequest listAliasesRequest)
+	{
+		return null;
+	}
 
-    @Test
-    void testCreateAndDeleteQueue() throws Exception {
-        // Create queue with name purge-queue-test
-        String createdUrl = sqsService.createQueue(DELETE_QUEUE_TEST);
-
-        // Queue url should be created containing the queue name in it
-        assertNotNull(createdUrl);
-        assertTrue(createdUrl.contains(DELETE_QUEUE_TEST));
-
-        // Delete the queue
-        sqsService.deleteQueue(createdUrl);
-
-        // GetQueueUrl should throw exception as queue is deleted
-        assertThrows(Exception.class, () -> sqsService.getQueueUrl(DELETE_QUEUE_TEST));
-    }
-
-    @Test
-    void testReceiveMessageAndPurgeQueue() throws Exception {
-        // Create queue with name purge-queue-test
-        String createdUrl = sqsService.createQueue(PURGE_QUEUE_TEST);
-        assertNotNull(createdUrl);
-        
-        // Send a message into the queue
-        SQSSendMessageRequest sendMessageRequest = SQSSendMessageRequest.builder()
-                .queueUrl(createdUrl)
-                .messageBody("Test message before purge")
-                .delaySeconds(1)
-                .build();
-        sqsService.sendMessage(sendMessageRequest);
-
-        SQSReceiveMessageRequest receiveMessageRequest = SQSReceiveMessageRequest.builder()
-                .queueUrl(createdUrl)
-                .visibilityTimeout(1)
-                .waitTimeSeconds(1)
-                .build();
-
-        // Read message from the queue before purge
-        List<SQSMessage> messages = sqsService.receiveMessage(receiveMessageRequest).getMessages();
-        assertFalse(messages.isEmpty(), "Queue should not be empty before purge.");
-
-        // Purge the queue
-        sqsService.purgeQueue(createdUrl);
-
-        // Read message from the queue after purge
-        List<SQSMessage> emptyMessages = sqsService.receiveMessage(receiveMessageRequest).getMessages();
-        assertTrue(emptyMessages.isEmpty(), "Queue should be empty after purge.");
-    }
-
-    @Test
-    void testDeleteMessage() throws Exception {
-        // Create queue with name delete-message-test
-        String createdUrl = sqsService.createQueue(BATCH_QUEUE_TEST);
-        assertNotNull(createdUrl);
-
-        // Send batch messages into the queue
-
-        SQSSendMessageBatchRequest messageBatchRequest = getSqsSendMessageBatchRequest(createdUrl);
-
-        SQSMessageBatchResponse sendMessageBatchResult = sqsService.sendMessageBatch(messageBatchRequest);
-        assertNotNull(sendMessageBatchResult);
-
-        // Read messages from the queue
-        SQSReceiveMessageRequest receiveMessageRequest = SQSReceiveMessageRequest.builder()
-                .queueUrl(createdUrl)
-                .maxNumberOfMessages(2)
-                .waitTimeSeconds(1)
-                .build();
-        List<SQSMessage> messages = sqsService.receiveMessage(receiveMessageRequest).getMessages();
-
-        assertEquals(2, messages.size());
-        SQSMessage msg = messages.getFirst();
-        assertEquals("First batch message", msg.getBody());
-
-        // Delete message by batch
-        SQSDeleteMessageBatchRequest deleteMessageBatchRequest = getSqsDeleteMessageBatchRequest(messages, createdUrl);
-
-        sqsService.deleteMessageBatch(deleteMessageBatchRequest);
-
-        // Read queue after deleting the messages by batch
-        List<SQSMessage> emptyMessages = sqsService.receiveMessage(receiveMessageRequest).getMessages();
-        assertTrue(emptyMessages.isEmpty(), "Queue should be empty after deleting the messages by batch.");
-    }
-
-    private SQSDeleteMessageBatchRequest getSqsDeleteMessageBatchRequest(List<SQSMessage> messages, String createdUrl) {
-        List<SQSDeleteMessageBatchRequestEntry> deleteMsgEntries = new ArrayList<>();
-
-        deleteMsgEntries.add(SQSDeleteMessageBatchRequestEntry.builder()
-                .id(messages.getFirst().getMessageId())
-                .receiptHandle(messages.getFirst().getReceiptHandle())
-                .build());
-
-        deleteMsgEntries.add(SQSDeleteMessageBatchRequestEntry.builder()
-                .id(messages.getLast().getMessageId())
-                .receiptHandle(messages.getLast().getReceiptHandle())
-                .build());
-
-        return SQSDeleteMessageBatchRequest.builder()
-                .queueUrl(createdUrl)
-                .entries(deleteMsgEntries)
-                .build();
-    }
-
-    private SQSSendMessageBatchRequest getSqsSendMessageBatchRequest(String createdUrl) {
-        List<SQSSendMessageBatchRequestEntry> batchMessages = new ArrayList<>();
-        batchMessages.add(SQSSendMessageBatchRequestEntry.builder()
-                .id("id-1")
-                .messageBody("First batch message")
-                .build());
-        batchMessages.add(SQSSendMessageBatchRequestEntry.builder()
-                .id("id-2")
-                .messageBody("Second batch message")
-                .build());
-
-        return  SQSSendMessageBatchRequest.builder()
-                .queueUrl(createdUrl)
-                .entries(batchMessages)
-                .build();
-    }
-
-    @Test
-    void testSendAndDeleteMessageBatch() throws Exception {
-        // Create queue with name delete-message-test
-        String createdUrl = sqsService.createQueue(DELETE_MESSAGE_TEST);
-        assertNotNull(createdUrl);
-
-        // Send a message into the queue
-        String messageToBeDeleted = "Test message to be deleted";
-
-        SQSSendMessageRequest sendMessageRequest = SQSSendMessageRequest.builder()
-                .queueUrl(createdUrl)
-                .messageBody(messageToBeDeleted)
-                .build();
-        sqsService.sendMessage(sendMessageRequest);
-
-        SQSReceiveMessageRequest receiveMessageRequest = SQSReceiveMessageRequest.builder()
-                .queueUrl(createdUrl)
-                .build();
-
-        // Read message from the queue before deleting
-        List<SQSMessage> messages = sqsService.receiveMessage(receiveMessageRequest).getMessages();
-        SQSMessage msg = messages.getFirst();
-        assertEquals(messageToBeDeleted, msg.getBody(), "Sent message present in queue.");
-
-        // Delete message from the queue
-        sqsService.deleteMessage(createdUrl, msg.getReceiptHandle());
-
-        // Read queue after deleting the message
-        List<SQSMessage> emptyMessages = sqsService.receiveMessage(receiveMessageRequest).getMessages();
-        assertTrue(emptyMessages.isEmpty(), "Queue should be empty after deleting the message.");
-        sqsService.shutdown();
-    }
-
+	@Override
+	@Deprecated
+	public DescribeKeyResult describeKey(DescribeKeyRequest describeKeyRequest)
+	{
+		return null;
+	}
 }
-
-can any required logic of local stack or test containers be lifted from this? one of my seniors wrote this
