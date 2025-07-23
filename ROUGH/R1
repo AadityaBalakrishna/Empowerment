@@ -1,1 +1,68 @@
-Non-static method 'encryptUsingAWSKey(java.lang.String, java.lang.String)' cannot be referenced from a static context
+Is this the right way of mocking kmsservice?
+
+@BeforeEach
+	public void init() throws Exception
+	{
+		openMocks(this);
+		setField(cryptEngine, "keyManager", keyManager);
+		setField(cryptEngine, "minIdleSeedPoolSize", 1);
+		setField(cryptEngine, "maxIdleUserSeedPoolSize", 2);
+		setField(cryptEngine, "maxUserSeedPoolSize", 5);
+		setField(cryptEngine, "timeBetweenEvictionRunsInSeconds", 5);
+
+		// Mock kmsService and inject it
+		KMSServiceImpl kmsService = mock(KMSServiceImpl.class);
+		setField(cryptEngine,"kmsService", kmsService);
+
+		// Mock behavior for kmsService.encryptUsingAWSKey
+		when(kmsService.encryptUsingAWSKey(anyString(), anyString())).thenReturn("mockedEncryptedValue");
+		when(kmsService.decryptUsingAWSKey(anyString())).thenReturn("mockedDecryptedValue");
+
+		when(keyManager.isSystmePrimaryKeyMigratedToAWS()).thenReturn(FALSE);
+	}
+
+these two test cases are failing "
+@Test
+	public void testEncryptDecryptUsingSystemPrimaryKey_AWS() throws Exception
+	{
+		when(keyManager.isSystmePrimaryKeyMigratedToAWS()).thenReturn(true);
+		when(keyManager.getSystemPrimaryAliasName())
+				.thenReturn("alias/app/pcap/pcap/system_primary/v1");
+		String plainSeedValue = rawSystemSecondaryKeySeed;
+		// Encrypt using system primary key
+		String encryptedSystemSecondaryKeySeed = cryptEngine
+				.encryptUsingSystemPrimaryKey(plainSeedValue);
+		assertNotNull(encryptedSystemSecondaryKeySeed);
+		assertTrue(
+				encryptedSystemSecondaryKeySeed.startsWith(CryptType.SYSTEM_PRIMARY.getVersion()));
+
+		// Decrypt using system primary key
+		String decryptedSystemSecondaryKeySeed = cryptEngine
+				.decryptUsingSystemPrimaryKey(encryptedSystemSecondaryKeySeed);
+		assertNotNull(decryptedSystemSecondaryKeySeed);
+		assertEquals(decryptedSystemSecondaryKeySeed, plainSeedValue);
+	}
+
+org.opentest4j.AssertionFailedError: expected: not <null>
+
+@Test
+	public void testEncryptDecryptUsingSystemPrimaryKey_AWS_2() throws Exception
+	{
+		when(keyManager.isSystmePrimaryKeyMigratedToAWS()).thenReturn(true);
+		when(keyManager.getSystemPrimaryAliasName())
+				.thenReturn("alias/app/pcap/pcap/system_primary/v1");
+		String plainSeedValue = rawSystemSecondaryKeySeed;
+		// Encrypt using system primary key
+		String encryptedSystemSecondaryKeySeed = cryptEngine.encrypt(CryptType.SYSTEM_PRIMARY,
+				plainSeedValue);
+		assertNotNull(encryptedSystemSecondaryKeySeed);
+
+		// Decrypt using system primary key
+		String decryptedSystemSecondaryKeySeed = cryptEngine.decrypt(CryptType.SYSTEM_PRIMARY,
+				encryptedSystemSecondaryKeySeed);
+		assertEquals(decryptedSystemSecondaryKeySeed, plainSeedValue);
+	}
+org.opentest4j.AssertionFailedError: 
+Expected :null
+Actual   :gybxtmCvIb1zkSCasiuo0854B9LIQfNn
+
