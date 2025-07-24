@@ -1,67 +1,50 @@
+package com.epw.aws.service.config;
 
-+
-58
-−
-0
+import com.amazonaws.auth.AWSCredentials;
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.services.kms.AWSKMS;
+import com.amazonaws.services.kms.AWSKMSClientBuilder;
+import com.empower.epw.aws.api.kms.EpwKmsService;
+import com.empower.epw.sdk.v1.adapter.kms.EpwKmsServiceImpl as EpwKmsServiceV1Impl;
+import com.empower.epw.sdk.v2.adapter.kms.EpwKmsServiceImpl as EpwKmsServiceV2Impl;
 
-Viewed
-package com.empower.epw.aws.service.config;
-
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import software.amazon.awssdk.services.s3.S3Client;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import org.springframework.context.annotation.Primary;
+import software.amazon.awssdk.services.kms.KmsClient;
 
 @Configuration
-public class AwsS3Configuration
-{
+public class EpwAwsKmsAutoConfig {
 
-	// Shared AmazonS3 client for AWS SDK v1
-	@Bean
-	@ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v1", matchIfMissing = true)
-	public AmazonS3 amazonS3Client()
-	{
-		return AmazonS3ClientBuilder.standard()
-				.build();
-	}
+    // AWS SDK v1: KMS Client
+    @Bean
+    @ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v1", matchIfMissing = true)
+    public AWSKMS awsKmsClient() {
+        return AWSKMSClientBuilder.standard().build();
+    }
 
-	// Shared S3Client for AWS SDK v2
-	@Bean
-	@ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v2")
-	public S3Client s3Client()
-	{
-		return S3Client.builder()
-				.build();
-	}
+    // AWS SDK v2: KMS Client
+    @Bean
+    @ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v2")
+    public KmsClient kmsClient() {
+        return KmsClient.builder().build();
+    }
 
-	@Bean
-	@ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v2")
-	public S3Presigner s3Presigner()
-	{
-		return S3Presigner.builder()
-				.build();
-	}
+    // AWS SDK v1: EpwKmsServiceImpl (v1)
+    @Bean(name = "epwKmsService")
+    @Primary
+    @ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v1", matchIfMissing = true)
+    public EpwKmsService epwKmsServiceV1(AWSKMS awsKmsClient) {
+        return new EpwKmsServiceV1Impl(awsKmsClient);
+    }
 
-	// Conditional adapter for AWS SDK v1
-	@Bean(name = "awsS3Service")
-	@ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v1", matchIfMissing = true)
-	public com.empower.epw.sdk.v1.adapter.AwsS3ServiceImpl awsS3ServiceV1(AmazonS3 amazonS3Client)
-	{
-		return new com.empower.epw.sdk.v1.adapter.AwsS3ServiceImpl(amazonS3Client);
-	}
-
-	// Conditional adapter for AWS SDK v2
-	@Bean(name = "awsS3Service")
-	@ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v2")
-	public com.empower.epw.sdk.v2.adapter.AwsS3ServiceImpl awsS3ServiceV2(S3Client s3Client,
-			S3Presigner s3Presigner)
-	{
-		return new com.empower.epw.sdk.v2.adapter.AwsS3ServiceImpl(s3Client, s3Presigner);
-	}
-
+    // AWS SDK v2: EpwKmsServiceImpl (v2)
+    @Bean(name = "epwKmsService")
+    @Primary
+    @ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v2")
+    public EpwKmsService epwKmsServiceV2(KmsClient kmsClient) {
+        return new EpwKmsServiceV2Impl(kmsClient);
+    }
 }
-
-follow this logic
