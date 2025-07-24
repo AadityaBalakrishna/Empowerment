@@ -1,19 +1,105 @@
-@Override
-	public DescribeKeyResult describeKey(String keyId)
-	{
-		DescribeKeyRequest describeKeyRequest = new DescribeKeyRequest().withKeyId(keyId);
-		DescribeKeyResult result = getKMSClient().describeKey(describeKeyRequest);
-		return result;
-	}
+package com.empower.epw.aws.api.kms.dto;
 
-	@Override
-	public ListAliasesResult getKeyAliases(String keyId)
-	{
-		ListAliasesRequest listAliasesRequest = new ListAliasesRequest().withLimit(10);
-		ListAliasesResult result = getKMSClient().listAliases(listAliasesRequest);
-		return result;
-	}
+public class DescribeKeyResponseDTO {
+    private String keyId;
+    private String keyArn;
+    private String keyState;
+    private boolean enabled;
+
+    public DescribeKeyResponseDTO() {
+    }
+
+    public DescribeKeyResponseDTO(String keyId, String keyArn, String keyState, boolean enabled) {
+        this.keyId = keyId;
+        this.keyArn = keyArn;
+        this.keyState = keyState;
+        this.enabled = enabled;
+    }
+
+    public String getKeyId() {
+        return keyId;
+    }
+
+    public void setKeyId(String keyId) {
+        this.keyId = keyId;
+    }
+
+    public String getKeyArn() {
+        return keyArn;
+    }
+
+    public void setKeyArn(String keyArn) {
+        this.keyArn = keyArn;
+    }
+
+    public String getKeyState() {
+        return keyState;
+    }
+
+    public void setKeyState(String keyState) {
+        this.keyState = keyState;
+    }
+
+    public boolean getEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
 }
 
 
-previous implementation was pretty straight forward, without any try catch block
+package com.empower.epw.aws.api.kms.dto;
+
+import java.util.List;
+
+public class ListAliasesResponseDTO {
+
+    public static class AliasEntry{
+        private String aliasName;
+        private String targetKeyId;
+
+        public AliasEntry() {
+        }
+
+        public AliasEntry(String aliasName, String targetKeyId) {
+            this.aliasName = aliasName;
+            this.targetKeyId = targetKeyId;
+        }
+
+        // Getters and Setters
+        public String getAliasName() {
+            return aliasName;
+        }
+
+        public void setAliasName(String aliasName) {
+            this.aliasName = aliasName;
+        }
+
+        public String getTargetKeyId() {
+            return targetKeyId;
+        }
+
+        public void setTargetKeyId(String targetKeyId) {
+            this.targetKeyId = targetKeyId;
+        }
+    }
+    private List<AliasEntry> aliases;
+
+    public ListAliasesResponseDTO() {
+    }
+
+    // Parameterized Constructor
+    public ListAliasesResponseDTO(List<AliasEntry> aliases) {
+        this.aliases = aliases;
+    }
+
+    public List<AliasEntry> getAliases(){
+        return aliases;
+    }
+
+    public void setAliases(List<AliasEntry> aliases) {
+        this.aliases = aliases;
+    }
+}
