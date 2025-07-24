@@ -1,36 +1,97 @@
+package com.safepage.security.service.impl;
+
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.amazonaws.services.kms.model.DescribeKeyRequest;
+import com.amazonaws.services.kms.model.DescribeKeyResult;
+import com.amazonaws.services.kms.model.ListAliasesRequest;
+import com.amazonaws.services.kms.model.ListAliasesResult;
+import com.empower.epw.aws.api.kms.dto.DecryptRequestDTO;
+import com.empower.epw.aws.api.kms.dto.DecryptResponseDTO;
+import com.empower.epw.aws.api.kms.dto.EncryptRequestDTO;
+import com.empower.epw.aws.api.kms.dto.EncryptResponseDTO;
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+import com.safepage.error.SafePageErrorType;
+import com.safepage.exception.SafePageException;
+import com.empower.epw.aws.api.kms.EpwKmsService;
+import com.safepage.security.service.KMSService;
+
+/**
+ * @author dizadi
+ */
+public class KMSServiceImpl implements KMSService
+{
+	private static final PcapLogger logger = PcapLoggerFactory.getPcapLogger(KMSServiceImpl.class);
+
+	private final EpwKmsService epwKmsService;
+
+	@Autowired
+	public KMSServiceImpl(EpwKmsService epwKmsService)
+	{
+		this.epwKmsService = epwKmsService;
+	}
+
 	@Override
-	@Deprecated
-	public DescribeKeyResponseDTO describeKey(DescribeKeyRequest request) throws SafePageException{
-		try{
-			DescribeKeyResponse response = kmsClient.describeKey(request);
-			return new DescribeKeyResponseDTO(
-					response.keyMetadata().keyId(),
-					response.keyMetadata().arn(),
-					response.keyMetadata().keyStateAsString(),
-					response.keyMetadata().enabled()
-			);
+	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
+	{
+		if (StringUtils.isEmpty(plainText))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
 		}
-		catch (Exception ex){
-			logger.error("Failed to describeKey, keyId:{}, due to:{}", request.keyId(), ExceptionUtils.getMessage(ex), ex);
-			return null;
+		if (StringUtils.isEmpty(keyId))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
 		}
+
+		EncryptRequestDTO request = new EncryptRequestDTO(plainText, keyId);
+		EncryptResponseDTO response = epwKmsService.encrypt(request);
+
+		if (response == null || StringUtils.isEmpty(response.getCiphertext()))
+		{
+			logger.error("KMS encryption returned null or empty ciphertext.");
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "Encryption failed.");
+		}
+		return response.getCiphertext();
+	}
+
+	@Override
+	public String decryptUsingAWSKey(String cipherText) throws SafePageException
+	{
+		if (StringUtils.isEmpty(cipherText))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
+		}
+
+		DecryptRequestDTO request = new DecryptRequestDTO(cipherText);
+		DecryptResponseDTO response = epwKmsService.decrypt(request);
+
+		if (response == null || StringUtils.isEmpty(response.getPlaintext()))
+		{
+			logger.error("KMS decryption returned null or empty plaintext.");
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "Decryption failed.");
+		}
+
+		return response.getPlaintext();
 	}
 
 	@Override
 	@Deprecated
-	public ListAliasesResponseDTO listAliases(ListAliasesRequest request) throws SafePageException {
-		try {
-			ListAliasesResponse response = kmsClient.listAliases(request);
-			List<ListAliasesResponseDTO.AliasEntry> aliasEntries = response.aliases().stream()
-					.map(alias -> new ListAliasesResponseDTO.AliasEntry(
-							alias.aliasName(),
-							alias.targetKeyId()))
-					.toList();
-			return new ListAliasesResponseDTO(aliasEntries);
-		} catch (Exception ex) {
-			logger.error("Failed to listAliases, due to:{}", ExceptionUtils.getMessage(ex), ex);
-			return null;
-		}
+	public DescribeKeyResult describeKey(String keyId)
+	{
+		DescribeKeyRequest describeKeyRequest = new DescribeKeyRequest().withKeyId(keyId);
+		return epwKmsService.describeKey(describeKeyRequest);
 	}
 
-this is my v2 version that you gave, can we be consistent for both?
+	@Override
+	@Deprecated
+	public ListAliasesResult getKeyAliases(String keyId)
+	{
+		ListAliasesRequest listAliasesRequest = new ListAliasesRequest().withLimit(10);
+		return epwKmsService.listAliases(listAliasesRequest);
+	}
+}
+
+we need to refactor the old KmsServiceImpl accordingly now right?
