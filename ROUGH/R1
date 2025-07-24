@@ -1,3 +1,10 @@
-org.opentest4j.AssertionFailedError: 
-Expected :integration-test-message-v2
-Actual   :
+20:42:33  2025-07-24 08:12:33,671 WARN main [com.safepage.security.CryptEngine] [] [] [] [] - Failed to decrypt because:
+20:42:33  java.lang.NullPointerException: Cannot invoke "com.safepage.security.service.impl.KMSServiceImpl.decryptUsingAWSKey(String)" because "<local3>.kmsService" is null
+
+right, now all the task related work is done, next step is to make the existing internal consumers work 
+Find all internal consumers that use KMSServiceImpl.getInstance() (like crypt-engine).
+Refactor them to use @Autowired dependency injection.
+Self-Validation:
+
+Ensure the entire pcap-server compiles successfully.
+Update and run the unit tests for the refactored consumer classes.
