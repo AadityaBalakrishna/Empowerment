@@ -1,2 +1,69 @@
-'describeKey(String)' in 'com.safepage.security.service.impl.KMSServiceImpl' clashes with 'describeKey(String)' in 'com.safepage.security.service.KMSService'; incompatible return type
-'getKeyAliases(String)' in 'com.safepage.security.service.impl.KMSServiceImpl' clashes with 'getKeyAliases(String)' in 'com.safepage.security.service.KMSService'; incompatible return type
+package com.safepage.security.service.impl;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
+import com.amazonaws.services.kms.model.DescribeKeyResult;
+import com.amazonaws.services.kms.model.ListAliasesResult;
+import com.empower.epw.sdk.v1.adapter.kms.EpwKmsServiceImpl;
+import com.epw.aws.service.config.EpwAwsKmsAutoConfig;
+
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+@SpringBootTest(classes =
+{
+		KMSServiceImpl.class, EpwAwsKmsAutoConfig.class, EpwKmsServiceImpl.class
+})
+public class KMSServiceImplTest
+{
+	private final static String AWS_CMK_KEY_ALIAS = "alias/app/pcap/pcap/system_primary/v1";
+
+	@Autowired
+	private KMSServiceImpl kmsService;
+
+	@Test
+	public void testEncryptDercrypt()
+	{
+		try
+		{
+			String plainTextToTest = "ammN3OegV2l6aM3UTDohq6T8ocsn/n7Q";
+			String cipherText = kmsService.encryptUsingAWSKey(plainTextToTest, AWS_CMK_KEY_ALIAS);
+			assertNotNull(cipherText);
+			assertTrue(cipherText.length() == 248);
+			String plainText = kmsService.decryptUsingAWSKey(cipherText);
+			assertNotNull(plainText);
+			assertTrue(plainText.equals(plainTextToTest));
+		}
+		catch (Exception ex)
+		{
+			Assertions
+					.fail("Faied to testEncryptDercrypt using AWS Key, dut to:" + ex.getMessage());
+		}
+	}
+
+	@Test
+	@Disabled
+	public void testGetAliasListForKey()
+	{
+		// list aliases for key
+		ListAliasesResult listAliasesResult = kmsService.getKeyAliases(AWS_CMK_KEY_ALIAS);
+		assertNotNull(listAliasesResult);
+		// result.getAliases().forEach(a->System.out.println(a.getAliasName()));
+	}
+
+	@Test
+	@Disabled
+	public void testDescribeKey()
+	{
+		// Describe key
+		DescribeKeyResult describeKeyResult = kmsService.describeKey(AWS_CMK_KEY_ALIAS);
+		// assertNotNull(describeKeyResult);
+	}
+}
+
+
+what about the final refactoring here in this 
