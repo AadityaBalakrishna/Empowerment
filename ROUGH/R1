@@ -1,120 +1,20 @@
-package com.empower.epw.sdk.v1.adapter.kms;
+package com.empower.epw.aws.api.kms;
 
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
+import com.empower.epw.aws.api.kms.dto.DecryptRequestDTO;
+import com.empower.epw.aws.api.kms.dto.DecryptResponseDTO;
+import com.empower.epw.aws.api.kms.dto.DescribeKeyResponseDTO;
+import com.empower.epw.aws.api.kms.dto.EncryptRequestDTO;
+import com.empower.epw.aws.api.kms.dto.EncryptResponseDTO;
+import com.empower.epw.aws.api.kms.dto.ListAliasesResponseDTO;
+import com.safepage.exception.SafePageException;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.localstack.LocalStackContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
+public interface EpwKmsService
+{
+	EncryptResponseDTO encrypt(EncryptRequestDTO request) throws SafePageException;
 
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.services.kms.AWSKMS;
-import com.amazonaws.services.kms.AWSKMSClientBuilder;
-import com.amazonaws.services.kms.model.CreateAliasRequest;
-import com.amazonaws.services.kms.model.CreateKeyResult;
-import com.amazonaws.services.kms.model.DecryptRequest;
-import com.amazonaws.services.kms.model.DecryptResult;
-import com.amazonaws.services.kms.model.EncryptRequest;
-import com.amazonaws.services.kms.model.EncryptResult;
-import com.empower.epw.aws.api.kms.EpwKmsService;
+	DecryptResponseDTO decrypt(DecryptRequestDTO request) throws SafePageException;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+	DescribeKeyResponseDTO describeKey(String keyId) throws SafePageException;
 
-@SpringBootTest( classes = {
-        EpwKmsServiceImpl.class,
-        EpwKmsServiceImplIntegrationTest.KMSTestConfig.class
-})
-@Testcontainers
-public class EpwKmsServiceImplIntegrationTest {
-
-        private static final String KEY_ALIAS = "alias/app/pcap/pcap/system_primary/v1";
-        private static String keyId;
-
-        @Container
-        static LocalStackContainer localStack = new LocalStackContainer(
-                DockerImageName.parse("localstack/localstack:3.0"))
-                .withServices(LocalStackContainer.Service.KMS)
-                .withReuse(true);
-
-        @DynamicPropertySource
-        static void overrideProperties(DynamicPropertyRegistry registry){
-                registry.add("cloud.aws.region.static", localStack::getRegion);
-                registry.add("cloud.aws.credentials.access-key", localStack::getAccessKey);
-                registry.add("cloud.aws.credentials.secret-key", localStack::getSecretKey);
-        }
-
-        @TestConfiguration
-        static class KMSTestConfig {
-                // Additional test configuration can be added here if needed
-                @Bean
-                public AWSKMS awskms(){
-                        return AWSKMSClientBuilder.standard()
-                                .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(
-                                        localStack.getEndpointOverride(LocalStackContainer.Service.KMS).toString(),
-                                        localStack.getRegion()))
-                                .withCredentials(new AWSStaticCredentialsProvider(
-                                        new BasicAWSCredentials(localStack.getAccessKey(), localStack.getSecretKey())))
-                                .build();
-                }
-
-                @Bean
-                public EpwKmsService epwKmsService(AWSKMS awskms) {
-                        return new EpwKmsServiceImpl(awskms);
-                }
-        }
-
-        @Autowired
-        private AWSKMS awskms;
-
-        @BeforeEach
-        void setUpKmsKeyAlias(){
-                if (keyId == null) {
-                        CreateKeyResult keyResult = awskms.createKey();
-                        keyId = keyResult.getKeyMetadata().getKeyId();
-
-                        awskms.createAlias(new CreateAliasRequest()
-                                .withAliasName(KEY_ALIAS)
-                                .withTargetKeyId(keyId));
-                }
-        }
-        @Autowired
-        private EpwKmsService epwKmsService;
-
-        @Test
-        void testEncryptDecryptWithAlias() {
-                String plaintext = "hello-localstack-kms";
-
-                // Encrypt
-                EncryptRequest encryptRequest = new EncryptRequest()
-                        .withKeyId(KEY_ALIAS)
-                        .withPlaintext(ByteBuffer.wrap(plaintext.getBytes(StandardCharsets.UTF_8)));
-
-                EncryptResult encryptResult = awskms.encrypt(encryptRequest);
-                ByteBuffer ciphertextBlob = encryptResult.getCiphertextBlob();
-                assertNotNull(ciphertextBlob);
-
-                // Decrypt
-                DecryptRequest decryptRequest = new DecryptRequest()
-                        .withCiphertextBlob(ciphertextBlob);
-
-                DecryptResult decryptResult = awskms.decrypt(decryptRequest);
-                String decryptedText = StandardCharsets.UTF_8.decode(decryptResult.getPlaintext()).toString();
-
-                assertEquals(plaintext, decryptedText);
-        }
+	ListAliasesResponseDTO listAliases() throws SafePageException;
 }
-
-
-now with all the changes we have done, any changes need to be done to this integrationtest?
