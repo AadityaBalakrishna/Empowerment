@@ -1,87 +1,36 @@
+ @Test
+    void testEncryptDecryptWithKmsClientDirectly() {
+        String plaintext = "hello-localstack-kms";
 
-@SpringBootTest( classes = {
-        EpwKmsServiceImpl.class,
-        EpwKmsServiceImplIntegrationTest.KMSTestConfig.class
-})
-@Testcontainers
-public class EpwKmsServiceImplIntegrationTest {
+        EncryptRequest encryptRequest = new EncryptRequest()
+                .withKeyId(KEY_ALIAS)
+                .withPlaintext(ByteBuffer.wrap(plaintext.getBytes(StandardCharsets.UTF_8)));
 
-        private static final String KEY_ALIAS = "alias/app/pcap/pcap/system_primary/v1";
-        private static String keyId;
+        EncryptResult encryptResult = awskms.encrypt(encryptRequest);
+        ByteBuffer ciphertextBlob = encryptResult.getCiphertextBlob();
+        assertNotNull(ciphertextBlob);
 
-        @Container
-        static LocalStackContainer localStack = new LocalStackContainer(
-                DockerImageName.parse("localstack/localstack:3.0"))
-                .withServices(LocalStackContainer.Service.KMS)
-                .withReuse(true);
+        DecryptRequest decryptRequest = new DecryptRequest()
+                .withCiphertextBlob(ciphertextBlob);
 
-        @DynamicPropertySource
-        static void overrideProperties(DynamicPropertyRegistry registry){
-                registry.add("cloud.aws.region.static", localStack::getRegion);
-                registry.add("cloud.aws.credentials.access-key", localStack::getAccessKey);
-                registry.add("cloud.aws.credentials.secret-key", localStack::getSecretKey);
-        }
+        DecryptResult decryptResult = awskms.decrypt(decryptRequest);
+        String decryptedText = StandardCharsets.UTF_8.decode(decryptResult.getPlaintext()).toString();
 
-        @TestConfiguration
-        static class KMSTestConfig {
-                // Additional test configuration can be added here if needed
-                @Bean
-                public AWSKMS awskms(){
-                        return AWSKMSClientBuilder.standard()
-                                .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(
-                                        localStack.getEndpointOverride(LocalStackContainer.Service.KMS).toString(),
-                                        localStack.getRegion()))
-                                .withCredentials(new AWSStaticCredentialsProvider(
-                                        new BasicAWSCredentials(localStack.getAccessKey(), localStack.getSecretKey())))
-                                .build();
-                }
+        assertEquals(plaintext, decryptedText);
+    }
 
-                @Bean
-                public EpwKmsService epwKmsService(AWSKMS awskms) {
-                        return new EpwKmsServiceImpl(awskms);
-                }
-        }
+    @Test
+    void testEncryptDecryptWithEpwKmsService() throws SafePageException {
+        String plaintext = "integration-test-message";
 
-        @Autowired
-        private AWSKMS awskms;
+        // Use EpwKmsService to encrypt
+        EncryptRequestDTO encryptDTO = new EncryptRequestDTO(plaintext, KEY_ALIAS);
+        EncryptResponseDTO encrypted = epwKmsService.encrypt(encryptDTO);
+        assertNotNull(encrypted.getCiphertext());
 
-        @BeforeEach
-        void setUpKmsKeyAlias(){
-                if (keyId == null) {
-                        CreateKeyResult keyResult = awskms.createKey();
-                        keyId = keyResult.getKeyMetadata().getKeyId();
-
-                        awskms.createAlias(new CreateAliasRequest()
-                                .withAliasName(KEY_ALIAS)
-                                .withTargetKeyId(keyId));
-                }
-        }
-        @Autowired
-        private EpwKmsService epwKmsService;
-
-        @Test
-        void testEncryptDecryptWithAlias() {
-                String plaintext = "hello-localstack-kms";
-
-                // Encrypt
-                EncryptRequest encryptRequest = new EncryptRequest()
-                        .withKeyId(KEY_ALIAS)
-                        .withPlaintext(ByteBuffer.wrap(plaintext.getBytes(StandardCharsets.UTF_8)));
-
-                EncryptResult encryptResult = awskms.encrypt(encryptRequest);
-                ByteBuffer ciphertextBlob = encryptResult.getCiphertextBlob();
-                assertNotNull(ciphertextBlob);
-
-                // Decrypt
-                DecryptRequest decryptRequest = new DecryptRequest()
-                        .withCiphertextBlob(ciphertextBlob);
-
-                DecryptResult decryptResult = awskms.decrypt(decryptRequest);
-                String decryptedText = StandardCharsets.UTF_8.decode(decryptResult.getPlaintext()).toString();
-
-                assertEquals(plaintext, decryptedText);
-        }
-}
-
-
-this is what i have now implement the changes in this, keep the test config and testcontainer logic
+        // Use EpwKmsService to decrypt
+        DecryptRequestDTO decryptDTO = new DecryptRequestDTO(encrypted.getCiphertext());
+        DecryptResponseDTO decrypted = epwKmsService.decrypt(decryptDTO);
+        assertNotNull(decrypted.getPlaintext());
+        assertEquals(plaintext, decrypted.getPlaintext());
+    }
