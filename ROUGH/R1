@@ -1,20 +1,127 @@
-package com.empower.epw.aws.api.kms;
+package com.empower.epw.aws.api.kms.dto;
 
-import com.empower.epw.aws.api.kms.dto.DecryptRequestDTO;
-import com.empower.epw.aws.api.kms.dto.DecryptResponseDTO;
-import com.empower.epw.aws.api.kms.dto.DescribeKeyResponseDTO;
-import com.empower.epw.aws.api.kms.dto.EncryptRequestDTO;
-import com.empower.epw.aws.api.kms.dto.EncryptResponseDTO;
-import com.empower.epw.aws.api.kms.dto.ListAliasesResponseDTO;
-import com.safepage.exception.SafePageException;
-
-public interface EpwKmsService
+public class EncryptRequestDTO
 {
-	EncryptResponseDTO encrypt(EncryptRequestDTO request) throws SafePageException;
+	private String plaintext;
+	private String keyId;
 
-	DecryptResponseDTO decrypt(DecryptRequestDTO request) throws SafePageException;
+	// Default Constructor
+	public EncryptRequestDTO()
+	{
+	}
 
-	DescribeKeyResponseDTO describeKey(String keyId) throws SafePageException;
+	// Parameterized Constructor
+	public EncryptRequestDTO(String plaintext, String keyId)
+	{
+		this.plaintext = plaintext;
+		this.keyId = keyId;
+	}
 
-	ListAliasesResponseDTO listAliases() throws SafePageException;
+	// Getters and Setters
+	public String getPlaintext()
+	{
+		return plaintext;
+	}
+
+	public void setPlaintext(String plaintext)
+	{
+		this.plaintext = plaintext;
+	}
+
+	public String getKeyId()
+	{
+		return keyId;
+	}
+
+	public void setKeyId(String keyId)
+	{
+		this.keyId = keyId;
+	}
+}
+
+package com.empower.epw.aws.api.kms.dto;
+
+public class DecryptRequestDTO
+{
+	private String ciphertext;
+
+	// Default Constructor
+	public DecryptRequestDTO()
+	{
+	}
+
+	// Parameterized Constructor
+	public DecryptRequestDTO(String ciphertext)
+	{
+		this.ciphertext = ciphertext;
+	}
+
+	// Getters and Setters
+	public String getCiphertext()
+	{
+		return ciphertext;
+	}
+
+	public void setCiphertext(String ciphertext)
+	{
+		this.ciphertext = ciphertext;
+	}
+}
+
+package com.empower.epw.aws.api.kms.dto;
+
+public class DecryptResponseDTO
+{
+	private String plaintext;
+
+	// Default Constructor
+	public DecryptResponseDTO()
+	{
+	}
+
+	// Parameterized Constructor
+	public DecryptResponseDTO(String plaintext)
+	{
+		this.plaintext = plaintext;
+	}
+
+	// Getters and Setters
+	public String getPlaintext()
+	{
+		return plaintext;
+	}
+
+	public void setPlaintext(String plaintext)
+	{
+		this.plaintext = plaintext;
+	}
+}
+
+package com.empower.epw.aws.api.kms.dto;
+
+public class EncryptResponseDTO
+{
+	private String ciphertext;
+
+	// Default Constructor
+	public EncryptResponseDTO()
+	{
+	}
+
+	// Parameterized Constructor
+	public EncryptResponseDTO(String ciphertext)
+	{
+		this.ciphertext = ciphertext;
+	}
+
+	// Getters and Setters
+	public String getCiphertext()
+	{
+		return ciphertext;
+	}
+
+	public void setCiphertext(String ciphertext)
+	{
+		this.ciphertext = ciphertext;
+	}
 }
