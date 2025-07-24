@@ -1,105 +1,36 @@
-package com.empower.epw.aws.api.kms.dto;
+	@Override
+	@Deprecated
+	public DescribeKeyResponseDTO describeKey(DescribeKeyRequest request) throws SafePageException{
+		try{
+			DescribeKeyResponse response = kmsClient.describeKey(request);
+			return new DescribeKeyResponseDTO(
+					response.keyMetadata().keyId(),
+					response.keyMetadata().arn(),
+					response.keyMetadata().keyStateAsString(),
+					response.keyMetadata().enabled()
+			);
+		}
+		catch (Exception ex){
+			logger.error("Failed to describeKey, keyId:{}, due to:{}", request.keyId(), ExceptionUtils.getMessage(ex), ex);
+			return null;
+		}
+	}
 
-public class DescribeKeyResponseDTO {
-    private String keyId;
-    private String keyArn;
-    private String keyState;
-    private boolean enabled;
+	@Override
+	@Deprecated
+	public ListAliasesResponseDTO listAliases(ListAliasesRequest request) throws SafePageException {
+		try {
+			ListAliasesResponse response = kmsClient.listAliases(request);
+			List<ListAliasesResponseDTO.AliasEntry> aliasEntries = response.aliases().stream()
+					.map(alias -> new ListAliasesResponseDTO.AliasEntry(
+							alias.aliasName(),
+							alias.targetKeyId()))
+					.toList();
+			return new ListAliasesResponseDTO(aliasEntries);
+		} catch (Exception ex) {
+			logger.error("Failed to listAliases, due to:{}", ExceptionUtils.getMessage(ex), ex);
+			return null;
+		}
+	}
 
-    public DescribeKeyResponseDTO() {
-    }
-
-    public DescribeKeyResponseDTO(String keyId, String keyArn, String keyState, boolean enabled) {
-        this.keyId = keyId;
-        this.keyArn = keyArn;
-        this.keyState = keyState;
-        this.enabled = enabled;
-    }
-
-    public String getKeyId() {
-        return keyId;
-    }
-
-    public void setKeyId(String keyId) {
-        this.keyId = keyId;
-    }
-
-    public String getKeyArn() {
-        return keyArn;
-    }
-
-    public void setKeyArn(String keyArn) {
-        this.keyArn = keyArn;
-    }
-
-    public String getKeyState() {
-        return keyState;
-    }
-
-    public void setKeyState(String keyState) {
-        this.keyState = keyState;
-    }
-
-    public boolean getEnabled() {
-        return enabled;
-    }
-
-    public void setEnabled(boolean enabled) {
-        this.enabled = enabled;
-    }
-}
-
-
-package com.empower.epw.aws.api.kms.dto;
-
-import java.util.List;
-
-public class ListAliasesResponseDTO {
-
-    public static class AliasEntry{
-        private String aliasName;
-        private String targetKeyId;
-
-        public AliasEntry() {
-        }
-
-        public AliasEntry(String aliasName, String targetKeyId) {
-            this.aliasName = aliasName;
-            this.targetKeyId = targetKeyId;
-        }
-
-        // Getters and Setters
-        public String getAliasName() {
-            return aliasName;
-        }
-
-        public void setAliasName(String aliasName) {
-            this.aliasName = aliasName;
-        }
-
-        public String getTargetKeyId() {
-            return targetKeyId;
-        }
-
-        public void setTargetKeyId(String targetKeyId) {
-            this.targetKeyId = targetKeyId;
-        }
-    }
-    private List<AliasEntry> aliases;
-
-    public ListAliasesResponseDTO() {
-    }
-
-    // Parameterized Constructor
-    public ListAliasesResponseDTO(List<AliasEntry> aliases) {
-        this.aliases = aliases;
-    }
-
-    public List<AliasEntry> getAliases(){
-        return aliases;
-    }
-
-    public void setAliases(List<AliasEntry> aliases) {
-        this.aliases = aliases;
-    }
-}
+this is my v2 version that you gave, can we be consistent for both?
