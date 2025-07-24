@@ -1,50 +1,6 @@
-package com.epw.aws.service.config;
+java.lang.NullPointerException: Cannot invoke "com.empower.epw.aws.api.kms.dto.EncryptResponseDTO.getCiphertext()" because "encrypted" is null
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
-
-import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.services.kms.AWSKMS;
-import com.amazonaws.services.kms.AWSKMSClientBuilder;
-import com.empower.epw.aws.api.kms.EpwKmsService;
-import com.empower.epw.sdk.v1.adapter.kms.EpwKmsServiceImpl;
-import com.personalcapital.aws.AWSCredentialsManager;
-import software.amazon.awssdk.services.kms.KmsClient;
-
-@Configuration
-public class EpwAwsKmsAutoConfig
-{
-	@Bean
-	@ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v1", matchIfMissing = true)
-	public AWSKMS awsKmsClient()
-	{
-		AWSCredentialsManager credentialsManager = new AWSCredentialsManager();
-		return credentialsManager.getClientBuilderWithCredentials(AWSKMSClientBuilder.standard()).build();
-	}
-
-	@Bean
-	@ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v2")
-	public KmsClient kmsClient()
-	{
-		return KmsClient.create();
-	}
-
-	@Bean
-	@Primary
-	@ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v1", matchIfMissing = true)
-	public EpwKmsService epwKmsService(AWSKMS awsKmsClient)
-	{
-		return new EpwKmsServiceImpl(awsKmsClient);
-	}
-
-	// @Bean
-	// @ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v2")
-	// public EpwKmsService epwKmsService(KmsClient kmsClient) {
-	// return new EpwKmsServiceImpl(kmsClient);
-	// }
-}
-
-
-update this file now
+	at com.empower.epw.sdk.v2.adapter.kms.EpwKmsServiceImplIntegrationTest.testEncryptDecryptViaEpwKmsService(EpwKmsServiceImplIntegrationTest.java:123)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
