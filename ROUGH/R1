@@ -1,21 +1,152 @@
-	@Test
-	public void testEncryptDecryptUsingSystemPrimaryKey_AWS_2() throws Exception
-	{
-		when(keyManager.isSystmePrimaryKeyMigratedToAWS()).thenReturn(true);
-		when(keyManager.getSystemPrimaryAliasName())
-				.thenReturn("alias/app/pcap/pcap/system_primary/v1");
-		String plainSeedValue = rawSystemSecondaryKeySeed;
-		// Encrypt using system primary key
-		String encryptedSystemSecondaryKeySeed = cryptEngine.encrypt(CryptType.SYSTEM_PRIMARY,
-				plainSeedValue);
-		assertNotNull(encryptedSystemSecondaryKeySeed);
+Created by 
+ Sable, Pankaj (NONEMP), last updated on Jul 21, 2025  3 minute read
+Problem Statement
+During out AWS SDK v1 to v2 migration analysis using the adapter approach to switch between v1 or v2 version based on autoconfiguration, we have identified a challenge when working for AWS KMS Service.
 
-		// Decrypt using system primary key
-		String decryptedSystemSecondaryKeySeed = cryptEngine.decrypt(CryptType.SYSTEM_PRIMARY,
-				encryptedSystemSecondaryKeySeed);
-		assertEquals(decryptedSystemSecondaryKeySeed, plainSeedValue);
+For AWS KMS Service we currently use a static inner class singleton pattern (Bill Pugh) to lazily and thread-safely create the KMSService instance. Due to this current implementation our adapter approach to migrate AWS SDK v1 to v2 might not work, as it is based on Spring managed beans along with Autoconfiguration whereas current implementation is not managed by Spring and does not support auto configuration.
+
+Objective
+Replace the current Bill pugh singleton with a Spring-managed, @Lazy singleton bean.
+Ensure thread-safe, on-demand instantiation of KMSServiceImpl.
+Make dependencies also lazily injected.
+Make it loosely coupled with AWS SDK v1 dependency.
+Current Design
+Uses private static class Holder for lazy & thread-safe initialization.
+getInstance() is called explicitly to get the singleton object.
+Not integrated with Spring's DI - harder to utilize Spring utilities here.
+Proposed Design and Pseudocode
+Annotate KMSServiceImpl with @Service  and @Lazy  annotations to make it a Spring-managed bean.
+Provide autoconfiguration for AWSKMS client with @Lazy annotation.
+Remove static getInstance() and let Spring handle instantiation.
+Pseudocode (Before)
+Bill Pugh Singleton Approach
+
+
+public class KMSServiceImpl implements KMSService
+{
+	private AWSKMS kmsClient = null;
+
+	private AWSKMS getKMSClient()
+	{
+		if (kmsClient == null)
+		{
+			AWSCredentialsManager awsCredentialsManager = new AWSCredentialsManager();
+			kmsClient = (AWSKMS) awsCredentialsManager
+					.getClientBuilderWithCredentials(AWSKMSClient.builder())
+					.build();
+		}
+		return kmsClient;
 	}
 
-org.opentest4j.AssertionFailedError: 
-Expected :dummyDecryptedSeed
-Actual   :iMAhT0c1Xx4jEjQi1LylodD2TzFR7JtU
+	// private constructor
+	private KMSServiceImpl()
+	{
+		/*
+		 * 1. can only be initialized using inner static class on first access.
+		 */
+		logger.info("Initialized the KMSServiceImpl");
+	}
+
+	/*
+	 * Bill Pugh Singleton creation using static inner class, thread safe and no synchronized block
+	 */
+	private static class KMSServiceHolder
+	{
+		private static final KMSService INSTANCE = new KMSServiceImpl();
+	}
+
+	public static KMSService getInstance()
+	{
+		/*
+		 * only when someone calls the method, this class gets loaded and creates the Singleton
+		 * class instance
+		 */
+		return KMSServiceHolder.INSTANCE;
+
+	}
+
+	/**
+	 * Encrypt data key (system secondary key) under AWS CMK Key using IAM role to access the key
+	 * AWS CMK
+	 *
+	 */
+	@Override
+	public String encryptUsingAWSKey(String plainText, String keyId)
+	{
+		// Create encrypt request logic...
+
+		EncryptResult result = getKMSClient().encrypt(encryptRequest);
+
+        // Log and return required detail from result object.
+	}
+}
+
+
+Pseudocode (After)
+Spring Managed Beans Approach
+
+
+@Configuration
+public class AwsKmsConfig {
+
+    @Bean
+	public AWSCredentialsProvider getAwsCredentialsProvider() {
+        String profileName = System.getProperty(AWS_PROFILE);
+
+        if (StringUtils.hasText(profileName)) {
+            return new ProfileCredentialsProvider(profileName);
+        }
+        return DefaultAWSCredentialsProviderChain.getInstance();
+    }
+
+	@Bean
+	@Lazy
+	public AWSKMS awsKmsClient(AWSCredentialsProvider awsCredentialsProvider) { 
+		return AWSKMSClientBuilder.standard()
+				.withCredentials(awsCredentialsProvider)
+				.build();
+    }
+}
+
+
+@Service
+@Lazy
+public class KMSServiceImpl implements KMSService {
+	private final AWSKMS awsKmsClient;
+
+	public KMSServiceImpl(AWSKMS awsKmsClient) {
+		this.awsKmsClient = awsKmsClient;
+	}
+
+	@Override
+	public void encrypt() {
+		// awsKmsClient can be used here
+	}
+}
+
+Additionally, if we want awsKmsClient also to be loaded only on method call, we can utilize ObjectProvider<>
+
+@Service
+@Lazy
+public class KMSServiceImpl implements KMSService {
+	private final ObjectProvider<AWSKMS> awsKmsClientProvider;
+
+	public KMSServiceImpl(ObjectProvider<AWSKMS> awsKmsClientProvider) {
+		this.awsKmsClientProvider = awsKmsClientProvider;
+	}
+
+	@Override
+	public void encrypt() {
+		try {
+			AWSKMS kmsClient = awsKmsClientProvider.getIfAvailable();
+
+		}
+	}
+}
+Problems with proposed solution
+Currently consumers of KMSService uses static instance method then we need to provide static method to get instance ??
+We need to additionally provide static getInstance() method which internally uses ApplicationContext.getBean(class), need to check on feasibility of it.
+
+
+
+can you go through this doc and let me know if we tackled the issue mentioned here?
