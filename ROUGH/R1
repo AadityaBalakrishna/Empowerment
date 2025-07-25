@@ -12,46 +12,65 @@ import org.springframework.context.annotation.Primary;
 import software.amazon.awssdk.services.kms.KmsClient;
 
 /**
- * Configuration class for setting up AWS KMS clients and services.
+ * {@code EpwAwsKmsAutoConfig} sets up AWS KMS clients and service beans
+ * based on the configured SDK version (v1 or v2).
  *
- * This class provides beans for both AWS SDK v1 and v2 KMS clients and their
- * corresponding service implementations. The configuration is conditional
- * based on the `aws.sdk.version` property, allowing the application to switch
- * between SDK versions dynamically.
+ * <p>This configuration allows dynamic switching between AWS SDK v1 and SDK v2
+ * by setting the {@code aws.sdk.version} property.
+ * 
+ * <ul>
+ *   <li>v1: {@code aws.sdk.version=v1} or missing (default)</li>
+ *   <li>v2: {@code aws.sdk.version=v2}</li>
+ * </ul>
  */
 @Configuration
 public class EpwAwsKmsAutoConfig {
 
-	// AWS SDK v1: KMS Client
-	@Bean
-	@ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v1", matchIfMissing = true)
-	public AWSKMS awsKmsClient() {
-		return AWSKMSClientBuilder.standard().build();
-	}
+    /**
+     * Creates the AWS SDK v1 KMS client.
+     *
+     * @return an instance of {@link AWSKMS}
+     */
+    @Bean
+    @ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v1", matchIfMissing = true)
+    public AWSKMS awsKmsClient() {
+        return AWSKMSClientBuilder.standard().build();
+    }
 
-	// AWS SDK v2: KMS Client
-	@Bean
-	@ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v2")
-	public KmsClient kmsClient() {
-		return KmsClient.builder().build();
-	}
+    /**
+     * Creates the AWS SDK v2 KMS client.
+     *
+     * @return an instance of {@link KmsClient}
+     */
+    @Bean
+    @ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v2")
+    public KmsClient kmsClient() {
+        return KmsClient.builder().build();
+    }
 
-	// AWS SDK v1: EpwKmsServiceImpl (v1)
-	@Bean
-	@Primary
-	@ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v1", matchIfMissing = true)
-	public EpwKmsService epwKmsServiceV1(AWSKMS awsKmsClient) {
-		return new com.empower.epw.sdk.v1.adapter.kms.EpwKmsServiceImpl(awsKmsClient);
-	}
+    /**
+     * Provides the SDK v1 implementation of {@link EpwKmsService}.
+     *
+     * @param awsKmsClient the AWS SDK v1 KMS client
+     * @return the SDK v1-based {@link EpwKmsService} implementation
+     */
+    @Bean
+    @Primary
+    @ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v1", matchIfMissing = true)
+    public EpwKmsService epwKmsServiceV1(AWSKMS awsKmsClient) {
+        return new com.empower.epw.sdk.v1.adapter.kms.EpwKmsServiceImpl(awsKmsClient);
+    }
 
-	// AWS SDK v2: EpwKmsServiceImpl (v2)
-	@Bean
-	@Primary
-	@ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v2")
-	public EpwKmsService epwKmsServiceV2(KmsClient kmsClient) {
-		return new com.empower.epw.sdk.v2.adapter.kms.EpwKmsServiceImpl(kmsClient);
-	}
+    /**
+     * Provides the SDK v2 implementation of {@link EpwKmsService}.
+     *
+     * @param kmsClient the AWS SDK v2 KMS client
+     * @return the SDK v2-based {@link EpwKmsService} implementation
+     */
+    @Bean
+    @Primary
+    @ConditionalOnProperty(name = "aws.sdk.version", havingValue = "v2")
+    public EpwKmsService epwKmsServiceV2(KmsClient kmsClient) {
+        return new com.empower.epw.sdk.v2.adapter.kms.EpwKmsServiceImpl(kmsClient);
+    }
 }
-
-
-i think the same is necessary here
