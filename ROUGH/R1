@@ -8,16 +8,47 @@ import com.empower.epw.aws.api.kms.dto.EncryptResponseDTO;
 import com.empower.epw.aws.api.kms.dto.ListAliasesResponseDTO;
 import com.safepage.exception.SafePageException;
 
-public interface EpwKmsService
-{
-	EncryptResponseDTO encrypt(EncryptRequestDTO request) throws SafePageException;
+/**
+ * {@code EpwKmsService} provides an abstraction over AWS Key Management Service (KMS) operations,
+ * supporting encryption, decryption, key description, and alias listing.
+ *
+ * <p>Implementations of this interface (e.g., using AWS SDK v1 or v2) allow consumers
+ * to securely manage cryptographic keys and perform key-related operations in a version-agnostic way.
+ */
+public interface EpwKmsService {
 
-	DecryptResponseDTO decrypt(DecryptRequestDTO request) throws SafePageException;
+    /**
+     * Encrypts the given plaintext using the specified KMS key.
+     *
+     * @param request the encryption request containing plaintext and keyId
+     * @return a response containing the Base64-encoded ciphertext
+     * @throws SafePageException if the request is invalid or encryption fails
+     */
+    EncryptResponseDTO encrypt(EncryptRequestDTO request) throws SafePageException;
 
-	DescribeKeyResponseDTO describeKey(String keyId) throws SafePageException;
+    /**
+     * Decrypts the given ciphertext using KMS.
+     *
+     * @param request the decryption request containing the Base64-encoded ciphertext
+     * @return a response containing the decrypted plaintext string
+     * @throws SafePageException if the request is invalid or decryption fails
+     */
+    DecryptResponseDTO decrypt(DecryptRequestDTO request) throws SafePageException;
 
-	ListAliasesResponseDTO listAliases() throws SafePageException;
+    /**
+     * Describes a KMS key using its keyId or alias.
+     *
+     * @param keyId the keyId or alias to describe
+     * @return metadata and status information about the KMS key
+     * @throws SafePageException if the key cannot be found or described
+     */
+    DescribeKeyResponseDTO describeKey(String keyId) throws SafePageException;
+
+    /**
+     * Lists all KMS key aliases in the current AWS region.
+     *
+     * @return a response containing a list of key aliases and their associated key IDs
+     * @throws SafePageException if alias listing fails
+     */
+    ListAliasesResponseDTO listAliases() throws SafePageException;
 }
-
-
-Add java doc for interface and each methods.
