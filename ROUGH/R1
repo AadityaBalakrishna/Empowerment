@@ -1,2 +1,1 @@
-@SpringJUnitConfig(locations = "/sp-security-test.xml")
-@Transactional(transactionManager = "spSecuritytransactionManager")
+<mockito:mock id="userManager" class="com.safepage.user.UserManager" />
