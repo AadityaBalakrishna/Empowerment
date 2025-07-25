@@ -1,3 +1,1 @@
-20:18:45  Caused by: org.springframework.beans.factory.NoSuchBeanDefinitionException: No qualifying bean of type 'com.empower.epw.aws.api.kms.EpwKmsService' available: expected at least 1 bean which qualifies as autowire candidate. Dependency annotations: {@org.springframework.beans.factory.annotation.Autowired(required=true)}
-
-what can solve this issue?
+20:18:45  2025-07-25T07:48:45.497-07:00  WARN 4971 --- [           main] o.s.c.s.GenericApplicationContext        : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'cryptEngine': Unsatisfied dependency expressed through field 'epwKmsService': No qualifying bean of type 'com.empower.epw.aws.api.kms.EpwKmsService' available: expected at least 1 bean which qualifies as autowire candidate. Dependency annotations: {@org.springframework.beans.factory.annotation.Autowired(required=true)}
