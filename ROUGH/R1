@@ -1,10 +1,23 @@
-20:42:33  2025-07-24 08:12:33,671 WARN main [com.safepage.security.CryptEngine] [] [] [] [] - Failed to decrypt because:
-20:42:33  java.lang.NullPointerException: Cannot invoke "com.safepage.security.service.impl.KMSServiceImpl.decryptUsingAWSKey(String)" because "<local3>.kmsService" is null
+package com.empower.epw.aws.api.kms;
 
-right, now all the task related work is done, next step is to make the existing internal consumers work 
-Find all internal consumers that use KMSServiceImpl.getInstance() (like crypt-engine).
-Refactor them to use @Autowired dependency injection.
-Self-Validation:
+import com.empower.epw.aws.api.kms.dto.DecryptRequestDTO;
+import com.empower.epw.aws.api.kms.dto.DecryptResponseDTO;
+import com.empower.epw.aws.api.kms.dto.DescribeKeyResponseDTO;
+import com.empower.epw.aws.api.kms.dto.EncryptRequestDTO;
+import com.empower.epw.aws.api.kms.dto.EncryptResponseDTO;
+import com.empower.epw.aws.api.kms.dto.ListAliasesResponseDTO;
+import com.safepage.exception.SafePageException;
 
-Ensure the entire pcap-server compiles successfully.
-Update and run the unit tests for the refactored consumer classes.
+public interface EpwKmsService
+{
+	EncryptResponseDTO encrypt(EncryptRequestDTO request) throws SafePageException;
+
+	DecryptResponseDTO decrypt(DecryptRequestDTO request) throws SafePageException;
+
+	DescribeKeyResponseDTO describeKey(String keyId) throws SafePageException;
+
+	ListAliasesResponseDTO listAliases() throws SafePageException;
+}
+
+
+Add java doc for interface and each methods.
