@@ -1,22 +1,30 @@
-	@Test
-	public void testEncryptDecryptUsingSystemPrimaryKey_AWS() throws Exception
+@Test
+	public void testEncryptDecryptUsingV4SystemSecondaryKey()
 	{
-		when(keyManager.isSystmePrimaryKeyMigratedToAWS()).thenReturn(true);
-		when(keyManager.getSystemPrimaryAliasName())
-				.thenReturn("alias/app/pcap/pcap/system_primary/v1");
-		String plainSeedValue = rawSystemSecondaryKeySeed;
-		// Encrypt using system primary key
-		String encryptedSystemSecondaryKeySeed = cryptEngine
-				.encryptUsingSystemPrimaryKey(plainSeedValue);
-		assertNotNull(encryptedSystemSecondaryKeySeed);
-		assertTrue(
-				encryptedSystemSecondaryKeySeed.startsWith(CryptType.SYSTEM_PRIMARY.getVersion()));
+		// Run SSK setup, so that so KeySeed has encryptVersion=V4
+		setUpSystemSecondaryKey(rawSystemSecondaryKeySeed, "V4");
 
-		// Decrypt using system primary key
-		String decryptedSystemSecondaryKeySeed = cryptEngine
-				.decryptUsingSystemPrimaryKey(encryptedSystemSecondaryKeySeed);
-		assertNotNull(decryptedSystemSecondaryKeySeed);
-		assertEquals(decryptedSystemSecondaryKeySeed, plainSeedValue);
+		try
+		{
+			String encryptedUserKeySeedValue = cryptEngine.encrypt(CryptType.SYSTEM_SECONDARY,
+					rawUserKeySeed);
+			assertNotNull(encryptedUserKeySeedValue, "Primary seed can't be null");
+			String decryptedUserKeySeedValue = cryptEngine.decrypt(CryptType.SYSTEM_SECONDARY,
+					encryptedUserKeySeedValue);
+			assertEquals(decryptedUserKeySeedValue, rawUserKeySeed);
+
+			/*
+			 * Test that re-encryption of userKeySeedValue generates a different encrypted String
+			 * because GCM should generate different encrypted Strings for the same raw value.
+			 */
+			String encryptedUserKeySeedValue2 = cryptEngine.encrypt(CryptType.SYSTEM_SECONDARY,
+					rawUserKeySeed);
+			assertNotEquals(encryptedUserKeySeedValue, encryptedUserKeySeedValue2);
+		}
+		catch (Exception e)
+		{
+			fail("testEncryptDecryptUsingSystemSecondaryKey failed: " + e);
+		}
 	}
 
-this is one of the test class, where should i apply that helper method
+org.opentest4j.AssertionFailedError: setUpSystemSecondaryKey Failed: java.lang.NullPointerException: Cannot invoke "com.empower.epw.aws.api.kms.dto.EncryptResponseDTO.getCiphertext()" because the return value of "com.empower.epw.aws.api.kms.EpwKmsService.encrypt(com.empower.epw.aws.api.kms.dto.EncryptRequestDTO)" is null
