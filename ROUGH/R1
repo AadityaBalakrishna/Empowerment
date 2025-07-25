@@ -1,30 +1,21 @@
-@Test
-	public void testEncryptDecryptUsingV4SystemSecondaryKey()
+	@Test
+	public void testEncryptDecryptUsingSystemPrimaryKey_AWS_2() throws Exception
 	{
-		// Run SSK setup, so that so KeySeed has encryptVersion=V4
-		setUpSystemSecondaryKey(rawSystemSecondaryKeySeed, "V4");
+		when(keyManager.isSystmePrimaryKeyMigratedToAWS()).thenReturn(true);
+		when(keyManager.getSystemPrimaryAliasName())
+				.thenReturn("alias/app/pcap/pcap/system_primary/v1");
+		String plainSeedValue = rawSystemSecondaryKeySeed;
+		// Encrypt using system primary key
+		String encryptedSystemSecondaryKeySeed = cryptEngine.encrypt(CryptType.SYSTEM_PRIMARY,
+				plainSeedValue);
+		assertNotNull(encryptedSystemSecondaryKeySeed);
 
-		try
-		{
-			String encryptedUserKeySeedValue = cryptEngine.encrypt(CryptType.SYSTEM_SECONDARY,
-					rawUserKeySeed);
-			assertNotNull(encryptedUserKeySeedValue, "Primary seed can't be null");
-			String decryptedUserKeySeedValue = cryptEngine.decrypt(CryptType.SYSTEM_SECONDARY,
-					encryptedUserKeySeedValue);
-			assertEquals(decryptedUserKeySeedValue, rawUserKeySeed);
-
-			/*
-			 * Test that re-encryption of userKeySeedValue generates a different encrypted String
-			 * because GCM should generate different encrypted Strings for the same raw value.
-			 */
-			String encryptedUserKeySeedValue2 = cryptEngine.encrypt(CryptType.SYSTEM_SECONDARY,
-					rawUserKeySeed);
-			assertNotEquals(encryptedUserKeySeedValue, encryptedUserKeySeedValue2);
-		}
-		catch (Exception e)
-		{
-			fail("testEncryptDecryptUsingSystemSecondaryKey failed: " + e);
-		}
+		// Decrypt using system primary key
+		String decryptedSystemSecondaryKeySeed = cryptEngine.decrypt(CryptType.SYSTEM_PRIMARY,
+				encryptedSystemSecondaryKeySeed);
+		assertEquals(decryptedSystemSecondaryKeySeed, plainSeedValue);
 	}
 
-org.opentest4j.AssertionFailedError: setUpSystemSecondaryKey Failed: java.lang.NullPointerException: Cannot invoke "com.empower.epw.aws.api.kms.dto.EncryptResponseDTO.getCiphertext()" because the return value of "com.empower.epw.aws.api.kms.EpwKmsService.encrypt(com.empower.epw.aws.api.kms.dto.EncryptRequestDTO)" is null
+org.opentest4j.AssertionFailedError: 
+Expected :dummyDecryptedSeed
+Actual   :iMAhT0c1Xx4jEjQi1LylodD2TzFR7JtU
