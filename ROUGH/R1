@@ -1,69 +1,275 @@
-    like this :
-@Override
-    public void purgeQueue(String queueUrl) throws SQSOperationException {
-        PurgeQueueRequest purgeQueueRequest = new PurgeQueueRequest(queueUrl);
-        try {
-            this.amazonSQS.purgeQueue(purgeQueueRequest);
-            logger.info("{} Successfully purged queue with URL: {}", AWS_SDK_V1, queueUrl);
-        } catch (Exception ex) {
-            throw AwsExceptionHandler.handleSQSException("purgeQueue", "queueUrl", queueUrl, ex);
-        }
-    }
+public class KMSServiceImpl implements KMSService
+{
+	private static final PcapLogger logger = PcapLoggerFactory.getPcapLogger(KMSServiceImpl.class);
 
-    @Override
-    public SQSSendMessageResponse sendMessage(SQSSendMessageRequest sqsSendMessageRequest) throws SQSOperationException {
-        SendMessageRequest sendMessageRequest = buildSendMessageRequest(sqsSendMessageRequest);
+	private final EpwKmsService epwKmsService;
 
-        try {
-            SendMessageResult result = this.amazonSQS.sendMessage(sendMessageRequest);
-            logger.info("{} Successfully sent message to the queue URL: {}", AWS_SDK_V1,
-                    sqsSendMessageRequest.getQueueUrl());
-            return SQSSendMessageResponse.builder()
-                    .messageId(result.getMessageId())
-                    .mD5OfMessageBody(result.getMD5OfMessageBody())
-                    .sequenceNumber(result.getSequenceNumber())
-                    .build();
-        } catch (Exception ex) {
-            throw AwsExceptionHandler.handleSQSException("sendMessage", "queueUrl", sqsSendMessageRequest.getQueueUrl()
-                    , ex);
-        }
-    }
-
-or :
-	@Override
-	public void deleteFile(String bucketName, String key)
+	@Autowired
+	public KMSServiceImpl(EpwKmsService epwKmsService)
 	{
-		validateS3Inputs(bucketName, key);
-		try
-		{
-			amazonS3.deleteObject(bucketName, key);
-			logger.info("[AWS SDK v1] Successfully deleted file from bucket: {}, key: {}",
-					bucketName, key);
-		}
-		catch (AmazonClientException e)
-		{
-			throw handleS3Exception("Failed to delete file.", bucketName, key, e);
-		}
+		this.epwKmsService = epwKmsService;
 	}
 
 	@Override
-	public List<String> listFiles(String bucketName, String folderName)
+	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
 	{
-		validateS3Inputs(bucketName, folderName);
+		if (StringUtils.isEmpty(plainText))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
+		}
+		if (StringUtils.isEmpty(keyId))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
+		}
+
+		EncryptRequestDTO request = new EncryptRequestDTO(plainText, keyId);
+		EncryptResponseDTO response = epwKmsService.encrypt(request);
+
+		if (response == null || StringUtils.isEmpty(response.getCiphertext()))
+		{
+			logger.error("KMS encryption returned null or empty ciphertext.");
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "Encryption failed.");
+		}
+		return response.getCiphertext();
+	}
+
+	@Override
+	public String decryptUsingAWSKey(String cipherText) throws SafePageException
+	{
+		if (StringUtils.isEmpty(cipherText))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
+		}
+
+		DecryptRequestDTO request = new DecryptRequestDTO(cipherText);
+		DecryptResponseDTO response = epwKmsService.decrypt(request);
+
+		if (response == null || StringUtils.isEmpty(response.getPlaintext()))
+		{
+			logger.error("KMS decryption returned null or empty plaintext.");
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "Decryption failed.");
+		}
+
+		return response.getPlaintext();
+	}
+
+	@Override
+	@Deprecated
+	public DescribeKeyResponseDTO describeKey(String keyId)throws SafePageException
+	{
+		return epwKmsService.describeKey(keyId);
+	}
+
+	@Override
+	@Deprecated
+	public ListAliasesResponseDTO getKeyAliases(String keyId) throws SafePageException
+	{
+		return epwKmsService.listAliases();
+	}
+}
+
+the before:
+public class KMSServiceImpl implements KMSService
+{
+	private AWSKMS kmsClient = null;
+	private static PcapLogger logger = PcapLoggerFactory.getPcapLogger(KMSServiceImpl.class);
+
+	private static Charset charset = StandardCharsets.UTF_8;
+
+	private AWSKMS getKMSClient()
+	{
+		if (kmsClient == null)
+		{
+			AWSCredentialsManager awsCredentialsManager = new AWSCredentialsManager();
+			kmsClient = (AWSKMS) awsCredentialsManager
+					.getClientBuilderWithCredentials(AWSKMSClient.builder())
+					.build();
+		}
+		return kmsClient;
+	}
+
+	// private constructor
+	private KMSServiceImpl()
+	{
+		/*
+		 * 1. can only be initialized using inner static class on first access.
+		 */
+		logger.info("Initialized the KMSServiceImpl");
+	}
+
+	/*
+	 * Bill Pugh Singleton creation using static inner class, thread safe and no synchronized block
+	 */
+	private static class KMSServiceHolder
+	{
+		private static final KMSService INSTANCE = new KMSServiceImpl();
+	}
+
+	public static KMSService getInstance()
+	{
+		/*
+		 * only when someone calls the method, this class gets loaded and creates the Singleton
+		 * class instance
+		 */
+		return KMSServiceHolder.INSTANCE;
+
+	}
+
+	/**
+	 * Encrypt data key (system secondary key) under AWS CMK Key using IAM role to access the key
+	 * AWS CMK
+	 * 
+	 * @throws SafePageException
+	 */
+	@Override
+	// @Retryable(value =
+	// {
+	// Exception.class
+	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
+	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
+	{
+		if (StringUtils.isEmpty(plainText))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
+		}
+		if (StringUtils.isEmpty(keyId))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
+		}
 		try
 		{
-			ListObjectsV2Request request = new ListObjectsV2Request().withBucketName(bucketName)
-					.withPrefix(folderName);
-			ListObjectsV2Result result = this.amazonS3.listObjectsV2(request);
-			logger.info("[AWS SDK v1] Successfully listed {} files in bucket: {}, folder: {}",
-					result.getKeyCount(), bucketName, folderName);
-			return result.getObjectSummaries()
-					.stream()
-					.map(S3ObjectSummary::getKey)
-					.collect(Collectors.toList());
+			EncryptRequest encryptRequest = new EncryptRequest().withKeyId(keyId)
+					.withPlaintext(getByteBuffer(plainText));
+			long start = System.currentTimeMillis();
+			EncryptResult result = getKMSClient().encrypt(encryptRequest);
+			if (result != null && result.getCiphertextBlob() != null)
+			{
+				long end = System.currentTimeMillis();
+				logger.info("encryptData took {} " + (end - start));
+				return Utils.encodeBase64(result.getCiphertextBlob()
+						.array());
+			}
+			logger.error("encryptUsingAWSKey failed, EncryptResult is null!");
+			return null;
 		}
-		catch (AmazonClientException e)
+		catch (DisabledException de)
 		{
-			throw handleS3Exception("Failed to list files.", bucketName, folderName, e);
+			logger.error(
+					"Failed to encryptUsingAWSKey(DisabledException), plainText:{}, keyId:{}, due to:{}",
+					plainText, keyId, ExceptionUtils.getMessage(de), de);
 		}
+		catch (KeyUnavailableException kue)
+		{
+			logger.error(
+					"Failed to encryptUsingAWSKey(KeyUnavailableException), plainText:{}, keyId:{}, due to:{}",
+					plainText, keyId, ExceptionUtils.getMessage(kue), kue);
+		}
+		catch (Exception ex)
+		{
+			logger.error("Failed to encryptUsingAWSKey, plainText:{}, keyId:{}, due to:{}",
+					plainText, keyId, ExceptionUtils.getMessage(ex), ex);
+		}
+		return null;
 	}
+
+	/**
+	 * Decrypt encrypted data key under AWS CMK Key using IAM role to access the key
+	 */
+	@Override
+	// @Retryable(value =
+	// {
+	// Exception.class
+	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
+	public String decryptUsingAWSKey(String cipherText) throws SafePageException
+	{
+		if (StringUtils.isEmpty(cipherText))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
+		}
+		try
+		{
+			byte[] decodedCipherText = Utils.decodeBase64(cipherText);
+			DecryptRequest decryptRequest = new DecryptRequest()
+					.withCiphertextBlob(ByteBuffer.wrap(decodedCipherText));
+			long start = System.currentTimeMillis();
+			DecryptResult result = getKMSClient().decrypt(decryptRequest);
+			long end = System.currentTimeMillis();
+			logger.info("decryptData took {}" + (end - start));
+			ByteBuffer plainTextBlob = result.getPlaintext();
+			return getString(plainTextBlob);
+		}
+		catch (KeyUnavailableException kue)
+		{
+			// The request was rejected because the specified CMK was not available. The request can
+			// be retried.
+			logger.error(
+					"Failed to decryptUsingAWSKey(KeyUnavailableException), cipherText:{}, due to:{}",
+					cipherText, ExceptionUtils.getMessage(kue), kue);
+		}
+		catch (InvalidCiphertextException ice)
+		{
+			// The request was rejected because the specified ciphertext, or additional
+			// authenticated data incorporated
+			// into the ciphertext, such as the encryption context, is corrupted, missing, or
+			// otherwise invalid.
+			logger.error(
+					"Failed to decryptUsingAWSKey(InvalidCiphertextException), cipherText:{}, due to:{}",
+					cipherText, ExceptionUtils.getMessage(ice), ice);
+		}
+		catch (DisabledException de)
+		{
+			logger.error(
+					"Failed to decryptUsingAWSKey(DisabledException), cipherText:{}, due to:{}",
+					cipherText, ExceptionUtils.getMessage(de), de);
+		}
+		catch (Exception ex)
+		{
+			logger.error("Failed to decryptUsingAWSKey, cipherText:{}, due to:{}", cipherText,
+					ExceptionUtils.getMessage(ex), ex);
+		}
+
+		return null;
+	}
+
+	public static String getString(ByteBuffer byteBuffer)
+	{
+		byte[] byteArray = new byte[byteBuffer.remaining()];
+		byteBuffer.get(byteArray);
+		return new String(byteArray, charset);
+	}
+
+	public static ByteBuffer getByteBuffer(String string)
+	{
+		return ByteBuffer.wrap(string.getBytes(charset));
+	}
+
+	/**
+	 * Create a new customer master key. <br>
+	 * Customer master key (CMK) is designed to encrypt and decrypt data keys (System Secondary
+	 * Key). CMK cannot be used to encrypt/decrypt data more than 4 KB (4096 bytes) of data.
+	 */
+	// public void createCMK()
+	// {
+	// String desc = "PCAP Master Key for encrypting system secondary keys";
+	// CreateKeyRequest req = new CreateKeyRequest().withDescription(desc);
+	// CreateKeyResult result = getKMSClient().createKey(req);
+	// }
+
+	@Override
+	public DescribeKeyResult describeKey(String keyId)
+	{
+		DescribeKeyRequest describeKeyRequest = new DescribeKeyRequest().withKeyId(keyId);
+		DescribeKeyResult result = getKMSClient().describeKey(describeKeyRequest);
+		return result;
+	}
+
+	@Override
+	public ListAliasesResult getKeyAliases(String keyId)
+	{
+		ListAliasesRequest listAliasesRequest = new ListAliasesRequest().withLimit(10);
+		ListAliasesResult result = getKMSClient().listAliases(listAliasesRequest);
+		return result;
+	}
+}
+
+the review comment: KMSServiceImpl.java - This method should behave the same way it did before the migration: not throwing an exception back and returning null when EncryptResult is null.
