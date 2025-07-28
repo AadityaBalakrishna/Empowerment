@@ -1,201 +1,69 @@
-review comment: EpwKmsServiceImpl.java
-encrypt - The method should throw a custom exception (refer to Pankaj's MR or mine) back. It should not return null; it should always return a valid object. Remove return null; and add a throw in the exception. Just catch the AWS exception here; don't catch (Exception ex).
+    like this :
+@Override
+    public void purgeQueue(String queueUrl) throws SQSOperationException {
+        PurgeQueueRequest purgeQueueRequest = new PurgeQueueRequest(queueUrl);
+        try {
+            this.amazonSQS.purgeQueue(purgeQueueRequest);
+            logger.info("{} Successfully purged queue with URL: {}", AWS_SDK_V1, queueUrl);
+        } catch (Exception ex) {
+            throw AwsExceptionHandler.handleSQSException("purgeQueue", "queueUrl", queueUrl, ex);
+        }
+    }
 
-EpwKmsServiceImpl.java:
-@Service
-public class EpwKmsServiceImpl implements EpwKmsService
-{
+    @Override
+    public SQSSendMessageResponse sendMessage(SQSSendMessageRequest sqsSendMessageRequest) throws SQSOperationException {
+        SendMessageRequest sendMessageRequest = buildSendMessageRequest(sqsSendMessageRequest);
 
-	private static final PcapLogger logger = PcapLoggerFactory
-			.getPcapLogger(EpwKmsServiceImpl.class);
-	private static final Charset charset = StandardCharsets.UTF_8;
+        try {
+            SendMessageResult result = this.amazonSQS.sendMessage(sendMessageRequest);
+            logger.info("{} Successfully sent message to the queue URL: {}", AWS_SDK_V1,
+                    sqsSendMessageRequest.getQueueUrl());
+            return SQSSendMessageResponse.builder()
+                    .messageId(result.getMessageId())
+                    .mD5OfMessageBody(result.getMD5OfMessageBody())
+                    .sequenceNumber(result.getSequenceNumber())
+                    .build();
+        } catch (Exception ex) {
+            throw AwsExceptionHandler.handleSQSException("sendMessage", "queueUrl", sqsSendMessageRequest.getQueueUrl()
+                    , ex);
+        }
+    }
 
-	private AWSKMS kmsClient;
-
-	public EpwKmsServiceImpl(AWSKMS kmsClient)
-	{
-		this.kmsClient = kmsClient;
-	}
-
+or :
 	@Override
-	public EncryptResponseDTO encrypt(EncryptRequestDTO request) throws SafePageException
-	{
-		if (StringUtils.isEmpty(request.getPlaintext()))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
-		}
-		if (StringUtils.isEmpty(request.getKeyId()))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
-		}
-		try
-		{
-			EncryptRequest encryptRequest = new EncryptRequest().withKeyId(request.getKeyId())
-					.withPlaintext(getByteBuffer(request.getPlaintext()));
-			long start = System.currentTimeMillis();
-			EncryptResult result = kmsClient.encrypt(encryptRequest);
-			if (result != null && result.getCiphertextBlob() != null)
-			{
-				long end = System.currentTimeMillis();
-				logger.info("encryptData took {} " + (end - start));
-
-				String encoded = Utils.encodeBase64(result.getCiphertextBlob()
-						.array());
-				return new EncryptResponseDTO(encoded);
-			}
-			logger.error("encryptUsingAWSKey failed, EncryptResult is null!");
-			return new EncryptResponseDTO(null);
-		}
-		catch (DisabledException de)
-		{
-			logger.error(
-					"Failed to encryptUsingAWSKey(DisabledException), plainText:{}, keyId:{}, due to:{}",
-					request.getPlaintext(), request.getKeyId(), ExceptionUtils.getMessage(de), de);
-		}
-		catch (KeyUnavailableException kue)
-		{
-			logger.error(
-					"Failed to encryptUsingAWSKey(KeyUnavailableException), plainText:{}, keyId:{}, due to:{}",
-					request.getPlaintext(), request.getKeyId(), ExceptionUtils.getMessage(kue),
-					kue);
-		}
-		catch (Exception ex)
-		{
-			logger.error("Failed to encryptUsingAWSKey, plainText:{}, keyId:{}, due to:{}",
-					request.getPlaintext(), request.getKeyId(), ExceptionUtils.getMessage(ex), ex);
-		}
-		return null;
-	}
-
-	@Override
-	public DecryptResponseDTO decrypt(DecryptRequestDTO request) throws SafePageException
-	{
-		if (StringUtils.isEmpty(request.getCiphertext()))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
-		}
-		try
-		{
-			byte[] decodedCipherText = Utils.decodeBase64(request.getCiphertext());
-			DecryptRequest decryptRequest = new DecryptRequest()
-					.withCiphertextBlob(ByteBuffer.wrap(decodedCipherText));
-			long start = System.currentTimeMillis();
-			DecryptResult result = kmsClient.decrypt(decryptRequest);
-			long end = System.currentTimeMillis();
-			logger.info("decryptData took {}" + (end - start));
-			ByteBuffer plainTextBlob = result.getPlaintext();
-			String decrypted = getString(plainTextBlob);
-			return new DecryptResponseDTO(decrypted);
-		}
-		catch (KeyUnavailableException kue)
-		{
-			// The request was rejected because the specified CMK was not available. The request can
-			// be retried.
-			logger.error(
-					"Failed to decryptUsingAWSKey(KeyUnavailableException), cipherText:{}, due to:{}",
-					request.getCiphertext(), ExceptionUtils.getMessage(kue), kue);
-		}
-		catch (InvalidCiphertextException ice)
-		{
-			// The request was rejected because the specified ciphertext, or additional
-			// authenticated data incorporated
-			// into the ciphertext, such as the encryption context, is corrupted, missing, or
-			// otherwise invalid.
-			logger.error(
-					"Failed to decryptUsingAWSKey(InvalidCiphertextException), cipherText:{}, due to:{}",
-					request.getCiphertext(), ExceptionUtils.getMessage(ice), ice);
-		}
-		catch (DisabledException de)
-		{
-			logger.error(
-					"Failed to decryptUsingAWSKey(DisabledException), cipherText:{}, due to:{}",
-					request.getCiphertext(), ExceptionUtils.getMessage(de), de);
-		}
-		catch (Exception ex)
-		{
-			logger.error("Failed to decryptUsingAWSKey, cipherText:{}, due to:{}",
-					request.getCiphertext(), ExceptionUtils.getMessage(ex), ex);
-		}
-		return null;
-	}
-
-	/**
-	 * Converts a String to a ByteBuffer using the specified charset.
-	 *
-	 * @param string
-	 *            the String to convert
-	 * @return the ByteBuffer representation of the String
-	 */
-	public static ByteBuffer getByteBuffer(String string)
-	{
-		return ByteBuffer.wrap(string.getBytes(charset));
-	}
-
-	/**
-	 * Converts a ByteBuffer to a String using the specified charset.
-	 *
-	 * @param byteBuffer
-	 *            the ByteBuffer to convert
-	 * @return the String representation of the ByteBuffer
-	 */
-	public static String getString(ByteBuffer byteBuffer)
-	{
-		byte[] byteArray = new byte[byteBuffer.remaining()];
-		byteBuffer.get(byteArray);
-		return new String(byteArray, charset);
-	}
-
-	@Override
-	@Deprecated
-	public ListAliasesResponseDTO listAliases() throws SafePageException {
-		try {
-			ListAliasesResult result = kmsClient.listAliases(new ListAliasesRequest().withLimit(100));
-			List<ListAliasesResponseDTO.AliasEntry> aliasEntries = result.getAliases().stream()
-					.map(alias -> new ListAliasesResponseDTO.AliasEntry(alias.getAliasName(),
-							alias.getTargetKeyId()))
-					.collect(Collectors.toList());
-			return new ListAliasesResponseDTO(aliasEntries);
-		}
-		catch (Exception ex) {
-			logger.error("Failed to listAliases, due to:{}", ExceptionUtils.getMessage(ex), ex);
-			return new ListAliasesResponseDTO();
-		}
-	}
-
-	@Override
-	@Deprecated
-	public DescribeKeyResponseDTO describeKey(String keyId) throws SafePageException{
-		try {
-			DescribeKeyResult result = kmsClient.describeKey(new DescribeKeyRequest().withKeyId(keyId));
-
-			return new DescribeKeyResponseDTO(
-					result.getKeyMetadata().getKeyId(),
-					result.getKeyMetadata().getArn(),
-					result.getKeyMetadata().getKeyState().toString(),
-					result.getKeyMetadata().getEnabled()
-			);
-		} catch (Exception ex) {
-			logger.error("Failed to describeKey, keyId:{}, due to:{}", keyId, ExceptionUtils.getMessage(ex), ex);
-			return new DescribeKeyResponseDTO();
-		}
-	}
-
-This method is the example from one of their MRs:
-
-	@Override
-	public long getFileSize(String bucketName, String key)
+	public void deleteFile(String bucketName, String key)
 	{
 		validateS3Inputs(bucketName, key);
 		try
 		{
-			ObjectMetadata metadata = amazonS3.getObjectMetadata(bucketName, key);
-			logger.info(
-					"[AWS SDK v1] Successfully retrieved file size for bucket: {}, key: {}, Size",
-					bucketName, key, metadata.getContentLength());
-			return metadata.getContentLength();
+			amazonS3.deleteObject(bucketName, key);
+			logger.info("[AWS SDK v1] Successfully deleted file from bucket: {}, key: {}",
+					bucketName, key);
 		}
 		catch (AmazonClientException e)
 		{
-			throw handleS3Exception("Failed to get file size.", bucketName, key, e);
+			throw handleS3Exception("Failed to delete file.", bucketName, key, e);
+		}
+	}
+
+	@Override
+	public List<String> listFiles(String bucketName, String folderName)
+	{
+		validateS3Inputs(bucketName, folderName);
+		try
+		{
+			ListObjectsV2Request request = new ListObjectsV2Request().withBucketName(bucketName)
+					.withPrefix(folderName);
+			ListObjectsV2Result result = this.amazonS3.listObjectsV2(request);
+			logger.info("[AWS SDK v1] Successfully listed {} files in bucket: {}, folder: {}",
+					result.getKeyCount(), bucketName, folderName);
+			return result.getObjectSummaries()
+					.stream()
+					.map(S3ObjectSummary::getKey)
+					.collect(Collectors.toList());
+		}
+		catch (AmazonClientException e)
+		{
+			throw handleS3Exception("Failed to list files.", bucketName, folderName, e);
 		}
 	}
