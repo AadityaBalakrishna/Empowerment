@@ -1,9 +1,8 @@
-package com.empower.epw.aws.kms.config;
+package com.empower.epw.aws.service.config;
 
 import com.amazonaws.services.kms.AWSKMS;
 import com.empower.epw.aws.api.kms.EpwKmsService;
-import com.empower.epw.sdk.v1.adapter.kms.EpwKmsServiceImpl as EpwKmsServiceImplV1;
-import com.empower.epw.sdk.v2.adapter.kms.EpwKmsServiceImpl as EpwKmsServiceImplV2;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,41 +18,30 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
-class EpwKmsAutoConfigIT {
+class EpwAwsKmsAutoConfigIT {
 
     @SpringBootApplication(exclude = DataSourceAutoConfiguration.class)
-    static class TestApplication {}
+    static class TestApplication {
+    }
 
     /**
-     * SCENARIO 1: Consumer provides custom AWSKMS client. v1 service should use it.
+     * SCENARIO 1: No consumer bean and no property. The system should fall back to the default v1 adapter.
      */
     @Nested
-    @SpringBootTest(classes = { TestApplication.class, ConsumerProvidesClientTest.CustomClientConfig.class })
-    class ConsumerProvidesClientTest {
-
-        @TestConfiguration
-        static class CustomClientConfig {
-            @Bean
-            public AWSKMS customAwsKmsClient() {
-                return mock(AWSKMS.class, "consumerCustomClient");
-            }
-        }
+    @SpringBootTest(classes = TestApplication.class)
+    class DefaultV1FallbackTest {
 
         @Autowired
-        private AWSKMS injectedClient;
-
-        @Autowired
-        private EpwKmsServiceImplV1 serviceImpl;
+        private EpwKmsService kmsService;
 
         @Test
-        void serviceShouldUseConsumerProvidedClient() {
-            // Uncomment after adding getKmsClient() to EpwKmsServiceImplV1 for test verification
-            // assertSame(injectedClient, serviceImpl.getKmsClient());
+        void shouldUseV1Implementation() {
+            assertTrue(kmsService instanceof com.empower.epw.sdk.v1.adapter.kms.EpwKmsServiceImpl);
         }
     }
 
     /**
-     * SCENARIO 2: Property set to v2. Expect v2 adapter.
+     * SCENARIO 2: Property is set to 'v2'. The v2 adapter should be loaded.
      */
     @Nested
     @SpringBootTest(classes = TestApplication.class)
@@ -65,23 +53,37 @@ class EpwKmsAutoConfigIT {
 
         @Test
         void shouldUseV2Implementation() {
-            assertTrue(kmsService instanceof EpwKmsServiceImplV2);
+            assertTrue(kmsService instanceof com.empower.epw.sdk.v2.adapter.kms.EpwKmsServiceImpl);
         }
     }
 
     /**
-     * SCENARIO 3: No property → fallback to v1 adapter.
+     * SCENARIO 3: A consumer provides their own custom AWSKMS bean. Our library should use it in the v1 service.
      */
     @Nested
-    @SpringBootTest(classes = TestApplication.class)
-    class DefaultV1FallbackTest {
+    @SpringBootTest(classes = {TestApplication.class, ConsumerProvidesClientTest.CustomClientConfig.class})
+    @TestPropertySource(properties = "epw.aws.kms.sdk.version=v1")
+    class ConsumerProvidesClientTest {
+
+        @TestConfiguration
+        static class CustomClientConfig {
+            @Bean
+            public AWSKMS customAwsKmsClient() {
+                return mock(AWSKMS.class, "consumerCustomKmsClient");
+            }
+        }
 
         @Autowired
-        private EpwKmsService kmsService;
+        private AWSKMS injectedClient;
+
+        @Autowired
+        private com.empower.epw.sdk.v1.adapter.kms.EpwKmsServiceImpl serviceImpl;
 
         @Test
-        void shouldUseV1Implementation() {
-            assertTrue(kmsService instanceof EpwKmsServiceImplV1);
+        @Disabled("Enable after adding a public getter in EpwKmsServiceImpl for the AWSKMS client")
+        void serviceShouldUseTheConsumerProvidedClient() {
+            // Add a getAwsKmsClient() method in v1 EpwKmsServiceImpl to run this test
+            // assertSame(injectedClient, serviceImpl.getAwsKmsClient());
         }
     }
 }
