@@ -1,116 +1,154 @@
-19:46:35  [INFO] Running com.empower.epw.service.account.grpc.AccountGrpcBatchProcessServiceIntegrationTest
-19:46:38  2025-07-28 07:16:37,545 ERROR main [com.empower.epw.account.common.dto.account.AccountDTO] [] [] [] [] - Failed to encrypt credentials: java.lang.Exception: Failed to decrypt user default keyseed value for keyseedId= 1297894 and userId= 363
-19:46:38  java.lang.Exception: Failed to decrypt user default keyseed value for keyseedId= 1297894 and userId= 363
-19:46:38  	at com.safepage.security.KeyManager.generateUserKeyDataFromKeySeed(KeyManager.java:579) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
-19:46:38  	at com.safepage.security.KeyManager.getDefaultUserKey(KeyManager.java:549) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
-19:46:38  	at com.safepage.security.CryptEngine.encryptUsingUserKey(CryptEngine.java:420) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
-19:46:38  	at com.safepage.security.CryptEngine.encrypt(CryptEngine.java:308) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
-19:46:38  	at com.empower.epw.account.common.util.EncryptorAdapter.encrypt(EncryptorAdapter.java:44) ~[pcap-data-MR-28752-SNAPSHOT.jar:?]
-19:46:38  	at com.empower.epw.account.common.dto.account.AccountDTO.setRawCredentials(AccountDTO.java:639) ~[account-api-client-3.0.143.jar:?]
-19:46:38  	at 
+package com.empower.epw.service.account.grpc;
 
-is there something wrong in my epwkmsservice or epwkmsserviceimpl?
+import java.util.Date;
+import java.util.EnumSet;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-because when back traced, the error leads to crypt engine: where these two methods use that new epwkmsservice, 
-	protected String encryptUsingSystemPrimaryKey(String rawValue) throws Exception
-	{
-		if (this.getKeyManager()
-				.isSystmePrimaryKeyMigratedToAWS())
-		{
-			if (StringUtils.isEmpty(this.getKeyManager()
-					.getSystemPrimaryAliasName()))
-			{
-				throw new SafePageException("systemPrimaryAliasName is null!");
-			}
-			EncryptRequestDTO req = new EncryptRequestDTO();
-			req.setPlaintext(rawValue);
-			req.setKeyId(this.getKeyManager().getSystemPrimaryAliasName());
-			String result = epwKmsService.encrypt(req).getCiphertext();
-			if (StringUtils.isNoneEmpty(result))
-			{
-				return CryptType.SYSTEM_PRIMARY.getVersion() + result;
-			}
-		}
-		return null;
-	}
+import com.empower.account.service.BaseProcessServiceIntegrationTest;
+import com.empower.epw.account.common.dto.account.AccountDTO;
+import com.personalcapital.user.data.AggregatedUserTransaction;
+import com.personalcapital.user.data.impl.AccountNumberData;
+import com.personalcapital.user.data.impl.AccountRoutingNumberData;
+import com.safepage.user.data.Account;
+import com.safepage.user.data.SiteCredentials;
+import com.safepage.user.data.UserProduct;
 
-instead of how it was before, using 
---> String result = KMSServiceImpl.getInstance()
-					.encryptUsingAWSKey(rawValue, this.getKeyManager()
-							.getSystemPrimaryAliasName());
-KMSserviceImpl, but now it's using EpwKmsService why not EpwKmsServiceImpl?
-new refactored KMSServiceImpl: 
-public class KMSServiceImpl implements KMSService
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+@ExtendWith(SpringExtension.class)
+public class AccountGrpcBatchProcessServiceIntegrationTest extends BaseProcessServiceIntegrationTest
 {
-	private static final PcapLogger logger = PcapLoggerFactory.getPcapLogger(KMSServiceImpl.class);
-
-	private final EpwKmsService epwKmsService;
-
-	@Autowired
-	public KMSServiceImpl(EpwKmsService epwKmsService)
+	private static final String[] IGNORED_ENTITY_FIELDS = new String[]
 	{
-		this.epwKmsService = epwKmsService;
+			"id", "siteInstructionsString", "instructionsJSON",
+			// objects
+			"accountDetailsFactory", "jsonedDetail", "lastCalculatedBalanceDate"
+	};
+
+	@Test
+	public void getAccount_whenUserAccountExist_invokeAccountGRPCService()
+	{
+		Account actualAccount = accountBatchProcessService.getAccount(userAccountGrpc.getId());
+		assertThat(actualAccount).usingRecursiveComparison()
+				.ignoringFields(IGNORED_ENTITY_FIELDS)
+				.isEqualTo(account);
 	}
 
-	@Override
-	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
+	@Test
+	public void getAccounts_whenUserAccountExist_invokeAccountGRPCService()
 	{
-		if (StringUtils.isEmpty(plainText))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
-		}
-		if (StringUtils.isEmpty(keyId))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
-		}
-
-		EncryptRequestDTO request = new EncryptRequestDTO(plainText, keyId);
-		EncryptResponseDTO response = epwKmsService.encrypt(request);
-
-		if (response == null || StringUtils.isEmpty(response.getCiphertext()))
-		{
-			logger.error("KMS encryption returned null or empty ciphertext.");
-			return null;
-		}
-		return response.getCiphertext();
+		List<Account> actualAccounts = accountBatchProcessService
+				.getAccounts(List.of(userAccountGrpc.getId()));
+		checkOnAccountList(actualAccounts, account);
 	}
 
-	@Override
-	public String decryptUsingAWSKey(String cipherText) throws SafePageException
+	@Test
+	public void getAccountByUserIds_whenUserAccountExist_invokeAccountGRPCService()
 	{
-		if (StringUtils.isEmpty(cipherText))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
-		}
-
-		DecryptRequestDTO request = new DecryptRequestDTO(cipherText);
-		DecryptResponseDTO response = epwKmsService.decrypt(request);
-
-		if (response == null || StringUtils.isEmpty(response.getPlaintext()))
-		{
-			logger.error("KMS decryption returned null or empty plaintext.");
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "Decryption failed.");
-		}
-
-		return response.getPlaintext();
+		List<Account> actualAccounts = accountBatchProcessService
+				.getAccountByUserIds(List.of(userId));
+		checkOnAccountList(actualAccounts, account);
 	}
 
-	@Override
-	@Deprecated
-	public DescribeKeyResponseDTO describeKey(String keyId)throws SafePageException
+	@Test
+	public void getUserAccountsIncludingClosedByUserIds_whenUserAccountExist_invokeAccountGRPCService()
 	{
-		return epwKmsService.describeKey(keyId);
+		List<Account> actualAccounts = accountBatchProcessService
+				.getUserAccountsIncludingClosedByUserIds(List.of(userId),
+						EnumSet.of(productGrpc.getType()));
+		assertThat(actualAccounts.size()).isGreaterThan(0);
+		checkOnAccountList(actualAccounts, account);
+
 	}
 
-	@Override
-	@Deprecated
-	public ListAliasesResponseDTO getKeyAliases(String keyId) throws SafePageException
+	@Test
+	public void getAccountsIncludingCloseAndLasModified_whenUserAccountExist_invokeAccountGRPCService()
 	{
-		return epwKmsService.listAliases();
+		List<Account> actualAccounts = accountBatchProcessService
+				.getAccountsIncludingCloseAndLasModified(List.of(userId),
+						userAccountGrpc.getUpdatedDate());
+
+		assertThat(actualAccounts.size()).isGreaterThan(0);
+		checkOnAccountList(actualAccounts, account);
+	}
+
+	@Test
+	public void validateAdditionalAttributes_encryptionAndDecryption()
+	{
+		Account actualAccount = accountBatchProcessService.getAccount(userAccountGrpc.getId());
+		actualAccount.setAdditionalAttributes("AdditionalAttributes", user);
+		assertThat(actualAccount.getAdditionalAttributes(user)).isEqualTo("AdditionalAttributes");
+	}
+
+	@Test
+	public void validateRawCredentials_encryptionAndDecryption()
+	{
+		AccountDTO actualAccount = (AccountDTO) accountBatchProcessService
+				.getAccount(userAccountGrpc.getId());
+		SiteCredentials siteCredentials = new SiteCredentials();
+		siteCredentials.put("credentials", "123456");
+		actualAccount.setRawCredentials(siteCredentials, user);
+		SiteCredentials actualRawCredentials = actualAccount.getRawCredentials(user);
+		assertThat(actualRawCredentials.get("credentials"))
+				.isEqualTo(siteCredentials.get("credentials"));
+	}
+
+	@Test
+	public void validatePershingAccountNumber_encryptionAndDecryption()
+	{
+		AccountDTO actualAccount = (AccountDTO) accountBatchProcessService
+				.getAccount(userAccountGrpc.getId());
+		actualAccount.setPershingAccountNumber("3100-4200-2100", user);
+		String pershingAccountNumber = actualAccount.getPershingAccountNumber(user);
+		assertThat(pershingAccountNumber).isEqualTo("3100-4200-2100");
+	}
+
+	@Test
+	public void validateAccountRoutingNumberData_encryptionAndDecryption()
+	{
+		AccountDTO actualAccount = (AccountDTO) accountBatchProcessService
+				.getAccount(userAccountGrpc.getId());
+		AccountRoutingNumberData accountRoutingNumberData = new AccountRoutingNumberData();
+		accountRoutingNumberData.setName("EPW Account");
+		accountRoutingNumberData.setSource("yodlee");
+		actualAccount.saveAccountRoutingNumberData(user, accountRoutingNumberData);
+		AccountRoutingNumberData actualData = actualAccount.getAccountRoutingNumberData(user);
+		assertThat(actualData).usingRecursiveComparison()
+				.ignoringFields("lastUpdated")
+				.isEqualTo(accountRoutingNumberData);
+	}
+
+	@Test
+	public void getAdvisoryFeeBaseHeaders_whenValidUserId_returnAggregatedUserTransaction()
+	{
+		List<Long> userIds = List.of(userId);
+		Date toDate = new Date();
+		List<AggregatedUserTransaction> aggregatedUserTransactions = accountBatchProcessService
+				.getAdvisoryFeeBaseHeaders(userIds, toDate);
+		assertThat(aggregatedUserTransactions).isNotEmpty();
+	}
+
+	public static void checkOnAccountList(List<Account> accounts, Account account)
+	{
+		boolean checked = false;
+		for (Account accountExpected : accounts)
+		{
+			if (accountExpected.getUserAccountId()
+					.equals(account.getUserAccountId()))
+			{
+				assertThat(accountExpected).isEqualTo(account);
+				checked = true;
+			}
+
+		}
+
+		assertTrue(checked);
 	}
 }
 
-one of the review comment given to me:
-Make sure adding new method in existing interface shouldn't break existing implementation. and new method should be AWS-agnostic 
- 
-The Golden Rule: Never change an existing method's signature, as this will break all classes that implement the interface. To maintain backward compatibility, always add new methods as default methods.
+
+the test class that is failing
