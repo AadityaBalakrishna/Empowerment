@@ -1,50 +1,9 @@
-@Nested
-class NegativeCasesForBadDataAndExceptions {
+                @Test
+                void testDecryptValueThrowsOrLogsExceptionWhenCiphertextIsInvalid() {
+                        String invalidCiphertext = "not-base64-or-kms-data";
+                        DecryptRequestDTO request = new DecryptRequestDTO(invalidCiphertext);
+                        DecryptResponseDTO response = epwKmsService.decrypt(request);
+                        assertNull(response);
+                }
 
-    @Test
-    void testEncryptThrowsSafePageExceptionForEmptyPlaintext() {
-        EncryptRequestDTO invalidRequest = new EncryptRequestDTO("", KEY_ALIAS);
-
-        SafePageException exception = assertThrows(SafePageException.class, () ->
-            epwKmsService.encrypt(invalidRequest)
-        );
-
-        assertEquals("plainText is required!", exception.getMessage());
-    }
-
-    @Test
-    void testEncryptValueThrowsSafePageExceptionWhenKeyIdIsMissing() {
-        EncryptRequestDTO request = new EncryptRequestDTO("some text", null);
-
-        SafePageException exception = assertThrows(SafePageException.class,
-            () -> epwKmsService.encrypt(request)
-        );
-
-        // Remove this line if getErrorType() is not accessible
-        // assertEquals(SafePageErrorType.INVALID_INPUT, exception.getErrorType());
-        assertEquals("keyId is required!", exception.getMessage());
-    }
-
-    @Test
-    void testDecryptValueThrowsOrLogsExceptionWhenCiphertextIsInvalid() {
-        String invalidCiphertext = "not-base64-or-kms-data";
-        DecryptRequestDTO request = new DecryptRequestDTO(invalidCiphertext);
-
-        DecryptResponseDTO response = epwKmsService.decrypt(request);
-
-        assertNull(response);
-    }
-
-    @Test
-    void testDecryptValueThrowsSafePageExceptionWhenCiphertextIsMissing() {
-        DecryptRequestDTO request = new DecryptRequestDTO(null);
-
-        SafePageException exception = assertThrows(SafePageException.class,
-            () -> epwKmsService.decrypt(request)
-        );
-
-        // Remove this line if getErrorType() is not accessible
-        // assertEquals(SafePageErrorType.INVALID_INPUT, exception.getErrorType());
-        assertEquals("cipherText is required!", exception.getMessage());
-    }
-}
+java: unreported exception com.safepage.exception.SafePageException; must be caught or declared to be thrown
