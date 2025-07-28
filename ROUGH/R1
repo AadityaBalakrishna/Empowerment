@@ -1,3 +1,16 @@
+this is the implementation in one of the previous codes:
+s3Client.putObject(requestBuilder.build(),
+					RequestBody.fromInputStream(inputStream, contentLength));
+			logger.info("[{}] Successfully uploaded file to bucket: {}, key: {}",
+					getAwsSdkVersion(), bucketName, key);
+of  :
+@Override
+	public String getAwsSdkVersion()
+	{
+		return "AWS SDK v1";
+	}
+
+can we do this in our code also?
 package com.empower.epw.sdk.v1.adapter.kms;
 
 import java.io.UnsupportedEncodingException;
@@ -203,5 +216,3 @@ public class EpwKmsServiceImpl implements EpwKmsService
 		}
 	}
 }
-
-this is one of the implementation class, would it need refactoring?
