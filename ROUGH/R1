@@ -1,11 +1,8 @@
-most of the tests in sp-data are failing and this is the recurring error message:
- 
-18:22:57  [ERROR] com.personalcapital.user.delegated.data.impl.PersonCredentialDaoTest.testOptInMFADefault -- Time elapsed: 0.010 s <<< ERROR!
-18:22:57  java.lang.Exception: Failed to decrypt user default keyseed value for keyseedId= 1297920 and userId= 1152
-18:22:57  	at com.safepage.security.KeyManager.generateUserKeyDataFromKeySeed(KeyManager.java:579)
-18:22:57  	at com.safepage.security.KeyManager.getDefaultUserKey(KeyManager.java:549)
-18:22:57  	at com.safepage.security.CryptEngine.encryptUsingUserKey(CryptEngine.java:420)
-18:22:57  	at com.safepage.security.CryptEngine.encrypt(CryptEngine.java:308)
-18:22:57  	at com.safepage.security.CryptEngineFacade.encrypt(CryptEngineFacade.java:52)
-
-after making the migration changes, this is what is happening
+18:21:32  [INFO] Running com.personalcapital.user.data.util.UserDataUtilsTest
+18:21:33  2025-07-28 05:51:33,309 WARN main [com.personalcapital.user.data.util.UserDataUtils] [] [] [] [] - Username or email address WlcIXpwclp already exists.
+18:21:33  2025-07-28 05:51:33,330 WARN main [com.personalcapital.user.data.util.UserDataUtils] [] [] [] [] - Lower Env specific tenantName fix has been removed!
+18:21:33  2025-07-28 05:51:33,330 ERROR main [com.personalcapital.user.data.util.UserDataUtils] [] [] [] [] - Failed to generate user primary key: Cannot invoke "org.springframework.beans.factory.BeanFactory.getBean(String)" because "<local2>.beanFactory" is null
+18:21:33  java.lang.NullPointerException: Cannot invoke "org.springframework.beans.factory.BeanFactory.getBean(String)" because "<local2>.beanFactory" is null
+18:21:33  	at com.safepage.security.CryptEngine.getKeyManager(CryptEngine.java:139) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
+18:21:33  	at com.safepage.security.CryptEngine.generateUserPrimaryKey(CryptEngine.java:881) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
+18:21:33  	at com.safepage.security.CryptEngineFacade.generateUserPrimaryKey(CryptEngineFacade.java:62) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
