@@ -1,61 +1,109 @@
-package com.epw.aws.service.config;
+Add an IT test - EpwAwsKmsAutoConfig.
 
-import com.amazonaws.services.kms.AWSKMS;
-import com.amazonaws.services.kms.AWSKMSClientBuilder;
-import com.empower.epw.aws.api.kms.EpwKmsService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.*;
+reference:
+package com.empower.epw.aws.a3.config;
+
+import com.amazonaws.services.s3.AmazonS3;
+import com.empower.epw.aws.api.s3.EpwS3Service;
+import com.empower.epw.aws.v1.s3.EpwS3ServiceImpl;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
-import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
-import software.amazon.awssdk.services.kms.KmsClient;
-import software.amazon.awssdk.regions.Region;
+import org.springframework.test.context.TestPropertySource;
 
-@Configuration
-public class EpwAwsKmsAutoConfig {
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
-    private static final Logger logger = LoggerFactory.getLogger(EpwAwsKmsAutoConfig.class);
+class EpwS3AutoConfigIT
+{
 
-    // ----------- SDK v2 Configuration -----------
+	@SpringBootApplication(exclude = DataSourceAutoConfiguration.class)
+	static class TestApplication
+	{
+	}
 
-    @Bean
-    @ConditionalOnProperty(name = "epw.aws.kms.sdk.version", havingValue = "v2")
-    @ConditionalOnMissingBean(KmsClient.class)
-    public KmsClient defaultKmsClient() {
-        logger.info("Creating default AWS SDK v2 KmsClient with default credentials.");
-        return KmsClient.builder()
-                .credentialsProvider(DefaultCredentialsProvider.create())
-                .region(Region.US_WEST_2) // or use @Value for region
-                .build();
-    }
+	/**
+	 * SCENARIO 1: A consumer provides their own custom AmazonS3 bean. Our library should
+	 * automatically use it.
+	 */
+	@Nested
+	@SpringBootTest(classes =
+	{
+			TestApplication.class, ConsumerProvidesClientTest.CustomClientConfig.class
+	})
+	class ConsumerProvidesClientTest
+	{
 
-    @Bean
-    @Primary
-    @ConditionalOnProperty(name = "epw.aws.kms.sdk.version", havingValue = "v2")
-    @ConditionalOnMissingBean(EpwKmsService.class)
-    public EpwKmsService epwKmsServiceV2(KmsClient kmsClient) {
-        logger.info("Creating EpwKmsService bean for AWS SDK v2.");
-        return new com.empower.epw.sdk.v2.adapter.kms.EpwKmsServiceImpl(kmsClient);
-    }
+		@TestConfiguration
+		static class CustomClientConfig
+		{
+			// This is the consumer's custom bean. It will be created first.
+			@Bean
+			public AmazonS3 customAmazonS3Client()
+			{
+				return mock(AmazonS3.class, "consumerCustomClient");
+			}
+		}
 
-    // ----------- SDK v1 Configuration -----------
+		@Autowired
+		private AmazonS3 injectedClient; // The client bean in the context
 
-    @Bean
-    @ConditionalOnProperty(name = "epw.aws.kms.sdk.version", havingValue = "v1", matchIfMissing = true)
-    @ConditionalOnMissingBean(AWSKMS.class)
-    public AWSKMS defaultAwsKmsClient() {
-        logger.info("Creating default AWS SDK v1 AWSKMS client.");
-        return AWSKMSClientBuilder.standard().build();
-    }
+		@Autowired
+		private EpwS3ServiceImpl serviceImpl; // The concrete v1 implementation
 
-    @Bean
-    @Primary
-    @ConditionalOnProperty(name = "epw.aws.kms.sdk.version", havingValue = "v1", matchIfMissing = true)
-    @ConditionalOnMissingBean(EpwKmsService.class)
-    public EpwKmsService epwKmsServiceV1(AWSKMS awsKmsClient) {
-        logger.info("Creating EpwKmsService bean for AWS SDK v1.");
-        return new com.empower.epw.sdk.v1.adapter.kms.EpwKmsServiceImpl(awsKmsClient);
-    }
+		@Test
+		@Disabled
+		void serviceShouldUseTheConsumerProvidedClient()
+		{
+			// For testing add the getAmazonS3Client method in the service implementation and run
+			// this test.
+			// This proves that our service implementation was injected with
+			// the exact same client instance that the consumer provided.
+			// assertSame(injectedClient, serviceImpl.getAmazonS3Client());
+		}
+	}
+
+	/**
+	 * SCENARIO 2: No consumer bean is present, and the property is set to 'v2'. The v2 adapter
+	 * should be loaded.
+	 */
+	@Nested
+	@SpringBootTest(classes = TestApplication.class)
+	@TestPropertySource(properties = "epw.aws.s3.sdk-version=v2")
+	class V2PropertySetTest
+	{
+		@Autowired
+		private EpwS3Service s3Service;
+
+		@Test
+		void shouldUseV2Implementation()
+		{
+			assertTrue(s3Service instanceof com.empower.epw.aws.v2.s3.EpwS3ServiceImpl);
+		}
+	}
+
+	/**
+	 * SCENARIO 3: No consumer bean and no property. The system should fall back to the default v1
+	 * adapter.
+	 */
+	@Nested
+	@SpringBootTest(classes = TestApplication.class)
+	class DefaultV1FallbackTest
+	{
+		@Autowired
+		private EpwS3Service s3Service;
+
+		@Test
+		void shouldUseV1Implementation()
+		{
+			assertTrue(s3Service instanceof EpwS3ServiceImpl);
+		}
+	}
 }
