@@ -1,154 +1,166 @@
-package com.empower.epw.service.account.grpc;
-
-import java.util.Date;
-import java.util.EnumSet;
-import java.util.List;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
-
-import com.empower.account.service.BaseProcessServiceIntegrationTest;
-import com.empower.epw.account.common.dto.account.AccountDTO;
-import com.personalcapital.user.data.AggregatedUserTransaction;
-import com.personalcapital.user.data.impl.AccountNumberData;
-import com.personalcapital.user.data.impl.AccountRoutingNumberData;
-import com.safepage.user.data.Account;
-import com.safepage.user.data.SiteCredentials;
-import com.safepage.user.data.UserProduct;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-@ExtendWith(SpringExtension.class)
-public class AccountGrpcBatchProcessServiceIntegrationTest extends BaseProcessServiceIntegrationTest
-{
-	private static final String[] IGNORED_ENTITY_FIELDS = new String[]
-	{
-			"id", "siteInstructionsString", "instructionsJSON",
-			// objects
-			"accountDetailsFactory", "jsonedDetail", "lastCalculatedBalanceDate"
-	};
-
-	@Test
-	public void getAccount_whenUserAccountExist_invokeAccountGRPCService()
-	{
-		Account actualAccount = accountBatchProcessService.getAccount(userAccountGrpc.getId());
-		assertThat(actualAccount).usingRecursiveComparison()
-				.ignoringFields(IGNORED_ENTITY_FIELDS)
-				.isEqualTo(account);
-	}
-
-	@Test
-	public void getAccounts_whenUserAccountExist_invokeAccountGRPCService()
-	{
-		List<Account> actualAccounts = accountBatchProcessService
-				.getAccounts(List.of(userAccountGrpc.getId()));
-		checkOnAccountList(actualAccounts, account);
-	}
-
-	@Test
-	public void getAccountByUserIds_whenUserAccountExist_invokeAccountGRPCService()
-	{
-		List<Account> actualAccounts = accountBatchProcessService
-				.getAccountByUserIds(List.of(userId));
-		checkOnAccountList(actualAccounts, account);
-	}
-
-	@Test
-	public void getUserAccountsIncludingClosedByUserIds_whenUserAccountExist_invokeAccountGRPCService()
-	{
-		List<Account> actualAccounts = accountBatchProcessService
-				.getUserAccountsIncludingClosedByUserIds(List.of(userId),
-						EnumSet.of(productGrpc.getType()));
-		assertThat(actualAccounts.size()).isGreaterThan(0);
-		checkOnAccountList(actualAccounts, account);
-
-	}
-
-	@Test
-	public void getAccountsIncludingCloseAndLasModified_whenUserAccountExist_invokeAccountGRPCService()
-	{
-		List<Account> actualAccounts = accountBatchProcessService
-				.getAccountsIncludingCloseAndLasModified(List.of(userId),
-						userAccountGrpc.getUpdatedDate());
-
-		assertThat(actualAccounts.size()).isGreaterThan(0);
-		checkOnAccountList(actualAccounts, account);
-	}
-
-	@Test
-	public void validateAdditionalAttributes_encryptionAndDecryption()
-	{
-		Account actualAccount = accountBatchProcessService.getAccount(userAccountGrpc.getId());
-		actualAccount.setAdditionalAttributes("AdditionalAttributes", user);
-		assertThat(actualAccount.getAdditionalAttributes(user)).isEqualTo("AdditionalAttributes");
-	}
-
-	@Test
-	public void validateRawCredentials_encryptionAndDecryption()
-	{
-		AccountDTO actualAccount = (AccountDTO) accountBatchProcessService
-				.getAccount(userAccountGrpc.getId());
-		SiteCredentials siteCredentials = new SiteCredentials();
-		siteCredentials.put("credentials", "123456");
-		actualAccount.setRawCredentials(siteCredentials, user);
-		SiteCredentials actualRawCredentials = actualAccount.getRawCredentials(user);
-		assertThat(actualRawCredentials.get("credentials"))
-				.isEqualTo(siteCredentials.get("credentials"));
-	}
-
-	@Test
-	public void validatePershingAccountNumber_encryptionAndDecryption()
-	{
-		AccountDTO actualAccount = (AccountDTO) accountBatchProcessService
-				.getAccount(userAccountGrpc.getId());
-		actualAccount.setPershingAccountNumber("3100-4200-2100", user);
-		String pershingAccountNumber = actualAccount.getPershingAccountNumber(user);
-		assertThat(pershingAccountNumber).isEqualTo("3100-4200-2100");
-	}
-
-	@Test
-	public void validateAccountRoutingNumberData_encryptionAndDecryption()
-	{
-		AccountDTO actualAccount = (AccountDTO) accountBatchProcessService
-				.getAccount(userAccountGrpc.getId());
-		AccountRoutingNumberData accountRoutingNumberData = new AccountRoutingNumberData();
-		accountRoutingNumberData.setName("EPW Account");
-		accountRoutingNumberData.setSource("yodlee");
-		actualAccount.saveAccountRoutingNumberData(user, accountRoutingNumberData);
-		AccountRoutingNumberData actualData = actualAccount.getAccountRoutingNumberData(user);
-		assertThat(actualData).usingRecursiveComparison()
-				.ignoringFields("lastUpdated")
-				.isEqualTo(accountRoutingNumberData);
-	}
-
-	@Test
-	public void getAdvisoryFeeBaseHeaders_whenValidUserId_returnAggregatedUserTransaction()
-	{
-		List<Long> userIds = List.of(userId);
-		Date toDate = new Date();
-		List<AggregatedUserTransaction> aggregatedUserTransactions = accountBatchProcessService
-				.getAdvisoryFeeBaseHeaders(userIds, toDate);
-		assertThat(aggregatedUserTransactions).isNotEmpty();
-	}
-
-	public static void checkOnAccountList(List<Account> accounts, Account account)
-	{
-		boolean checked = false;
-		for (Account accountExpected : accounts)
-		{
-			if (accountExpected.getUserAccountId()
-					.equals(account.getUserAccountId()))
-			{
-				assertThat(accountExpected).isEqualTo(account);
-				checked = true;
-			}
-
-		}
-
-		assertTrue(checked);
-	}
-}
-
-
-the test class that is failing
+19:46:35  [INFO] Running com.empower.epw.service.account.grpc.AccountGrpcBatchProcessServiceIntegrationTest
+19:46:38  2025-07-28 07:16:37,545 ERROR main [com.empower.epw.account.common.dto.account.AccountDTO] [] [] [] [] - Failed to encrypt credentials: java.lang.Exception: Failed to decrypt user default keyseed value for keyseedId= 1297894 and userId= 363
+19:46:38  java.lang.Exception: Failed to decrypt user default keyseed value for keyseedId= 1297894 and userId= 363
+19:46:38  	at com.safepage.security.KeyManager.generateUserKeyDataFromKeySeed(KeyManager.java:579) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
+19:46:38  	at com.safepage.security.KeyManager.getDefaultUserKey(KeyManager.java:549) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
+19:46:38  	at com.safepage.security.CryptEngine.encryptUsingUserKey(CryptEngine.java:420) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
+19:46:38  	at com.safepage.security.CryptEngine.encrypt(CryptEngine.java:308) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
+19:46:38  	at com.empower.epw.account.common.util.EncryptorAdapter.encrypt(EncryptorAdapter.java:44) ~[pcap-data-MR-28752-SNAPSHOT.jar:?]
+19:46:38  	at com.empower.epw.account.common.dto.account.AccountDTO.setRawCredentials(AccountDTO.java:639) ~[account-api-client-3.0.143.jar:?]
+19:46:38  	at com.empower.epw.service.account.grpc.AccountGrpcBatchProcessServiceIntegrationTest.validateRawCredentials_encryptionAndDecryption(AccountGrpcBatchProcessServiceIntegrationTest.java:94) ~[test-classes/:?]
+19:46:38  	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[?:?]
+19:46:38  	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[?:?]
+19:46:38  	at org.junit.platform.commons.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:728) ~[junit-platform-commons-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.jupiter.engine.execution.MethodInvocation.proceed(MethodInvocation.java:60) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$ValidatingInvocation.proceed(InvocationInterceptorChain.java:131) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.extension.TimeoutExtension.intercept(TimeoutExtension.java:156) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestableMethod(TimeoutExtension.java:147) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestMethod(TimeoutExtension.java:86) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker$ReflectiveInterceptorCall.lambda$ofVoidMethod$0(InterceptingExecutableInvoker.java:103) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.lambda$invoke$0(InterceptingExecutableInvoker.java:93) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$InterceptedInvocation.proceed(InvocationInterceptorChain.java:106) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.proceed(InvocationInterceptorChain.java:64) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.chainAndInvoke(InvocationInterceptorChain.java:45) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.invoke(InvocationInterceptorChain.java:37) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:92) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:86) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.lambda$invokeTestMethod$7(TestMethodTestDescriptor.java:218) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.invokeTestMethod(TestMethodTestDescriptor.java:214) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:139) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:69) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:151) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:141) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:139) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:138) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:95) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596) ~[?:?]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:155) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:141) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:139) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:138) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:95) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596) ~[?:?]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:155) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:141) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:139) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:138) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:95) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.submit(SameThreadHierarchicalTestExecutorService.java:35) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.HierarchicalTestExecutor.execute(HierarchicalTestExecutor.java:57) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.HierarchicalTestEngine.execute(HierarchicalTestEngine.java:54) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:198) ~[junit-platform-launcher-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:169) ~[junit-platform-launcher-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:93) ~[junit-platform-launcher-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.lambda$execute$0(EngineExecutionOrchestrator.java:58) ~[junit-platform-launcher-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.withInterceptedStreams(EngineExecutionOrchestrator.java:141) [junit-platform-launcher-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:57) [junit-platform-launcher-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:103) [junit-platform-launcher-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:85) [junit-platform-launcher-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.launcher.core.DelegatingLauncher.execute(DelegatingLauncher.java:47) [junit-platform-launcher-1.10.3.jar:1.10.3]
+19:46:38  	at org.apache.maven.surefire.junitplatform.LazyLauncher.execute(LazyLauncher.java:56) [surefire-junit-platform-3.5.0.jar:3.5.0]
+19:46:38  	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.execute(JUnitPlatformProvider.java:184) [surefire-junit-platform-3.5.0.jar:3.5.0]
+19:46:38  	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.invokeAllTests(JUnitPlatformProvider.java:148) [surefire-junit-platform-3.5.0.jar:3.5.0]
+19:46:38  	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.invoke(JUnitPlatformProvider.java:122) [surefire-junit-platform-3.5.0.jar:3.5.0]
+19:46:38  	at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385) [surefire-booter-3.5.0.jar:3.5.0]
+19:46:38  	at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162) [surefire-booter-3.5.0.jar:3.5.0]
+19:46:38  	at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507) [surefire-booter-3.5.0.jar:3.5.0]
+19:46:38  	at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495) [surefire-booter-3.5.0.jar:3.5.0]
+19:46:38  2025-07-28 07:16:37,883 ERROR main [com.empower.epw.account.common.dto.account.AccountDTO] [] [] [] [] - Exception occurred setAdditionalAttributes account id796e92a2-6bbd-11f0-ab5e-06a85f81c9ff
+19:46:38  java.lang.Exception: Failed to decrypt user default keyseed value for keyseedId= 1297894 and userId= 363
+19:46:38  	at com.safepage.security.KeyManager.generateUserKeyDataFromKeySeed(KeyManager.java:579) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
+19:46:38  	at com.safepage.security.KeyManager.getDefaultUserKey(KeyManager.java:549) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
+19:46:38  	at com.safepage.security.CryptEngine.encryptUsingUserKey(CryptEngine.java:420) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
+19:46:38  	at com.safepage.security.CryptEngine.encrypt(CryptEngine.java:308) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
+19:46:38  	at com.empower.epw.account.common.util.EncryptorAdapter.encrypt(EncryptorAdapter.java:44) ~[pcap-data-MR-28752-SNAPSHOT.jar:?]
+19:46:38  	at com.empower.epw.account.common.dto.account.AccountDTO.setAdditionalAttributes(AccountDTO.java:1130) ~[account-api-client-3.0.143.jar:?]
+19:46:38  	at com.empower.epw.service.account.grpc.AccountGrpcBatchProcessServiceIntegrationTest.validateAdditionalAttributes_encryptionAndDecryption(AccountGrpcBatchProcessServiceIntegrationTest.java:83) ~[test-classes/:?]
+19:46:38  	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[?:?]
+19:46:38  	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[?:?]
+19:46:38  	at org.junit.platform.commons.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:728) ~[junit-platform-commons-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.jupiter.engine.execution.MethodInvocation.proceed(MethodInvocation.java:60) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$ValidatingInvocation.proceed(InvocationInterceptorChain.java:131) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.extension.TimeoutExtension.intercept(TimeoutExtension.java:156) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestableMethod(TimeoutExtension.java:147) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestMethod(TimeoutExtension.java:86) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker$ReflectiveInterceptorCall.lambda$ofVoidMethod$0(InterceptingExecutableInvoker.java:103) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.lambda$invoke$0(InterceptingExecutableInvoker.java:93) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$InterceptedInvocation.proceed(InvocationInterceptorChain.java:106) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.proceed(InvocationInterceptorChain.java:64) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.chainAndInvoke(InvocationInterceptorChain.java:45) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.invoke(InvocationInterceptorChain.java:37) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:92) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:86) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.lambda$invokeTestMethod$7(TestMethodTestDescriptor.java:218) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.invokeTestMethod(TestMethodTestDescriptor.java:214) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:139) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:69) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:151) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:141) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:139) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:138) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:95) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596) ~[?:?]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:155) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:141) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:139) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:138) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:95) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596) ~[?:?]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:155) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:141) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:139) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:138) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:95) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.submit(SameThreadHierarchicalTestExecutorService.java:35) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.HierarchicalTestExecutor.execute(HierarchicalTestExecutor.java:57) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.engine.support.hierarchical.HierarchicalTestEngine.execute(HierarchicalTestEngine.java:54) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:198) ~[junit-platform-launcher-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:169) ~[junit-platform-launcher-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:93) ~[junit-platform-launcher-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.lambda$execute$0(EngineExecutionOrchestrator.java:58) ~[junit-platform-launcher-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.withInterceptedStreams(EngineExecutionOrchestrator.java:141) [junit-platform-launcher-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:57) [junit-platform-launcher-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:103) [junit-platform-launcher-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:85) [junit-platform-launcher-1.10.3.jar:1.10.3]
+19:46:38  	at org.junit.platform.launcher.core.DelegatingLauncher.execute(DelegatingLauncher.java:47) [junit-platform-launcher-1.10.3.jar:1.10.3]
+19:46:38  	at org.apache.maven.surefire.junitplatform.LazyLauncher.execute(LazyLauncher.java:56) [surefire-junit-platform-3.5.0.jar:3.5.0]
+19:46:38  	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.execute(JUnitPlatformProvider.java:184) [surefire-junit-platform-3.5.0.jar:3.5.0]
+19:46:38  	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.invokeAllTests(JUnitPlatformProvider.java:148) [surefire-junit-platform-3.5.0.jar:3.5.0]
+19:46:38  	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.invoke(JUnitPlatformProvider.java:122) [surefire-junit-platform-3.5.0.jar:3.5.0]
+19:46:38  	at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385) [surefire-booter-3.5.0.jar:3.5.0]
+19:46:38  	at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162) [surefire-booter-3.5.0.jar:3.5.0]
+19:46:38  	at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507) [surefire-booter-3.5.0.jar:3.5.0]
+19:46:38  	at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495) [surefire-booter-3.5.0.jar:3.5.0]
+19:46:38  2025-07-28 07:16:37,987 ERROR main [com.empower.epw.account.common.dto.account.AccountDTO] [] [] [] [] - Failed to setPershingAccountNumber: java.lang.Exception: Failed to decrypt user default keyseed value for keyseedId= 1297894 and userId= 363
+19:46:38  java.lang.Exception: Failed to decrypt user default keyseed value for keyseedId= 1297894 and userId= 363
+19:46:38  	at com.safepage.security.KeyManager.generateUserKeyDataFromKeySeed(KeyManager.java:579) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
+19:46:38  	at com.safepage.security.KeyManager.getDefaultUserKey(KeyManager.java:549) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
+19:46:38  	at com.safepage.security.CryptEngine.encryptUsingUserKey(CryptEngine.java:420) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
+19:46:38  	at com.safepage.security.CryptEngine.encrypt(CryptEngine.java:308) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
+19:46:38  	at com.empower.epw.account.common.util.EncryptorAdapter.encrypt(EncryptorAdapter.java:44) ~[pcap-data-MR-28752-SNAPSHOT.jar:?]
+19:46:38  	at com.empower.epw.account.common.dto.account.AccountDTO.setPershingAccountNumber(AccountDTO.java:1490) ~[account-api-client-3.0.143.jar:?]
+19:46:38  	at 
