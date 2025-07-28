@@ -1,6 +1,136 @@
-Review comment: EncryptRequestDTO - use lombak for getter/setter and use builder pattern to build request/response ( don't use new keyword )
+package com.empower.epw.aws.api.kms.dto;
+
+/**
+ * Data Transfer Object (DTO) for decrypting ciphertext using AWS KMS.
+ *
+ * This class encapsulates the ciphertext that needs to be decrypted.
+ * It is used as an input parameter for decryption operations in the KMS service.
+ */
+public class DecryptRequestDTO
+{
+	private String ciphertext;
+
+	// Default Constructor
+	public DecryptRequestDTO()
+	{
+	}
+
+	// Parameterized Constructor
+	public DecryptRequestDTO(String ciphertext)
+	{
+		this.ciphertext = ciphertext;
+	}
+
+	// Getters and Setters
+	public String getCiphertext()
+	{
+		return ciphertext;
+	}
+
+	public void setCiphertext(String ciphertext)
+	{
+		this.ciphertext = ciphertext;
+	}
+}
 
 package com.empower.epw.aws.api.kms.dto;
+
+/**
+ * Data Transfer Object (DTO) for decrypting ciphertext using AWS KMS.
+ *
+ * This class encapsulates the ciphertext that needs to be decrypted.
+ * It is used as an input parameter for decryption operations in the KMS service.
+ */
+public class DecryptRequestDTO
+{
+	private String ciphertext;
+
+	// Default Constructor
+	public DecryptRequestDTO()
+	{
+	}
+
+	// Parameterized Constructor
+	public DecryptRequestDTO(String ciphertext)
+	{
+		this.ciphertext = ciphertext;
+	}
+
+	// Getters and Setters
+	public String getCiphertext()
+	{
+		return ciphertext;
+	}
+
+	public void setCiphertext(String ciphertext)
+	{
+		this.ciphertext = ciphertext;
+	}
+}
+
+package com.empower.epw.aws.api.kms.dto;
+
+/**
+ * Data Transfer Object (DTO) for the response of a Describe Key operation using AWS KMS.
+ *
+ * This class encapsulates the details of a KMS key, including its ID, ARN, state, and whether it is enabled.
+ * It is used as the output of Describe Key operations in the KMS service.
+ */
+public class DescribeKeyResponseDTO {
+    private String keyId;
+    private String keyArn;
+    private String keyState;
+    private boolean enabled;
+
+    public DescribeKeyResponseDTO() {
+    }
+
+    public DescribeKeyResponseDTO(String keyId, String keyArn, String keyState, boolean enabled) {
+        this.keyId = keyId;
+        this.keyArn = keyArn;
+        this.keyState = keyState;
+        this.enabled = enabled;
+    }
+
+    public String getKeyId() {
+        return keyId;
+    }
+
+    public void setKeyId(String keyId) {
+        this.keyId = keyId;
+    }
+
+    public String getKeyArn() {
+        return keyArn;
+    }
+
+    public void setKeyArn(String keyArn) {
+        this.keyArn = keyArn;
+    }
+
+    public String getKeyState() {
+        return keyState;
+    }
+
+    public void setKeyState(String keyState) {
+        this.keyState = keyState;
+    }
+
+    public boolean getEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+}
+
+package com.empower.epw.aws.api.kms.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
  * Data Transfer Object (DTO) for encrypting plaintext using AWS KMS.
@@ -8,6 +138,8 @@ package com.empower.epw.aws.api.kms.dto;
  * This class encapsulates the plaintext and the key ID required for encryption.
  * It is used as an input parameter for encryption operations in the KMS service.
  */
+@Data
+@Builder
 public class EncryptRequestDTO
 {
 	private String plaintext;
@@ -46,3 +178,103 @@ public class EncryptRequestDTO
 		this.keyId = keyId;
 	}
 }
+
+package com.empower.epw.aws.api.kms.dto;
+
+/**
+ * Data Transfer Object (DTO) for the response of an encryption operation using AWS KMS.
+ *
+ * This class encapsulates the ciphertext result obtained after encrypting plaintext.
+ * It is used as the output of encryption operations in the KMS service.
+ */
+public class EncryptResponseDTO
+{
+	private String ciphertext;
+
+	// Default Constructor
+	public EncryptResponseDTO()
+	{
+	}
+
+	// Parameterized Constructor
+	public EncryptResponseDTO(String ciphertext)
+	{
+		this.ciphertext = ciphertext;
+	}
+
+	// Getters and Setters
+	public String getCiphertext()
+	{
+		return ciphertext;
+	}
+
+	public void setCiphertext(String ciphertext)
+	{
+		this.ciphertext = ciphertext;
+	}
+}
+
+package com.empower.epw.aws.api.kms.dto;
+
+import java.util.List;
+
+/**
+ * Data Transfer Object (DTO) for the response of a List Aliases operation using AWS KMS.
+ *
+ * This class encapsulates a list of alias entries, where each entry contains details
+ * about an alias name and its associated target key ID.
+ * It is used as the output of List Aliases operations in the KMS service.
+ */
+public class ListAliasesResponseDTO {
+
+    public static class AliasEntry{
+        private String aliasName;
+        private String targetKeyId;
+
+        public AliasEntry() {
+        }
+
+        public AliasEntry(String aliasName, String targetKeyId) {
+            this.aliasName = aliasName;
+            this.targetKeyId = targetKeyId;
+        }
+
+        // Getters and Setters
+        public String getAliasName() {
+            return aliasName;
+        }
+
+        public void setAliasName(String aliasName) {
+            this.aliasName = aliasName;
+        }
+
+        public String getTargetKeyId() {
+            return targetKeyId;
+        }
+
+        public void setTargetKeyId(String targetKeyId) {
+            this.targetKeyId = targetKeyId;
+        }
+    }
+    private List<AliasEntry> aliases;
+
+    public ListAliasesResponseDTO() {
+    }
+
+    // Parameterized Constructor
+    public ListAliasesResponseDTO(List<AliasEntry> aliases) {
+        this.aliases = aliases;
+    }
+
+    public List<AliasEntry> getAliases(){
+        return aliases;
+    }
+
+    public void setAliases(List<AliasEntry> aliases) {
+        this.aliases = aliases;
+    }
+}
+
+
+now i need to change all of them to getter/setter right?
+this is the review comment - EncryptRequestDTO - use lombak for getter/setter and use builder pattern to build request/response ( don't use new keyword )
