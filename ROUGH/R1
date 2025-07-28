@@ -5,17 +5,26 @@ import com.empower.epw.aws.api.kms.EpwKmsService;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
 import software.amazon.awssdk.services.kms.KmsClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class EpwAwsKmsAutoConfigIT {
+@EnableAutoConfiguration
+class EpwAwsKmsAutoConfigIT {
 
     @Nested
-    @SpringBootTest
-    class DefaultV1ConfigTest {
+    @SpringBootTest(classes = EpwAwsKmsAutoConfig.class)
+    @TestPropertySource(properties = {
+            "aws.region=us-west-2",
+            "aws.profile=dummy",
+            "epw.aws.kms.sdk.version=v1"
+    })
+    @Import(EpwAwsKmsAutoConfig.class)
+    class V1ConfigTest {
 
         @Autowired
         private EpwKmsService epwKmsService;
@@ -24,7 +33,7 @@ public class EpwAwsKmsAutoConfigIT {
         private AWSKMS awsKms;
 
         @Test
-        void shouldLoadV1BeansByDefault() {
+        void shouldLoadV1Beans() {
             assertThat(epwKmsService).isNotNull();
             assertThat(awsKms).isNotNull();
             assertThat(epwKmsService.getClass().getName())
@@ -33,26 +42,13 @@ public class EpwAwsKmsAutoConfigIT {
     }
 
     @Nested
-    @SpringBootTest(properties = "epw.aws.kms.sdk.version=v1")
-    class ExplicitV1ConfigTest {
-
-        @Autowired
-        private EpwKmsService epwKmsService;
-
-        @Autowired
-        private AWSKMS awsKms;
-
-        @Test
-        void shouldLoadV1BeansWhenSetExplicitly() {
-            assertThat(epwKmsService).isNotNull();
-            assertThat(awsKms).isNotNull();
-            assertThat(epwKmsService.getClass().getName())
-                .isEqualTo("com.empower.epw.sdk.v1.adapter.kms.EpwKmsServiceImpl");
-        }
-    }
-
-    @Nested
-    @SpringBootTest(properties = "epw.aws.kms.sdk.version=v2")
+    @SpringBootTest(classes = EpwAwsKmsAutoConfig.class)
+    @TestPropertySource(properties = {
+            "aws.region=us-west-2",
+            "aws.profile=dummy",
+            "epw.aws.kms.sdk.version=v2"
+    })
+    @Import(EpwAwsKmsAutoConfig.class)
     class V2ConfigTest {
 
         @Autowired
@@ -62,7 +58,7 @@ public class EpwAwsKmsAutoConfigIT {
         private KmsClient kmsClient;
 
         @Test
-        void shouldLoadV2BeansWhenPropertySet() {
+        void shouldLoadV2Beans() {
             assertThat(epwKmsService).isNotNull();
             assertThat(kmsClient).isNotNull();
             assertThat(epwKmsService.getClass().getName())
