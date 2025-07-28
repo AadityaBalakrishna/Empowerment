@@ -1,280 +1,207 @@
-package com.empower.epw.aws.api.kms.dto;
+package com.empower.epw.sdk.v1.adapter.kms;
 
-/**
- * Data Transfer Object (DTO) for decrypting ciphertext using AWS KMS.
- *
- * This class encapsulates the ciphertext that needs to be decrypted.
- * It is used as an input parameter for decryption operations in the KMS service.
- */
-public class DecryptRequestDTO
-{
-	private String ciphertext;
-
-	// Default Constructor
-	public DecryptRequestDTO()
-	{
-	}
-
-	// Parameterized Constructor
-	public DecryptRequestDTO(String ciphertext)
-	{
-		this.ciphertext = ciphertext;
-	}
-
-	// Getters and Setters
-	public String getCiphertext()
-	{
-		return ciphertext;
-	}
-
-	public void setCiphertext(String ciphertext)
-	{
-		this.ciphertext = ciphertext;
-	}
-}
-
-package com.empower.epw.aws.api.kms.dto;
-
-/**
- * Data Transfer Object (DTO) for decrypting ciphertext using AWS KMS.
- *
- * This class encapsulates the ciphertext that needs to be decrypted.
- * It is used as an input parameter for decryption operations in the KMS service.
- */
-public class DecryptRequestDTO
-{
-	private String ciphertext;
-
-	// Default Constructor
-	public DecryptRequestDTO()
-	{
-	}
-
-	// Parameterized Constructor
-	public DecryptRequestDTO(String ciphertext)
-	{
-		this.ciphertext = ciphertext;
-	}
-
-	// Getters and Setters
-	public String getCiphertext()
-	{
-		return ciphertext;
-	}
-
-	public void setCiphertext(String ciphertext)
-	{
-		this.ciphertext = ciphertext;
-	}
-}
-
-package com.empower.epw.aws.api.kms.dto;
-
-/**
- * Data Transfer Object (DTO) for the response of a Describe Key operation using AWS KMS.
- *
- * This class encapsulates the details of a KMS key, including its ID, ARN, state, and whether it is enabled.
- * It is used as the output of Describe Key operations in the KMS service.
- */
-public class DescribeKeyResponseDTO {
-    private String keyId;
-    private String keyArn;
-    private String keyState;
-    private boolean enabled;
-
-    public DescribeKeyResponseDTO() {
-    }
-
-    public DescribeKeyResponseDTO(String keyId, String keyArn, String keyState, boolean enabled) {
-        this.keyId = keyId;
-        this.keyArn = keyArn;
-        this.keyState = keyState;
-        this.enabled = enabled;
-    }
-
-    public String getKeyId() {
-        return keyId;
-    }
-
-    public void setKeyId(String keyId) {
-        this.keyId = keyId;
-    }
-
-    public String getKeyArn() {
-        return keyArn;
-    }
-
-    public void setKeyArn(String keyArn) {
-        this.keyArn = keyArn;
-    }
-
-    public String getKeyState() {
-        return keyState;
-    }
-
-    public void setKeyState(String keyState) {
-        this.keyState = keyState;
-    }
-
-    public boolean getEnabled() {
-        return enabled;
-    }
-
-    public void setEnabled(boolean enabled) {
-        this.enabled = enabled;
-    }
-}
-
-package com.empower.epw.aws.api.kms.dto;
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-/**
- * Data Transfer Object (DTO) for encrypting plaintext using AWS KMS.
- *
- * This class encapsulates the plaintext and the key ID required for encryption.
- * It is used as an input parameter for encryption operations in the KMS service.
- */
-@Data
-@Builder
-public class EncryptRequestDTO
-{
-	private String plaintext;
-	private String keyId;
-
-	// Default Constructor
-	public EncryptRequestDTO()
-	{
-	}
-
-	// Parameterized Constructor
-	public EncryptRequestDTO(String plaintext, String keyId)
-	{
-		this.plaintext = plaintext;
-		this.keyId = keyId;
-	}
-
-	// Getters and Setters
-	public String getPlaintext()
-	{
-		return plaintext;
-	}
-
-	public void setPlaintext(String plaintext)
-	{
-		this.plaintext = plaintext;
-	}
-
-	public String getKeyId()
-	{
-		return keyId;
-	}
-
-	public void setKeyId(String keyId)
-	{
-		this.keyId = keyId;
-	}
-}
-
-package com.empower.epw.aws.api.kms.dto;
-
-/**
- * Data Transfer Object (DTO) for the response of an encryption operation using AWS KMS.
- *
- * This class encapsulates the ciphertext result obtained after encrypting plaintext.
- * It is used as the output of encryption operations in the KMS service.
- */
-public class EncryptResponseDTO
-{
-	private String ciphertext;
-
-	// Default Constructor
-	public EncryptResponseDTO()
-	{
-	}
-
-	// Parameterized Constructor
-	public EncryptResponseDTO(String ciphertext)
-	{
-		this.ciphertext = ciphertext;
-	}
-
-	// Getters and Setters
-	public String getCiphertext()
-	{
-		return ciphertext;
-	}
-
-	public void setCiphertext(String ciphertext)
-	{
-		this.ciphertext = ciphertext;
-	}
-}
-
-package com.empower.epw.aws.api.kms.dto;
-
+import java.io.UnsupportedEncodingException;
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.util.stream.Collectors;
 import java.util.List;
 
-/**
- * Data Transfer Object (DTO) for the response of a List Aliases operation using AWS KMS.
- *
- * This class encapsulates a list of alias entries, where each entry contains details
- * about an alias name and its associated target key ID.
- * It is used as the output of List Aliases operations in the KMS service.
- */
-public class ListAliasesResponseDTO {
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.springframework.stereotype.Service;
 
-    public static class AliasEntry{
-        private String aliasName;
-        private String targetKeyId;
+import com.amazonaws.services.kms.AWSKMS;
+import com.amazonaws.services.kms.model.DecryptRequest;
+import com.amazonaws.services.kms.model.DecryptResult;
+import com.amazonaws.services.kms.model.DescribeKeyRequest;
+import com.amazonaws.services.kms.model.DescribeKeyResult;
+import com.amazonaws.services.kms.model.DisabledException;
+import com.amazonaws.services.kms.model.EncryptRequest;
+import com.amazonaws.services.kms.model.EncryptResult;
+import com.amazonaws.services.kms.model.InvalidCiphertextException;
+import com.amazonaws.services.kms.model.KeyUnavailableException;
+import com.amazonaws.services.kms.model.ListAliasesRequest;
+import com.amazonaws.services.kms.model.ListAliasesResult;
+import com.empower.epw.aws.api.kms.dto.DecryptRequestDTO;
+import com.empower.epw.aws.api.kms.dto.DecryptResponseDTO;
+import com.empower.epw.aws.api.kms.dto.DescribeKeyResponseDTO;
+import com.empower.epw.aws.api.kms.dto.EncryptRequestDTO;
+import com.empower.epw.aws.api.kms.dto.EncryptResponseDTO;
+import com.empower.epw.aws.api.kms.dto.ListAliasesResponseDTO;
+import com.empower.epw.sdk.v1.adapter.kms.util.AwsExceptionHandler;
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+import com.safepage.error.SafePageErrorType;
+import com.safepage.exception.SafePageException;
+import com.empower.epw.aws.api.kms.EpwKmsService;
+import com.safepage.util.Utils;
 
-        public AliasEntry() {
-        }
+@Service
+public class EpwKmsServiceImpl implements EpwKmsService
+{
 
-        public AliasEntry(String aliasName, String targetKeyId) {
-            this.aliasName = aliasName;
-            this.targetKeyId = targetKeyId;
-        }
+	private static final PcapLogger logger = PcapLoggerFactory
+			.getPcapLogger(EpwKmsServiceImpl.class);
+	private static final Charset charset = StandardCharsets.UTF_8;
 
-        // Getters and Setters
-        public String getAliasName() {
-            return aliasName;
-        }
+	private AWSKMS kmsClient;
 
-        public void setAliasName(String aliasName) {
-            this.aliasName = aliasName;
-        }
+	public EpwKmsServiceImpl(AWSKMS kmsClient)
+	{
+		this.kmsClient = kmsClient;
+	}
 
-        public String getTargetKeyId() {
-            return targetKeyId;
-        }
+	@Override
+	public EncryptResponseDTO encrypt(EncryptRequestDTO request) throws SafePageException
+	{
+		if (StringUtils.isEmpty(request.getPlaintext()))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
+		}
+		if (StringUtils.isEmpty(request.getKeyId()))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
+		}
+		try
+		{
+			EncryptRequest encryptRequest = new EncryptRequest().withKeyId(request.getKeyId())
+					.withPlaintext(getByteBuffer(request.getPlaintext()));
+			long start = System.currentTimeMillis();
+			EncryptResult result = kmsClient.encrypt(encryptRequest);
+			long end = System.currentTimeMillis();
+			logger.info("encryptData took {} " + (end - start));
+			if (result != null && result.getCiphertextBlob() != null)
+			{
+				String encoded = Utils.encodeBase64(result.getCiphertextBlob()
+						.array());
+				return new EncryptResponseDTO(encoded);
+			} else {
+				logger.error("encryptUsingAWSKey failed, EncryptResult is null for keyId: {}", request.getKeyId());
+				throw AwsExceptionHandler.handleKMSException("encrypt", request.getKeyId(), new IllegalStateException("EncryptResult or CiphertextBlob is null"));
+			}
+		}
+		catch (DisabledException | KeyUnavailableException | UnsupportedEncodingException ex)
+		{
+			logger.error(
+					"Failed to encrypt, plainText:{}, keyId:{}, due to:{}",
+					request.getPlaintext(), request.getKeyId(), ExceptionUtils.getMessage(ex), ex);
+			throw AwsExceptionHandler.handleKMSException("encrypt", request.getKeyId(), ex);
+		}
+	}
 
-        public void setTargetKeyId(String targetKeyId) {
-            this.targetKeyId = targetKeyId;
-        }
-    }
-    private List<AliasEntry> aliases;
+	@Override
+	public DecryptResponseDTO decrypt(DecryptRequestDTO request) throws SafePageException
+	{
+		if (StringUtils.isEmpty(request.getCiphertext()))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
+		}
+		try
+		{
+			byte[] decodedCipherText = Utils.decodeBase64(request.getCiphertext());
+			DecryptRequest decryptRequest = new DecryptRequest()
+					.withCiphertextBlob(ByteBuffer.wrap(decodedCipherText));
+			long start = System.currentTimeMillis();
+			DecryptResult result = kmsClient.decrypt(decryptRequest);
+			long end = System.currentTimeMillis();
+			logger.info("decryptData took {}" + (end - start));
+			ByteBuffer plainTextBlob = result.getPlaintext();
+			String decrypted = getString(plainTextBlob);
+			return new DecryptResponseDTO(decrypted);
+		}
+		catch (KeyUnavailableException kue)
+		{
+			// The request was rejected because the specified CMK was not available. The request can
+			// be retried.
+			logger.error(
+					"Failed to decryptUsingAWSKey(KeyUnavailableException), cipherText:{}, due to:{}",
+					request.getCiphertext(), ExceptionUtils.getMessage(kue), kue);
+		}
+		catch (InvalidCiphertextException ice)
+		{
+			// The request was rejected because the specified ciphertext, or additional
+			// authenticated data incorporated
+			// into the ciphertext, such as the encryption context, is corrupted, missing, or
+			// otherwise invalid.
+			logger.error(
+					"Failed to decryptUsingAWSKey(InvalidCiphertextException), cipherText:{}, due to:{}",
+					request.getCiphertext(), ExceptionUtils.getMessage(ice), ice);
+		}
+		catch (DisabledException de)
+		{
+			logger.error(
+					"Failed to decryptUsingAWSKey(DisabledException), cipherText:{}, due to:{}",
+					request.getCiphertext(), ExceptionUtils.getMessage(de), de);
+		}
+		catch (Exception ex)
+		{
+			logger.error("Failed to decryptUsingAWSKey, cipherText:{}, due to:{}",
+					request.getCiphertext(), ExceptionUtils.getMessage(ex), ex);
+		}
+		return null;
+	}
 
-    public ListAliasesResponseDTO() {
-    }
+	/**
+	 * Converts a String to a ByteBuffer using the specified charset.
+	 *
+	 * @param string
+	 *            the String to convert
+	 * @return the ByteBuffer representation of the String
+	 */
+	public static ByteBuffer getByteBuffer(String string)
+	{
+		return ByteBuffer.wrap(string.getBytes(charset));
+	}
 
-    // Parameterized Constructor
-    public ListAliasesResponseDTO(List<AliasEntry> aliases) {
-        this.aliases = aliases;
-    }
+	/**
+	 * Converts a ByteBuffer to a String using the specified charset.
+	 *
+	 * @param byteBuffer
+	 *            the ByteBuffer to convert
+	 * @return the String representation of the ByteBuffer
+	 */
+	public static String getString(ByteBuffer byteBuffer)
+	{
+		byte[] byteArray = new byte[byteBuffer.remaining()];
+		byteBuffer.get(byteArray);
+		return new String(byteArray, charset);
+	}
 
-    public List<AliasEntry> getAliases(){
-        return aliases;
-    }
+	@Override
+	@Deprecated
+	public ListAliasesResponseDTO listAliases() throws SafePageException {
+		try {
+			ListAliasesResult result = kmsClient.listAliases(new ListAliasesRequest().withLimit(100));
+			List<ListAliasesResponseDTO.AliasEntry> aliasEntries = result.getAliases().stream()
+					.map(alias -> new ListAliasesResponseDTO.AliasEntry(alias.getAliasName(),
+							alias.getTargetKeyId()))
+					.collect(Collectors.toList());
+			return new ListAliasesResponseDTO(aliasEntries);
+		}
+		catch (Exception ex) {
+			logger.error("Failed to listAliases, due to:{}", ExceptionUtils.getMessage(ex), ex);
+			return new ListAliasesResponseDTO();
+		}
+	}
 
-    public void setAliases(List<AliasEntry> aliases) {
-        this.aliases = aliases;
-    }
+	@Override
+	@Deprecated
+	public DescribeKeyResponseDTO describeKey(String keyId) throws SafePageException{
+		try {
+			DescribeKeyResult result = kmsClient.describeKey(new DescribeKeyRequest().withKeyId(keyId));
+
+			return new DescribeKeyResponseDTO(
+					result.getKeyMetadata().getKeyId(),
+					result.getKeyMetadata().getArn(),
+					result.getKeyMetadata().getKeyState().toString(),
+					result.getKeyMetadata().getEnabled()
+			);
+		} catch (Exception ex) {
+			logger.error("Failed to describeKey, keyId:{}, due to:{}", keyId, ExceptionUtils.getMessage(ex), ex);
+			return new DescribeKeyResponseDTO();
+		}
+	}
 }
 
-
-now i need to change all of them to getter/setter right?
-this is the review comment - EncryptRequestDTO - use lombak for getter/setter and use builder pattern to build request/response ( don't use new keyword )
+this is one of the implementation class, would it need refactoring?
