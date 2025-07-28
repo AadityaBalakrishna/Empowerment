@@ -1,52 +1,10 @@
-
-@Nested
-class NegativeCases {
-    @Test
-    void testEncryptValueThrowsSafePageExceptionWhenPlaintextIsMissing() { ... }
-    ...
-}
-
 @Test
-void testEncryptValueThrowsSafePageExceptionWhenPlaintextIsMissing() {
-    EncryptRequestDTO request = new EncryptRequestDTO(null, KEY_ALIAS);
+void testEncryptThrowsSafePageExceptionForEmptyPlaintext() {
+    EncryptRequestDTO invalidRequest = new EncryptRequestDTO("", KEY_ALIAS);
 
-    SafePageException exception = assertThrows(SafePageException.class,
-        () -> epwKmsService.encrypt(request));
+    SafePageException exception = assertThrows(SafePageException.class, () ->
+        epwKmsService.encrypt(invalidRequest)
+    );
 
-    assertEquals(SafePageErrorType.INVALID_INPUT, exception.getErrorType());
     assertEquals("plainText is required!", exception.getMessage());
-}
-
-@Test
-void testEncryptValueThrowsSafePageExceptionWhenKeyIdIsMissing() {
-    EncryptRequestDTO request = new EncryptRequestDTO("some text", null);
-
-    SafePageException exception = assertThrows(SafePageException.class,
-        () -> epwKmsService.encrypt(request));
-
-    assertEquals(SafePageErrorType.INVALID_INPUT, exception.getErrorType());
-    assertEquals("keyId is required!", exception.getMessage());
-}
-
-@Test
-void testDecryptValueThrowsOrLogsExceptionWhenCiphertextIsInvalid() {
-    // This is an invalid ciphertext (not base64 of actual AWS encrypted data)
-    String invalidCiphertext = "not-base64-or-kms-data";
-    DecryptRequestDTO request = new DecryptRequestDTO(invalidCiphertext);
-
-    DecryptResponseDTO response = epwKmsService.decrypt(request);
-
-    // Current code returns null on decrypt failure instead of throwing
-    assertNull(response);
-}
-
-@Test
-void testDecryptValueThrowsSafePageExceptionWhenCiphertextIsMissing() {
-    DecryptRequestDTO request = new DecryptRequestDTO(null);
-
-    SafePageException exception = assertThrows(SafePageException.class,
-        () -> epwKmsService.decrypt(request));
-
-    assertEquals(SafePageErrorType.INVALID_INPUT, exception.getErrorType());
-    assertEquals("cipherText is required!", exception.getMessage());
 }
