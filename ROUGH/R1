@@ -1,8 +1,111 @@
-18:21:32  [INFO] Running com.personalcapital.user.data.util.UserDataUtilsTest
-18:21:33  2025-07-28 05:51:33,309 WARN main [com.personalcapital.user.data.util.UserDataUtils] [] [] [] [] - Username or email address WlcIXpwclp already exists.
-18:21:33  2025-07-28 05:51:33,330 WARN main [com.personalcapital.user.data.util.UserDataUtils] [] [] [] [] - Lower Env specific tenantName fix has been removed!
-18:21:33  2025-07-28 05:51:33,330 ERROR main [com.personalcapital.user.data.util.UserDataUtils] [] [] [] [] - Failed to generate user primary key: Cannot invoke "org.springframework.beans.factory.BeanFactory.getBean(String)" because "<local2>.beanFactory" is null
-18:21:33  java.lang.NullPointerException: Cannot invoke "org.springframework.beans.factory.BeanFactory.getBean(String)" because "<local2>.beanFactory" is null
-18:21:33  	at com.safepage.security.CryptEngine.getKeyManager(CryptEngine.java:139) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
-18:21:33  	at com.safepage.security.CryptEngine.generateUserPrimaryKey(CryptEngine.java:881) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
-18:21:33  	at com.safepage.security.CryptEngineFacade.generateUserPrimaryKey(CryptEngineFacade.java:62) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
+19:46:35  [INFO] Running com.empower.epw.service.account.grpc.AccountGrpcBatchProcessServiceIntegrationTest
+19:46:38  2025-07-28 07:16:37,545 ERROR main [com.empower.epw.account.common.dto.account.AccountDTO] [] [] [] [] - Failed to encrypt credentials: java.lang.Exception: Failed to decrypt user default keyseed value for keyseedId= 1297894 and userId= 363
+19:46:38  java.lang.Exception: Failed to decrypt user default keyseed value for keyseedId= 1297894 and userId= 363
+19:46:38  	at com.safepage.security.KeyManager.generateUserKeyDataFromKeySeed(KeyManager.java:579) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
+19:46:38  	at com.safepage.security.KeyManager.getDefaultUserKey(KeyManager.java:549) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
+19:46:38  	at com.safepage.security.CryptEngine.encryptUsingUserKey(CryptEngine.java:420) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
+19:46:38  	at com.safepage.security.CryptEngine.encrypt(CryptEngine.java:308) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
+19:46:38  	at com.empower.epw.account.common.util.EncryptorAdapter.encrypt(EncryptorAdapter.java:44) ~[pcap-data-MR-28752-SNAPSHOT.jar:?]
+19:46:38  	at com.empower.epw.account.common.dto.account.AccountDTO.setRawCredentials(AccountDTO.java:639) ~[account-api-client-3.0.143.jar:?]
+19:46:38  	at 
+
+is there something wrong in my epwkmsservice or epwkmsserviceimpl?
+
+because when back traced, the error leads to crypt engine: where these two methods use that new epwkmsservice, 
+	protected String encryptUsingSystemPrimaryKey(String rawValue) throws Exception
+	{
+		if (this.getKeyManager()
+				.isSystmePrimaryKeyMigratedToAWS())
+		{
+			if (StringUtils.isEmpty(this.getKeyManager()
+					.getSystemPrimaryAliasName()))
+			{
+				throw new SafePageException("systemPrimaryAliasName is null!");
+			}
+			EncryptRequestDTO req = new EncryptRequestDTO();
+			req.setPlaintext(rawValue);
+			req.setKeyId(this.getKeyManager().getSystemPrimaryAliasName());
+			String result = epwKmsService.encrypt(req).getCiphertext();
+			if (StringUtils.isNoneEmpty(result))
+			{
+				return CryptType.SYSTEM_PRIMARY.getVersion() + result;
+			}
+		}
+		return null;
+	}
+
+instead of how it was before, using 
+--> String result = KMSServiceImpl.getInstance()
+					.encryptUsingAWSKey(rawValue, this.getKeyManager()
+							.getSystemPrimaryAliasName());
+KMSserviceImpl, but now it's using EpwKmsService why not EpwKmsServiceImpl?
+new refactored KMSServiceImpl: 
+public class KMSServiceImpl implements KMSService
+{
+	private static final PcapLogger logger = PcapLoggerFactory.getPcapLogger(KMSServiceImpl.class);
+
+	private final EpwKmsService epwKmsService;
+
+	@Autowired
+	public KMSServiceImpl(EpwKmsService epwKmsService)
+	{
+		this.epwKmsService = epwKmsService;
+	}
+
+	@Override
+	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
+	{
+		if (StringUtils.isEmpty(plainText))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
+		}
+		if (StringUtils.isEmpty(keyId))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
+		}
+
+		EncryptRequestDTO request = new EncryptRequestDTO(plainText, keyId);
+		EncryptResponseDTO response = epwKmsService.encrypt(request);
+
+		if (response == null || StringUtils.isEmpty(response.getCiphertext()))
+		{
+			logger.error("KMS encryption returned null or empty ciphertext.");
+			return null;
+		}
+		return response.getCiphertext();
+	}
+
+	@Override
+	public String decryptUsingAWSKey(String cipherText) throws SafePageException
+	{
+		if (StringUtils.isEmpty(cipherText))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
+		}
+
+		DecryptRequestDTO request = new DecryptRequestDTO(cipherText);
+		DecryptResponseDTO response = epwKmsService.decrypt(request);
+
+		if (response == null || StringUtils.isEmpty(response.getPlaintext()))
+		{
+			logger.error("KMS decryption returned null or empty plaintext.");
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "Decryption failed.");
+		}
+
+		return response.getPlaintext();
+	}
+
+	@Override
+	@Deprecated
+	public DescribeKeyResponseDTO describeKey(String keyId)throws SafePageException
+	{
+		return epwKmsService.describeKey(keyId);
+	}
+
+	@Override
+	@Deprecated
+	public ListAliasesResponseDTO getKeyAliases(String keyId) throws SafePageException
+	{
+		return epwKmsService.listAliases();
+	}
+}
