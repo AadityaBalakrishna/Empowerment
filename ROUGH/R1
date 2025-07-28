@@ -2,3 +2,90 @@ com.empower.epw.sdk.v1.adapter.kms.EpwKmsServiceImpl
 com.empower.epw.sdk.v2.adapter.kms.EpwKmsServiceImpl
 
 could you please update the test with these, same name so can't write imports
+
+
+package com.empower.epw.aws.service.config;
+
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
+import com.amazonaws.auth.profile.ProfileCredentialsProvider;
+import com.amazonaws.services.kms.AWSKMS;
+import com.amazonaws.services.kms.AWSKMSClientBuilder;
+import com.empower.epw.aws.api.kms.EpwKmsService;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.*;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
+import org.springframework.util.StringUtils;
+
+import software.amazon.awssdk.services.kms.KmsClient;
+
+@Configuration
+public class EpwAwsKmsAutoConfig {
+
+	@Value("${aws.region:us-west-2}")
+	private String awsRegion;
+
+	@Value("${aws.profile:}")
+	private String awsProfile;
+
+	@Bean
+	@ConditionalOnProperty(name = "epw.aws.kms.sdk.version", havingValue = "v2")
+	@ConditionalOnMissingBean(software.amazon.awssdk.auth.credentials.AwsCredentialsProvider.class)
+	public software.amazon.awssdk.auth.credentials.AwsCredentialsProvider awsCredentialsProviderV2() {
+		if (StringUtils.hasText(awsProfile)) {
+			return software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider.builder()
+					.profileName(awsProfile)
+					.build();
+		} else {
+			return software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider.create();
+		}
+	}
+
+	@Bean
+	@ConditionalOnMissingBean(com.amazonaws.auth.AWSCredentialsProvider.class)
+	public com.amazonaws.auth.AWSCredentialsProvider awsCredentialsProviderV1() {
+		if (StringUtils.hasText(awsProfile)) {
+			return new ProfileCredentialsProvider(awsProfile);
+		} else {
+			return DefaultAWSCredentialsProviderChain.getInstance();
+		}
+	}
+
+	@Bean
+	@ConditionalOnProperty(name = "epw.aws.kms.sdk.version", havingValue = "v2")
+	@ConditionalOnMissingBean(KmsClient.class)
+	public KmsClient kmsClient(software.amazon.awssdk.auth.credentials.AwsCredentialsProvider credentialsProvider) {
+		return KmsClient.builder()
+				.credentialsProvider(credentialsProvider)
+				.region(software.amazon.awssdk.regions.Region.of(awsRegion))
+				.build();
+	}
+
+	@Bean
+	@ConditionalOnProperty(name = "epw.aws.kms.sdk.version", havingValue = "v1", matchIfMissing = true)
+	@ConditionalOnMissingBean(AWSKMS.class)
+	public AWSKMS awsKmsClient(com.amazonaws.auth.AWSCredentialsProvider credentialsProvider) {
+		return AWSKMSClientBuilder.standard()
+				.withCredentials(credentialsProvider)
+				.withRegion(awsRegion)
+				.build();
+	}
+
+	@Bean
+	@Primary
+	@ConditionalOnProperty(name = "epw.aws.kms.sdk.version", havingValue = "v1", matchIfMissing = true)
+	public EpwKmsService epwKmsServiceV1(AWSKMS awsKmsClient) {
+		return new com.empower.epw.sdk.v1.adapter.kms.EpwKmsServiceImpl(awsKmsClient);
+	}
+
+	@Bean
+	@Primary
+	@ConditionalOnProperty(name = "epw.aws.kms.sdk.version", havingValue = "v2")
+	public EpwKmsService epwKmsServiceV2(KmsClient kmsClient) {
+		return new com.empower.epw.sdk.v2.adapter.kms.EpwKmsServiceImpl(kmsClient);
+	}
+}
+
+pls write IT test for this
