@@ -1,9 +1,11 @@
-                @Test
-                void testDecryptValueThrowsOrLogsExceptionWhenCiphertextIsInvalid() {
-                        String invalidCiphertext = "not-base64-or-kms-data";
-                        DecryptRequestDTO request = new DecryptRequestDTO(invalidCiphertext);
-                        DecryptResponseDTO response = epwKmsService.decrypt(request);
-                        assertNull(response);
-                }
+most of the tests in sp-data are failing and this is the recurring error message:
+ 
+18:22:57  [ERROR] com.personalcapital.user.delegated.data.impl.PersonCredentialDaoTest.testOptInMFADefault -- Time elapsed: 0.010 s <<< ERROR!
+18:22:57  java.lang.Exception: Failed to decrypt user default keyseed value for keyseedId= 1297920 and userId= 1152
+18:22:57  	at com.safepage.security.KeyManager.generateUserKeyDataFromKeySeed(KeyManager.java:579)
+18:22:57  	at com.safepage.security.KeyManager.getDefaultUserKey(KeyManager.java:549)
+18:22:57  	at com.safepage.security.CryptEngine.encryptUsingUserKey(CryptEngine.java:420)
+18:22:57  	at com.safepage.security.CryptEngine.encrypt(CryptEngine.java:308)
+18:22:57  	at com.safepage.security.CryptEngineFacade.encrypt(CryptEngineFacade.java:52)
 
-java: unreported exception com.safepage.exception.SafePageException; must be caught or declared to be thrown
+after making the migration changes, this is what is happening
