@@ -1,244 +1,61 @@
-EpwAwsKmsAutoConfig - Refer to AWSS3AutoConfig.
-High preference for a custom AWS client bean from the consumer.
-Second is v2 if the property is set; if there is no bean, then v1.
-
 package com.epw.aws.service.config;
 
 import com.amazonaws.services.kms.AWSKMS;
 import com.amazonaws.services.kms.AWSKMSClientBuilder;
 import com.empower.epw.aws.api.kms.EpwKmsService;
-
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.*;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
-
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.services.kms.KmsClient;
+import software.amazon.awssdk.regions.Region;
 
-/**
- * {@code EpwAwsKmsAutoConfig} sets up AWS KMS clients and service beans
- * based on the configured SDK version (v1 or v2).
- *
- * <p>This configuration allows dynamic switching between AWS SDK v1 and SDK v2
- * by setting the {@code epw.aws.kms.sdk.version} property.
- *
- * <ul>
- *   <li>v1: {@code epw.aws.kms.sdk.version=v1} or missing (default)</li>
- *   <li>v2: {@code epw.aws.kms.sdk.version=v2}</li>
- * </ul>
- */
 @Configuration
 public class EpwAwsKmsAutoConfig {
 
-	/**
-	 * Creates the AWS SDK v1 KMS client.
-	 *
-	 * @return an instance of {@link AWSKMS}
-	 */
-	@Bean
-	@ConditionalOnProperty(name = "epw.aws.kms.sdk.version", havingValue = "v1", matchIfMissing = true)
-	public AWSKMS awsKmsClient() {
-		return AWSKMSClientBuilder.standard().build();
-	}
+    private static final Logger logger = LoggerFactory.getLogger(EpwAwsKmsAutoConfig.class);
 
-	/**
-	 * Creates the AWS SDK v2 KMS client.
-	 *
-	 * @return an instance of {@link KmsClient}
-	 */
-	@Bean
-	@ConditionalOnProperty(name = "epw.aws.kms.sdk.version", havingValue = "v2")
-	public KmsClient kmsClient() {
-		return KmsClient.builder().build();
-	}
+    // ----------- SDK v2 Configuration -----------
 
-	/**
-	 * Provides the SDK v1 implementation of {@link EpwKmsService}.
-	 *
-	 * @param awsKmsClient the AWS SDK v1 KMS client
-	 * @return the SDK v1-based {@link EpwKmsService} implementation
-	 */
-	@Bean
-	@Primary
-	@ConditionalOnProperty(name = "epw.aws.kms.sdk.version", havingValue = "v1", matchIfMissing = true)
-	public EpwKmsService epwKmsServiceV1(AWSKMS awsKmsClient) {
-		return new com.empower.epw.sdk.v1.adapter.kms.EpwKmsServiceImpl(awsKmsClient);
-	}
+    @Bean
+    @ConditionalOnProperty(name = "epw.aws.kms.sdk.version", havingValue = "v2")
+    @ConditionalOnMissingBean(KmsClient.class)
+    public KmsClient defaultKmsClient() {
+        logger.info("Creating default AWS SDK v2 KmsClient with default credentials.");
+        return KmsClient.builder()
+                .credentialsProvider(DefaultCredentialsProvider.create())
+                .region(Region.US_WEST_2) // or use @Value for region
+                .build();
+    }
 
-	/**
-	 * Provides the SDK v2 implementation of {@link EpwKmsService}.
-	 *
-	 * @param kmsClient the AWS SDK v2 KMS client
-	 * @return the SDK v2-based {@link EpwKmsService} implementation
-	 */
-	@Bean
-	@Primary
-	@ConditionalOnProperty(name = "epw.aws.kms.sdk.version", havingValue = "v2")
-	public EpwKmsService epwKmsServiceV2(KmsClient kmsClient) {
-		return new com.empower.epw.sdk.v2.adapter.kms.EpwKmsServiceImpl(kmsClient);
-	}
-}
+    @Bean
+    @Primary
+    @ConditionalOnProperty(name = "epw.aws.kms.sdk.version", havingValue = "v2")
+    @ConditionalOnMissingBean(EpwKmsService.class)
+    public EpwKmsService epwKmsServiceV2(KmsClient kmsClient) {
+        logger.info("Creating EpwKmsService bean for AWS SDK v2.");
+        return new com.empower.epw.sdk.v2.adapter.kms.EpwKmsServiceImpl(kmsClient);
+    }
 
-reference:
-package com.empower.epw.aws.a3.config;
+    // ----------- SDK v1 Configuration -----------
 
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.auth.profile.ProfileCredentialsProvider;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.empower.epw.aws.api.s3.EpwS3Service;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.util.StringUtils;
-import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+    @Bean
+    @ConditionalOnProperty(name = "epw.aws.kms.sdk.version", havingValue = "v1", matchIfMissing = true)
+    @ConditionalOnMissingBean(AWSKMS.class)
+    public AWSKMS defaultAwsKmsClient() {
+        logger.info("Creating default AWS SDK v1 AWSKMS client.");
+        return AWSKMSClientBuilder.standard().build();
+    }
 
-@Configuration
-public class EpwS3AutoConfig
-{
-
-	private static final Logger logger = LoggerFactory.getLogger(EpwS3AutoConfig.class);
-
-	@Value("${aws.region:us-west-2}")
-	private String awsRegion;
-
-	@Value("${aws.profile:}")
-	private String awsProfile;
-
-	/**
-	 * Creates the single, shared S3Client bean for the application using AWS SDK v2.
-	 *
-	 * @return A configured S3Client instance.
-	 */
-	@Bean
-	@ConditionalOnProperty(name = "epw.aws.s3.sdk-version", havingValue = "v2")
-	@ConditionalOnMissingBean(S3Client.class)
-	public S3Client s3Client(
-			software.amazon.awssdk.auth.credentials.AwsCredentialsProvider credentialsProvider)
-	{
-		logger.info("Creating S3Client for AWS SDK v2 with region: {}", awsRegion);
-		return S3Client.builder()
-				.credentialsProvider(credentialsProvider)
-				.region(software.amazon.awssdk.regions.Region.of(awsRegion))
-				.build();
-	}
-
-	/**
-	 * Creates the single, shared S3Presigner bean for the application using AWS SDK v2.
-	 *
-	 * @return A configured S3Presigner instance.
-	 */
-	@Bean
-	@ConditionalOnProperty(name = "epw.aws.s3.sdk-version", havingValue = "v2")
-	@ConditionalOnMissingBean(S3Presigner.class)
-	public S3Presigner s3Presigner()
-	{
-		logger.info("Creating S3Presigner for AWS SDK v2.");
-		return S3Presigner.builder()
-				.build();
-	}
-
-	/**
-	 * Provides an AwsCredentialsProvider that uses a specific profile if the "aws.profile" property
-	 * is set, otherwise falls back to the default credentials provider.
-	 *
-	 * @return AwsCredentialsProvider instance for AWS SDK v2
-	 */
-	@Bean
-	@ConditionalOnProperty(name = "epw.aws.s3.sdk-version", havingValue = "v2")
-	@ConditionalOnMissingBean(software.amazon.awssdk.auth.credentials.AwsCredentialsProvider.class)
-	public software.amazon.awssdk.auth.credentials.AwsCredentialsProvider awsCredentialsProviderV2()
-	{
-		if (StringUtils.hasText(awsProfile))
-		{
-			logger.info("Using AWS profile: {}", awsProfile);
-			return software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider.builder()
-					.profileName(awsProfile)
-					.build();
-		}
-		else
-		{
-			logger.info("Using default AWS credentials provider chain for SDK v2.");
-			return software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider.create();
-		}
-	}
-
-	/**
-	 * Creates the primary EpwS3Service bean using the AWS SDK v2 implementation.
-	 *
-	 * @param amazonS3Client
-	 *            The shared AWS SDK v2 client.
-	 * @param s3Presigner
-	 *            The S3Presigner for generating pre-signed URLs.
-	 * @return The EpwS3ServiceImpl instance for AWS SDK v2.
-	 */
-	@Bean(name = "awsS3Service")
-	@ConditionalOnProperty(name = "epw.aws.s3.sdk-version", havingValue = "v2")
-	public com.empower.epw.aws.v2.s3.EpwS3ServiceImpl awsS3ServiceV2(S3Client amazonS3Client,
-			S3Presigner s3Presigner)
-	{
-		logger.info("Creating EpwS3Service bean for AWS SDK v2.");
-		return new com.empower.epw.aws.v2.s3.EpwS3ServiceImpl(amazonS3Client, s3Presigner);
-	}
-
-	/**
-	 * Provides an AWSCredentialsProvider that uses a specific profile if the "aws.profile" property
-	 * is set, otherwise falls back to the standard credentials provider chain.
-	 *
-	 * @return AWSCredentialsProvider instance
-	 */
-	@Bean
-	@ConditionalOnMissingBean(com.amazonaws.auth.AWSCredentialsProvider.class)
-	public com.amazonaws.auth.AWSCredentialsProvider credentialsProvider()
-	{
-		if (StringUtils.hasText(awsProfile))
-		{
-			logger.info("Using AWS profile: {}", awsProfile);
-			return new ProfileCredentialsProvider(awsProfile);
-		}
-		else
-		{
-			logger.info("Using default AWS credentials provider chain.");
-			return DefaultAWSCredentialsProviderChain.getInstance();
-		}
-	}
-
-	/**
-	 * Creates the single, shared AmazonS3 client bean for the application.
-	 *
-	 * @param credentialsProvider
-	 *            The credentials provider from the bean above.
-	 * @return A configured AmazonS3 client instance.
-	 */
-	@Bean
-	@ConditionalOnMissingBean(AmazonS3.class)
-	public AmazonS3 amazonS3Client(com.amazonaws.auth.AWSCredentialsProvider credentialsProvider)
-	{
-		logger.info("Creating AmazonS3 client with region: {}", awsRegion);
-		return AmazonS3ClientBuilder.standard()
-				.withCredentials(credentialsProvider)
-				.withRegion(awsRegion)
-				.build();
-	}
-
-	/**
-	 * Creates the primary EpwS3Service bean using the AWS SDK v1 implementation.
-	 *
-	 * @param amazonS3Client
-	 *            The shared AWS SDK v1 client.
-	 * @return The EpwS3ServiceImpl instance.
-	 */
-	@Bean(name = "awsS3Service")
-	@ConditionalOnMissingBean(EpwS3Service.class)
-	public EpwS3Service awsS3ServiceV1(AmazonS3 amazonS3Client)
-	{
-		logger.info("Creating EpwS3Service bean for AWS SDK v1.");
-		return new com.empower.epw.aws.v1.s3.EpwS3ServiceImpl(amazonS3Client);
-	}
-
+    @Bean
+    @Primary
+    @ConditionalOnProperty(name = "epw.aws.kms.sdk.version", havingValue = "v1", matchIfMissing = true)
+    @ConditionalOnMissingBean(EpwKmsService.class)
+    public EpwKmsService epwKmsServiceV1(AWSKMS awsKmsClient) {
+        logger.info("Creating EpwKmsService bean for AWS SDK v1.");
+        return new com.empower.epw.sdk.v1.adapter.kms.EpwKmsServiceImpl(awsKmsClient);
+    }
 }
