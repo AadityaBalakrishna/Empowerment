@@ -1,11 +1,48 @@
-this is v1:
-byte[] decodedCipherText = Utils.decodeBase64(request.getCiphertext());
-			DecryptRequest decryptRequest = new DecryptRequest()
-					.withCiphertextBlob(ByteBuffer.wrap(decodedCipherText));
+Review comment: EncryptRequestDTO - use lombak for getter/setter and use builder pattern to build request/response ( don't use new keyword )
 
+package com.empower.epw.aws.api.kms.dto;
 
-this is in v2:
-byte[] decodedCipherText = Utils.decodeBase64(request.getCiphertext());
-			DecryptRequest decryptRequest = DecryptRequest.builder()
-					.ciphertextBlob(SdkBytes.fromByteArray(decodedCipherText))
-					.build();
+/**
+ * Data Transfer Object (DTO) for encrypting plaintext using AWS KMS.
+ *
+ * This class encapsulates the plaintext and the key ID required for encryption.
+ * It is used as an input parameter for encryption operations in the KMS service.
+ */
+public class EncryptRequestDTO
+{
+	private String plaintext;
+	private String keyId;
+
+	// Default Constructor
+	public EncryptRequestDTO()
+	{
+	}
+
+	// Parameterized Constructor
+	public EncryptRequestDTO(String plaintext, String keyId)
+	{
+		this.plaintext = plaintext;
+		this.keyId = keyId;
+	}
+
+	// Getters and Setters
+	public String getPlaintext()
+	{
+		return plaintext;
+	}
+
+	public void setPlaintext(String plaintext)
+	{
+		this.plaintext = plaintext;
+	}
+
+	public String getKeyId()
+	{
+		return keyId;
+	}
+
+	public void setKeyId(String keyId)
+	{
+		this.keyId = keyId;
+	}
+}
