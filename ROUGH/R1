@@ -1,6 +1,72 @@
-AWSCredentialsManager awsCredentialsManager = new AWSCredentialsManager();
-kmsClient = (AWSKMS) awsCredentialsManager
-       .getClientBuilderWithCredentials(AWSKMSClient.builder())
-       .build();
+@Configuration
+public class EpwAwsKmsAutoConfig {
 
-EpwAwsKmsAutoConfig - Here also you should build client in same way for both v1 and v2
+    @Value("${aws.region:us-west-2}")
+    private String awsRegion;
+
+    @Value("${aws.profile:}")
+    private String awsProfile;
+
+    // === Credential Providers ===
+
+    @Bean
+    @ConditionalOnProperty(name = "epw.aws.kms.sdk.version", havingValue = "v2")
+    @ConditionalOnMissingBean(software.amazon.awssdk.auth.credentials.AwsCredentialsProvider.class)
+    public software.amazon.awssdk.auth.credentials.AwsCredentialsProvider awsCredentialsProviderV2() {
+        if (StringUtils.hasText(awsProfile)) {
+            return software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider.builder()
+                    .profileName(awsProfile)
+                    .build();
+        } else {
+            return software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider.create();
+        }
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(com.amazonaws.auth.AWSCredentialsProvider.class)
+    public com.amazonaws.auth.AWSCredentialsProvider awsCredentialsProviderV1() {
+        if (StringUtils.hasText(awsProfile)) {
+            return new ProfileCredentialsProvider(awsProfile);
+        } else {
+            return DefaultAWSCredentialsProviderChain.getInstance();
+        }
+    }
+
+    // === KMS Clients ===
+
+    @Bean
+    @ConditionalOnProperty(name = "epw.aws.kms.sdk.version", havingValue = "v2")
+    @ConditionalOnMissingBean(KmsClient.class)
+    public KmsClient kmsClient(software.amazon.awssdk.auth.credentials.AwsCredentialsProvider credentialsProvider) {
+        return KmsClient.builder()
+                .credentialsProvider(credentialsProvider)
+                .region(software.amazon.awssdk.regions.Region.of(awsRegion))
+                .build();
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "epw.aws.kms.sdk.version", havingValue = "v1", matchIfMissing = true)
+    @ConditionalOnMissingBean(AWSKMS.class)
+    public AWSKMS awsKmsClient(com.amazonaws.auth.AWSCredentialsProvider credentialsProvider) {
+        return AWSKMSClientBuilder.standard()
+                .withCredentials(credentialsProvider)
+                .withRegion(awsRegion)
+                .build();
+    }
+
+    // === EpwKmsService Beans ===
+
+    @Bean
+    @Primary
+    @ConditionalOnProperty(name = "epw.aws.kms.sdk.version", havingValue = "v1", matchIfMissing = true)
+    public EpwKmsService epwKmsServiceV1(AWSKMS awsKmsClient) {
+        return new com.empower.epw.sdk.v1.adapter.kms.EpwKmsServiceImpl(awsKmsClient);
+    }
+
+    @Bean
+    @Primary
+    @ConditionalOnProperty(name = "epw.aws.kms.sdk.version", havingValue = "v2")
+    public EpwKmsService epwKmsServiceV2(KmsClient kmsClient) {
+        return new com.empower.epw.sdk.v2.adapter.kms.EpwKmsServiceImpl(kmsClient);
+    }
+}
