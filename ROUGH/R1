@@ -1,55 +1,193 @@
-	protected String encryptUsingSystemPrimaryKey(String rawValue) throws Exception
+public class CryptEngineMockTest
+{
+	static
 	{
-		if (this.getKeyManager()
-				.isSystmePrimaryKeyMigratedToAWS())
-		{
-			if (StringUtils.isEmpty(this.getKeyManager()
-					.getSystemPrimaryAliasName()))
-			{
-				throw new SafePageException("systemPrimaryAliasName is null!");
-			}
-			EncryptRequestDTO req = new EncryptRequestDTO();
-			req.setPlaintext(rawValue);
-			req.setKeyId(this.getKeyManager().getSystemPrimaryAliasName());
-			String result = epwKmsService.encrypt(req).getCiphertext();
-			if (StringUtils.isNoneEmpty(result))
-			{
-				return CryptType.SYSTEM_PRIMARY.getVersion() + result;
-			}
-		}
-		return null;
+		System.setProperty("SKIP_CRYPT_POOL", "TRUE");
 	}
 
-	protected String decryptUsingSystemPrimaryKey(String encryptedValue) throws Exception
+	@Mock
+	private KeyManager keyManager;
+
+	@Mock
+	private EpwKmsService epwKmsService;
+
+	@InjectMocks
+	private CryptEngine cryptEngine;
+
+	private static KeyManager keyManagerForMockSeedData;
+
+	private static String rawSystemSecondaryKeySeed;
+	private static String rawUserKeySeed;
+
+	private static Key systemSecondaryKeyV2;
+	private static Key systemSecondaryKeyV4;
+	private static Key userKeyV3;
+	private static Key userKeyV5;
+
+	private AuthUser existingUser = null;
+
+	private String EXISTING_USERNAME = "existing_test@pcap.com";
+
+	/**
+	 * Generate these key seeds and keys once because random number generation can be
+	 * time-consuming.
+	 */
+	@BeforeAll
+	public static void oneTimeSetup()
 	{
-		if (StringUtils.isEmpty(encryptedValue))
-		{
-			return null;
-		}
+		keyManagerForMockSeedData = new KeyManager();
+
 		try
 		{
-			/*
-			 * Data encrypted with system primary keys are formatted as [version][encrypted data];
-			 * e.g. V1encrypteddata
-			 */
-			String version = CryptType.getVersionFromEncryptedData(encryptedValue);
-			if (StringUtils.isNotEmpty(version))
-			{
-				encryptedValue = encryptedValue.substring(CryptType.SEED_VERSION_LENGTH);
-				// System Primary key in AWS KMS will be version V2
-				if (CryptType.V2.equals(version))
-				{
-					DecryptRequestDTO request = new DecryptRequestDTO();
-					request.setCiphertext(encryptedValue);
-					return epwKmsService.decrypt(request).getPlaintext();
-				}
-			}
+			rawSystemSecondaryKeySeed = keyManagerForMockSeedData.generateNewSeedValue();
+			rawUserKeySeed = keyManagerForMockSeedData.generateNewSeedValue();
+
+			systemSecondaryKeyV2 = keyManagerForMockSeedData.createKeyFromSeed(
+					rawSystemSecondaryKeySeed, KeyManager.DEFAULT_KEY_SIZE, null);
+			systemSecondaryKeyV4 = keyManagerForMockSeedData.createKeyFromSeed(
+					rawSystemSecondaryKeySeed, KeyManager.DEFAULT_KEY_SIZE,
+					KeyManager.DEFAULT_KEY_MATERIAL_HASH);
+
+			userKeyV3 = keyManagerForMockSeedData.createKeyFromSeed(rawUserKeySeed,
+					KeyManager.DEFAULT_KEY_SIZE, null);
+			userKeyV5 = keyManagerForMockSeedData.createKeyFromSeed(rawUserKeySeed,
+					KeyManager.DEFAULT_KEY_SIZE, KeyManager.DEFAULT_KEY_MATERIAL_HASH);
 		}
-		catch (Exception anException)
+		catch (Exception e)
 		{
-			logger.warn("Failed to decrypt because: ", anException);
+			fail("oneTimeSetup failed with: " + e);
 		}
-		return null;
 	}
 
-need to refactor here also
+	@BeforeEach
+	public void init() throws Exception
+	{
+		openMocks(this);
+		setField(cryptEngine, "keyManager", keyManager);
+		setField(cryptEngine, "epwKmsService", epwKmsService);
+		setField(cryptEngine, "minIdleSeedPoolSize", 1);
+		setField(cryptEngine, "maxIdleUserSeedPoolSize", 2);
+		setField(cryptEngine, "maxUserSeedPoolSize", 5);
+		setField(cryptEngine, "timeBetweenEvictionRunsInSeconds", 5);
+
+		when(keyManager.isSystmePrimaryKeyMigratedToAWS()).thenReturn(FALSE);
+	}
+
+	private AuthUser initializeUser(String email, long id) throws Exception
+	{
+		AuthUser existingUser = Mockito.mock(AuthUser.class);
+		when(existingUser.getUsername()).thenReturn(EXISTING_USERNAME + id + "@pc.com");
+		when(existingUser.getId()).thenReturn(id);
+		when(existingUser.getUser()).thenReturn(Mockito.mock(User.class));
+		when(existingUser.isPersonDelegate()).thenReturn(false);
+		return existingUser;
+	}
+
+	/*
+	 * PLAT-4119: Allow user to set the "encryptedKeySeed" and "encryptionVersion" for the default
+	 * System Secondary Key.
+	 */
+	private void setUpSystemSecondaryKey(String systemSecondaryKeySeed, String encryptionVersion)
+	{
+		try
+		{
+			doReturn(true).when(keyManager)
+					.isSystmePrimaryKeyMigratedToAWS();
+			doReturn("alias/app/pcap/pcap/system_primary/v1").when(keyManager)
+					.getSystemPrimaryAliasName();
+
+			String encryptedSystemSecondaryKeySeed = cryptEngine
+					.encryptUsingSystemPrimaryKey(systemSecondaryKeySeed);
+
+			KeySeed keySeed = createKeySeed(encryptionVersion, encryptedSystemSecondaryKeySeed);
+
+			// Set up Key Data for System Secondary Key generated with V2 logic
+			KeyData systemSecondaryKeyDataV2 = new KeyManager.KeyData(systemSecondaryKeyV2,
+					keySeed);
+			doReturn(systemSecondaryKeyDataV2).when(keyManager)
+					.getSystemSecondaryKeyByName("AA", null);
+
+			// Set up Key Data for System Secondary Key generated with V4 logic
+			KeyData systemSecondaryKeyDataV4 = new KeyManager.KeyData(systemSecondaryKeyV4,
+					keySeed);
+			doReturn(systemSecondaryKeyDataV4).when(keyManager)
+					.getSystemSecondaryKeyByName("AA", KeyManager.DEFAULT_KEY_MATERIAL_HASH);
+
+			// Default SSK depends on if `encryptionVersion` is set
+			if (CryptType.V4.equals(encryptionVersion))
+			{
+				doReturn(systemSecondaryKeyDataV4).when(keyManager)
+						.getDefaultSystemSecondaryKey();
+			}
+			else
+			{
+				doReturn(systemSecondaryKeyDataV2).when(keyManager)
+						.getDefaultSystemSecondaryKey();
+			}
+		}
+		catch (Exception e)
+		{
+			fail("setUpSystemSecondaryKey Failed: " + e);
+		}
+	}
+
+	private KeySeed createKeySeed(String encryptionVersion, String encryptedValue)
+	{
+		KeySeed keySeed = new KeySeedImpl();
+		keySeed.setId(100l);
+		keySeed.setDefaultKey(TRUE);
+		keySeed.setName("AA");
+		keySeed.setValue(encryptedValue);
+		keySeed.setValidUntil(new DateTime().plusDays(100)
+				.toDate());
+		keySeed.setEncryptionVersion(encryptionVersion);
+		return keySeed;
+	}
+
+	/**
+	 * Test encryptung and decrypting new seed with AWS key - system primary key
+	 * 
+	 * @throws Exception
+	 */
+	@Test
+	public void testEncryptDecryptUsingSystemPrimaryKey_AWS() throws Exception
+	{
+		when(keyManager.isSystmePrimaryKeyMigratedToAWS()).thenReturn(true);
+		when(keyManager.getSystemPrimaryAliasName())
+				.thenReturn("alias/app/pcap/pcap/system_primary/v1");
+		String plainSeedValue = rawSystemSecondaryKeySeed;
+		// Encrypt using system primary key
+		String encryptedSystemSecondaryKeySeed = cryptEngine
+				.encryptUsingSystemPrimaryKey(plainSeedValue);
+		assertNotNull(encryptedSystemSecondaryKeySeed);
+		assertTrue(
+				encryptedSystemSecondaryKeySeed.startsWith(CryptType.SYSTEM_PRIMARY.getVersion()));
+
+		// Decrypt using system primary key
+		String decryptedSystemSecondaryKeySeed = cryptEngine
+				.decryptUsingSystemPrimaryKey(encryptedSystemSecondaryKeySeed);
+		assertNotNull(decryptedSystemSecondaryKeySeed);
+		assertEquals(decryptedSystemSecondaryKeySeed, plainSeedValue);
+	}
+
+	@Test
+	public void testEncryptDecryptUsingSystemPrimaryKey_AWS_2() throws Exception
+	{
+		when(keyManager.isSystmePrimaryKeyMigratedToAWS()).thenReturn(true);
+		when(keyManager.getSystemPrimaryAliasName())
+				.thenReturn("alias/app/pcap/pcap/system_primary/v1");
+		String plainSeedValue = rawSystemSecondaryKeySeed;
+		// Encrypt using system primary key
+		String encryptedSystemSecondaryKeySeed = cryptEngine.encrypt(CryptType.SYSTEM_PRIMARY,
+				plainSeedValue);
+		assertNotNull(encryptedSystemSecondaryKeySeed);
+
+		// Decrypt using system primary key
+		String decryptedSystemSecondaryKeySeed = cryptEngine.decrypt(CryptType.SYSTEM_PRIMARY,
+				encryptedSystemSecondaryKeySeed);
+		assertEquals(decryptedSystemSecondaryKeySeed, plainSeedValue);
+	}
+
+
+these two test classes are failing:
+expected: not <null>
