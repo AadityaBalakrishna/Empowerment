@@ -1,153 +1,189 @@
-package com.empower.epw.service.account.grpc;
 
-import java.util.Date;
-import java.util.EnumSet;
-import java.util.List;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
-
-import com.empower.account.service.BaseProcessServiceIntegrationTest;
-import com.empower.epw.account.common.dto.account.AccountDTO;
-import com.personalcapital.user.data.AggregatedUserTransaction;
-import com.personalcapital.user.data.impl.AccountNumberData;
-import com.personalcapital.user.data.impl.AccountRoutingNumberData;
-import com.safepage.user.data.Account;
-import com.safepage.user.data.SiteCredentials;
-import com.safepage.user.data.UserProduct;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-@ExtendWith(SpringExtension.class)
-public class AccountGrpcBatchProcessServiceIntegrationTest extends BaseProcessServiceIntegrationTest
+@Service
+public class EpwKmsServiceImpl implements EpwKmsService
 {
-	private static final String[] IGNORED_ENTITY_FIELDS = new String[]
-	{
-			"id", "siteInstructionsString", "instructionsJSON",
-			// objects
-			"accountDetailsFactory", "jsonedDetail", "lastCalculatedBalanceDate"
-	};
 
-	@Test
-	public void getAccount_whenUserAccountExist_invokeAccountGRPCService()
+	private static final PcapLogger logger = PcapLoggerFactory
+			.getPcapLogger(EpwKmsServiceImpl.class);
+	private static final Charset charset = StandardCharsets.UTF_8;
+
+	private final AWSKMS kmsClient;
+
+	public EpwKmsServiceImpl(AWSKMS kmsClient)
 	{
-		Account actualAccount = accountBatchProcessService.getAccount(userAccountGrpc.getId());
-		assertThat(actualAccount).usingRecursiveComparison()
-				.ignoringFields(IGNORED_ENTITY_FIELDS)
-				.isEqualTo(account);
+		this.kmsClient = kmsClient;
 	}
 
-	@Test
-	public void getAccounts_whenUserAccountExist_invokeAccountGRPCService()
+	/**
+	 * Encrypt data key (system secondary key) under AWS CMK Key using IAM role to access the key
+	 * AWS CMK
+	 *
+	 * @throws SafePageException
+	 */
+	@Override
+	// @Retryable(value =
+	// {
+	// Exception.class
+	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
+	public EncryptResponseDTO encrypt(EncryptRequestDTO request) throws SafePageException
 	{
-		List<Account> actualAccounts = accountBatchProcessService
-				.getAccounts(List.of(userAccountGrpc.getId()));
-		checkOnAccountList(actualAccounts, account);
-	}
-
-	@Test
-	public void getAccountByUserIds_whenUserAccountExist_invokeAccountGRPCService()
-	{
-		List<Account> actualAccounts = accountBatchProcessService
-				.getAccountByUserIds(List.of(userId));
-		checkOnAccountList(actualAccounts, account);
-	}
-
-	@Test
-	public void getUserAccountsIncludingClosedByUserIds_whenUserAccountExist_invokeAccountGRPCService()
-	{
-		List<Account> actualAccounts = accountBatchProcessService
-				.getUserAccountsIncludingClosedByUserIds(List.of(userId),
-						EnumSet.of(productGrpc.getType()));
-		assertThat(actualAccounts.size()).isGreaterThan(0);
-		checkOnAccountList(actualAccounts, account);
-
-	}
-
-	@Test
-	public void getAccountsIncludingCloseAndLasModified_whenUserAccountExist_invokeAccountGRPCService()
-	{
-		List<Account> actualAccounts = accountBatchProcessService
-				.getAccountsIncludingCloseAndLasModified(List.of(userId),
-						userAccountGrpc.getUpdatedDate());
-
-		assertThat(actualAccounts.size()).isGreaterThan(0);
-		checkOnAccountList(actualAccounts, account);
-	}
-
-	@Test
-	public void validateAdditionalAttributes_encryptionAndDecryption()
-	{
-		Account actualAccount = accountBatchProcessService.getAccount(userAccountGrpc.getId());
-		actualAccount.setAdditionalAttributes("AdditionalAttributes", user);
-		assertThat(actualAccount.getAdditionalAttributes(user)).isEqualTo("AdditionalAttributes");
-	}
-
-	@Test
-	public void validateRawCredentials_encryptionAndDecryption()
-	{
-		AccountDTO actualAccount = (AccountDTO) accountBatchProcessService
-				.getAccount(userAccountGrpc.getId());
-		SiteCredentials siteCredentials = new SiteCredentials();
-		siteCredentials.put("credentials", "123456");
-		actualAccount.setRawCredentials(siteCredentials, user);
-		SiteCredentials actualRawCredentials = actualAccount.getRawCredentials(user);
-		assertThat(actualRawCredentials.get("credentials"))
-				.isEqualTo(siteCredentials.get("credentials"));
-	}
-
-	@Test
-	public void validatePershingAccountNumber_encryptionAndDecryption()
-	{
-		AccountDTO actualAccount = (AccountDTO) accountBatchProcessService
-				.getAccount(userAccountGrpc.getId());
-		actualAccount.setPershingAccountNumber("3100-4200-2100", user);
-		String pershingAccountNumber = actualAccount.getPershingAccountNumber(user);
-		assertThat(pershingAccountNumber).isEqualTo("3100-4200-2100");
-	}
-
-	@Test
-	public void validateAccountRoutingNumberData_encryptionAndDecryption()
-	{
-		AccountDTO actualAccount = (AccountDTO) accountBatchProcessService
-				.getAccount(userAccountGrpc.getId());
-		AccountRoutingNumberData accountRoutingNumberData = new AccountRoutingNumberData();
-		accountRoutingNumberData.setName("EPW Account");
-		accountRoutingNumberData.setSource("yodlee");
-		actualAccount.saveAccountRoutingNumberData(user, accountRoutingNumberData);
-		AccountRoutingNumberData actualData = actualAccount.getAccountRoutingNumberData(user);
-		assertThat(actualData).usingRecursiveComparison()
-				.ignoringFields("lastUpdated")
-				.isEqualTo(accountRoutingNumberData);
-	}
-
-	@Test
-	public void getAdvisoryFeeBaseHeaders_whenValidUserId_returnAggregatedUserTransaction()
-	{
-		List<Long> userIds = List.of(userId);
-		Date toDate = new Date();
-		List<AggregatedUserTransaction> aggregatedUserTransactions = accountBatchProcessService
-				.getAdvisoryFeeBaseHeaders(userIds, toDate);
-		assertThat(aggregatedUserTransactions).isNotEmpty();
-	}
-
-	public static void checkOnAccountList(List<Account> accounts, Account account)
-	{
-		boolean checked = false;
-		for (Account accountExpected : accounts)
+		if (StringUtils.isEmpty(request.getPlaintext()))
 		{
-			if (accountExpected.getUserAccountId()
-					.equals(account.getUserAccountId()))
-			{
-				assertThat(accountExpected).isEqualTo(account);
-				checked = true;
-			}
-
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
 		}
+		if (StringUtils.isEmpty(request.getKeyId()))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
+		}
+		try
+		{
+			EncryptRequest encryptRequest = new EncryptRequest().withKeyId(request.getKeyId())
+					.withPlaintext(getByteBuffer(request.getPlaintext()));
+			long start = System.currentTimeMillis();
+			EncryptResult result = kmsClient.encrypt(encryptRequest);
+			long end = System.currentTimeMillis();
+			logger.info("[{}] encryptData took {} ", getAwsSdkVersion(), (end - start));
+			if (result != null && result.getCiphertextBlob() != null)
+			{
+				String encoded = Utils.encodeBase64(result.getCiphertextBlob()
+						.array());
+				return new EncryptResponseDTO(encoded);
+			} else {
+				logger.error("[{}] encryptUsingAWSKey failed, EncryptResult is null for keyId: {}", getAwsSdkVersion(),request.getKeyId());
+				throw AwsExceptionHandler.handleKMSException("encrypt", request.getKeyId(), new IllegalStateException("EncryptResult or CiphertextBlob is null"));
+			}
+		}
+		catch (DisabledException | KeyUnavailableException | UnsupportedEncodingException ex)
+		{
+			logger.error(
+					"[{}] Failed to encrypt, plainText:{}, keyId:{}, due to:{}", getAwsSdkVersion(),
+					request.getPlaintext(), request.getKeyId(), ExceptionUtils.getMessage(ex), ex);
+			throw AwsExceptionHandler.handleKMSException("encrypt", request.getKeyId(), ex);
+		}
+	}
 
-		assertTrue(checked);
+	/**
+	 * Decrypt encrypted data key under AWS CMK Key using IAM role to access the key
+	 */
+	@Override
+	// @Retryable(value =
+	// {
+	// Exception.class
+	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
+	public DecryptResponseDTO decrypt(DecryptRequestDTO request) throws SafePageException
+	{
+		if (StringUtils.isEmpty(request.getCiphertext()))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
+		}
+		try
+		{
+			byte[] decodedCipherText = Utils.decodeBase64(request.getCiphertext());
+			DecryptRequest decryptRequest = new DecryptRequest()
+					.withCiphertextBlob(ByteBuffer.wrap(decodedCipherText));
+			long start = System.currentTimeMillis();
+			DecryptResult result = kmsClient.decrypt(decryptRequest);
+			long end = System.currentTimeMillis();
+			logger.info("[{}] decryptData took {}", getAwsSdkVersion(),(end - start));
+			ByteBuffer plainTextBlob = result.getPlaintext();
+			String decrypted = getString(plainTextBlob);
+			return new DecryptResponseDTO(decrypted);
+		}
+		catch (KeyUnavailableException kue)
+		{
+			// The request was rejected because the specified CMK was not available. The request can
+			// be retried.
+			logger.error(
+					"[{}] Failed to decryptUsingAWSKey(KeyUnavailableException), cipherText:{}, due to:{}", getAwsSdkVersion(),
+					request.getCiphertext(), ExceptionUtils.getMessage(kue), kue);
+		}
+		catch (InvalidCiphertextException ice)
+		{
+			// The request was rejected because the specified ciphertext, or additional
+			// authenticated data incorporated
+			// into the ciphertext, such as the encryption context, is corrupted, missing, or
+			// otherwise invalid.
+			logger.error(
+					"[{}] Failed to decryptUsingAWSKey(InvalidCiphertextException), cipherText:{}, due to:{}", getAwsSdkVersion(),
+					request.getCiphertext(), ExceptionUtils.getMessage(ice), ice);
+		}
+		catch (DisabledException de)
+		{
+			logger.error(
+					"[{}] Failed to decryptUsingAWSKey(DisabledException), cipherText:{}, due to:{}", getAwsSdkVersion(),
+					request.getCiphertext(), ExceptionUtils.getMessage(de), de);
+		}
+		catch (Exception ex)
+		{
+			logger.error("[{}] Failed to decryptUsingAWSKey, cipherText:{}, due to:{}", getAwsSdkVersion(),
+					request.getCiphertext(), ExceptionUtils.getMessage(ex), ex);
+		}
+		return null;
+	}
+
+	@Override
+	@Deprecated
+	public ListAliasesResponseDTO listAliases() throws SafePageException {
+		try {
+			ListAliasesResult result = kmsClient.listAliases(new ListAliasesRequest().withLimit(100));
+			List<ListAliasesResponseDTO.AliasEntry> aliasEntries = result.getAliases().stream()
+					.map(alias -> new ListAliasesResponseDTO.AliasEntry(alias.getAliasName(),
+							alias.getTargetKeyId()))
+					.collect(Collectors.toList());
+			return new ListAliasesResponseDTO(aliasEntries);
+		}
+		catch (Exception ex) {
+			logger.error("[{}] Failed to listAliases, due to:{}", getAwsSdkVersion(),ExceptionUtils.getMessage(ex), ex);
+			return new ListAliasesResponseDTO();
+		}
+	}
+
+	@Override
+	@Deprecated
+	public DescribeKeyResponseDTO describeKey(String keyId) throws SafePageException{
+		try {
+			DescribeKeyResult result = kmsClient.describeKey(new DescribeKeyRequest().withKeyId(keyId));
+
+			return new DescribeKeyResponseDTO(
+					result.getKeyMetadata().getKeyId(),
+					result.getKeyMetadata().getArn(),
+					result.getKeyMetadata().getKeyState().toString(),
+					result.getKeyMetadata().getEnabled()
+			);
+		} catch (Exception ex) {
+			logger.error("[{}] Failed to describeKey, keyId:{}, due to:{}", getAwsSdkVersion(),keyId, ExceptionUtils.getMessage(ex), ex);
+			return new DescribeKeyResponseDTO();
+		}
+	}
+
+	@Override
+	public String getAwsSdkVersion() {
+		return "AWS SDK v1";
+	}
+
+	/**
+	 * Converts a String to a ByteBuffer using the specified charset.
+	 *
+	 * @param string
+	 *            the String to convert
+	 * @return the ByteBuffer representation of the String
+	 */
+	public static ByteBuffer getByteBuffer(String string)
+	{
+		return ByteBuffer.wrap(string.getBytes(charset));
+	}
+
+	/**
+	 * Converts a ByteBuffer to a String using the specified charset.
+	 *
+	 * @param byteBuffer
+	 *            the ByteBuffer to convert
+	 * @return the String representation of the ByteBuffer
+	 */
+	public static String getString(ByteBuffer byteBuffer)
+	{
+		byte[] byteArray = new byte[byteBuffer.remaining()];
+		byteBuffer.get(byteArray);
+		return new String(byteArray, charset);
 	}
 }
-
-this is the test class that is failling completely
