@@ -46,3 +46,56 @@ String json = epwKmsService.decrypt(request).getPlaintext();
 AccountRoutingNumberData decrypted = objectMapper.readValue(json, AccountRoutingNumberData.class);
 
 you told all of the above, but can you implement the same in a different consumer, cryptengine, the root of this issue?
+	protected String encryptUsingSystemPrimaryKey(String rawValue) throws Exception
+	{
+		if (this.getKeyManager()
+				.isSystmePrimaryKeyMigratedToAWS())
+		{
+			if (StringUtils.isEmpty(this.getKeyManager()
+					.getSystemPrimaryAliasName()))
+			{
+				throw new SafePageException("systemPrimaryAliasName is null!");
+			}
+			EncryptRequestDTO req = new EncryptRequestDTO();
+			req.setPlaintext(rawValue);
+			req.setKeyId(this.getKeyManager().getSystemPrimaryAliasName());
+			String result = epwKmsService.encrypt(req).getCiphertext();
+			if (StringUtils.isNoneEmpty(result))
+			{
+				return CryptType.SYSTEM_PRIMARY.getVersion() + result;
+			}
+		}
+		return null;
+	}
+
+	protected String decryptUsingSystemPrimaryKey(String encryptedValue) throws Exception
+	{
+		if (StringUtils.isEmpty(encryptedValue))
+		{
+			return null;
+		}
+		try
+		{
+			/*
+			 * Data encrypted with system primary keys are formatted as [version][encrypted data];
+			 * e.g. V1encrypteddata
+			 */
+			String version = CryptType.getVersionFromEncryptedData(encryptedValue);
+			if (StringUtils.isNotEmpty(version))
+			{
+				encryptedValue = encryptedValue.substring(CryptType.SEED_VERSION_LENGTH);
+				// System Primary key in AWS KMS will be version V2
+				if (CryptType.V2.equals(version))
+				{
+					DecryptRequestDTO request = new DecryptRequestDTO();
+					request.setCiphertext(encryptedValue);
+					return epwKmsService.decrypt(request).getPlaintext();
+				}
+			}
+		}
+		catch (Exception anException)
+		{
+			logger.warn("Failed to decrypt because: ", anException);
+		}
+		return null;
+	}
