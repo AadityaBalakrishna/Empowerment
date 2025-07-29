@@ -1,19 +1,53 @@
-old:
-String result = KMSServiceImpl.getInstance()
-					.encryptUsingAWSKey(rawValue, this.getKeyManager()
-							.getSystemPrimaryAliasName());
-
-new:
-EncryptRequestDTO req = new EncryptRequestDTO();
-			req.setPlaintext(rawValue);
-			req.setKeyId(this.getKeyManager().getSystemPrimaryAliasName());
-			String result = epwKmsService.encrypt(req).getCiphertext();
-
-old:
-return KMSServiceImpl.getInstance()
-							.decryptUsingAWSKey(encryptedValue);
-
-new:
-DecryptRequestDTO request = new DecryptRequestDTO();
-					request.setCiphertext(encryptedValue);
-					return epwKmsService.decrypt(request).getPlaintext();
+[ERROR] com.empower.epw.service.account.grpc.AccountGrpcBatchProcessServiceIntegrationTest.validateAccountRoutingNumberData_encryptionAndDecryption
+15:42:07  [ERROR]   Run 1: AccountGrpcBatchProcessServiceIntegrationTest.validateAccountRoutingNumberData_encryptionAndDecryption:122 
+15:42:07  Expecting actual:
+15:42:07    {"lastUpdated":1702040247000,"source":"AccountRoutingNumberSource"}
+15:42:07  to be equal to:
+15:42:07    {"name":"EPW Account","source":"yodlee"}
+15:42:07  when recursively comparing field by field, but found the following 2 differences:
+15:42:07  
+15:42:07  field/property 'name' differ:
+15:42:07  - actual value  : null
+15:42:07  - expected value: "EPW Account"
+15:42:07  
+15:42:07  field/property 'source' differ:
+15:42:07  - actual value  : "AccountRoutingNumberSource"
+15:42:07  - expected value: "yodlee"
+15:42:07  
+15:42:07  The recursive comparison was performed with this configuration:
+15:42:07  - the following fields were ignored in the comparison: lastUpdated
+15:42:07  - no equals methods were used in the comparison EXCEPT for java JDK types since introspecting JDK types is forbidden in java 17+ (use withEqualsForType to register a specific way to compare a JDK type if you need it)
+15:42:07  - these types were compared with the following comparators:
+15:42:07    - java.lang.Double -> DoubleComparator[precision=1.0E-15]
+15:42:07    - java.lang.Float -> FloatComparator[precision=1.0E-6]
+15:42:07    - java.nio.file.Path -> lexicographic comparator (Path natural order)
+15:42:07  - actual and expected objects and their fields were compared field by field recursively even if they were not of the same type, this allows for example to compare a Person to a PersonDto (call strictTypeChecking(true) to change that behavior).
+15:42:07  - the introspection strategy used was: DefaultRecursiveComparisonIntrospectionStrategy
+15:42:07  
+15:42:07  [ERROR]   Run 2: AccountGrpcBatchProcessServiceIntegrationTest.validateAccountRoutingNumberData_encryptionAndDecryption:122 
+15:42:07  Expecting actual:
+15:42:07    {"lastUpdated":1702040247000,"source":"AccountRoutingNumberSource"}
+15:42:07  to be equal to:
+15:42:07    {"name":"EPW Account","source":"yodlee"}
+15:42:07  when recursively comparing field by field, but found the following 2 differences:
+15:42:07  
+15:42:07  field/property 'name' differ:
+15:42:07  - actual value  : null
+15:42:07  - expected value: "EPW Account"
+15:42:07  
+15:42:07  field/property 'source' differ:
+15:42:07  - actual value  : "AccountRoutingNumberSource"
+15:42:07  - expected value: "yodlee"
+15:42:07  
+15:42:07  The recursive comparison was performed with this configuration:
+15:42:07  - the following fields were ignored in the comparison: lastUpdated
+15:42:07  - no equals methods were used in the comparison EXCEPT for java JDK types since introspecting JDK types is forbidden in java 17+ (use withEqualsForType to register a specific way to compare a JDK type if you need it)
+15:42:07  - these types were compared with the following comparators:
+15:42:07    - java.lang.Double -> DoubleComparator[precision=1.0E-15]
+15:42:07    - java.lang.Float -> FloatComparator[precision=1.0E-6]
+15:42:07    - java.nio.file.Path -> lexicographic comparator (Path natural order)
+15:42:07  - actual and expected objects and their fields were compared field by field recursively even if they were not of the same type, this allows for example to compare a Person to a PersonDto (call strictTypeChecking(true) to change that behavior).
+15:42:07  - the introspection strategy used was: DefaultRecursiveComparisonIntrospectionStrategy
+15:42:07  
+15:42:07  [ERROR]   Run 3: AccountGrpcBatchProcessServiceIntegrationTest.validateAccountRoutingNumberData_encryptionAndDecryption:122 
+15:42:07  Expecting actual:
