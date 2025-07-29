@@ -1,49 +1,153 @@
-@Test
-void testEncryptDecryptConsistency() {
-    String original = "{\"name\":\"EPW Account\",\"source\":\"yodlee\",\"lastUpdated\":1702040247000}";
+package com.empower.epw.service.account.grpc;
 
-    EncryptRequestDTO req = EncryptRequestDTO.builder()
-        .plaintext(original)
-        .keyId("your-alias-or-keyId")
-        .build();
+import java.util.Date;
+import java.util.EnumSet;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-    String encrypted = epwKmsService.encrypt(req).getCiphertext();
+import com.empower.account.service.BaseProcessServiceIntegrationTest;
+import com.empower.epw.account.common.dto.account.AccountDTO;
+import com.personalcapital.user.data.AggregatedUserTransaction;
+import com.personalcapital.user.data.impl.AccountNumberData;
+import com.personalcapital.user.data.impl.AccountRoutingNumberData;
+import com.safepage.user.data.Account;
+import com.safepage.user.data.SiteCredentials;
+import com.safepage.user.data.UserProduct;
 
-    DecryptRequestDTO decReq = DecryptRequestDTO.builder()
-        .ciphertext(encrypted)
-        .build();
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-    String decrypted = epwKmsService.decrypt(decReq).getPlaintext();
+@ExtendWith(SpringExtension.class)
+public class AccountGrpcBatchProcessServiceIntegrationTest extends BaseProcessServiceIntegrationTest
+{
+	private static final String[] IGNORED_ENTITY_FIELDS = new String[]
+	{
+			"id", "siteInstructionsString", "instructionsJSON",
+			// objects
+			"accountDetailsFactory", "jsonedDetail", "lastCalculatedBalanceDate"
+	};
 
-    assertEquals(original, decrypted);
+	@Test
+	public void getAccount_whenUserAccountExist_invokeAccountGRPCService()
+	{
+		Account actualAccount = accountBatchProcessService.getAccount(userAccountGrpc.getId());
+		assertThat(actualAccount).usingRecursiveComparison()
+				.ignoringFields(IGNORED_ENTITY_FIELDS)
+				.isEqualTo(account);
+	}
+
+	@Test
+	public void getAccounts_whenUserAccountExist_invokeAccountGRPCService()
+	{
+		List<Account> actualAccounts = accountBatchProcessService
+				.getAccounts(List.of(userAccountGrpc.getId()));
+		checkOnAccountList(actualAccounts, account);
+	}
+
+	@Test
+	public void getAccountByUserIds_whenUserAccountExist_invokeAccountGRPCService()
+	{
+		List<Account> actualAccounts = accountBatchProcessService
+				.getAccountByUserIds(List.of(userId));
+		checkOnAccountList(actualAccounts, account);
+	}
+
+	@Test
+	public void getUserAccountsIncludingClosedByUserIds_whenUserAccountExist_invokeAccountGRPCService()
+	{
+		List<Account> actualAccounts = accountBatchProcessService
+				.getUserAccountsIncludingClosedByUserIds(List.of(userId),
+						EnumSet.of(productGrpc.getType()));
+		assertThat(actualAccounts.size()).isGreaterThan(0);
+		checkOnAccountList(actualAccounts, account);
+
+	}
+
+	@Test
+	public void getAccountsIncludingCloseAndLasModified_whenUserAccountExist_invokeAccountGRPCService()
+	{
+		List<Account> actualAccounts = accountBatchProcessService
+				.getAccountsIncludingCloseAndLasModified(List.of(userId),
+						userAccountGrpc.getUpdatedDate());
+
+		assertThat(actualAccounts.size()).isGreaterThan(0);
+		checkOnAccountList(actualAccounts, account);
+	}
+
+	@Test
+	public void validateAdditionalAttributes_encryptionAndDecryption()
+	{
+		Account actualAccount = accountBatchProcessService.getAccount(userAccountGrpc.getId());
+		actualAccount.setAdditionalAttributes("AdditionalAttributes", user);
+		assertThat(actualAccount.getAdditionalAttributes(user)).isEqualTo("AdditionalAttributes");
+	}
+
+	@Test
+	public void validateRawCredentials_encryptionAndDecryption()
+	{
+		AccountDTO actualAccount = (AccountDTO) accountBatchProcessService
+				.getAccount(userAccountGrpc.getId());
+		SiteCredentials siteCredentials = new SiteCredentials();
+		siteCredentials.put("credentials", "123456");
+		actualAccount.setRawCredentials(siteCredentials, user);
+		SiteCredentials actualRawCredentials = actualAccount.getRawCredentials(user);
+		assertThat(actualRawCredentials.get("credentials"))
+				.isEqualTo(siteCredentials.get("credentials"));
+	}
+
+	@Test
+	public void validatePershingAccountNumber_encryptionAndDecryption()
+	{
+		AccountDTO actualAccount = (AccountDTO) accountBatchProcessService
+				.getAccount(userAccountGrpc.getId());
+		actualAccount.setPershingAccountNumber("3100-4200-2100", user);
+		String pershingAccountNumber = actualAccount.getPershingAccountNumber(user);
+		assertThat(pershingAccountNumber).isEqualTo("3100-4200-2100");
+	}
+
+	@Test
+	public void validateAccountRoutingNumberData_encryptionAndDecryption()
+	{
+		AccountDTO actualAccount = (AccountDTO) accountBatchProcessService
+				.getAccount(userAccountGrpc.getId());
+		AccountRoutingNumberData accountRoutingNumberData = new AccountRoutingNumberData();
+		accountRoutingNumberData.setName("EPW Account");
+		accountRoutingNumberData.setSource("yodlee");
+		actualAccount.saveAccountRoutingNumberData(user, accountRoutingNumberData);
+		AccountRoutingNumberData actualData = actualAccount.getAccountRoutingNumberData(user);
+		assertThat(actualData).usingRecursiveComparison()
+				.ignoringFields("lastUpdated")
+				.isEqualTo(accountRoutingNumberData);
+	}
+
+	@Test
+	public void getAdvisoryFeeBaseHeaders_whenValidUserId_returnAggregatedUserTransaction()
+	{
+		List<Long> userIds = List.of(userId);
+		Date toDate = new Date();
+		List<AggregatedUserTransaction> aggregatedUserTransactions = accountBatchProcessService
+				.getAdvisoryFeeBaseHeaders(userIds, toDate);
+		assertThat(aggregatedUserTransactions).isNotEmpty();
+	}
+
+	public static void checkOnAccountList(List<Account> accounts, Account account)
+	{
+		boolean checked = false;
+		for (Account accountExpected : accounts)
+		{
+			if (accountExpected.getUserAccountId()
+					.equals(account.getUserAccountId()))
+			{
+				assertThat(accountExpected).isEqualTo(account);
+				checked = true;
+			}
+
+		}
+
+		assertTrue(checked);
+	}
 }
 
-
-this test you suggested is not passing:
-
-com.amazonaws.services.kms.model.NotFoundException: Invalid keyId 'your-alias-or-keyId' (Service: AWSKMS; Status Code: 400; Error Code: NotFoundException; Request ID: d2feca5e-e461-49bc-bad8-4f13c2f37b44; Proxy: eproxy-personalcapital.goskope.com)
-
-	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.handleErrorResponse(AmazonHttpClient.java:1879)
-	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.handleServiceErrorResponse(AmazonHttpClient.java:1418)
-	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.executeOneRequest(AmazonHttpClient.java:1387)
-	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.executeHelper(AmazonHttpClient.java:1157)
-	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.doExecute(AmazonHttpClient.java:814)
-	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.executeWithTimer(AmazonHttpClient.java:781)
-	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.execute(AmazonHttpClient.java:755)
-	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.access$500(AmazonHttpClient.java:715)
-	at com.amazonaws.http.AmazonHttpClient$RequestExecutionBuilderImpl.execute(AmazonHttpClient.java:697)
-	at com.amazonaws.http.AmazonHttpClient.execute(AmazonHttpClient.java:561)
-	at com.amazonaws.http.AmazonHttpClient.execute(AmazonHttpClient.java:541)
-	at com.amazonaws.services.kms.AWSKMSClient.doInvoke(AWSKMSClient.java:9286)
-	at com.amazonaws.services.kms.AWSKMSClient.invoke(AWSKMSClient.java:9253)
-	at com.amazonaws.services.kms.AWSKMSClient.invoke(AWSKMSClient.java:9242)
-	at com.amazonaws.services.kms.AWSKMSClient.executeEncrypt(AWSKMSClient.java:3924)
-	at com.amazonaws.services.kms.AWSKMSClient.encrypt(AWSKMSClient.java:3893)
-	at com.empower.epw.sdk.v1.adapter.kms.EpwKmsServiceImpl.encrypt(EpwKmsServiceImpl.java:81)
-	at com.empower.epw.sdk.v1.adapter.kms.EpwKmsServiceImplIntegrationTest.testEncryptDecryptConsistency(EpwKmsServiceImplIntegrationTest.java:162)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-
-
-what does it do , and why it isn't doing?
+this is the test class that is failling completely
