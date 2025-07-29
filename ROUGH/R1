@@ -1,4 +1,21 @@
-EncryptRequestDTO req = new EncryptRequestDTO();
+	protected String encryptUsingSystemPrimaryKey(String rawValue) throws Exception
+	{
+		if (this.getKeyManager()
+				.isSystmePrimaryKeyMigratedToAWS())
+		{
+			if (StringUtils.isEmpty(this.getKeyManager()
+					.getSystemPrimaryAliasName()))
+			{
+				throw new SafePageException("systemPrimaryAliasName is null!");
+			}
+			EncryptRequestDTO req = new EncryptRequestDTO();
 			req.setPlaintext(rawValue);
 			req.setKeyId(this.getKeyManager().getSystemPrimaryAliasName());
 			String result = epwKmsService.encrypt(req).getCiphertext();
+			if (StringUtils.isNoneEmpty(result))
+			{
+				return CryptType.SYSTEM_PRIMARY.getVersion() + result;
+			}
+		}
+		return null;
+	}
