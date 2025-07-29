@@ -17,3 +17,33 @@ void testEncryptDecryptConsistency() {
 
     assertEquals(original, decrypted);
 }
+
+
+this test you suggested is not passing:
+
+com.amazonaws.services.kms.model.NotFoundException: Invalid keyId 'your-alias-or-keyId' (Service: AWSKMS; Status Code: 400; Error Code: NotFoundException; Request ID: d2feca5e-e461-49bc-bad8-4f13c2f37b44; Proxy: eproxy-personalcapital.goskope.com)
+
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.handleErrorResponse(AmazonHttpClient.java:1879)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.handleServiceErrorResponse(AmazonHttpClient.java:1418)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.executeOneRequest(AmazonHttpClient.java:1387)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.executeHelper(AmazonHttpClient.java:1157)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.doExecute(AmazonHttpClient.java:814)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.executeWithTimer(AmazonHttpClient.java:781)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.execute(AmazonHttpClient.java:755)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.access$500(AmazonHttpClient.java:715)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutionBuilderImpl.execute(AmazonHttpClient.java:697)
+	at com.amazonaws.http.AmazonHttpClient.execute(AmazonHttpClient.java:561)
+	at com.amazonaws.http.AmazonHttpClient.execute(AmazonHttpClient.java:541)
+	at com.amazonaws.services.kms.AWSKMSClient.doInvoke(AWSKMSClient.java:9286)
+	at com.amazonaws.services.kms.AWSKMSClient.invoke(AWSKMSClient.java:9253)
+	at com.amazonaws.services.kms.AWSKMSClient.invoke(AWSKMSClient.java:9242)
+	at com.amazonaws.services.kms.AWSKMSClient.executeEncrypt(AWSKMSClient.java:3924)
+	at com.amazonaws.services.kms.AWSKMSClient.encrypt(AWSKMSClient.java:3893)
+	at com.empower.epw.sdk.v1.adapter.kms.EpwKmsServiceImpl.encrypt(EpwKmsServiceImpl.java:81)
+	at com.empower.epw.sdk.v1.adapter.kms.EpwKmsServiceImplIntegrationTest.testEncryptDecryptConsistency(EpwKmsServiceImplIntegrationTest.java:162)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+
+
+what does it do , and why it isn't doing?
