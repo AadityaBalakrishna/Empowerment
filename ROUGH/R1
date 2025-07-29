@@ -1,97 +1,177 @@
-new impl:
-package com.empower.epw.aws.api.kms;
+package com.empower.epw.sdk.v1.adapter.kms;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.localstack.LocalStackContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
+
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.client.builder.AwsClientBuilder;
+import com.amazonaws.services.kms.AWSKMS;
+import com.amazonaws.services.kms.AWSKMSClientBuilder;
+import com.amazonaws.services.kms.model.CreateAliasRequest;
+import com.amazonaws.services.kms.model.CreateKeyResult;
+import com.amazonaws.services.kms.model.DecryptRequest;
+import com.amazonaws.services.kms.model.DecryptResult;
+import com.amazonaws.services.kms.model.EncryptRequest;
+import com.amazonaws.services.kms.model.EncryptResult;
+import com.empower.epw.aws.api.kms.EpwKmsService;
 import com.empower.epw.aws.api.kms.dto.DecryptRequestDTO;
 import com.empower.epw.aws.api.kms.dto.DecryptResponseDTO;
-import com.empower.epw.aws.api.kms.dto.DescribeKeyResponseDTO;
 import com.empower.epw.aws.api.kms.dto.EncryptRequestDTO;
 import com.empower.epw.aws.api.kms.dto.EncryptResponseDTO;
-import com.empower.epw.aws.api.kms.dto.ListAliasesResponseDTO;
 import com.safepage.exception.SafePageException;
 
-/**
- * {@code EpwKmsService} provides an abstraction over AWS Key Management Service (KMS) operations,
- * supporting encryption, decryption, key description, and alias listing.
- *
- * <p>Implementations of this interface (e.g., using AWS SDK v1 or v2) allow consumers
- * to securely manage cryptographic keys and perform key-related operations in a version-agnostic way.
- */
-public interface EpwKmsService {
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-	/**
-	 * Encrypts the given plaintext using the specified KMS key.
-	 *
-	 * @param request the encryption request containing plaintext and keyId
-	 * @return a response containing the Base64-encoded ciphertext
-	 * @throws SafePageException if the request is invalid or encryption fails
-	 */
-	EncryptResponseDTO encrypt(EncryptRequestDTO request) throws SafePageException;
+@SpringBootTest( classes = {
+        EpwKmsServiceImpl.class,
+        EpwKmsServiceImplIntegrationTest.KMSTestConfig.class
+})
+@Testcontainers
+public class EpwKmsServiceImplIntegrationTest {
 
-	/**
-	 * Decrypts the given ciphertext using KMS.
-	 *
-	 * @param request the decryption request containing the Base64-encoded ciphertext
-	 * @return a response containing the decrypted plaintext string
-	 * @throws SafePageException if the request is invalid or decryption fails
-	 */
-	DecryptResponseDTO decrypt(DecryptRequestDTO request) throws SafePageException;
+        private static final String KEY_ALIAS = "alias/app/pcap/pcap/system_primary/v1";
+        private static String keyId;
 
-	/**
-	 * Describes a KMS key using its keyId or alias.
-	 *
-	 * @param keyId the keyId or alias to describe
-	 * @return metadata and status information about the KMS key
-	 * @throws SafePageException if the key cannot be found or described
-	 */
-	DescribeKeyResponseDTO describeKey(String keyId) throws SafePageException;
+        @Container
+        static LocalStackContainer localStack = new LocalStackContainer(
+                DockerImageName.parse("localstack/localstack:3.0"))
+                .withServices(LocalStackContainer.Service.KMS)
+                .withReuse(true);
 
-	/**
-	 * Lists all KMS key aliases in the current AWS region.
-	 *
-	 * @return a response containing a list of key aliases and their associated key IDs
-	 * @throws SafePageException if alias listing fails
-	 */
-	ListAliasesResponseDTO listAliases() throws SafePageException;
+        @DynamicPropertySource
+        static void overrideProperties(DynamicPropertyRegistry registry){
+                registry.add("cloud.aws.region.static", localStack::getRegion);
+                registry.add("cloud.aws.credentials.access-key", localStack::getAccessKey);
+                registry.add("cloud.aws.credentials.secret-key", localStack::getSecretKey);
+        }
 
-	String getAwsSdkVersion();
+        @TestConfiguration
+        static class KMSTestConfig {
+                // Additional test configuration can be added here if needed
+                @Bean
+                public AWSKMS awskms(){
+                        return AWSKMSClientBuilder.standard()
+                                .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(
+                                        localStack.getEndpointOverride(LocalStackContainer.Service.KMS).toString(),
+                                        localStack.getRegion()))
+                                .withCredentials(new AWSStaticCredentialsProvider(
+                                        new BasicAWSCredentials(localStack.getAccessKey(), localStack.getSecretKey())))
+                                .build();
+                }
+
+                @Bean
+                public EpwKmsService epwKmsService(AWSKMS awskms) {
+                        return new EpwKmsServiceImpl(awskms);
+                }
+        }
+
+        @Autowired
+        private AWSKMS awskms;
+
+        @Autowired
+        private EpwKmsService epwKmsService;
+
+        @BeforeEach
+        void setUpKmsKeyAlias(){
+                if (keyId == null) {
+                        CreateKeyResult keyResult = awskms.createKey();
+                        keyId = keyResult.getKeyMetadata().getKeyId();
+
+                        awskms.createAlias(new CreateAliasRequest()
+                                .withAliasName(KEY_ALIAS)
+                                .withTargetKeyId(keyId));
+                }
+        }
+
+        @Test
+        void testEncryptDecryptWithKmsClientDirectly() {
+                String plaintext = "hello-localstack-kms";
+
+                EncryptRequest encryptRequest = new EncryptRequest()
+                        .withKeyId(KEY_ALIAS)
+                        .withPlaintext(ByteBuffer.wrap(plaintext.getBytes(StandardCharsets.UTF_8)));
+
+                EncryptResult encryptResult = awskms.encrypt(encryptRequest);
+                ByteBuffer ciphertextBlob = encryptResult.getCiphertextBlob();
+                assertNotNull(ciphertextBlob);
+
+                DecryptRequest decryptRequest = new DecryptRequest()
+                        .withCiphertextBlob(ciphertextBlob);
+
+                DecryptResult decryptResult = awskms.decrypt(decryptRequest);
+                String decryptedText = StandardCharsets.UTF_8.decode(decryptResult.getPlaintext()).toString();
+
+                assertEquals(plaintext, decryptedText);
+        }
+
+        @Test
+        void testEncryptDecryptWithEpwKmsService() throws SafePageException {
+                String plaintext = "integration-test-message";
+
+                EncryptRequestDTO encryptDTO = new EncryptRequestDTO(plaintext, KEY_ALIAS);
+                EncryptResponseDTO encrypted = epwKmsService.encrypt(encryptDTO);
+                assertNotNull(encrypted.getCiphertext());
+
+                DecryptRequestDTO decryptDTO = new DecryptRequestDTO(encrypted.getCiphertext());
+                DecryptResponseDTO decrypted = epwKmsService.decrypt(decryptDTO);
+                assertNotNull(decrypted.getPlaintext());
+                assertEquals(plaintext, decrypted.getPlaintext());
+        }
+
+        @Nested
+        class NegativeCasesForBadDataAndExceptions {
+
+                @Test
+                void testEncryptThrowsSafePageExceptionForEmptyPlaintext() {
+                        EncryptRequestDTO invalidRequest = new EncryptRequestDTO("", KEY_ALIAS);
+                        SafePageException exception = assertThrows(SafePageException.class, () ->
+                                epwKmsService.encrypt(invalidRequest)
+                        );
+                        assertEquals("plainText is required!", exception.getMessage());
+                }
+
+                @Test
+                void testEncryptValueThrowsSafePageExceptionWhenKeyIdIsMissing() {
+                        EncryptRequestDTO request = new EncryptRequestDTO("some text", null);
+                        SafePageException exception = assertThrows(SafePageException.class,
+                                () -> epwKmsService.encrypt(request)
+                        );
+                        assertEquals("keyId is required!", exception.getMessage());
+                }
+
+                @Test
+                void testDecryptValueThrowsOrLogsExceptionWhenCiphertextIsInvalid() throws SafePageException{
+                        String invalidCiphertext = "not-base64-or-kms-data";
+                        DecryptRequestDTO request = new DecryptRequestDTO(invalidCiphertext);
+                        DecryptResponseDTO response = epwKmsService.decrypt(request);
+                        assertNull(response);
+                }
+
+                @Test
+                void testDecryptValueThrowsSafePageExceptionWhenCiphertextIsMissing() {
+                        DecryptRequestDTO request = new DecryptRequestDTO(null);
+                        SafePageException exception = assertThrows(SafePageException.class,
+                                () -> epwKmsService.decrypt(request)
+                        );
+                        assertEquals("cipherText is required!", exception.getMessage());
+                }
+        }
 }
-
-old impl:
-package com.safepage.security.service;
-
-import com.amazonaws.services.kms.model.DescribeKeyResult;
-import com.amazonaws.services.kms.model.ListAliasesResult;
-import com.safepage.exception.SafePageException;
-
-/**
- * Using AWS KMS to store our Master Key, which is called "Customer master key (CMK)". This class
- * will be used to Encrypt/Decrypt System Secondary keys (in db) under customer master key.
- * 
- * @author dizadi
- * @since 01/28/2019
- */
-public interface KMSService
-{
-	/**
-	 * The Encrypt operation is designed to encrypt data keys, but it is not frequently used.
-	 * 
-	 * @param plainDataKey
-	 * @return
-	 */
-	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException;
-
-	/**
-	 * To decrypt data keys
-	 * 
-	 * @param cipheredDataKey
-	 * @return
-	 */
-	public String decryptUsingAWSKey(String cipherText) throws SafePageException;
-
-	public ListAliasesResult getKeyAliases(String awsCmkKeyAlias);
-
-	public DescribeKeyResult describeKey(String awsCmkKeyAlias);
-}
-
-
-any changes in this that could break the flow? also why can't i use the same encryptUsingAWSKey and decryptUsingAWSKey method for both the AWS SDK KMS v1 impl of this service and AWS SDK KMS v2 impl of this service instead of creating those DTOs
