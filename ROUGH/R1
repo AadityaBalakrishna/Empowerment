@@ -1,4 +1,38 @@
-i just used objectMapper @Autowired it
-and directly used object mapper
-now the test cases are failing with this:
-org.opentest4j.AssertionFailedError: setUpSystemSecondaryKey Failed: java.lang.NullPointerException: Cannot invoke "com.fasterxml.jackson.databind.ObjectMapper.writeValueAsString(Object)" because "this.objectMapper" is null
+now that i did this:
+EncryptRequestDTO req = new EncryptRequestDTO();
+			req.setPlaintext(objectMapper.writeValueAsString(rawValue));
+			req.setKeyId(this.getKeyManager().getSystemPrimaryAliasName());
+			String result = epwKmsService.encrypt(req).getCiphertext();
+
+should i up date here also?
+	protected String decryptUsingSystemPrimaryKey(String encryptedValue) throws Exception
+	{
+		if (StringUtils.isEmpty(encryptedValue))
+		{
+			return null;
+		}
+		try
+		{
+			/*
+			 * Data encrypted with system primary keys are formatted as [version][encrypted data];
+			 * e.g. V1encrypteddata
+			 */
+			String version = CryptType.getVersionFromEncryptedData(encryptedValue);
+			if (StringUtils.isNotEmpty(version))
+			{
+				encryptedValue = encryptedValue.substring(CryptType.SEED_VERSION_LENGTH);
+				// System Primary key in AWS KMS will be version V2
+				if (CryptType.V2.equals(version))
+				{
+					DecryptRequestDTO request = new DecryptRequestDTO();
+					request.setCiphertext(encryptedValue);
+					return epwKmsService.decrypt(request).getPlaintext();
+				}
+			}
+		}
+		catch (Exception anException)
+		{
+			logger.warn("Failed to decrypt because: ", anException);
+		}
+		return null;
+	}
