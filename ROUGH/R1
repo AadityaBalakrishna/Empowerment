@@ -1,20 +1,13 @@
-@Test
-public void testEncryptDecryptUsingSystemPrimaryKey_AWS_2() throws Exception {
-	when(keyManager.isSystmePrimaryKeyMigratedToAWS()).thenReturn(true);
-	when(keyManager.getSystemPrimaryAliasName())
-			.thenReturn("alias/app/pcap/pcap/system_primary/v1");
+String rawCipher = "fakeEncryptedSeedXYZ";
+String encryptedWithPrefix = CryptType.SYSTEM_PRIMARY.getVersion() + rawCipher;
 
-	String plainSeedValue = rawSystemSecondaryKeySeed;
-	String fakeEncryptedSeed = CryptType.SYSTEM_PRIMARY.getVersion() + "fakeEncryptedSeedXYZ";
+when(epwKmsService.encryptUsingAWSKey(eq(plainSeedValue), anyString())).thenReturn(rawCipher);
+when(epwKmsService.decryptUsingAWSKey(eq(rawCipher))).thenReturn(plainSeedValue);
 
-	// Correct stubbing with matching args
-	stubAwsKmsEncryption(plainSeedValue, "fakeEncryptedSeedXYZ");
+String encryptedSystemSecondaryKeySeed = cryptEngine.encrypt(CryptType.SYSTEM_PRIMARY, plainSeedValue);
+assertNotNull(encryptedSystemSecondaryKeySeed);
+assertTrue(encryptedSystemSecondaryKeySeed.startsWith(CryptType.SYSTEM_PRIMARY.getVersion()));
 
-	String encryptedSystemSecondaryKeySeed = cryptEngine.encrypt(CryptType.SYSTEM_PRIMARY, plainSeedValue);
-	assertNotNull(encryptedSystemSecondaryKeySeed);
-	assertTrue(encryptedSystemSecondaryKeySeed.startsWith(CryptType.SYSTEM_PRIMARY.getVersion()));
-
-	String decryptedSystemSecondaryKeySeed = cryptEngine.decrypt(CryptType.SYSTEM_PRIMARY, encryptedSystemSecondaryKeySeed);
-	assertNotNull(decryptedSystemSecondaryKeySeed);
-	assertEquals(plainSeedValue, decryptedSystemSecondaryKeySeed);
-}
+String decryptedSystemSecondaryKeySeed = cryptEngine.decrypt(CryptType.SYSTEM_PRIMARY, encryptedSystemSecondaryKeySeed);
+assertNotNull(decryptedSystemSecondaryKeySeed);
+assertEquals(plainSeedValue, decryptedSystemSecondaryKeySeed);
