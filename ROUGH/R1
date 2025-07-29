@@ -1,38 +1,48 @@
-now that i did this:
-EncryptRequestDTO req = new EncryptRequestDTO();
-			req.setPlaintext(objectMapper.writeValueAsString(rawValue));
-			req.setKeyId(this.getKeyManager().getSystemPrimaryAliasName());
-			String result = epwKmsService.encrypt(req).getCiphertext();
+Yes, I reviewed all of those issues and your code does not currently fix the root problem.
 
-should i up date here also?
-	protected String decryptUsingSystemPrimaryKey(String encryptedValue) throws Exception
-	{
-		if (StringUtils.isEmpty(encryptedValue))
-		{
-			return null;
-		}
-		try
-		{
-			/*
-			 * Data encrypted with system primary keys are formatted as [version][encrypted data];
-			 * e.g. V1encrypteddata
-			 */
-			String version = CryptType.getVersionFromEncryptedData(encryptedValue);
-			if (StringUtils.isNotEmpty(version))
-			{
-				encryptedValue = encryptedValue.substring(CryptType.SEED_VERSION_LENGTH);
-				// System Primary key in AWS KMS will be version V2
-				if (CryptType.V2.equals(version))
-				{
-					DecryptRequestDTO request = new DecryptRequestDTO();
-					request.setCiphertext(encryptedValue);
-					return epwKmsService.decrypt(request).getPlaintext();
-				}
-			}
-		}
-		catch (Exception anException)
-		{
-			logger.warn("Failed to decrypt because: ", anException);
-		}
-		return null;
-	}
+🔥 What's Still Wrong
+You're using this class:
+EpwKmsServiceImpl
+And inside it, everything is fine — encryption and decryption are both correctly expecting and returning Strings. That’s not the problem.
+
+The real issue lies outside EpwKmsServiceImpl, in how you use it — especially in lines like this (from your test):
+
+accountRoutingNumberData.setName("EPW Account");
+accountRoutingNumberData.setSource("yodlee");
+actualAccount.saveAccountRoutingNumberData(user, accountRoutingNumberData);
+You're likely doing this inside saveAccountRoutingNumberData(...):
+
+EncryptRequestDTO req = new EncryptRequestDTO();
+req.setPlaintext(accountRoutingNumberData); // ❌ WRONG
+But this setPlaintext(...) expects a String, not an object. The object gets toString()'d implicitly, which produces garbage like:
+
+com.personalcapital.user.data.impl.AccountRoutingNumberData@7d9d0818
+That’s why decryption fails — the JSON never got serialized in the first place.
+
+✅ What You Need To Do
+In the place where you're calling EpwKmsService.encrypt(...), make sure to serialize to JSON manually before encrypting.
+
+✅ Fix in Your Consumer Code (e.g. AccountDTO)
+Wherever you encrypt objects like AccountRoutingNumberData, fix it like this:
+
+FIX:
+ObjectMapper objectMapper = new ObjectMapper();
+String json = objectMapper.writeValueAsString(accountRoutingNumberData); // ✅ correct
+
+EncryptRequestDTO request = EncryptRequestDTO.builder()
+    .plaintext(json)
+    .keyId(...) // provide the correct keyId or alias
+    .build();
+
+EncryptResponseDTO response = epwKmsService.encrypt(request);
+
+And for decryption:
+DecryptRequestDTO request = DecryptRequestDTO.builder()
+    .ciphertext(encryptedString)
+    .build();
+
+String json = epwKmsService.decrypt(request).getPlaintext();
+
+AccountRoutingNumberData decrypted = objectMapper.readValue(json, AccountRoutingNumberData.class);
+
+you told all of the above, but can you implement the same in a different consumer, cryptengine, the root of this issue?
