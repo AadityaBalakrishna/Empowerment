@@ -1,53 +1,188 @@
-[ERROR] com.empower.epw.service.account.grpc.AccountGrpcBatchProcessServiceIntegrationTest.validateAccountRoutingNumberData_encryptionAndDecryption
-15:42:07  [ERROR]   Run 1: AccountGrpcBatchProcessServiceIntegrationTest.validateAccountRoutingNumberData_encryptionAndDecryption:122 
-15:42:07  Expecting actual:
-15:42:07    {"lastUpdated":1702040247000,"source":"AccountRoutingNumberSource"}
-15:42:07  to be equal to:
-15:42:07    {"name":"EPW Account","source":"yodlee"}
-15:42:07  when recursively comparing field by field, but found the following 2 differences:
-15:42:07  
-15:42:07  field/property 'name' differ:
-15:42:07  - actual value  : null
-15:42:07  - expected value: "EPW Account"
-15:42:07  
-15:42:07  field/property 'source' differ:
-15:42:07  - actual value  : "AccountRoutingNumberSource"
-15:42:07  - expected value: "yodlee"
-15:42:07  
-15:42:07  The recursive comparison was performed with this configuration:
-15:42:07  - the following fields were ignored in the comparison: lastUpdated
-15:42:07  - no equals methods were used in the comparison EXCEPT for java JDK types since introspecting JDK types is forbidden in java 17+ (use withEqualsForType to register a specific way to compare a JDK type if you need it)
-15:42:07  - these types were compared with the following comparators:
-15:42:07    - java.lang.Double -> DoubleComparator[precision=1.0E-15]
-15:42:07    - java.lang.Float -> FloatComparator[precision=1.0E-6]
-15:42:07    - java.nio.file.Path -> lexicographic comparator (Path natural order)
-15:42:07  - actual and expected objects and their fields were compared field by field recursively even if they were not of the same type, this allows for example to compare a Person to a PersonDto (call strictTypeChecking(true) to change that behavior).
-15:42:07  - the introspection strategy used was: DefaultRecursiveComparisonIntrospectionStrategy
-15:42:07  
-15:42:07  [ERROR]   Run 2: AccountGrpcBatchProcessServiceIntegrationTest.validateAccountRoutingNumberData_encryptionAndDecryption:122 
-15:42:07  Expecting actual:
-15:42:07    {"lastUpdated":1702040247000,"source":"AccountRoutingNumberSource"}
-15:42:07  to be equal to:
-15:42:07    {"name":"EPW Account","source":"yodlee"}
-15:42:07  when recursively comparing field by field, but found the following 2 differences:
-15:42:07  
-15:42:07  field/property 'name' differ:
-15:42:07  - actual value  : null
-15:42:07  - expected value: "EPW Account"
-15:42:07  
-15:42:07  field/property 'source' differ:
-15:42:07  - actual value  : "AccountRoutingNumberSource"
-15:42:07  - expected value: "yodlee"
-15:42:07  
-15:42:07  The recursive comparison was performed with this configuration:
-15:42:07  - the following fields were ignored in the comparison: lastUpdated
-15:42:07  - no equals methods were used in the comparison EXCEPT for java JDK types since introspecting JDK types is forbidden in java 17+ (use withEqualsForType to register a specific way to compare a JDK type if you need it)
-15:42:07  - these types were compared with the following comparators:
-15:42:07    - java.lang.Double -> DoubleComparator[precision=1.0E-15]
-15:42:07    - java.lang.Float -> FloatComparator[precision=1.0E-6]
-15:42:07    - java.nio.file.Path -> lexicographic comparator (Path natural order)
-15:42:07  - actual and expected objects and their fields were compared field by field recursively even if they were not of the same type, this allows for example to compare a Person to a PersonDto (call strictTypeChecking(true) to change that behavior).
-15:42:07  - the introspection strategy used was: DefaultRecursiveComparisonIntrospectionStrategy
-15:42:07  
-15:42:07  [ERROR]   Run 3: AccountGrpcBatchProcessServiceIntegrationTest.validateAccountRoutingNumberData_encryptionAndDecryption:122 
-15:42:07  Expecting actual:
+@Service
+public class EpwKmsServiceImpl implements EpwKmsService
+{
+
+	private static final PcapLogger logger = PcapLoggerFactory
+			.getPcapLogger(EpwKmsServiceImpl.class);
+	private static final Charset charset = StandardCharsets.UTF_8;
+
+	private final AWSKMS kmsClient;
+
+	public EpwKmsServiceImpl(AWSKMS kmsClient)
+	{
+		this.kmsClient = kmsClient;
+	}
+
+	/**
+	 * Encrypt data key (system secondary key) under AWS CMK Key using IAM role to access the key
+	 * AWS CMK
+	 *
+	 * @throws SafePageException
+	 */
+	@Override
+	// @Retryable(value =
+	// {
+	// Exception.class
+	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
+	public EncryptResponseDTO encrypt(EncryptRequestDTO request) throws SafePageException
+	{
+		if (StringUtils.isEmpty(request.getPlaintext()))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
+		}
+		if (StringUtils.isEmpty(request.getKeyId()))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
+		}
+		try
+		{
+			EncryptRequest encryptRequest = new EncryptRequest().withKeyId(request.getKeyId())
+					.withPlaintext(getByteBuffer(request.getPlaintext()));
+			long start = System.currentTimeMillis();
+			EncryptResult result = kmsClient.encrypt(encryptRequest);
+			long end = System.currentTimeMillis();
+			logger.info("[{}] encryptData took {} ", getAwsSdkVersion(), (end - start));
+			if (result != null && result.getCiphertextBlob() != null)
+			{
+				String encoded = Utils.encodeBase64(result.getCiphertextBlob()
+						.array());
+				return new EncryptResponseDTO(encoded);
+			} else {
+				logger.error("[{}] encryptUsingAWSKey failed, EncryptResult is null for keyId: {}", getAwsSdkVersion(),request.getKeyId());
+				throw AwsExceptionHandler.handleKMSException("encrypt", request.getKeyId(), new IllegalStateException("EncryptResult or CiphertextBlob is null"));
+			}
+		}
+		catch (DisabledException | KeyUnavailableException | UnsupportedEncodingException ex)
+		{
+			logger.error(
+					"[{}] Failed to encrypt, plainText:{}, keyId:{}, due to:{}", getAwsSdkVersion(),
+					request.getPlaintext(), request.getKeyId(), ExceptionUtils.getMessage(ex), ex);
+			throw AwsExceptionHandler.handleKMSException("encrypt", request.getKeyId(), ex);
+		}
+	}
+
+	/**
+	 * Decrypt encrypted data key under AWS CMK Key using IAM role to access the key
+	 */
+	@Override
+	// @Retryable(value =
+	// {
+	// Exception.class
+	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
+	public DecryptResponseDTO decrypt(DecryptRequestDTO request) throws SafePageException
+	{
+		if (StringUtils.isEmpty(request.getCiphertext()))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
+		}
+		try
+		{
+			byte[] decodedCipherText = Utils.decodeBase64(request.getCiphertext());
+			DecryptRequest decryptRequest = new DecryptRequest()
+					.withCiphertextBlob(ByteBuffer.wrap(decodedCipherText));
+			long start = System.currentTimeMillis();
+			DecryptResult result = kmsClient.decrypt(decryptRequest);
+			long end = System.currentTimeMillis();
+			logger.info("[{}] decryptData took {}", getAwsSdkVersion(),(end - start));
+			ByteBuffer plainTextBlob = result.getPlaintext();
+			String decrypted = getString(plainTextBlob);
+			return new DecryptResponseDTO(decrypted);
+		}
+		catch (KeyUnavailableException kue)
+		{
+			// The request was rejected because the specified CMK was not available. The request can
+			// be retried.
+			logger.error(
+					"[{}] Failed to decryptUsingAWSKey(KeyUnavailableException), cipherText:{}, due to:{}", getAwsSdkVersion(),
+					request.getCiphertext(), ExceptionUtils.getMessage(kue), kue);
+		}
+		catch (InvalidCiphertextException ice)
+		{
+			// The request was rejected because the specified ciphertext, or additional
+			// authenticated data incorporated
+			// into the ciphertext, such as the encryption context, is corrupted, missing, or
+			// otherwise invalid.
+			logger.error(
+					"[{}] Failed to decryptUsingAWSKey(InvalidCiphertextException), cipherText:{}, due to:{}", getAwsSdkVersion(),
+					request.getCiphertext(), ExceptionUtils.getMessage(ice), ice);
+		}
+		catch (DisabledException de)
+		{
+			logger.error(
+					"[{}] Failed to decryptUsingAWSKey(DisabledException), cipherText:{}, due to:{}", getAwsSdkVersion(),
+					request.getCiphertext(), ExceptionUtils.getMessage(de), de);
+		}
+		catch (Exception ex)
+		{
+			logger.error("[{}] Failed to decryptUsingAWSKey, cipherText:{}, due to:{}", getAwsSdkVersion(),
+					request.getCiphertext(), ExceptionUtils.getMessage(ex), ex);
+		}
+		return null;
+	}
+
+	@Override
+	@Deprecated
+	public ListAliasesResponseDTO listAliases() throws SafePageException {
+		try {
+			ListAliasesResult result = kmsClient.listAliases(new ListAliasesRequest().withLimit(100));
+			List<ListAliasesResponseDTO.AliasEntry> aliasEntries = result.getAliases().stream()
+					.map(alias -> new ListAliasesResponseDTO.AliasEntry(alias.getAliasName(),
+							alias.getTargetKeyId()))
+					.collect(Collectors.toList());
+			return new ListAliasesResponseDTO(aliasEntries);
+		}
+		catch (Exception ex) {
+			logger.error("[{}] Failed to listAliases, due to:{}", getAwsSdkVersion(),ExceptionUtils.getMessage(ex), ex);
+			return new ListAliasesResponseDTO();
+		}
+	}
+
+	@Override
+	@Deprecated
+	public DescribeKeyResponseDTO describeKey(String keyId) throws SafePageException{
+		try {
+			DescribeKeyResult result = kmsClient.describeKey(new DescribeKeyRequest().withKeyId(keyId));
+
+			return new DescribeKeyResponseDTO(
+					result.getKeyMetadata().getKeyId(),
+					result.getKeyMetadata().getArn(),
+					result.getKeyMetadata().getKeyState().toString(),
+					result.getKeyMetadata().getEnabled()
+			);
+		} catch (Exception ex) {
+			logger.error("[{}] Failed to describeKey, keyId:{}, due to:{}", getAwsSdkVersion(),keyId, ExceptionUtils.getMessage(ex), ex);
+			return new DescribeKeyResponseDTO();
+		}
+	}
+
+	@Override
+	public String getAwsSdkVersion() {
+		return "AWS SDK v1";
+	}
+
+	/**
+	 * Converts a String to a ByteBuffer using the specified charset.
+	 *
+	 * @param string
+	 *            the String to convert
+	 * @return the ByteBuffer representation of the String
+	 */
+	public static ByteBuffer getByteBuffer(String string)
+	{
+		return ByteBuffer.wrap(string.getBytes(charset));
+	}
+
+	/**
+	 * Converts a ByteBuffer to a String using the specified charset.
+	 *
+	 * @param byteBuffer
+	 *            the ByteBuffer to convert
+	 * @return the String representation of the ByteBuffer
+	 */
+	public static String getString(ByteBuffer byteBuffer)
+	{
+		byte[] byteArray = new byte[byteBuffer.remaining()];
+		byteBuffer.get(byteArray);
+		return new String(byteArray, charset);
+	}
+}
