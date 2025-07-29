@@ -1,101 +1,99 @@
-Yes, I reviewed all of those issues and your code does not currently fix the root problem.
+new:
+package com.empower.epw.aws.api.kms;
 
-🔥 What's Still Wrong
-You're using this class:
-EpwKmsServiceImpl
-And inside it, everything is fine — encryption and decryption are both correctly expecting and returning Strings. That’s not the problem.
+import com.empower.epw.aws.api.kms.dto.DecryptRequestDTO;
+import com.empower.epw.aws.api.kms.dto.DecryptResponseDTO;
+import com.empower.epw.aws.api.kms.dto.DescribeKeyResponseDTO;
+import com.empower.epw.aws.api.kms.dto.EncryptRequestDTO;
+import com.empower.epw.aws.api.kms.dto.EncryptResponseDTO;
+import com.empower.epw.aws.api.kms.dto.ListAliasesResponseDTO;
+import com.safepage.exception.SafePageException;
 
-The real issue lies outside EpwKmsServiceImpl, in how you use it — especially in lines like this (from your test):
+/**
+ * {@code EpwKmsService} provides an abstraction over AWS Key Management Service (KMS) operations,
+ * supporting encryption, decryption, key description, and alias listing.
+ *
+ * <p>Implementations of this interface (e.g., using AWS SDK v1 or v2) allow consumers
+ * to securely manage cryptographic keys and perform key-related operations in a version-agnostic way.
+ */
+public interface EpwKmsService {
 
-accountRoutingNumberData.setName("EPW Account");
-accountRoutingNumberData.setSource("yodlee");
-actualAccount.saveAccountRoutingNumberData(user, accountRoutingNumberData);
-You're likely doing this inside saveAccountRoutingNumberData(...):
+	/**
+	 * Encrypts the given plaintext using the specified KMS key.
+	 *
+	 * @param request the encryption request containing plaintext and keyId
+	 * @return a response containing the Base64-encoded ciphertext
+	 * @throws SafePageException if the request is invalid or encryption fails
+	 */
+	EncryptResponseDTO encrypt(EncryptRequestDTO request) throws SafePageException;
 
-EncryptRequestDTO req = new EncryptRequestDTO();
-req.setPlaintext(accountRoutingNumberData); // ❌ WRONG
-But this setPlaintext(...) expects a String, not an object. The object gets toString()'d implicitly, which produces garbage like:
+	/**
+	 * Decrypts the given ciphertext using KMS.
+	 *
+	 * @param request the decryption request containing the Base64-encoded ciphertext
+	 * @return a response containing the decrypted plaintext string
+	 * @throws SafePageException if the request is invalid or decryption fails
+	 */
+	DecryptResponseDTO decrypt(DecryptRequestDTO request) throws SafePageException;
 
-com.personalcapital.user.data.impl.AccountRoutingNumberData@7d9d0818
-That’s why decryption fails — the JSON never got serialized in the first place.
+	/**
+	 * Describes a KMS key using its keyId or alias.
+	 *
+	 * @param keyId the keyId or alias to describe
+	 * @return metadata and status information about the KMS key
+	 * @throws SafePageException if the key cannot be found or described
+	 */
+	DescribeKeyResponseDTO describeKey(String keyId) throws SafePageException;
 
-✅ What You Need To Do
-In the place where you're calling EpwKmsService.encrypt(...), make sure to serialize to JSON manually before encrypting.
+	/**
+	 * Lists all KMS key aliases in the current AWS region.
+	 *
+	 * @return a response containing a list of key aliases and their associated key IDs
+	 * @throws SafePageException if alias listing fails
+	 */
+	ListAliasesResponseDTO listAliases() throws SafePageException;
 
-✅ Fix in Your Consumer Code (e.g. AccountDTO)
-Wherever you encrypt objects like AccountRoutingNumberData, fix it like this:
+	String getAwsSdkVersion();
+}
 
-FIX:
-ObjectMapper objectMapper = new ObjectMapper();
-String json = objectMapper.writeValueAsString(accountRoutingNumberData); // ✅ correct
 
-EncryptRequestDTO request = EncryptRequestDTO.builder()
-    .plaintext(json)
-    .keyId(...) // provide the correct keyId or alias
-    .build();
+this new interface with DTOs is causing an issue, 
+only keep these two DTOs, because it'll be used for two different implementations, v1 and v2, 
+	DescribeKeyResponseDTO describeKey(String keyId) throws SafePageException;
+	ListAliasesResponseDTO listAliases() throws SafePageException;
 
-EncryptResponseDTO response = epwKmsService.encrypt(request);
+because these two are v1 specific:
+public ListAliasesResult getKeyAliases(String awsCmkKeyAlias);
+public DescribeKeyResult describeKey(String awsCmkKeyAlias);
 
-And for decryption:
-DecryptRequestDTO request = DecryptRequestDTO.builder()
-    .ciphertext(encryptedString)
-    .build();
+old service encrypt and decrpt was returing string , and now it's object, so that's causing an issue with the consumers
 
-String json = epwKmsService.decrypt(request).getPlaintext();
+old:
+package com.safepage.security.service;
 
-AccountRoutingNumberData decrypted = objectMapper.readValue(json, AccountRoutingNumberData.class);
+import com.amazonaws.services.kms.model.DescribeKeyResult;
+import com.amazonaws.services.kms.model.ListAliasesResult;
+import com.safepage.exception.SafePageException;
 
-you told all of the above, but can you implement the same in a different consumer, cryptengine, the root of this issue?
-	protected String encryptUsingSystemPrimaryKey(String rawValue) throws Exception
-	{
-		if (this.getKeyManager()
-				.isSystmePrimaryKeyMigratedToAWS())
-		{
-			if (StringUtils.isEmpty(this.getKeyManager()
-					.getSystemPrimaryAliasName()))
-			{
-				throw new SafePageException("systemPrimaryAliasName is null!");
-			}
-			EncryptRequestDTO req = new EncryptRequestDTO();
-			req.setPlaintext(rawValue);
-			req.setKeyId(this.getKeyManager().getSystemPrimaryAliasName());
-			String result = epwKmsService.encrypt(req).getCiphertext();
-			if (StringUtils.isNoneEmpty(result))
-			{
-				return CryptType.SYSTEM_PRIMARY.getVersion() + result;
-			}
-		}
-		return null;
-	}
+public interface KMSService
+{
+	/**
+	 * The Encrypt operation is designed to encrypt data keys, but it is not frequently used.
+	 * 
+	 * @param plainDataKey
+	 * @return
+	 */
+	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException;
 
-	protected String decryptUsingSystemPrimaryKey(String encryptedValue) throws Exception
-	{
-		if (StringUtils.isEmpty(encryptedValue))
-		{
-			return null;
-		}
-		try
-		{
-			/*
-			 * Data encrypted with system primary keys are formatted as [version][encrypted data];
-			 * e.g. V1encrypteddata
-			 */
-			String version = CryptType.getVersionFromEncryptedData(encryptedValue);
-			if (StringUtils.isNotEmpty(version))
-			{
-				encryptedValue = encryptedValue.substring(CryptType.SEED_VERSION_LENGTH);
-				// System Primary key in AWS KMS will be version V2
-				if (CryptType.V2.equals(version))
-				{
-					DecryptRequestDTO request = new DecryptRequestDTO();
-					request.setCiphertext(encryptedValue);
-					return epwKmsService.decrypt(request).getPlaintext();
-				}
-			}
-		}
-		catch (Exception anException)
-		{
-			logger.warn("Failed to decrypt because: ", anException);
-		}
-		return null;
-	}
+	/**
+	 * To decrypt data keys
+	 * 
+	 * @param cipheredDataKey
+	 * @return
+	 */
+	public String decryptUsingAWSKey(String cipherText) throws SafePageException;
+
+	public ListAliasesResult getKeyAliases(String awsCmkKeyAlias);
+
+	public DescribeKeyResult describeKey(String awsCmkKeyAlias);
+}
