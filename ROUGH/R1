@@ -1,21 +1,342 @@
-	protected String encryptUsingSystemPrimaryKey(String rawValue) throws Exception
+15:40:07  [INFO] Running com.personalcapital.user.delegated.data.impl.PersonCredentialDaoTest
+15:40:07  2025-07-29 03:10:07,406 ERROR main [Test] [] [] [] [] - Error getting PersonCredential record
+15:40:07  java.lang.Exception: Failed to decrypt user default keyseed value for keyseedId= 1297920 and userId= 1152
+15:40:07  	at com.safepage.security.KeyManager.generateUserKeyDataFromKeySeed(KeyManager.java:579) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
+15:40:07  	at com.safepage.security.KeyManager.getDefaultUserKey(KeyManager.java:549) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
+15:40:07  	at com.safepage.security.CryptEngine.encryptUsingUserKey(CryptEngine.java:420) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
+15:40:07  	at com.safepage.security.CryptEngine.encrypt(CryptEngine.java:308) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
+15:40:07  	at com.safepage.security.CryptEngineFacade.encrypt(CryptEngineFacade.java:52) ~[sp-security-MR-28752-SNAPSHOT.jar:?]
+15:40:07  	at com.safepage.user.data.BaseDaoTest.createPersonCredentialRecord(BaseDaoTest.java:445) ~[test-classes/:?]
+15:40:07  	at com.personalcapital.user.delegated.data.impl.PersonCredentialDaoTest.testGetPersonCredentialAssociatedWithEmailByContactType(PersonCredentialDaoTest.java:342) ~[test-classes/:?]
+
+test class:
+public class PersonCredentialDaoTest extends BaseDaoTest
+{
+	@Autowired
+	private PersonCredentialDao personCredentialDao;
+
+	@Autowired
+	private CryptEngine cryptEngine;
+
+	private String testUser = "testid2pc@gmail.com";
+	private User user;
+	private UserPerson userPerson;
+
+	@BeforeEach
+	public void setUp()
 	{
-		if (this.getKeyManager()
-				.isSystmePrimaryKeyMigratedToAWS())
+		try
 		{
-			if (StringUtils.isEmpty(this.getKeyManager()
-					.getSystemPrimaryAliasName()))
-			{
-				throw new SafePageException("systemPrimaryAliasName is null!");
-			}
-			EncryptRequestDTO req = new EncryptRequestDTO();
-			req.setPlaintext(rawValue);
-			req.setKeyId(this.getKeyManager().getSystemPrimaryAliasName());
-			String result = epwKmsService.encrypt(req).getCiphertext();
-			if (StringUtils.isNoneEmpty(result))
-			{
-				return CryptType.SYSTEM_PRIMARY.getVersion() + result;
-			}
+			user = getTestUser(testUser);
+			assertNotNull(user.getId(), "User information not available");
+			userPerson = getTestUserPerson(user.getId());
+			assertNotNull(userPerson, "User information not available");
 		}
-		return null;
+		catch (Exception e)
+		{
+			logger.error("exception encountered during the test setup", e);
+		}
 	}
+
+	/**
+	 * White box testing of whether each property is persisted
+	 */
+	@Test
+	public void testSavePersonCredential()
+	{
+		try
+		{
+			String keyword = "a12" + System.currentTimeMillis();
+			Date now = DateTimeUtils.getCurrentTime();
+			Thread.sleep(5);
+			String encryptedSalt = CryptEngineFacade.encrypt(CryptType.USER_PRIMARY, keyword, user);
+			PersonCredential personCredential = createPersonCredentialRecord(user, userPerson,
+					keyword, now);
+			assertNotNull(personCredential.getId());
+			Thread.sleep(5);
+			PersonCredential fromDbPersonCredential = personCredentialDao
+					.findById(personCredential.getId());
+
+			Assertions.assertTrue(fromDbPersonCredential.getUserId()
+					.equals(user.getId()));
+			Assertions.assertTrue(fromDbPersonCredential.getUsername()
+					.equals(user.getUsername()));
+			Assertions.assertTrue(fromDbPersonCredential.getUserPersonId()
+					.equals(userPerson.getId()));
+
+			// validate dates
+			// as we set registration date in the creation
+			Assertions.assertTrue(fromDbPersonCredential.isPersonRegistered());
+			Assertions.assertTrue(fromDbPersonCredential.getRegistered()
+					.equals(now));
+			Assertions.assertTrue(fromDbPersonCredential.getAcceptance()
+					.equals(now));
+			Assertions.assertTrue(fromDbPersonCredential.getAccessed()
+					.equals(now));
+
+			// validate string
+			Assertions.assertTrue(fromDbPersonCredential.getAuthServices()
+					.equals(keyword));
+			Assertions.assertTrue(fromDbPersonCredential.getPasswordHash()
+					.equals(keyword));
+			Assertions.assertTrue(fromDbPersonCredential.getPasswordSalt()
+					.equals(keyword));
+			// Assert.assertTrue(fromDbPersonCredential.getEncryptedPasswordSalt()
+			// .equals(encryptedSalt));
+			// Assert.assertTrue(fromDbPersonCredential.getEncryptedPinSalt()
+			// .equals(encryptedSalt));
+		}
+		catch (Exception e)
+		{
+			logger.error("Error creating new PersonCredential record ", e);
+			fail("Error creating new PersonCredential record ");
+		}
+	}
+
+	@Test
+	public void testGetPersonCredentialListByUser()
+	{
+		try
+		{
+			PersonCredential personCredential = createPersonCredentialRecord(user, userPerson,
+					"abc", DateTimeUtils.getCurrentTime());
+			assertNotNull(personCredential);
+			assertNotNull(personCredential.getId());
+			List<PersonCredential> personCredentialList = personCredentialDao
+					.getPersonCredentialListByUser(user.getId());
+			assertTrue(CollectionUtils.isNotEmpty(personCredentialList));
+			assertNotNull(personCredentialList.getFirst());
+			assertEquals(user.getId(), personCredentialList.getFirst()
+					.getUserId());
+		}
+		catch (Exception e)
+		{
+			logger.error("Error getting PersonCredential record ", e);
+			fail("Error getting PersonCredential record ");
+		}
+	}
+
+	@Test
+	public void testGetPersonCredentialByUserPersonId()
+	{
+		try
+		{
+			PersonCredential personCredential = createPersonCredentialRecord(user, userPerson,
+					"abc", DateTimeUtils.getCurrentTime());
+			assertNotNull(personCredential);
+			assertNotNull(personCredential.getId());
+			personCredential = personCredentialDao.getPersonCredentialByUserPersonId(user.getId(),
+					userPerson.getId());
+			assertNotNull(personCredential);
+			assertEquals(user.getId(), personCredential.getUserId());
+			assertEquals(userPerson.getId(), personCredential.getUserPersonId());
+
+		}
+		catch (Exception e)
+		{
+			logger.error("Error getting PersonCredential record ", e);
+			fail("Error getting PersonCredential record ");
+		}
+	}
+
+	@Test
+	public void testGetPersonCredentialByGuid()
+	{
+		try
+		{
+			PersonCredential personCredential = createPersonCredentialRecord(user, userPerson,
+					"abc", DateTimeUtils.getCurrentTime());
+			assertNotNull(personCredential);
+			assertNotNull(personCredential.getId());
+			personCredential = personCredentialDao
+					.getPersonCredentialByUserGuid(personCredential.getUserGuid());
+			assertNotNull(personCredential);
+			assertEquals(user.getId(), personCredential.getUserId());
+			assertEquals(userPerson.getId(), personCredential.getUserPersonId());
+		}
+		catch (Exception e)
+		{
+			logger.error("Error getting PersonCredential record ", e);
+			fail("Error getting PersonCredential record ");
+		}
+	}
+
+	@Test
+	public void testUpdatePinHashForUserPerson()
+	{
+		try
+		{
+			createPersonCredentialRecord(user, userPerson, "abc", DateTimeUtils.getCurrentTime());
+			Boolean updateResult = personCredentialDao.updatePinHashForUserPerson(user.getId(),
+					userPerson.getId(), "pin");
+			assertTrue(updateResult);
+
+		}
+		catch (Exception e)
+		{
+			logger.error("Error getting PersonCredential record ", e);
+			fail("Error getting PersonCredential record ");
+		}
+	}
+
+	@Test
+	public void testUpdatePasswordHashForUserPerson()
+	{
+		try
+		{
+			PersonCredential personCredential = createPersonCredentialRecord(user, userPerson,
+					"abc", DateTimeUtils.getCurrentTime());
+			assertNotNull(personCredential);
+			assertNotNull(personCredential.getId());
+			Boolean updateResult = personCredentialDao.updatePasswordHashForUserPerson(user.getId(),
+					userPerson.getId(), "password");
+			assertTrue(updateResult);
+
+		}
+		catch (Exception e)
+		{
+			logger.error("Error getting PersonCredential record ", e);
+			fail("Error getting PersonCredential record ");
+		}
+	}
+
+	@Test
+	public void testInviteExpired() throws Exception
+	{
+		// check 1 - new invite
+		PersonCredential pc = createPersonCredentialRecord(user, userPerson, "abc",
+				DateTimeUtils.getCurrentTime());
+		boolean check = ((PersonCredentialImpl) pc).isInviteExpired();
+		assertFalse(check); // should be false because invite should be today
+
+		// check 2 - expired invite
+		pc.setInvited(DateTimeUtils.getDaysInPast(pc.getInvited(), 60));
+
+		// an expired user will have registered date null
+		((PersonCredentialImpl) pc).setRegistered(null);
+		check = ((PersonCredentialImpl) pc).isInviteExpired();
+		assertTrue(check);
+
+	}
+
+	@Test
+	public void testOptInMFADefault() throws Exception
+	{
+		// check 1 - new invite
+		PersonCredential pc = createPersonCredentialRecord(user, userPerson, "abc",
+				DateTimeUtils.getCurrentTime());
+		boolean check = pc.getOptInMFAEnabled();
+		assertFalse(check);
+
+	}
+
+	@Test
+	public void testUpdateStatus() throws Exception
+	{
+		PersonCredential pc = createPersonCredentialRecord(user, userPerson, "abc",
+				DateTimeUtils.getCurrentTime());
+
+		pc = (PersonCredentialImpl) personCredentialDao.updateStatus(pc, UserStatus.LOCKED);
+		assertTrue(pc.getStatus() == UserStatus.LOCKED);
+
+		pc = (PersonCredentialImpl) personCredentialDao.updateStatus(pc,
+				UserStatus.REQUIRES_VERIFICATION);
+		assertTrue(pc.getStatus() == UserStatus.REQUIRES_VERIFICATION);
+
+		pc = (PersonCredentialImpl) personCredentialDao.updateStatus(pc, UserStatus.ACTIVE);
+		assertTrue(pc.getStatus() == UserStatus.ACTIVE);
+	}
+
+	@Test
+	public void testGetUserContact() throws Exception
+	{
+		PersonCredential pc = createPersonCredentialRecord(user, userPerson, "abc",
+				DateTimeUtils.getCurrentTime());
+
+		pc = (PersonCredentialImpl) personCredentialDao.updateStatus(pc, UserStatus.LOCKED);
+		assertTrue(pc.getStatus() == UserStatus.LOCKED);
+
+		pc = (PersonCredentialImpl) personCredentialDao.updateStatus(pc,
+				UserStatus.REQUIRES_VERIFICATION);
+		assertTrue(pc.getStatus() == UserStatus.REQUIRES_VERIFICATION);
+
+		pc = (PersonCredentialImpl) personCredentialDao.updateStatus(pc, UserStatus.ACTIVE);
+	}
+
+	/**
+	 * DWM-4750
+	 * 
+	 * @throws Exception
+	 */
+	@Test
+	public void testUpdateClientElectronicAgreementSigned() throws Exception
+	{
+		PersonCredential personCredential = createPersonCredentialRecord(user, userPerson, "abc",
+				DateTimeUtils.getCurrentTime());
+		assertNotNull(personCredential);
+		assertNotNull(personCredential.getId());
+		Person person = new PersonImpl();
+		person.setId(userPerson.getPersonId());
+		person.setPersonGuid(userPerson.getPersonGuid());
+		Boolean result = personCredentialDao.updateClientElectronicAgreementSigned(user, person,
+				true);
+		assertTrue(result);
+	}
+
+	/**
+	 * DWM-4750
+	 */
+	@Test
+	public void testGetPersonCredentialByPersonId()
+	{
+		try
+		{
+			PersonCredential personCredential = createPersonCredentialRecord(user, userPerson,
+					"abc", DateTimeUtils.getCurrentTime());
+			assertNotNull(personCredential);
+			assertNotNull(personCredential.getId());
+			Person person = new PersonImpl();
+			person.setId(userPerson.getPersonId());
+			person.setPersonGuid(userPerson.getPersonGuid());
+			personCredential = personCredentialDao.getPersonCredentialByPersonId(user, person);
+			assertNotNull(personCredential);
+			assertEquals(user.getId(), personCredential.getUserId());
+			assertEquals(userPerson.getId(), personCredential.getUserPersonId());
+		}
+		catch (Exception e)
+		{
+			logger.error("Error getting PersonCredential record ", e);
+			fail("Error getting PersonCredential record ");
+		}
+	}
+
+	@Test
+	public void testGetPersonCredentialAssociatedWithEmailByContactType()
+	{
+		try
+		{
+			String email = "testuser123@test.com";
+			PersonCredential personCredential = createPersonCredentialRecord(user, userPerson,
+					"abc", DateTimeUtils.getCurrentTime());
+			assertNotNull(personCredential);
+			assertNotNull(personCredential.getId());
+
+			UserContactImpl contact = new UserContactImpl();
+			contact.setPersonCredentialId(personCredential.getId());
+			contact.setType(ContactType.EMAIL);
+			contact.setValue(email);
+			userDao.addUserContact(contact);
+
+			AuthUser authUser = personCredentialDao
+					.getPersonCredentialAssociatedWithEmailByContactType(email, ContactType.EMAIL);
+
+			assertEquals(personCredential.getId(), authUser.getId());
+
+		}
+		catch (Exception e)
+		{
+			logger.error("Error getting PersonCredential record ", e);
+			fail("Error getting PersonCredential record ");
+		}
+	}
+}
