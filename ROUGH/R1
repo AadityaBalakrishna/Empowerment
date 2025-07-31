@@ -1,254 +1,186 @@
-package com.empower.epw.aws.kms.config;
+/home/abalakrishna/glab/pcap-server/pcap/scripts/downloaddbmini -
 
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.auth.profile.ProfileCredentialsProvider;
-import com.amazonaws.services.kms.AWSKMS;
-import com.amazonaws.services.kms.AWSKMSClientBuilder;
-import com.empower.epw.aws.api.kms.EpwKmsService;
+#!/bin/sh
+ 
+set -e
+echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+echo " "
+echo "Download of mySql database schema for local development . This download minimum to start up application" 
+echo "Ensure that u have taken a backup of existing schema, this script doesnot support incremental update"
+echo "TODO: Should we download all the schema ? Can we make it better ? "
+echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.*;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
-import org.springframework.util.StringUtils;
+DBDUMPFOLDER=~/Downloads/dbdump
+LOGFILE="$DBDUMPFOLDER/log/missing_files.log"
+mkdir -p "$DBDUMPFOLDER"
+rm -rf "$DBDUMPFOLDER"
+mkdir -p "$DBDUMPFOLDER/log"
 
-import com.empower.epw.aws.v1.kms.EpwKmsServiceImpl;
-import software.amazon.awssdk.services.kms.KmsClient;
+# Get the latest folder from S3
+DBDUMP=$(aws s3 ls s3://pcap-dev-devtrunk-database-dump/data/ | grep ' PRE ' | tail -1 | awk '{print $2}')
 
-/**
- * Auto-configuration for AWS KMS clients and services.
- *
- * <p>This configuration class provides beans for AWS Key Management Service (KMS) clients
- * and services, supporting both AWS SDK v1 and v2. The desired SDK version can be specified
- * using the property {@code epw.aws.kms.sdk-version}. If no version is specified, the v1
- * implementation is used by default.</p>
- *
- * <p>Beans are conditionally created based on the specified SDK version, and credentials
- * are configured using either the AWS profile or the default credentials provider chain.</p>
- */
-@Configuration
-public class EpwKmsAutoConfig {
+echo "Get the latest folder ... $DBDUMP"
+echo " "
+echo "Download the dumps to a local folder ..."
 
-	private static final Logger logger = LoggerFactory.getLogger(EpwKmsAutoConfig.class);
-	private static final String DEFAULT_AWS_REGION = "us-west-2";
+LATESTDUMPS=pcap-dev-devtrunk-database-dump/data/$DBDUMP
 
-	public static final String AWS_REGION_KEY = "aws.region";
-	public static final String AWS_PROFILE = "aws.profile";
+# Array of file patterns to download
+FILE_PATTERNS=(
+	"pcapaudit_schema*.gz"
+	"sp_schema*.gz"
+	"pcap_fp*.gz"
+	"pcap_fp_snapshot*.gz"
+	"pcap_referral*.gz"
+	"pcap_pcb*.gz"
+	"pcap_snapshot*.gz"
+	"pcap_analytics*.gz"
+	"pcap_transaction*.gz"
+	"pcap_privacy*.gz"
+	"pcap_batch*.gz"
+	"pcap_empower*.gz"
+	"pcap_vca*.gz"
+	"pcap_payment*.gz"
+	"pcap_feex*.gz"
+	"epw_aggregation*.gz"
+	"epw_account*.gz"
+	"user_response*.gz"
+	"pcap_cq*.gz"
+)
 
-	/**
-	 * Creates a KMS client for AWS SDK v2.
-	 *
-	 * <p>This bean is created only if the property {@code epw.aws.kms.sdk-version} is set to {@code v2}.
-	 * The client is configured with credentials from either the specified AWS profile or the default
-	 * credentials provider chain, and the region is determined from the {@code aws.region} property.</p>
-	 *
-	 * @return A configured {@link KmsClient} instance for AWS SDK v2.
-	 */
-	@Bean("epwKmsClient")
-	@ConditionalOnProperty(name = "epw.aws.kms.sdk-version", havingValue = "v2")
-	@ConditionalOnMissingBean(KmsClient.class)
-	public KmsClient kmsClient(){
-		String awsProfile = System.getProperty(AWS_PROFILE);
-		software.amazon.awssdk.auth.credentials.AwsCredentialsProvider credentialsProvider;
-		if (StringUtils.hasText(awsProfile)){
-			logger.info("Using AWS profile for AWS SDK v2: {}", awsProfile);
-			credentialsProvider = software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider
-					.builder()
-					.profileName(awsProfile)
-					.build();
-		}
-		else {
-			logger.info("Using default AWS credentials provider chain for SDK v2.");
-			credentialsProvider = software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider
-					.create();
-		}
+# Download files and log missing files
+for pattern in "${FILE_PATTERNS[@]}"; do
+    echo "Trying to download: $pattern"
+    if ! aws s3 cp --recursive --exclude "*" --include "$pattern" s3://$LATESTDUMPS "$DBDUMPFOLDER"; then
+        echo "No files matching $pattern found in $LATESTDUMPS." >> "$LOGFILE"
+    fi
+done
 
-		String awsRegion = System.getProperty(AWS_REGION_KEY, DEFAULT_AWS_REGION);
-		logger.info("Creating KmsClient for AWS SDK v2 with region: {}", awsRegion);
-		return KmsClient.builder()
-				.credentialsProvider(credentialsProvider)
-				.region(software.amazon.awssdk.regions.Region.of(awsRegion))
-				.build();
-	}
-
-	/**
-	 * Creates the primary EpwKmsService bean using the AWS SDK v2 implementation.
-	 *
-	 * @param kmsClient The shared AWS SDK v2 client.
-	 * @return The EpwKmsServiceImpl instance for AWS SDK v2.
-	 */
-	@Bean(name = "epwKmsService")
-	@ConditionalOnProperty(name = "epw.aws.kms.sdk-version", havingValue = "v2")
-	public EpwKmsService epwKmsServiceV2(KmsClient kmsClient) {
-		logger.info("Creating EpwKmsServiceImpl bean for AWS SDK v2");
-		return new com.empower.epw.aws.v2.kms.EpwKmsServiceImpl(kmsClient);
-	}
-
-	/**
-	 * Creates an AWS KMS client for AWS SDK v1.
-	 *
-	 * <p>This bean is created only if the property {@code epw.aws.kms.sdk-version} is set to {@code v1}
-	 * or is not specified. The client is configured with credentials from either the specified AWS profile
-	 * or the default credentials provider chain, and the region is determined from the {@code aws.region} property.</p>
-	 *
-	 * @return A configured {@link AWSKMS} instance for AWS SDK v1.
-	 */
-	@Bean(name = "epwAWSKMSClient")
-	@ConditionalOnProperty(name = "epw.aws.kms.sdk-version", havingValue = "v1", matchIfMissing = true)
-	@ConditionalOnMissingBean(AWSKMS.class)
-	public AWSKMS awsKmsClient() {
-		String awsRegion = System.getProperty(AWS_REGION_KEY, DEFAULT_AWS_REGION);
-		String awsProfile = System.getProperty(AWS_PROFILE);
-		com.amazonaws.auth.AWSCredentialsProvider credentialsProvider;
-		if (StringUtils.hasText(awsProfile)) {
-			logger.info("Using AWS profile for AWS SDK v1: {}", awsProfile);
-			credentialsProvider = new ProfileCredentialsProvider(awsProfile);
-		} else {
-			logger.info("Using default AWS credentials provider chain.");
-			credentialsProvider = DefaultAWSCredentialsProviderChain.getInstance();
-		}
-		logger.info("Creating AWSKMS client with region for AWS SDK v1: {}", awsRegion);
-		return AWSKMSClientBuilder.standard()
-				.withCredentials(credentialsProvider)
-				.withRegion(awsRegion)
-				.build();
-	}
-
-	/**
-	 * Creates the primary EpwKmsService bean using the AWS SDK v1 implementation.
-	 *
-	 * @param awsKmsClient The shared AWS SDK v1 client.
-	 * @return The EpwKmsServiceImpl instance for AWS SDK v1.
-	 */
-	@Bean(name = "epwKmsService")
-	@ConditionalOnProperty(name = "epw.aws.kms.sdk-version", havingValue = "v1", matchIfMissing = true)
-	public EpwKmsService epwKmsServiceV1(AWSKMS awsKmsClient) {
-		logger.info("Creating EpwKmsService bean for AWS SDK v1.");
-		return new EpwKmsServiceImpl(awsKmsClient);
-	}
-}
+echo "DONE!!"
 
 
-in 
-package com.safepage.security.service.impl;
+/home/abalakrishna/glab/pcap-server/pcap/scripts/installdbmini - 
 
-import org.apache.commons.lang3.StringUtils;
-import org.springframework.beans.factory.annotation.Autowired;
+#!/bin/sh
+ 
+set -e
+echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+echo "Installation of MySQL database schema for local development (only minimum schema import)."
+echo "Ensure that you have taken a backup of existing schema, as this script does not support incremental updates."
+echo "TODO: Should we download all the schema ? Can we make it better ? "
+echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 
-import com.empower.epw.aws.api.kms.dto.DescribeKeyResponseDTO;
-import com.empower.epw.aws.api.kms.dto.ListAliasesResponseDTO;
-import com.personalcapital.log.PcapLogger;
-import com.personalcapital.log.PcapLoggerFactory;
-import com.safepage.error.SafePageErrorType;
-import com.safepage.exception.SafePageException;
-import com.empower.epw.aws.api.kms.EpwKmsService;
-import com.safepage.security.service.KMSService;
+DBDUMPFOLDER=~/Downloads/dbdump
+rm -rf $DBDUMPFOLDER
+mkdir -p "$DBDUMPFOLDER"
+mkdir -p $DBDUMPFOLDER/log
 
-/**
- * @author dizadi
- */
-public class KMSServiceImpl implements KMSService
-{
-	private static final PcapLogger logger = PcapLoggerFactory.getPcapLogger(KMSServiceImpl.class);
+saml2aws login -a $AWS_PROFILE
 
-	private final EpwKmsService epwKmsService;
+DBDUMP=$(aws s3 ls s3://pcap-dev-devtrunk-database-dump/data/ | grep -e 'PRE [0-9]*' | tail -1 | tr -s ' ' | cut -d ' ' -f 3)
 
-	@Autowired
-	public KMSServiceImpl(EpwKmsService epwKmsService)
-	{
-		this.epwKmsService = epwKmsService;
-	}
+echo "Get the latest folder ... $DBDUMP"
+echo " "
+echo "Download the dumps to a local folder ..."
 
-	/**
-	 * Encrypt data key (system secondary key) under AWS CMK Key using IAM role to access the key
-	 * AWS CMK
-	 *
-	 * @throws SafePageException
-	 */
-	@Override
-	// @Retryable(value =
-	// {
-	// Exception.class
-	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
-	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
-	{
-		if (StringUtils.isEmpty(plainText))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
-		}
-		if (StringUtils.isEmpty(keyId))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
-		}
+LATESTDUMPS=pcap-dev-devtrunk-database-dump/data/$DBDUMP
 
-		String cipherText = epwKmsService.encryptUsingAWSKey(plainText, keyId);
+aws s3 cp --recursive s3://$LATESTDUMPS $DBDUMPFOLDER
+echo "Gunzip the files ..."
+cd $DBDUMPFOLDER && gunzip *.gz
 
-		if (StringUtils.isEmpty(cipherText))
-		{
-			logger.error("KMS encryption returned null or empty ciphertext.");
-			return null;
-		}
-		return cipherText;
-	}
+PASSWORD=PersonalCapital2020
 
-	/**
-	 * Decrypt encrypted data key under AWS CMK Key using IAM role to access the key
-	 */
-	@Override
-	// @Retryable(value =
-	// {
-	// Exception.class
-	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
-	public String decryptUsingAWSKey(String cipherText) throws SafePageException
-	{
-		if (StringUtils.isEmpty(cipherText))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
-		}
+echo "Create the SQL to create the schemas and users ..."
+cat << EOF > $DBDUMPFOLDER/createdb.sql
+    create database IF NOT EXISTS sp_schema;
+    create database IF NOT EXISTS pcap_ace;
+    create database IF NOT EXISTS pcap_fp;
+    create database IF NOT EXISTS pcap_fp_snapshot;
+    create database IF NOT EXISTS pcap_referral;
+    create database IF NOT EXISTS pcap_analytics;
+    create database IF NOT EXISTS pcapaudit_schema;
+    create database IF NOT EXISTS pcap_pcb;
+    create database IF NOT EXISTS pcap_snapshot;
+    create database IF NOT EXISTS pcap_transaction;
+    create database IF NOT EXISTS pcap_privacy;
+    create database IF NOT EXISTS pcap_batch;
+    create database IF NOT EXISTS pcap_empower;
+    create database IF NOT EXISTS pcap_payment;
+    create database IF NOT EXISTS pcap_feex;
+    create database IF NOT EXISTS epw_aggregation;
+    create database IF NOT EXISTS user_response;
+    create database IF NOT EXISTS pcap_cq;
+    create database IF NOT EXISTS pcap_vca;
+    create database IF NOT EXISTS epw_account;
+    CREATE USER IF NOT EXISTS 'spdbapp'@'%' IDENTIFIED BY '$PASSWORD';
+    CREATE USER IF NOT EXISTS 'pcbappuser'@'%' IDENTIFIED BY '$PASSWORD';
+    CREATE USER IF NOT EXISTS 'pcb_app_1'@'%' IDENTIFIED BY '$PASSWORD';
+    CREATE USER IF NOT EXISTS 'pcap_app_2'@'%' IDENTIFIED BY '$PASSWORD';
+    CREATE USER IF NOT EXISTS 'batch_app_1'@'%' IDENTIFIED BY '$PASSWORD';
+    CREATE USER IF NOT EXISTS 'aggr_app_1'@'%' IDENTIFIED BY '$PASSWORD';
+    CREATE USER IF NOT EXISTS 'dbadmin'@'%' IDENTIFIED BY '$PASSWORD';
+    CREATE USER IF NOT EXISTS 'batch_app_1'@'%' IDENTIFIED BY '$PASSWORD';
+    CREATE USER IF NOT EXISTS 'trxn_app_1'@'%' IDENTIFIED BY '$PASSWORD';
+    GRANT ALL PRIVILEGES ON *.* TO 'spdbapp'@'%';
+    GRANT ALL PRIVILEGES ON *.* TO 'pcap_app_2'@'%';
+    GRANT ALL PRIVILEGES ON pcap_pcb.* TO 'pcbappuser'@'%';
+    GRANT ALL PRIVILEGES ON pcap_pcb.* TO 'pcb_app_1'@'%';
+    GRANT ALL PRIVILEGES ON pcap_snapshot.* TO 'spdbapp'@'%';
+    GRANT ALL PRIVILEGES ON pcap_transaction.* TO 'spdbapp'@'%';
+    GRANT ALL PRIVILEGES ON pcap_privacy.* TO 'spdbapp'@'%';
+    GRANT ALL PRIVILEGES ON pcap_batch.* TO 'spdbapp'@'%';
+    GRANT ALL PRIVILEGES ON pcap_batch.* TO 'batch_app_1'@'%';
+    GRANT ALL PRIVILEGES ON pcap_snapshot.* TO 'pcap_app_2'@'%';
+    GRANT ALL PRIVILEGES ON *.* TO 'aggr_app_1'@'%';
+    GRANT ALL PRIVILEGES ON *.* TO 'dbadmin'@'%';
+    GRANT ALL PRIVILEGES ON *.* TO 'batch_app_1'@'%';
+    GRANT ALL PRIVILEGES ON *.* TO 'trxn_app_1'@'%';
+    FLUSH PRIVILEGES;
+EOF
 
-		String plaintext = epwKmsService.decryptUsingAWSKey(cipherText);
+echo "Creating schema and users in mysql ..."
+HOST=127.0.0.1
+PORT=3305
 
-		if (StringUtils.isEmpty(plaintext))
-		{
-			logger.error("KMS decryption returned null or empty plaintext.");
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "Decryption failed.");
-		}
+mysql -h $HOST -P $PORT -u root -padmin < $DBDUMPFOLDER/createdb.sql  > $DBDUMPFOLDER/log/dbcreation.log 2>&1
 
-		return plaintext;
-	}
+# list schemas from smallest to largest
 
-	/**
-	 * Create a new customer master key. <br>
-	 * Customer master key (CMK) is designed to encrypt and decrypt data keys (System Secondary
-	 * Key). CMK cannot be used to encrypt/decrypt data more than 4 KB (4096 bytes) of data.
-	 */
-	// public void createCMK()
-	// {
-	// String desc = "PCAP Master Key for encrypting system secondary keys";
-	// CreateKeyRequest req = new CreateKeyRequest().withDescription(desc);
-	// CreateKeyResult result = getKMSClient().createKey(req);
-	// }
+DBFILE=(
+  "pcap_vca"
+  "pcap_payment"
+  "user_response"
+  "pcap_cq"
+  "epw_aggregation"
+  "pcap_referral"
+  "pcap_feex"
+  "pcap_analytics"
+  "pcap_fp_snapshot"
+  "pcap_fp"
+  "pcap_batch"
+  "pcap_pcb"
+  "pcap_privacy"
+  "epw_account"
+  "pcap_snapshot"
+  "pcap_empower"
+  "sp_schema"
+)
+datedotsql=`echo $DBDUMP | sed  's/\//.sql/g'`
 
-	@Override
-	@Deprecated
-	public DescribeKeyResponseDTO describeKey(String keyId)throws SafePageException
-	{
-		return epwKmsService.describeKey(keyId);
-	}
+cd $DBDUMPFOLDER
 
-	@Override
-	@Deprecated
-	public ListAliasesResponseDTO getKeyAliases(String keyId) throws SafePageException
-	{
-		return epwKmsService.listAliases();
-	}
-}
+for db in ${DBFILE[@]}; do
+    echo "Would you like to import schema $db ? (Y/n)"
+    read imprt
+    if [ $imprt = "y" ] || [ $imprt = "Y" ];
+      then
+        echo "Importing schema $db ... from " "$db""$datedotsql"
+        mysql -h $HOST -P $PORT -u root -padmin $db < "$db""$datedotsql" > "$DBDUMPFOLDER/log/$datedotsql"".log" 2>&1
+    fi
+done
 
 
-error:
+alter these two files, downloaddbmini and installdbmini inidvidualy, such that, i only download and install and complete sp_schema, and not look and download other dbs, only sp_schema i need
 
-23:39:57  Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'KMSServiceImpl': Unsatisfied dependency expressed through constructor parameter 0: No qualifying bean of type 'com.empower.epw.aws.api.kms.EpwKmsService' available: expected single matching bean but found 2: epwKmsServiceImpl,epwKmsService
-
+echo "DONE!!"
