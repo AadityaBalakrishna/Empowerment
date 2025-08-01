@@ -1,186 +1,822 @@
-/home/abalakrishna/glab/pcap-server/pcap/scripts/downloaddbmini -
+i am working on migrating AWS SDK KMS from v1 to v2, but also trying to maintain backward compaatibility with old v1 consumers of the KMSService
 
-#!/bin/sh
- 
-set -e
-echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-echo " "
-echo "Download of mySql database schema for local development . This download minimum to start up application" 
-echo "Ensure that u have taken a backup of existing schema, this script doesnot support incremental update"
-echo "TODO: Should we download all the schema ? Can we make it better ? "
-echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+i have replaced:
+// encrypt plain keyseed value using AWS CMK key
+		migratedkeySeedValue = KMSServiceImpl.getInstance()
+				.encryptUsingAWSKey(rawKeySeedValue, keyManager.getSystemPrimaryAliasName());
+with 
+		// encrypt plain keyseed value using AWS CMK key
+		migratedkeySeedValue = epwKmsService
+				.encryptUsingAWSKey(rawKeySeedValue, keyManager.getSystemPrimaryAliasName());
 
-DBDUMPFOLDER=~/Downloads/dbdump
-LOGFILE="$DBDUMPFOLDER/log/missing_files.log"
-mkdir -p "$DBDUMPFOLDER"
-rm -rf "$DBDUMPFOLDER"
-mkdir -p "$DBDUMPFOLDER/log"
+and 
+String rawKeySeedValueAfterMigration = KMSServiceImpl.getInstance()
+				.decryptUsingAWSKey(migratedkeySeedValue);
 
-# Get the latest folder from S3
-DBDUMP=$(aws s3 ls s3://pcap-dev-devtrunk-database-dump/data/ | grep ' PRE ' | tail -1 | awk '{print $2}')
+with:
+String rawKeySeedValueAfterMigration = epwKmsService
+				.decryptUsingAWSKey(migratedkeySeedValue);
 
-echo "Get the latest folder ... $DBDUMP"
-echo " "
-echo "Download the dumps to a local folder ..."
+this is the full code of SystemPrimaryKeyRotationHelper, which is one of the consumers of kms
+public class SystemPrimaryKeyRotationHelper
+{
+	private static Logger logger = Logger.getLogger(SystemPrimaryKeyRotationHelper.class);
 
-LATESTDUMPS=pcap-dev-devtrunk-database-dump/data/$DBDUMP
+	@Autowired
+	private KeySeedDataService keySeedDataService;
 
-# Array of file patterns to download
-FILE_PATTERNS=(
-	"pcapaudit_schema*.gz"
-	"sp_schema*.gz"
-	"pcap_fp*.gz"
-	"pcap_fp_snapshot*.gz"
-	"pcap_referral*.gz"
-	"pcap_pcb*.gz"
-	"pcap_snapshot*.gz"
-	"pcap_analytics*.gz"
-	"pcap_transaction*.gz"
-	"pcap_privacy*.gz"
-	"pcap_batch*.gz"
-	"pcap_empower*.gz"
-	"pcap_vca*.gz"
-	"pcap_payment*.gz"
-	"pcap_feex*.gz"
-	"epw_aggregation*.gz"
-	"epw_account*.gz"
-	"user_response*.gz"
-	"pcap_cq*.gz"
-)
+	@Autowired
+	private KeyManager keyManager;
 
-# Download files and log missing files
-for pattern in "${FILE_PATTERNS[@]}"; do
-    echo "Trying to download: $pattern"
-    if ! aws s3 cp --recursive --exclude "*" --include "$pattern" s3://$LATESTDUMPS "$DBDUMPFOLDER"; then
-        echo "No files matching $pattern found in $LATESTDUMPS." >> "$LOGFILE"
-    fi
-done
+	@Autowired
+	private EpwKmsService epwKmsService;
 
-echo "DONE!!"
+	/**
+	 * 1- Get list of all system secondary keys (encrypted values under system primary key) <br>
+	 * 2- If for each key there is a same row with status = 'AWS' in db, mean all are migarted <br>
+	 * 3- If there some non migarted keys, decrypt them with system primary key in keystore, <br>
+	 * 4- Encrypt the new value with System Primary Key in AWS, <br>
+	 * 5- Clone same keyseed object, set status='AWS' <br>
+	 * 6- Do some validation before save them back to db, <br>
+	 * 6- Save it back to db <br>
+	 * 
+	 * @return
+	 * @throws SafePageException
+	 */
+	public int migrateSystemPrimaryKeyFromKeyStoreToAWS() throws Exception
+	{
+		List<KeySeed> systemSecondaryKeys = keySeedDataService.getSystemSecondaryKeySeeds();
+		if (CollectionUtils.isEmpty(systemSecondaryKeys))
+		{
+			throw new SafePageException("No System Secondary Keys Found!");
+		}
+		Map<String, KeySeed> v1SystmeSecondaryKeyNameMap = new HashMap<>();
+		Map<String, KeySeed> v2SystmeSecondaryKeyNameMap = new HashMap<>();
+		for (KeySeed keyseed : systemSecondaryKeys)
+		{
+			if (keyseed.getSource() != null && KeySource.AWS == keyseed.getSource())
+			{
+				v2SystmeSecondaryKeyNameMap.put(keyseed.getName(), keyseed);
+			}
+			else
+			{
+				v1SystmeSecondaryKeyNameMap.put(keyseed.getName(), keyseed);
+			}
+		}
+		int count = 0;
+		// Look for V1 keys, if there is no corresponding V2 key for it, create one
+		for (Map.Entry<String, KeySeed> entry : v1SystmeSecondaryKeyNameMap.entrySet())
+		{
+			String keyName = entry.getKey();
+			if (v2SystmeSecondaryKeyNameMap.containsKey(keyName))
+			{
+				continue;
+			}
+			// V2 version of the key doesn't exist, do migartion for this key
+			boolean isMigrated = migrate(entry.getValue());
+			if (isMigrated)
+			{
+				count++;
+			}
+		}
+		if (count == 0)
+		{
+			logger.info(
+					"All system secondary keys are already migarted from V1(system primary key in keystore) to V2(system primary key in AWS KMS)");
+		}
+		else
+		{
+			logger.info(count + "Migrated " + count
+					+ " system secondary keys from V1(system primary key in keystore) to V2(system primary key in AWS KMS)");
+		}
+		return count;
+	}
+
+	protected boolean migrate(KeySeed systemSecondaryKey) throws SafePageException
+	{
+		if (systemSecondaryKey == null || systemSecondaryKey.getId() == null)
+		{
+			throw new SafePageException("KeySeed is null!");
+		}
+		try
+		{
+			String migratedSystemSecondaeyKeySeedValue = migrateSystemSecondaryKeySeedValue(
+					systemSecondaryKey);
+			if (StringUtils.isNotEmpty(migratedSystemSecondaeyKeySeedValue))
+			{
+
+				// Add V2 to indicates the value is encrypted using AWS CMK key
+				migratedSystemSecondaeyKeySeedValue = CryptType.V2
+						+ migratedSystemSecondaeyKeySeedValue;
+				// deep copy the V1 key
+				KeySeed systemSecondaryKeyV2 = deepCopyKey(systemSecondaryKey);
+				systemSecondaryKeyV2.setSource(KeySource.AWS);
+				systemSecondaryKeyV2.setValue(migratedSystemSecondaeyKeySeedValue);
+				// Add to db
+				keySeedDataService.addSystemSecondaryKeySeed(systemSecondaryKeyV2);
+				return true;
+			}
+		}
+		catch (Exception e)
+		{
+			logger.error("Failed to migrate System Secondary keySeed for keySeed: "
+					+ systemSecondaryKey.getId());
+		}
+		return false;
+	}
+
+	protected String migrateSystemSecondaryKeySeedValue(KeySeed keySeed) throws Exception
+	{
+		String keySeedValue = keySeed.getValue();
+		String migratedkeySeedValue = "";
+		if (Utils.isNull(keySeedValue))
+		{
+			logger.warn(
+					"system secondary KeySeed value is null for keySeed_id: " + keySeed.getId());
+			return migratedkeySeedValue;
+		}
+		String rawKeySeedValue = CryptEngineFacade.decrypt(CryptType.SYSTEM_PRIMARY, keySeedValue);
+		if (Utils.isNull(rawKeySeedValue))
+		{
+			throw new Exception("decryptedKeySeedValue value is null for System Secondary keySeed: "
+					+ keySeed.getId());
+		}
+		// encrypt plain keyseed value using AWS CMK key
+		migratedkeySeedValue = epwKmsService
+				.encryptUsingAWSKey(rawKeySeedValue, keyManager.getSystemPrimaryAliasName());
+		if (Utils.isNull(migratedkeySeedValue))
+		{
+			throw new Exception("Failed to encrypt System Secondary keyseed value for keyseedId"
+					+ keySeed.getId());
+		}
+		/*
+		 * Verify
+		 */
+		String rawKeySeedValueAfterMigration = epwKmsService
+				.decryptUsingAWSKey(migratedkeySeedValue);
+		if (!rawKeySeedValueAfterMigration.equals(rawKeySeedValue))
+		{
+			throw new Exception(
+					"System Secondary keyseed migartion verification failed for keyseedId"
+							+ keySeed.getId());
+		}
+		return migratedkeySeedValue;
+	}
+
+	protected KeySeed deepCopyKey(KeySeed v1SystemSecondaryKeySeed)
+	{
+		KeySeed v2SystemSecondaryKeySeed = new KeySeedImpl();
+		v2SystemSecondaryKeySeed.setName(v1SystemSecondaryKeySeed.getName());
+		v2SystemSecondaryKeySeed.setValidUntil(v1SystemSecondaryKeySeed.getValidUntil());
+		v2SystemSecondaryKeySeed.setType(v1SystemSecondaryKeySeed.getType());
+		v2SystemSecondaryKeySeed.setDefaultKey(v1SystemSecondaryKeySeed.isDefaultKey());
+		v2SystemSecondaryKeySeed.setUserId(null);
+		return v2SystemSecondaryKeySeed;
+	}
+
+	/**
+	 * Verify all migrated values are ok and are equal to the values encrypted with old version of
+	 * system primary key (keystore)
+	 * 
+	 * @return
+	 * @throws SafePageException
+	 */
+	public List<Long> verifyMigratedKeysToAWS() throws SafePageException
+	{
+		List<Long> verifiedKeySeedIdList = new ArrayList<>();
+		List<KeySeed> systemSecondaryKeys = keySeedDataService.getSystemSecondaryKeySeeds();
+		if (CollectionUtils.isEmpty(systemSecondaryKeys))
+		{
+			throw new SafePageException("No System Secondary Keys Found!");
+		}
+		Map<String, KeySeed> v1SystmeSecondaryKeyNameMap = new HashMap<>();
+		Map<String, KeySeed> v2SystmeSecondaryKeyNameMap = new HashMap<>();
+		for (KeySeed keyseed : systemSecondaryKeys)
+		{
+			if (keyseed.getSource() != null && KeySource.AWS == keyseed.getSource())
+			{
+				v2SystmeSecondaryKeyNameMap.put(keyseed.getName(), keyseed);
+			}
+			else
+			{
+				v1SystmeSecondaryKeyNameMap.put(keyseed.getName(), keyseed);
+			}
+		}
+		for (Map.Entry<String, KeySeed> entry : v1SystmeSecondaryKeyNameMap.entrySet())
+		{
+			String keyName = entry.getKey();
+			if (v2SystmeSecondaryKeyNameMap.containsKey(keyName))
+			{
+				KeySeed keyV1 = v1SystmeSecondaryKeyNameMap.get(keyName);
+				KeySeed keyV2 = v2SystmeSecondaryKeyNameMap.get(keyName);
+				if (verifyV2VersionAndStatus(keyV2) && compareValues(keyV1, keyV2))
+				{
+					verifiedKeySeedIdList.add(keyV2.getId());
+				}
+			}
+		}
+		return verifiedKeySeedIdList;
+	}
+
+	protected boolean verifyV2VersionAndStatus(KeySeed keyV2)
+	{
+		if (!keyV2.getValue()
+				.startsWith(CryptType.V2) || keyV2.getSource() != KeySource.AWS)
+		{
+			logger.error("System Secondary key V2 with id " + keyV2.getId()
+					+ " doesn't have the right version or status!");
+			return false;
+		}
+		return true;
+	}
+
+	protected boolean compareValues(KeySeed keyV1, KeySeed keyV2)
+	{
+		try
+		{
+			String v1KeySeedValue = CryptEngineFacade.decrypt(CryptType.SYSTEM_PRIMARY,
+					keyV1.getValue());
+			String v2KeySeedValue = CryptEngineFacade.decrypt(CryptType.SYSTEM_PRIMARY,
+					keyV2.getValue());
+			if (v1KeySeedValue != null && v1KeySeedValue.equals(v2KeySeedValue))
+			{
+				return true;
+			}
+		}
+		catch (Exception ex)
+		{
+			logger.error("Failed to Compare Values for System Secondary key V1 and V2, V1_id:"
+					+ keyV1.getId() + ", V2_id:" + keyV2.getId());
+		}
+		return false;
+	}
+
+}
 
 
-/home/abalakrishna/glab/pcap-server/pcap/scripts/installdbmini - 
+i need help with updating the SystemPrimaryKeyRotationHelperTest file without mocking:
+test file:
+package com.personalcapital.keymanagement.rotation;
 
-#!/bin/sh
- 
-set -e
-echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-echo "Installation of MySQL database schema for local development (only minimum schema import)."
-echo "Ensure that you have taken a backup of existing schema, as this script does not support incremental updates."
-echo "TODO: Should we download all the schema ? Can we make it better ? "
-echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+public class SystemPrimaryKeyRotationHelperTest
+{
+	@InjectMocks
+	private SystemPrimaryKeyRotationHelper systemPrimaryKeyRotationHelper;
 
-DBDUMPFOLDER=~/Downloads/dbdump
-rm -rf $DBDUMPFOLDER
-mkdir -p "$DBDUMPFOLDER"
-mkdir -p $DBDUMPFOLDER/log
+	@Mock
+	private KeySeedDataService keySeedDataService;
 
-saml2aws login -a $AWS_PROFILE
+	@Mock
+	private CryptEngine cryptEngine;
 
-DBDUMP=$(aws s3 ls s3://pcap-dev-devtrunk-database-dump/data/ | grep -e 'PRE [0-9]*' | tail -1 | tr -s ' ' | cut -d ' ' -f 3)
+	@Spy
+	private KeyManager keyManager;
 
-echo "Get the latest folder ... $DBDUMP"
-echo " "
-echo "Download the dumps to a local folder ..."
+	@Mock
+	private AWSKMS kmsClient;
 
-LATESTDUMPS=pcap-dev-devtrunk-database-dump/data/$DBDUMP
+	@BeforeEach
+	public void init() throws Exception
+	{
+		MockitoAnnotations.initMocks(this);
+		setUpAWSKMSMock();
+		setupCryptEngineWithVersionSet();
+		CryptEngineFacade.setCryptEngine(this.cryptEngine);
+		// // Mock KMSService
+		// when(kmsService.encryptUsingAWSKey(Mockito.anyString(), Mockito.anyString()))
+		// .then(returnsFirstArg());
+		// when(kmsService.decryptUsingAWSKey(Mockito.anyString())).then(returnsFirstArg());
+	}
 
-aws s3 cp --recursive s3://$LATESTDUMPS $DBDUMPFOLDER
-echo "Gunzip the files ..."
-cd $DBDUMPFOLDER && gunzip *.gz
+	private void setUpAWSKMSMock()
+	{
+		when(kmsClient.encrypt(Mockito.any(EncryptRequest.class)))
+				.thenAnswer(new Answer<EncryptResult>()
+				{
+					public EncryptResult answer(InvocationOnMock invocation)
+					{
+						Object[] args = invocation.getArguments();
+						EncryptRequest request = (EncryptRequest) args[0];
 
-PASSWORD=PersonalCapital2020
+						EncryptResult result = new EncryptResult();
+						result.setCiphertextBlob(request.getPlaintext());
+						return result;
+					}
+				});
+		when(kmsClient.decrypt(Mockito.any(DecryptRequest.class)))
+				.thenAnswer(new Answer<DecryptResult>()
+				{
+					public DecryptResult answer(InvocationOnMock invocation)
+					{
+						Object[] args = invocation.getArguments();
+						DecryptRequest request = (DecryptRequest) args[0];
+						DecryptResult result = new DecryptResult();
+						result.setPlaintext(request.getCiphertextBlob());
+						return result;
+					}
+				});
+		ReflectionTestUtils.setField(keyManager, "systemPrimaryAliasName",
+				"alias/app/pcap/pcap/system_primary/v1");
 
-echo "Create the SQL to create the schemas and users ..."
-cat << EOF > $DBDUMPFOLDER/createdb.sql
-    create database IF NOT EXISTS sp_schema;
-    create database IF NOT EXISTS pcap_ace;
-    create database IF NOT EXISTS pcap_fp;
-    create database IF NOT EXISTS pcap_fp_snapshot;
-    create database IF NOT EXISTS pcap_referral;
-    create database IF NOT EXISTS pcap_analytics;
-    create database IF NOT EXISTS pcapaudit_schema;
-    create database IF NOT EXISTS pcap_pcb;
-    create database IF NOT EXISTS pcap_snapshot;
-    create database IF NOT EXISTS pcap_transaction;
-    create database IF NOT EXISTS pcap_privacy;
-    create database IF NOT EXISTS pcap_batch;
-    create database IF NOT EXISTS pcap_empower;
-    create database IF NOT EXISTS pcap_payment;
-    create database IF NOT EXISTS pcap_feex;
-    create database IF NOT EXISTS epw_aggregation;
-    create database IF NOT EXISTS user_response;
-    create database IF NOT EXISTS pcap_cq;
-    create database IF NOT EXISTS pcap_vca;
-    create database IF NOT EXISTS epw_account;
-    CREATE USER IF NOT EXISTS 'spdbapp'@'%' IDENTIFIED BY '$PASSWORD';
-    CREATE USER IF NOT EXISTS 'pcbappuser'@'%' IDENTIFIED BY '$PASSWORD';
-    CREATE USER IF NOT EXISTS 'pcb_app_1'@'%' IDENTIFIED BY '$PASSWORD';
-    CREATE USER IF NOT EXISTS 'pcap_app_2'@'%' IDENTIFIED BY '$PASSWORD';
-    CREATE USER IF NOT EXISTS 'batch_app_1'@'%' IDENTIFIED BY '$PASSWORD';
-    CREATE USER IF NOT EXISTS 'aggr_app_1'@'%' IDENTIFIED BY '$PASSWORD';
-    CREATE USER IF NOT EXISTS 'dbadmin'@'%' IDENTIFIED BY '$PASSWORD';
-    CREATE USER IF NOT EXISTS 'batch_app_1'@'%' IDENTIFIED BY '$PASSWORD';
-    CREATE USER IF NOT EXISTS 'trxn_app_1'@'%' IDENTIFIED BY '$PASSWORD';
-    GRANT ALL PRIVILEGES ON *.* TO 'spdbapp'@'%';
-    GRANT ALL PRIVILEGES ON *.* TO 'pcap_app_2'@'%';
-    GRANT ALL PRIVILEGES ON pcap_pcb.* TO 'pcbappuser'@'%';
-    GRANT ALL PRIVILEGES ON pcap_pcb.* TO 'pcb_app_1'@'%';
-    GRANT ALL PRIVILEGES ON pcap_snapshot.* TO 'spdbapp'@'%';
-    GRANT ALL PRIVILEGES ON pcap_transaction.* TO 'spdbapp'@'%';
-    GRANT ALL PRIVILEGES ON pcap_privacy.* TO 'spdbapp'@'%';
-    GRANT ALL PRIVILEGES ON pcap_batch.* TO 'spdbapp'@'%';
-    GRANT ALL PRIVILEGES ON pcap_batch.* TO 'batch_app_1'@'%';
-    GRANT ALL PRIVILEGES ON pcap_snapshot.* TO 'pcap_app_2'@'%';
-    GRANT ALL PRIVILEGES ON *.* TO 'aggr_app_1'@'%';
-    GRANT ALL PRIVILEGES ON *.* TO 'dbadmin'@'%';
-    GRANT ALL PRIVILEGES ON *.* TO 'batch_app_1'@'%';
-    GRANT ALL PRIVILEGES ON *.* TO 'trxn_app_1'@'%';
-    FLUSH PRIVILEGES;
-EOF
+		ReflectionTestUtils.setField(KMSServiceImpl.getInstance(), "kmsClient", kmsClient);
+	}
 
-echo "Creating schema and users in mysql ..."
-HOST=127.0.0.1
-PORT=3305
+	private void setUpSystemSecondaryKeys()
+	{
+		List<KeySeed> systemSecondaryKeys = new ArrayList<>();
+		systemSecondaryKeys.add(getKeySeed(1, "AA",
+				"V1kDh0tgoJTwIPPD8HwAFusAErp/aGn/p6XyGNB2u7tmugyhHP/FWJCeSnKo1J5GR6", null, true));
+		systemSecondaryKeys.add(getKeySeed(1000, "AA",
+				"V2AQICAHgRUiA5dam8Oo8dUaBTEEtfN/rk1OSMyJ5hnLL5z6gjUQF06Uzwhx+SCqa6Ze0+P3LqAAAAfjB8BgkqhkiG9w0BBwagbzBtAgEAMGgGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQMxpPiI57ReqMQFQ/SAgEQgDs3kdCoGUNSQZnPxs/SOJaGv24wyF1QXP/p1E1LStYuLL4aSRabGrRokmL2DgT1OPNQQbDOx1wSTYBbnA==",
+				KeySource.AWS, true));
+		systemSecondaryKeys.add(getKeySeed(2, "BB",
+				"V1kDh0tgoJTwIPPD8HwAFusAErp/aGn/p6XyGNB2u7tmugyhHP/FWJCeSnKo1J5GR6", null, false));
+		systemSecondaryKeys.add(getKeySeed(3, "CC",
+				"V19Qce22fglN5x8NjKjn2IDo5VK6ifLhal5alIIW3/NNygyhHP/FWJCeSnKo1J5GR6", null, false));
 
-mysql -h $HOST -P $PORT -u root -padmin < $DBDUMPFOLDER/createdb.sql  > $DBDUMPFOLDER/log/dbcreation.log 2>&1
+		when(keySeedDataService.getSystemSecondaryKeySeeds()).thenReturn(systemSecondaryKeys);
+	}
 
-# list schemas from smallest to largest
+	private KeySeed getKeySeed(long id, String keyName, String keyValue, KeySource source,
+			boolean isDefault)
+	{
+		KeySeed keyseed = new KeySeedImpl();
+		((KeySeedImpl) keyseed).setId(id);
+		keyseed.setName(keyName);
+		keyseed.setValue(keyValue);
+		keyseed.setSource(source);
+		keyseed.setDefaultKey(isDefault);
+		return keyseed;
+	}
 
-DBFILE=(
-  "pcap_vca"
-  "pcap_payment"
-  "user_response"
-  "pcap_cq"
-  "epw_aggregation"
-  "pcap_referral"
-  "pcap_feex"
-  "pcap_analytics"
-  "pcap_fp_snapshot"
-  "pcap_fp"
-  "pcap_batch"
-  "pcap_pcb"
-  "pcap_privacy"
-  "epw_account"
-  "pcap_snapshot"
-  "pcap_empower"
-  "sp_schema"
-)
-datedotsql=`echo $DBDUMP | sed  's/\//.sql/g'`
+	@Test
+	public void testMigrateSystemPrimaryKeyFromKeyStoreToAWS() throws Exception
+	{
+		setUpSystemSecondaryKeys();
+		systemPrimaryKeyRotationHelper.migrateSystemPrimaryKeyFromKeyStoreToAWS();
+		verify(keySeedDataService, atLeast(2)).addSystemSecondaryKeySeed(any(KeySeed.class));
+	}
 
-cd $DBDUMPFOLDER
+	private void setupCryptEngineWithVersionSet() throws Exception
+	{
+		// Mock cryptEngine
+		// when(cryptEngine.encrypt(any(CryptType.class),
+		// any(String.class))).then(returnsSecondArg());
+		// when(cryptEngine.decrypt(any(CryptType.class),
+		// any(String.class))).then(returnsSecondArg());
 
-for db in ${DBFILE[@]}; do
-    echo "Would you like to import schema $db ? (Y/n)"
-    read imprt
-    if [ $imprt = "y" ] || [ $imprt = "Y" ];
-      then
-        echo "Importing schema $db ... from " "$db""$datedotsql"
-        mysql -h $HOST -P $PORT -u root -padmin $db < "$db""$datedotsql" > "$DBDUMPFOLDER/log/$datedotsql"".log" 2>&1
-    fi
-done
+		when(cryptEngine.encrypt(Mockito.any(CryptType.class), Mockito.any(String.class)))
+				.thenAnswer(new Answer<String>()
+				{
+					public String answer(InvocationOnMock invocation)
+					{
+						Object[] args = invocation.getArguments();
+						String cryptType = (String) args[0];
+						String cipherText = (String) args[1];
+						if (CryptType.SYSTEM_PRIMARY.name()
+								.equals(cryptType))
+						{
+							cipherText = CryptType.SYSTEM_PRIMARY.getVersion() + cipherText;
+						}
+						return cipherText;
+					}
+				});
+		when(cryptEngine.decrypt(Mockito.any(CryptType.class), Mockito.any(String.class)))
+				.thenAnswer(new Answer<String>()
+				{
+					public String answer(InvocationOnMock invocation)
+					{
+						Object[] args = invocation.getArguments();
+						String cipherText = (String) args[1];
+						return cipherText.substring(2, cipherText.length());
+					}
+				});
+	}
+
+	@Test
+	public void testVerify() throws SafePageException
+	{
+		setUpSystemSecondaryKeys();
+
+		List<Long> migartedIds = systemPrimaryKeyRotationHelper.verifyMigratedKeysToAWS();
+		System.out.println(migartedIds);
+	}
+}
 
 
-alter these two files, downloaddbmini and installdbmini inidvidualy, such that, i only download and install and complete sp_schema, and not look and download other dbs, only sp_schema i need
+for reference i'll be sharing the autoconfig, epwkmsservice and epwkmsserviceimpl see tht and then give answer:
 
-echo "DONE!!"
+package com.empower.epw.aws.kms.config;
+
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
+import com.amazonaws.auth.profile.ProfileCredentialsProvider;
+import com.amazonaws.services.kms.AWSKMS;
+import com.amazonaws.services.kms.AWSKMSClientBuilder;
+import com.empower.epw.aws.api.kms.EpwKmsService;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.*;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
+import org.springframework.util.StringUtils;
+
+import com.empower.epw.aws.v1.kms.EpwKmsServiceImpl;
+import software.amazon.awssdk.services.kms.KmsClient;
+
+/**
+ * Auto-configuration for AWS KMS clients and services.
+ *
+ * <p>This configuration class provides beans for AWS Key Management Service (KMS) clients
+ * and services, supporting both AWS SDK v1 and v2. The desired SDK version can be specified
+ * using the property {@code epw.aws.kms.sdk-version}. If no version is specified, the v1
+ * implementation is used by default.</p>
+ *
+ * <p>Beans are conditionally created based on the specified SDK version, and credentials
+ * are configured using either the AWS profile or the default credentials provider chain.</p>
+ */
+@Configuration
+public class EpwKmsAutoConfig {
+
+	private static final Logger logger = LoggerFactory.getLogger(EpwKmsAutoConfig.class);
+	private static final String DEFAULT_AWS_REGION = "us-west-2";
+
+	public static final String AWS_REGION_KEY = "aws.region";
+	public static final String AWS_PROFILE = "aws.profile";
+
+	/**
+	 * Creates a KMS client for AWS SDK v2.
+	 *
+	 * <p>This bean is created only if the property {@code epw.aws.kms.sdk-version} is set to {@code v2}.
+	 * The client is configured with credentials from either the specified AWS profile or the default
+	 * credentials provider chain, and the region is determined from the {@code aws.region} property.</p>
+	 *
+	 * @return A configured {@link KmsClient} instance for AWS SDK v2.
+	 */
+	@Bean("epwKmsClient")
+	@ConditionalOnProperty(name = "epw.aws.kms.sdk-version", havingValue = "v2")
+	@ConditionalOnMissingBean(KmsClient.class)
+	public KmsClient kmsClient(){
+		String awsProfile = System.getProperty(AWS_PROFILE);
+		software.amazon.awssdk.auth.credentials.AwsCredentialsProvider credentialsProvider;
+		if (StringUtils.hasText(awsProfile)){
+			logger.info("Using AWS profile for AWS SDK v2: {}", awsProfile);
+			credentialsProvider = software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider
+					.builder()
+					.profileName(awsProfile)
+					.build();
+		}
+		else {
+			logger.info("Using default AWS credentials provider chain for SDK v2.");
+			credentialsProvider = software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider
+					.create();
+		}
+
+		String awsRegion = System.getProperty(AWS_REGION_KEY, DEFAULT_AWS_REGION);
+		logger.info("Creating KmsClient for AWS SDK v2 with region: {}", awsRegion);
+		return KmsClient.builder()
+				.credentialsProvider(credentialsProvider)
+				.region(software.amazon.awssdk.regions.Region.of(awsRegion))
+				.build();
+	}
+
+	/**
+	 * Creates the primary EpwKmsService bean using the AWS SDK v2 implementation.
+	 *
+	 * @param kmsClient The shared AWS SDK v2 client.
+	 * @return The EpwKmsServiceImpl instance for AWS SDK v2.
+	 */
+	@Bean(name = "epwKmsService")
+	@Primary
+	@ConditionalOnProperty(name = "epw.aws.kms.sdk-version", havingValue = "v2")
+	public EpwKmsService epwKmsServiceV2(KmsClient kmsClient) {
+		logger.info("Creating EpwKmsServiceImpl bean for AWS SDK v2");
+		return new com.empower.epw.aws.v2.kms.EpwKmsServiceImpl(kmsClient);
+	}
+
+	/**
+	 * Creates an AWS KMS client for AWS SDK v1.
+	 *
+	 * <p>This bean is created only if the property {@code epw.aws.kms.sdk-version} is set to {@code v1}
+	 * or is not specified. The client is configured with credentials from either the specified AWS profile
+	 * or the default credentials provider chain, and the region is determined from the {@code aws.region} property.</p>
+	 *
+	 * @return A configured {@link AWSKMS} instance for AWS SDK v1.
+	 */
+	@Bean(name = "epwAWSKMSClient")
+	@ConditionalOnProperty(name = "epw.aws.kms.sdk-version", havingValue = "v1", matchIfMissing = true)
+	@ConditionalOnMissingBean(AWSKMS.class)
+	public AWSKMS awsKmsClient() {
+		String awsRegion = System.getProperty(AWS_REGION_KEY, DEFAULT_AWS_REGION);
+		String awsProfile = System.getProperty(AWS_PROFILE);
+		com.amazonaws.auth.AWSCredentialsProvider credentialsProvider;
+		if (StringUtils.hasText(awsProfile)) {
+			logger.info("Using AWS profile for AWS SDK v1: {}", awsProfile);
+			credentialsProvider = new ProfileCredentialsProvider(awsProfile);
+		} else {
+			logger.info("Using default AWS credentials provider chain.");
+			credentialsProvider = DefaultAWSCredentialsProviderChain.getInstance();
+		}
+		logger.info("Creating AWSKMS client with region for AWS SDK v1: {}", awsRegion);
+		return AWSKMSClientBuilder.standard()
+				.withCredentials(credentialsProvider)
+				.withRegion(awsRegion)
+				.build();
+	}
+
+	/**
+	 * Creates the primary EpwKmsService bean using the AWS SDK v1 implementation.
+	 *
+	 * @param awsKmsClient The shared AWS SDK v1 client.
+	 * @return The EpwKmsServiceImpl instance for AWS SDK v1.
+	 */
+	@Bean(name = "epwKmsService")
+	@Primary
+	@ConditionalOnProperty(name = "epw.aws.kms.sdk-version", havingValue = "v1", matchIfMissing = true)
+	public EpwKmsService epwKmsServiceV1(AWSKMS awsKmsClient) {
+		logger.info("Creating EpwKmsService bean for AWS SDK v1.");
+		return new EpwKmsServiceImpl(awsKmsClient);
+	}
+}
+
+package com.empower.epw.aws.api.kms;
+
+import com.empower.epw.aws.api.kms.dto.DescribeKeyResponseDTO;
+import com.empower.epw.aws.api.kms.dto.ListAliasesResponseDTO;
+import com.safepage.exception.SafePageException;
+
+/**
+ * {@code EpwKmsService} provides an abstraction over AWS Key Management Service (KMS) operations,
+ * supporting encryption, decryption, key description, and alias listing.
+ *
+ * <p>Implementations of this interface (e.g., using AWS SDK v1 or v2) allow consumers
+ * to securely manage cryptographic keys and perform key-related operations in a version-agnostic way.
+ */
+public interface EpwKmsService {
+
+	/**
+	 * Encrypts a plaintext string using an AWS KMS key identified by its keyId.
+	 *
+	 * @param plainText the plaintext string to encrypt
+	 * @param keyId the identifier of the KMS key to use for encryption
+	 * @return the encrypted ciphertext as a string
+	 * @throws SafePageException if encryption fails or the key cannot be accessed
+	 */
+	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException;
+
+	/**
+	 * Decrypts a ciphertext string using the default AWS KMS key.
+	 *
+	 * @param cipherText the encrypted string to decrypt
+	 * @return the decrypted plaintext string
+	 * @throws SafePageException if decryption fails or the key cannot be accessed
+	 */
+	public String decryptUsingAWSKey(String cipherText) throws SafePageException;
+
+	/**
+	 * Describes a KMS key using its keyId or alias.
+	 *
+	 * @param keyId the keyId or alias to describe
+	 * @return metadata and status information about the KMS key
+	 * @throws SafePageException if the key cannot be found or described
+	 */
+	DescribeKeyResponseDTO describeKey(String keyId) throws SafePageException;
+
+	/**
+	 * Lists all KMS key aliases in the current AWS region.
+	 *
+	 * @return a response containing a list of key aliases and their associated key IDs
+	 * @throws SafePageException if alias listing fails
+	 */
+	ListAliasesResponseDTO listAliases() throws SafePageException;
+
+	/**
+	 * Returns the version of the AWS SDK being used by this service.
+	 *
+	 * @return the AWS SDK version as a string
+	 */
+	String getAwsSdkVersion();
+}
+
+
+package com.empower.epw.aws.v1.kms;
+
+import java.io.UnsupportedEncodingException;
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.util.stream.Collectors;
+import java.util.List;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.springframework.stereotype.Service;
+
+import com.amazonaws.services.kms.AWSKMS;
+import com.amazonaws.services.kms.model.DecryptRequest;
+import com.amazonaws.services.kms.model.DecryptResult;
+import com.amazonaws.services.kms.model.DescribeKeyRequest;
+import com.amazonaws.services.kms.model.DescribeKeyResult;
+import com.amazonaws.services.kms.model.DisabledException;
+import com.amazonaws.services.kms.model.EncryptRequest;
+import com.amazonaws.services.kms.model.EncryptResult;
+import com.amazonaws.services.kms.model.InvalidCiphertextException;
+import com.amazonaws.services.kms.model.KeyUnavailableException;
+import com.amazonaws.services.kms.model.ListAliasesRequest;
+import com.amazonaws.services.kms.model.ListAliasesResult;
+import com.empower.epw.aws.api.kms.dto.DescribeKeyResponseDTO;
+import com.empower.epw.aws.api.kms.dto.ListAliasesResponseDTO;
+import com.empower.epw.aws.v1.kms.util.AwsExceptionHandler;
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+import com.safepage.error.SafePageErrorType;
+import com.safepage.exception.SafePageException;
+import com.empower.epw.aws.api.kms.EpwKmsService;
+import com.safepage.util.Utils;
+
+@Service
+public class EpwKmsServiceImpl implements EpwKmsService
+{
+
+	private static final PcapLogger logger = PcapLoggerFactory
+			.getPcapLogger(EpwKmsServiceImpl.class);
+	private static final Charset charset = StandardCharsets.UTF_8;
+
+	private final AWSKMS kmsClient;
+
+	public EpwKmsServiceImpl(AWSKMS kmsClient)
+	{
+		this.kmsClient = kmsClient;
+	}
+
+	/**
+	 * Encrypt data key (system secondary key) under AWS CMK Key using IAM role to access the key
+	 * AWS CMK
+	 *
+	 * @throws SafePageException
+	 */
+	@Override
+	// @Retryable(value =
+	// {
+	// Exception.class
+	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
+	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
+	{
+		if (StringUtils.isEmpty(plainText))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
+		}
+		if (StringUtils.isEmpty(keyId))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
+		}
+		try
+		{
+			EncryptRequest encryptRequest = new EncryptRequest().withKeyId(keyId)
+					.withPlaintext(getByteBuffer(plainText));
+			long start = System.currentTimeMillis();
+			EncryptResult result = kmsClient.encrypt(encryptRequest);
+			if (result != null && result.getCiphertextBlob() != null)
+			{
+				long end = System.currentTimeMillis();
+				logger.info("[{}] encryptData took {} ", getAwsSdkVersion(), (end - start));
+				return Utils.encodeBase64(result.getCiphertextBlob().array());
+			} else {
+				logger.error("[{}] encryptUsingAWSKey failed, EncryptResult is null for keyId: {}", getAwsSdkVersion(),keyId);
+				throw AwsExceptionHandler.handleKMSException("encrypt", keyId, new IllegalStateException("EncryptResult or CiphertextBlob is null"));
+			}
+		}
+		catch (DisabledException | KeyUnavailableException | UnsupportedEncodingException ex)
+		{
+			logger.error(
+					"[{}] Failed to encrypt, plainText:{}, keyId:{}, due to:{}", getAwsSdkVersion(),
+					plainText, keyId, ExceptionUtils.getMessage(ex), ex);
+			throw AwsExceptionHandler.handleKMSException("encrypt", keyId, ex);
+		}
+	}
+
+	/**
+	 * Decrypt encrypted data key under AWS CMK Key using IAM role to access the key
+	 */
+	@Override
+	// @Retryable(value =
+	// {
+	// Exception.class
+	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
+	public String decryptUsingAWSKey(String cipherText) throws SafePageException
+	{
+		if (StringUtils.isEmpty(cipherText))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
+		}
+		try
+		{
+			byte[] decodedCipherText = Utils.decodeBase64(cipherText);
+			DecryptRequest decryptRequest = new DecryptRequest()
+					.withCiphertextBlob(ByteBuffer.wrap(decodedCipherText));
+			long start = System.currentTimeMillis();
+			DecryptResult result = kmsClient.decrypt(decryptRequest);
+			long end = System.currentTimeMillis();
+			logger.info("[{}] decryptData took {}", getAwsSdkVersion(),(end - start));
+			ByteBuffer plainTextBlob = result.getPlaintext();
+			return getString(plainTextBlob);
+		}
+		catch (KeyUnavailableException kue)
+		{
+			// The request was rejected because the specified CMK was not available. The request can
+			// be retried.
+			logger.error(
+					"[{}] Failed to decryptUsingAWSKey(KeyUnavailableException), cipherText:{}, due to:{}", getAwsSdkVersion(),
+					cipherText, ExceptionUtils.getMessage(kue), kue);
+		}
+		catch (InvalidCiphertextException ice)
+		{
+			// The request was rejected because the specified ciphertext, or additional
+			// authenticated data incorporated
+			// into the ciphertext, such as the encryption context, is corrupted, missing, or
+			// otherwise invalid.
+			logger.error(
+					"[{}] Failed to decryptUsingAWSKey(InvalidCiphertextException), cipherText:{}, due to:{}", getAwsSdkVersion(),
+					cipherText, ExceptionUtils.getMessage(ice), ice);
+		}
+		catch (DisabledException de)
+		{
+			logger.error(
+					"[{}] Failed to decryptUsingAWSKey(DisabledException), cipherText:{}, due to:{}", getAwsSdkVersion(),
+					cipherText, ExceptionUtils.getMessage(de), de);
+		}
+		catch (Exception ex)
+		{
+			logger.error("[{}] Failed to decryptUsingAWSKey, cipherText:{}, due to:{}", getAwsSdkVersion(),
+					cipherText, ExceptionUtils.getMessage(ex), ex);
+		}
+		return null;
+	}
+
+	@Override
+	@Deprecated
+	public ListAliasesResponseDTO listAliases() throws SafePageException {
+		try {
+			ListAliasesResult result = kmsClient.listAliases(new ListAliasesRequest().withLimit(100));
+			List<ListAliasesResponseDTO.AliasEntry> aliasEntries = result.getAliases().stream()
+					.map(alias -> new ListAliasesResponseDTO.AliasEntry(alias.getAliasName(),
+							alias.getTargetKeyId()))
+					.collect(Collectors.toList());
+			return new ListAliasesResponseDTO(aliasEntries);
+		}
+		catch (Exception ex) {
+			logger.error("[{}] Failed to listAliases, due to:{}", getAwsSdkVersion(),ExceptionUtils.getMessage(ex), ex);
+			return new ListAliasesResponseDTO();
+		}
+	}
+
+	@Override
+	@Deprecated
+	public DescribeKeyResponseDTO describeKey(String keyId) throws SafePageException{
+		try {
+			DescribeKeyResult result = kmsClient.describeKey(new DescribeKeyRequest().withKeyId(keyId));
+
+			return new DescribeKeyResponseDTO(
+					result.getKeyMetadata().getKeyId(),
+					result.getKeyMetadata().getArn(),
+					result.getKeyMetadata().getKeyState().toString(),
+					result.getKeyMetadata().getEnabled()
+			);
+		} catch (Exception ex) {
+			logger.error("[{}] Failed to describeKey, keyId:{}, due to:{}", getAwsSdkVersion(),keyId, ExceptionUtils.getMessage(ex), ex);
+			return new DescribeKeyResponseDTO();
+		}
+	}
+
+	@Override
+	public String getAwsSdkVersion() {
+		return "AWS SDK v1";
+	}
+
+	/**
+	 * Converts a String to a ByteBuffer using the specified charset.
+	 *
+	 * @param string
+	 *            the String to convert
+	 * @return the ByteBuffer representation of the String
+	 */
+	public static ByteBuffer getByteBuffer(String string)
+	{
+		return ByteBuffer.wrap(string.getBytes(charset));
+	}
+
+	/**
+	 * Converts a ByteBuffer to a String using the specified charset.
+	 *
+	 * @param byteBuffer
+	 *            the ByteBuffer to convert
+	 * @return the String representation of the ByteBuffer
+	 */
+	public static String getString(ByteBuffer byteBuffer)
+	{
+		byte[] byteArray = new byte[byteBuffer.remaining()];
+		byteBuffer.get(byteArray);
+		return new String(byteArray, charset);
+	}
+}
