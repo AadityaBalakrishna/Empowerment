@@ -1,50 +1,27 @@
-I need you you help me align the bean creations in my EpwKmsAutoConfig with it's old KMSServiceImpl code :
-
-package com.empower.epw.aws.kms.config;
-/**
- * Auto-configuration for AWS KMS clients and services.
- * <p>
- * This configuration class provides beans for AWS Key Management Service (KMS) clients and
- * services, supporting both AWS SDK v1 and v2. The desired SDK version can be specified using the
- * property {@code epw.aws.kms.sdk-version}. If no version is specified, the v1 implementation is
- * used by default.
- * </p>
- * <p>
- * Beans are conditionally created based on the specified SDK version, and credentials are
- * configured using either the AWS profile or the default credentials provider chain.
- * </p>
- */
 @Configuration
-public class EpwKmsAutoConfig
+public class EpwS3AutoConfig
 {
 
-	private static final Logger logger = LoggerFactory.getLogger(EpwKmsAutoConfig.class);
+	private static final Logger logger = LoggerFactory.getLogger(EpwS3AutoConfig.class);
 	private static final String DEFAULT_AWS_REGION = "us-west-2";
 
 	public static final String AWS_REGION_KEY = "aws.region";
 	public static final String AWS_PROFILE = "aws.profile";
 
 	/**
-	 * Creates a KMS client for AWS SDK v2.
-	 * <p>
-	 * This bean is created only if the property {@code epw.aws.kms.sdk-version} is set to
-	 * {@code v2}. The client is configured with credentials from either the specified AWS profile
-	 * or the default credentials provider chain, and the region is determined from the
-	 * {@code aws.region} property.
-	 * </p>
+	 * Creates the single, shared S3Client bean for the application using AWS SDK v2.
 	 *
-	 * @return A configured {@link KmsClient} instance for AWS SDK v2.
+	 * @return A configured S3Client instance.
 	 */
-	@Bean("epwKmsClient")
-	@ConditionalOnProperty(name = "epw.aws.kms.sdk-version", havingValue = "v2")
-	@ConditionalOnMissingBean(KmsClient.class)
-	public KmsClient kmsClient()
+	@Bean("epwAwsS3Client")
+	@ConditionalOnProperty(name = "epw.aws.s3.sdk-version", havingValue = "v2")
+	public S3Client s3Client()
 	{
 		String awsProfile = System.getProperty(AWS_PROFILE);
 		software.amazon.awssdk.auth.credentials.AwsCredentialsProvider credentialsProvider;
 		if (StringUtils.hasText(awsProfile))
 		{
-			logger.info("Using AWS profile for AWS SDK v2: {}", awsProfile);
+			logger.info("s: {}", awsProfile);
 			credentialsProvider = software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider
 					.builder()
 					.profileName(awsProfile)
@@ -58,48 +35,58 @@ public class EpwKmsAutoConfig
 		}
 
 		String awsRegion = System.getProperty(AWS_REGION_KEY, DEFAULT_AWS_REGION);
-		logger.info("Creating KmsClient for AWS SDK v2 with region: {}", awsRegion);
-		return KmsClient.builder()
+		logger.info("Creating S3Client for AWS SDK v2 with region: {}", awsRegion);
+		return S3Client.builder()
 				.credentialsProvider(credentialsProvider)
 				.region(software.amazon.awssdk.regions.Region.of(awsRegion))
 				.build();
 	}
 
 	/**
-	 * Creates the primary EpwKmsService bean using the AWS SDK v2 implementation.
+	 * Creates the single, shared S3Presigner bean for the application using AWS SDK v2.
 	 *
-	 * @param kmsClient
-	 *            The shared AWS SDK v2 client.
-	 * @return The EpwKmsServiceImpl instance for AWS SDK v2.
+	 * @return A configured S3Presigner instance.
 	 */
-	@Bean(name = "epwKmsService")
-	@Primary
-	@ConditionalOnProperty(name = "epw.aws.kms.sdk-version", havingValue = "v2")
-	public EpwKmsService epwKmsServiceV2(KmsClient kmsClient)
+	@Bean("epwS3Presigner")
+	@ConditionalOnProperty(name = "epw.aws.s3.sdk-version", havingValue = "v2")
+	public S3Presigner s3Presigner()
 	{
-		logger.info("Creating EpwKmsServiceImpl bean for AWS SDK v2");
-		return new com.empower.epw.aws.v2.kms.EpwKmsServiceImpl(kmsClient);
+		logger.info("Creating S3Presigner for AWS SDK v2.");
+		return S3Presigner.builder()
+				.build();
 	}
 
 	/**
-	 * Creates an AWS KMS client for AWS SDK v1.
-	 * <p>
-	 * This bean is created only if the property {@code epw.aws.kms.sdk-version} is set to
-	 * {@code v1} or is not specified. The client is configured with credentials from either the
-	 * specified AWS profile or the default credentials provider chain, and the region is determined
-	 * from the {@code aws.region} property.
-	 * </p>
+	 * Creates the primary EpwS3Service bean using the AWS SDK v2 implementation.
 	 *
-	 * @return A configured {@link AWSKMS} instance for AWS SDK v1.
+	 * @param amazonS3Client
+	 *            The shared AWS SDK v2 client.
+	 * @param s3Presigner
+	 *            The S3Presigner for generating pre-signed URLs.
+	 * @return The EpwS3ServiceImpl instance for AWS SDK v2.
 	 */
-	@Bean(name = "epwAWSKMSClient")
-	@ConditionalOnProperty(name = "epw.aws.kms.sdk-version", havingValue = "v1", matchIfMissing = true)
-	@ConditionalOnMissingBean(AWSKMS.class)
-	public AWSKMS awsKmsClient()
+	@Bean(name = "epwS3Service")
+	@ConditionalOnProperty(name = "epw.aws.s3.sdk-version", havingValue = "v2")
+	public com.empower.epw.aws.v2.s3.EpwS3ServiceImpl awsS3ServiceV2(
+			@Qualifier("epwAwsS3Client") S3Client amazonS3Client,
+			@Qualifier("epwS3Presigner") S3Presigner s3Presigner)
+	{
+		logger.info("Creating EpwS3Service bean for AWS SDK v2.");
+		return new com.empower.epw.aws.v2.s3.EpwS3ServiceImpl(amazonS3Client, s3Presigner);
+	}
+
+	/**
+	 * Creates the single, shared AmazonS3 client bean for the application using AWS SDK v1.
+	 *
+	 * @return A configured AmazonS3 instance.
+	 */
+	@Bean("epwAmazonS3Client")
+	@ConditionalOnProperty(name = "epw.aws.s3.sdk-version", havingValue = "v1", matchIfMissing = true)
+	public AmazonS3 amazonS3Client()
 	{
 		String awsRegion = System.getProperty(AWS_REGION_KEY, DEFAULT_AWS_REGION);
 		String awsProfile = System.getProperty(AWS_PROFILE);
-		com.amazonaws.auth.AWSCredentialsProvider credentialsProvider;
+		AWSCredentialsProvider credentialsProvider;
 		if (StringUtils.hasText(awsProfile))
 		{
 			logger.info("Using AWS profile for AWS SDK v1: {}", awsProfile);
@@ -110,231 +97,28 @@ public class EpwKmsAutoConfig
 			logger.info("Using default AWS credentials provider chain.");
 			credentialsProvider = DefaultAWSCredentialsProviderChain.getInstance();
 		}
-		logger.info("Creating AWSKMS client with region for AWS SDK v1: {}", awsRegion);
-		return AWSKMSClientBuilder.standard()
+		logger.info("Creating AmazonS3 client with region for AWS SDK v1: {}", awsRegion);
+		return AmazonS3ClientBuilder.standard()
 				.withCredentials(credentialsProvider)
 				.withRegion(awsRegion)
 				.build();
 	}
 
 	/**
-	 * Creates the primary EpwKmsService bean using the AWS SDK v1 implementation.
+	 * Creates the primary EpwS3Service bean using the AWS SDK v1 implementation.
 	 *
-	 * @param awsKmsClient
+	 * @param amazonS3Client
 	 *            The shared AWS SDK v1 client.
-	 * @return The EpwKmsServiceImpl instance for AWS SDK v1.
+	 * @return The EpwS3ServiceImpl instance.
 	 */
-	@Bean(name = "epwKmsService")
-	@Primary
-	@ConditionalOnProperty(name = "epw.aws.kms.sdk-version", havingValue = "v1", matchIfMissing = true)
-	public EpwKmsService epwKmsServiceV1(AWSKMS awsKmsClient)
+	@Bean(name = "epwS3Service")
+	@ConditionalOnProperty(name = "epw.aws.s3.sdk-version", havingValue = "v1", matchIfMissing = true)
+	public EpwS3Service awsS3ServiceV1(@Qualifier("epwAmazonS3Client") AmazonS3 amazonS3Client)
 	{
-		logger.info("Creating EpwKmsService bean for AWS SDK v1.");
-		return new com.empower.epw.aws.v1.kms.EpwKmsServiceImpl(awsKmsClient);
-	}
-}
-
-old code:
-
-public class KMSServiceImpl implements KMSService
-{
-	private AWSKMS kmsClient = null;
-	private static PcapLogger logger = PcapLoggerFactory.getPcapLogger(KMSServiceImpl.class);
-
-	private static Charset charset = StandardCharsets.UTF_8;
-
-	private AWSKMS getKMSClient()
-	{
-		if (kmsClient == null)
-		{
-			AWSCredentialsManager awsCredentialsManager = new AWSCredentialsManager();
-			kmsClient = (AWSKMS) awsCredentialsManager
-					.getClientBuilderWithCredentials(AWSKMSClient.builder())
-					.build();
-		}
-		return kmsClient;
+		logger.info("Creating EpwS3Service bean for AWS SDK v1.");
+		return new com.empower.epw.aws.v1.s3.EpwS3ServiceImpl(amazonS3Client);
 	}
 
-	// private constructor
-	private KMSServiceImpl()
-	{
-		/*
-		 * 1. can only be initialized using inner static class on first access.
-		 */
-		logger.info("Initialized the KMSServiceImpl");
-	}
 
-	/*
-	 * Bill Pugh Singleton creation using static inner class, thread safe and no synchronized block
-	 */
-	private static class KMSServiceHolder
-	{
-		private static final KMSService INSTANCE = new KMSServiceImpl();
-	}
 
-	public static KMSService getInstance()
-	{
-		/*
-		 * only when someone calls the method, this class gets loaded and creates the Singleton
-		 * class instance
-		 */
-		return KMSServiceHolder.INSTANCE;
-
-	}
-
-	/**
-	 * Encrypt data key (system secondary key) under AWS CMK Key using IAM role to access the key
-	 * AWS CMK
-	 * 
-	 * @throws SafePageException
-	 */
-	@Override
-	// @Retryable(value =
-	// {
-	// Exception.class
-	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
-	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
-	{
-		if (StringUtils.isEmpty(plainText))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
-		}
-		if (StringUtils.isEmpty(keyId))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
-		}
-		try
-		{
-			EncryptRequest encryptRequest = new EncryptRequest().withKeyId(keyId)
-					.withPlaintext(getByteBuffer(plainText));
-			long start = System.currentTimeMillis();
-			EncryptResult result = getKMSClient().encrypt(encryptRequest);
-			if (result != null && result.getCiphertextBlob() != null)
-			{
-				long end = System.currentTimeMillis();
-				logger.info("encryptData took {} " + (end - start));
-				return Utils.encodeBase64(result.getCiphertextBlob()
-						.array());
-			}
-			logger.error("encryptUsingAWSKey failed, EncryptResult is null!");
-			return null;
-		}
-		catch (DisabledException de)
-		{
-			logger.error(
-					"Failed to encryptUsingAWSKey(DisabledException), plainText:{}, keyId:{}, due to:{}",
-					plainText, keyId, ExceptionUtils.getMessage(de), de);
-		}
-		catch (KeyUnavailableException kue)
-		{
-			logger.error(
-					"Failed to encryptUsingAWSKey(KeyUnavailableException), plainText:{}, keyId:{}, due to:{}",
-					plainText, keyId, ExceptionUtils.getMessage(kue), kue);
-		}
-		catch (Exception ex)
-		{
-			logger.error("Failed to encryptUsingAWSKey, plainText:{}, keyId:{}, due to:{}",
-					plainText, keyId, ExceptionUtils.getMessage(ex), ex);
-		}
-		return null;
-	}
-
-	/**
-	 * Decrypt encrypted data key under AWS CMK Key using IAM role to access the key
-	 */
-	@Override
-	// @Retryable(value =
-	// {
-	// Exception.class
-	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
-	public String decryptUsingAWSKey(String cipherText) throws SafePageException
-	{
-		if (StringUtils.isEmpty(cipherText))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
-		}
-		try
-		{
-			byte[] decodedCipherText = Utils.decodeBase64(cipherText);
-			DecryptRequest decryptRequest = new DecryptRequest()
-					.withCiphertextBlob(ByteBuffer.wrap(decodedCipherText));
-			long start = System.currentTimeMillis();
-			DecryptResult result = getKMSClient().decrypt(decryptRequest);
-			long end = System.currentTimeMillis();
-			logger.info("decryptData took {}" + (end - start));
-			ByteBuffer plainTextBlob = result.getPlaintext();
-			return getString(plainTextBlob);
-		}
-		catch (KeyUnavailableException kue)
-		{
-			// The request was rejected because the specified CMK was not available. The request can
-			// be retried.
-			logger.error(
-					"Failed to decryptUsingAWSKey(KeyUnavailableException), cipherText:{}, due to:{}",
-					cipherText, ExceptionUtils.getMessage(kue), kue);
-		}
-		catch (InvalidCiphertextException ice)
-		{
-			// The request was rejected because the specified ciphertext, or additional
-			// authenticated data incorporated
-			// into the ciphertext, such as the encryption context, is corrupted, missing, or
-			// otherwise invalid.
-			logger.error(
-					"Failed to decryptUsingAWSKey(InvalidCiphertextException), cipherText:{}, due to:{}",
-					cipherText, ExceptionUtils.getMessage(ice), ice);
-		}
-		catch (DisabledException de)
-		{
-			logger.error(
-					"Failed to decryptUsingAWSKey(DisabledException), cipherText:{}, due to:{}",
-					cipherText, ExceptionUtils.getMessage(de), de);
-		}
-		catch (Exception ex)
-		{
-			logger.error("Failed to decryptUsingAWSKey, cipherText:{}, due to:{}", cipherText,
-					ExceptionUtils.getMessage(ex), ex);
-		}
-
-		return null;
-	}
-
-	public static String getString(ByteBuffer byteBuffer)
-	{
-		byte[] byteArray = new byte[byteBuffer.remaining()];
-		byteBuffer.get(byteArray);
-		return new String(byteArray, charset);
-	}
-
-	public static ByteBuffer getByteBuffer(String string)
-	{
-		return ByteBuffer.wrap(string.getBytes(charset));
-	}
-
-	/**
-	 * Create a new customer master key. <br>
-	 * Customer master key (CMK) is designed to encrypt and decrypt data keys (System Secondary
-	 * Key). CMK cannot be used to encrypt/decrypt data more than 4 KB (4096 bytes) of data.
-	 */
-	// public void createCMK()
-	// {
-	// String desc = "PCAP Master Key for encrypting system secondary keys";
-	// CreateKeyRequest req = new CreateKeyRequest().withDescription(desc);
-	// CreateKeyResult result = getKMSClient().createKey(req);
-	// }
-
-	@Override
-	public DescribeKeyResult describeKey(String keyId)
-	{
-		DescribeKeyRequest describeKeyRequest = new DescribeKeyRequest().withKeyId(keyId);
-		DescribeKeyResult result = getKMSClient().describeKey(describeKeyRequest);
-		return result;
-	}
-
-	@Override
-	public ListAliasesResult getKeyAliases(String keyId)
-	{
-		ListAliasesRequest listAliasesRequest = new ListAliasesRequest().withLimit(10);
-		ListAliasesResult result = getKMSClient().listAliases(listAliasesRequest);
-		return result;
-	}
-}
+like for example in this code, how @ConditionalOnMissingBean is not used and qualifer is used, follow this method in my autoconfig
