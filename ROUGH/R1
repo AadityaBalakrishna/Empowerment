@@ -1,40 +1,73 @@
-package com.personalcapital.aws;
+
+package com.empower.epw.plat.aws;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
+import com.amazonaws.auth.profile.ProfileCredentialsProvider;
+import com.amazonaws.client.builder.AwsAsyncClientBuilder;
 import com.amazonaws.client.builder.AwsClientBuilder;
-import com.empower.epw.plat.aws.AwsSdkUtils;
+import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
+import com.amazonaws.regions.AwsRegionProvider;
+import com.amazonaws.regions.DefaultAwsRegionProviderChain;
+import com.amazonaws.regions.Regions;
+import com.amazonaws.util.StringUtils;
 
-import static com.empower.epw.plat.aws.AwsSdkUtils.AWS_CREDENTIALS_PROVIDER;
-
-/**
- * How to manage credentials (access key id and secret access key), in the AWS SDKs in a secure way.
- * <a href=
- * "https://aws.amazon.com/blogs/security/a-new-and-standardized-way-to-manage-credentials-in-the-aws-sdks/">
- *
- * @author dizadi
- */
-public class AWSCredentialsManager
+public class AwsSdkUtils
 {
+	public static final String AWS_REGION_KEY = "aws.region";
 
-	@Deprecated(forRemoval = true, since = "2023.25")
-	public static final String DEFAULT_AWS_REGION = AwsSdkUtils.AWS_REGION;
-	@Deprecated(forRemoval = true, since = "2023.25")
-	public static final String AWS_REGION_KEY = AwsSdkUtils.AWS_REGION_KEY;
+	public static final String AWS_PROFILE = System.getProperty("aws.profile");
 
-	@Deprecated(forRemoval = true, since = "2023.26")
-	public AWSCredentialsProvider getCredentials()
-	{
-		return AWS_CREDENTIALS_PROVIDER;
-	}
+	public static final AWSCredentialsProvider AWS_CREDENTIALS_PROVIDER = StringUtils
+			.isNullOrEmpty(AWS_PROFILE) ? new DefaultAWSCredentialsProviderChain()
+					: new ProfileCredentialsProvider(AWS_PROFILE);
 
-	@Deprecated(forRemoval = true, since = "2023.26")
-	public <T extends AwsClientBuilder<T, R>, R> AwsClientBuilder<T, R> getClientBuilderWithCredentials(
+	public static final AwsRegionProvider AWS_REGION_PROVIDER = new DefaultAwsRegionProviderChain();
+	public static final String AWS_REGION = AWS_REGION_PROVIDER.getRegion();
+
+	public static <T extends AwsClientBuilder<T, R>, R> AwsClientBuilder<T, R> builder(
 			AwsClientBuilder<T, R> builder)
 	{
-		return AwsSdkUtils.builder(builder);
+		return builder.withCredentials(AWS_CREDENTIALS_PROVIDER)
+				.withRegion(AWS_REGION);
 	}
 
+	public static <T extends AwsClientBuilder<T, R>, R> R build(AwsClientBuilder<T, R> builder)
+	{
+		return builder.withCredentials(AWS_CREDENTIALS_PROVIDER)
+				.withRegion(AWS_REGION)
+				.build();
+	}
+
+	public static <T extends AwsClientBuilder<T, R>, R> R build(AwsClientBuilder<T, R> builder,
+			AWSCredentialsProvider credentialsProvider, Regions region)
+	{
+		return builder.withCredentials(credentialsProvider)
+				.withRegion(region)
+				.build();
+	}
+
+	public static <T extends AwsAsyncClientBuilder<T, R>, R> AwsAsyncClientBuilder<T, R> builder(
+			AwsAsyncClientBuilder<T, R> builder)
+	{
+		return builder.withCredentials(AWS_CREDENTIALS_PROVIDER)
+				.withRegion(AWS_REGION);
+	}
+
+	public static <T extends AwsClientBuilder<T, R>, R> R build(AwsClientBuilder<T, R> builder,
+			EndpointConfiguration endpointConfiguration)
+	{
+		return builder.withCredentials(AWS_CREDENTIALS_PROVIDER)
+				.withEndpointConfiguration(endpointConfiguration)
+				.build();
+	}
+
+	public static String getReplicaAwsRegion()
+	{
+		return AwsSdkUtils.AWS_REGION.equalsIgnoreCase(Regions.US_WEST_2.getName())
+				? Regions.US_EAST_1.getName()
+				: Regions.US_WEST_2.getName();
+	}
 }
 
-
-this is the AWSCredentialsManager that is used, can it be still used? for v2?
+this is it, what do you thin?
