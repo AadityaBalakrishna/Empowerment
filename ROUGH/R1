@@ -1,138 +1,19 @@
-package com.empower.epw.aws.kms.config;
+#### Bean Selection Priority for KMS Service
+1. **SDK Version-Specific Beans**
+   - When `epw.aws.kms.sdk-version=v2`:
+     - Creates SDK v2 beans: 
+       - 'epwKmsClient' (`KmsClient`).
+       - 'epwKmsService' (`EpwKMSServiceImpl` for SDK v2)
+   - When not set or `epw.aws.kms.sdk-version=v1`:
+     - Creates SDK v1 beans:
+       - 'epwAWSKMSClient' (`AWSKMS`).
+       - 'epwKmsService' (`EpwKMSServiceImpl` for SDK v1)
+2. **Bean Selection Mechanism**
+   - Uses `@ConditionalOnProperty` to control which beans are created based on the `epw.aws.kms.sdk-version` property.
+   - Uses '@Primary' to mark the appropriate bean as the default for injection.
+3. **Default Fallback (Lowest Priority)**
+   - If `epw.aws.kms.sdk-version` is not set, the configuration:
+     - Defaults to SDK v1 beans.
+     - Creates 'AWSKMS' and 'EpwKMSServiceImpl' for v1.
 
-import com.amazonaws.services.kms.AWSKMS;
-import com.amazonaws.services.kms.AWSKMSClient;
-import com.empower.epw.aws.api.kms.EpwKmsService;
-import com.personalcapital.aws.AWSCredentialsManager;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.condition.*;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
-import org.springframework.util.StringUtils;
-
-import software.amazon.awssdk.services.kms.KmsClient;
-
-/**
- * Auto-configuration for AWS KMS clients and services.
- * <p>
- * This configuration class provides beans for AWS Key Management Service (KMS) clients and
- * services, supporting both AWS SDK v1 and v2. The desired SDK version can be specified using the
- * property {@code epw.aws.kms.sdk-version}. If no version is specified, the v1 implementation is
- * used by default.
- * </p>
- * <p>
- * Beans are conditionally created based on the specified SDK version, and credentials are
- * configured using either the AWS profile or the default credentials provider chain.
- * </p>
- */
-@Configuration
-public class EpwKmsAutoConfig
-{
-
-	private static final Logger logger = LoggerFactory.getLogger(EpwKmsAutoConfig.class);
-	private static final String DEFAULT_AWS_REGION = "us-west-2";
-
-	public static final String AWS_REGION_KEY = "aws.region";
-	public static final String AWS_PROFILE = "aws.profile";
-
-	/**
-	 * Creates a KMS client for AWS SDK v2.
-	 * <p>
-	 * This bean is created only if the property {@code epw.aws.kms.sdk-version} is set to
-	 * {@code v2}. The client is configured with credentials from either the specified AWS profile
-	 * or the default credentials provider chain, and the region is determined from the
-	 * {@code aws.region} property.
-	 * </p>
-	 *
-	 * @return A configured {@link KmsClient} instance for AWS SDK v2.
-	 */
-	@Bean("epwKmsClient")
-	@ConditionalOnProperty(name = "epw.aws.kms.sdk-version", havingValue = "v2")
-	@ConditionalOnMissingBean(KmsClient.class)
-	public KmsClient kmsClient()
-	{
-		String awsProfile = System.getProperty(AWS_PROFILE);
-		software.amazon.awssdk.auth.credentials.AwsCredentialsProvider credentialsProvider;
-		if (StringUtils.hasText(awsProfile))
-		{
-			logger.info("Using AWS profile for AWS SDK v2: {}", awsProfile);
-			credentialsProvider = software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider
-					.builder()
-					.profileName(awsProfile)
-					.build();
-		}
-		else
-		{
-			logger.info("Using default AWS credentials provider chain for SDK v2.");
-			credentialsProvider = software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider
-					.create();
-		}
-
-		String awsRegion = System.getProperty(AWS_REGION_KEY, DEFAULT_AWS_REGION);
-		logger.info("Creating KmsClient for AWS SDK v2 with region: {}", awsRegion);
-		return KmsClient.builder()
-				.credentialsProvider(credentialsProvider)
-				.region(software.amazon.awssdk.regions.Region.of(awsRegion))
-				.build();
-	}
-
-	/**
-	 * Creates the primary EpwKmsService bean using the AWS SDK v2 implementation.
-	 *
-	 * @param kmsClient
-	 *            The shared AWS SDK v2 client.
-	 * @return The EpwKmsServiceImpl instance for AWS SDK v2.
-	 */
-	@Bean(name = "epwKmsService")
-	@Primary
-	@ConditionalOnProperty(name = "epw.aws.kms.sdk-version", havingValue = "v2")
-	public EpwKmsService epwKmsServiceV2(KmsClient kmsClient)
-	{
-		logger.info("Creating EpwKmsServiceImpl bean for AWS SDK v2");
-		return new com.empower.epw.aws.v2.kms.EpwKmsServiceImpl(kmsClient);
-	}
-
-	/**
-	 * Creates an AWS KMS client for AWS SDK v1.
-	 * <p>
-	 * This bean is created only if the property {@code epw.aws.kms.sdk-version} is set to
-	 * {@code v1} or is not specified. The client is configured with credentials from either the
-	 * specified AWS profile or the default credentials provider chain, and the region is determined
-	 * from the {@code aws.region} property.
-	 * </p>
-	 *
-	 * @return A configured {@link AWSKMS} instance for AWS SDK v1.
-	 */
-	@Bean(name = "epwAWSKMSClient")
-	@ConditionalOnProperty(name = "epw.aws.kms.sdk-version", havingValue = "v1", matchIfMissing = true)
-	public AWSKMS epwAWSKMSClient()
-	{
-		AWSCredentialsManager awsCredentialsManager = new AWSCredentialsManager();
-		return awsCredentialsManager.getClientBuilderWithCredentials(AWSKMSClient.builder())
-				.build();
-	}
-
-	/**
-	 * Creates the primary EpwKmsService bean using the AWS SDK v1 implementation.
-	 *
-	 * @param awsKmsClient
-	 *            The shared AWS SDK v1 client.
-	 * @return The EpwKmsServiceImpl instance for AWS SDK v1.
-	 */
-	@Bean(name = "epwKmsService")
-	@ConditionalOnProperty(name = "epw.aws.kms.sdk-version", havingValue = "v1", matchIfMissing = true)
-	public EpwKmsService epwKmsServiceV1(@Qualifier("epwAWSKMSClient") AWSKMS epwAWSKMSClient)
-	{
-		logger.info("Creating EpwKmsService bean for AWS SDK v1.");
-		return new com.empower.epw.aws.v1.kms.EpwKmsServiceImpl(epwAWSKMSClient);
-	}
-}
-
-
-
-please help me refactor this code, 
-so for v1 bean creation, it is aligned with how it was created earlier in KmsServiceImpl, hence it will be using the AWSCredentialManager class and building the client, but the new v2 bean creation is as it is, i have mentioned there, (make it better if required) and also add that @Qualifer for the bean like done in v1 and remove conditional on missing bean annotation, and fix the java doc
+in light of those new changes, could you help me refactor this to:
