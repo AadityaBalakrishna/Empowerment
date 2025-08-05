@@ -1,124 +1,40 @@
-@Configuration
-public class EpwS3AutoConfig
+package com.personalcapital.aws;
+
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.client.builder.AwsClientBuilder;
+import com.empower.epw.plat.aws.AwsSdkUtils;
+
+import static com.empower.epw.plat.aws.AwsSdkUtils.AWS_CREDENTIALS_PROVIDER;
+
+/**
+ * How to manage credentials (access key id and secret access key), in the AWS SDKs in a secure way.
+ * <a href=
+ * "https://aws.amazon.com/blogs/security/a-new-and-standardized-way-to-manage-credentials-in-the-aws-sdks/">
+ *
+ * @author dizadi
+ */
+public class AWSCredentialsManager
 {
 
-	private static final Logger logger = LoggerFactory.getLogger(EpwS3AutoConfig.class);
-	private static final String DEFAULT_AWS_REGION = "us-west-2";
+	@Deprecated(forRemoval = true, since = "2023.25")
+	public static final String DEFAULT_AWS_REGION = AwsSdkUtils.AWS_REGION;
+	@Deprecated(forRemoval = true, since = "2023.25")
+	public static final String AWS_REGION_KEY = AwsSdkUtils.AWS_REGION_KEY;
 
-	public static final String AWS_REGION_KEY = "aws.region";
-	public static final String AWS_PROFILE = "aws.profile";
-
-	/**
-	 * Creates the single, shared S3Client bean for the application using AWS SDK v2.
-	 *
-	 * @return A configured S3Client instance.
-	 */
-	@Bean("epwAwsS3Client")
-	@ConditionalOnProperty(name = "epw.aws.s3.sdk-version", havingValue = "v2")
-	public S3Client s3Client()
+	@Deprecated(forRemoval = true, since = "2023.26")
+	public AWSCredentialsProvider getCredentials()
 	{
-		String awsProfile = System.getProperty(AWS_PROFILE);
-		software.amazon.awssdk.auth.credentials.AwsCredentialsProvider credentialsProvider;
-		if (StringUtils.hasText(awsProfile))
-		{
-			logger.info("s: {}", awsProfile);
-			credentialsProvider = software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider
-					.builder()
-					.profileName(awsProfile)
-					.build();
-		}
-		else
-		{
-			logger.info("Using default AWS credentials provider chain for SDK v2.");
-			credentialsProvider = software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider
-					.create();
-		}
-
-		String awsRegion = System.getProperty(AWS_REGION_KEY, DEFAULT_AWS_REGION);
-		logger.info("Creating S3Client for AWS SDK v2 with region: {}", awsRegion);
-		return S3Client.builder()
-				.credentialsProvider(credentialsProvider)
-				.region(software.amazon.awssdk.regions.Region.of(awsRegion))
-				.build();
+		return AWS_CREDENTIALS_PROVIDER;
 	}
 
-	/**
-	 * Creates the single, shared S3Presigner bean for the application using AWS SDK v2.
-	 *
-	 * @return A configured S3Presigner instance.
-	 */
-	@Bean("epwS3Presigner")
-	@ConditionalOnProperty(name = "epw.aws.s3.sdk-version", havingValue = "v2")
-	public S3Presigner s3Presigner()
+	@Deprecated(forRemoval = true, since = "2023.26")
+	public <T extends AwsClientBuilder<T, R>, R> AwsClientBuilder<T, R> getClientBuilderWithCredentials(
+			AwsClientBuilder<T, R> builder)
 	{
-		logger.info("Creating S3Presigner for AWS SDK v2.");
-		return S3Presigner.builder()
-				.build();
+		return AwsSdkUtils.builder(builder);
 	}
 
-	/**
-	 * Creates the primary EpwS3Service bean using the AWS SDK v2 implementation.
-	 *
-	 * @param amazonS3Client
-	 *            The shared AWS SDK v2 client.
-	 * @param s3Presigner
-	 *            The S3Presigner for generating pre-signed URLs.
-	 * @return The EpwS3ServiceImpl instance for AWS SDK v2.
-	 */
-	@Bean(name = "epwS3Service")
-	@ConditionalOnProperty(name = "epw.aws.s3.sdk-version", havingValue = "v2")
-	public com.empower.epw.aws.v2.s3.EpwS3ServiceImpl awsS3ServiceV2(
-			@Qualifier("epwAwsS3Client") S3Client amazonS3Client,
-			@Qualifier("epwS3Presigner") S3Presigner s3Presigner)
-	{
-		logger.info("Creating EpwS3Service bean for AWS SDK v2.");
-		return new com.empower.epw.aws.v2.s3.EpwS3ServiceImpl(amazonS3Client, s3Presigner);
-	}
-
-	/**
-	 * Creates the single, shared AmazonS3 client bean for the application using AWS SDK v1.
-	 *
-	 * @return A configured AmazonS3 instance.
-	 */
-	@Bean("epwAmazonS3Client")
-	@ConditionalOnProperty(name = "epw.aws.s3.sdk-version", havingValue = "v1", matchIfMissing = true)
-	public AmazonS3 amazonS3Client()
-	{
-		String awsRegion = System.getProperty(AWS_REGION_KEY, DEFAULT_AWS_REGION);
-		String awsProfile = System.getProperty(AWS_PROFILE);
-		AWSCredentialsProvider credentialsProvider;
-		if (StringUtils.hasText(awsProfile))
-		{
-			logger.info("Using AWS profile for AWS SDK v1: {}", awsProfile);
-			credentialsProvider = new ProfileCredentialsProvider(awsProfile);
-		}
-		else
-		{
-			logger.info("Using default AWS credentials provider chain.");
-			credentialsProvider = DefaultAWSCredentialsProviderChain.getInstance();
-		}
-		logger.info("Creating AmazonS3 client with region for AWS SDK v1: {}", awsRegion);
-		return AmazonS3ClientBuilder.standard()
-				.withCredentials(credentialsProvider)
-				.withRegion(awsRegion)
-				.build();
-	}
-
-	/**
-	 * Creates the primary EpwS3Service bean using the AWS SDK v1 implementation.
-	 *
-	 * @param amazonS3Client
-	 *            The shared AWS SDK v1 client.
-	 * @return The EpwS3ServiceImpl instance.
-	 */
-	@Bean(name = "epwS3Service")
-	@ConditionalOnProperty(name = "epw.aws.s3.sdk-version", havingValue = "v1", matchIfMissing = true)
-	public EpwS3Service awsS3ServiceV1(@Qualifier("epwAmazonS3Client") AmazonS3 amazonS3Client)
-	{
-		logger.info("Creating EpwS3Service bean for AWS SDK v1.");
-		return new com.empower.epw.aws.v1.s3.EpwS3ServiceImpl(amazonS3Client);
-	}
+}
 
 
-
-like for example in this code, how @ConditionalOnMissingBean is not used and qualifer is used, follow this method in my autoconfig
+this is the AWSCredentialsManager that is used, can it be still used? for v2?
