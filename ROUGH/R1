@@ -1,3 +1,1 @@
-Disbaled the default bean loading for v1 at the moment, needs to be enabled before consumers will be refactored , add matchIfMissing = true
-
-refactor this comment to make more sense and reduce the words
+// Temporarily disabling v1 bean; re-enable with matchIfMissing=true before refactoring consumers
