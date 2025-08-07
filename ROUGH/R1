@@ -1,4 +1,9 @@
-@TestPropertySource(
-    locations = "classpath:application-test.properties",
-    properties = "epw.aws.kms.sdk-version=v1"
-)
+<mockito:mock id="epwKmsService" class="com.empower.epw.aws.api.kms.EpwKmsService" />
+
+	<bean id="awsKmsClient" class="com.amazonaws.services.kms.AWSKMSClientBuilder" factory-method="defaultClient" />
+
+	<bean id="epwKmsService" class="com.empower.epw.aws.v1.kms.EpwKmsServiceImpl">
+		<constructor-arg ref="awsKmsClient"/>
+	</bean>
+
+is this right?
