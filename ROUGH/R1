@@ -1,1 +1,12 @@
-// Temporarily disabling v1 bean; re-enable with matchIfMissing=true before refactoring consumers
+i have Temporarily disabling v1 bean; re-enable with matchIfMissing=true before refactoring consumers
+
+so classes using this:
+<bean id="epwKmsAutoConfig" class="com.empower.epw.aws.kms.config.EpwKmsAutoConfig"/>
+
+might face issues, right?
+
+to one test class that was failing, i did this: @TestPropertySource(properties = "epw.aws.kms.sdk-version=v1")
+
+but this bean id method what do i do?
+and also, in some places i have used this <mockito:mock id="epwKmsService" class="com.empower.epw.aws.api.kms.EpwKmsService" />
+what do i do for that?
