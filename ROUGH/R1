@@ -1,12 +1,4 @@
-@SpringJUnitConfig(classes =
-{
-		SSMTestConfiguration.class, AccountManagerTestConfig.class, EpwKmsAutoConfig.class
-})
-@Transactional(transactionManager = "spTran")
-@Rollback
-@TestPropertySource(locations =
-{
-		"classpath:application-test.properties"
-})
-
-for one test i had passed the beans through autoconfig like this, can i pass the properties too?
+@TestPropertySource(
+    locations = "classpath:application-test.properties",
+    properties = "epw.aws.kms.sdk-version=v1"
+)
