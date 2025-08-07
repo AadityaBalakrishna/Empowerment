@@ -1,5 +1,12 @@
-<bean id="awsKmsClient" class="com.amazonaws.services.kms.AWSKMSClientBuilder" factory-method="defaultClient" />
+@SpringJUnitConfig(classes =
+{
+		SSMTestConfiguration.class, AccountManagerTestConfig.class, EpwKmsAutoConfig.class
+})
+@Transactional(transactionManager = "spTran")
+@Rollback
+@TestPropertySource(locations =
+{
+		"classpath:application-test.properties"
+})
 
-<bean id="epwKmsService" class="com.empower.epw.aws.v1.kms.EpwKmsServiceImpl">
-    <constructor-arg ref="awsKmsClient"/>
-</bean>
+for one test i had passed the beans through autoconfig like this, can i pass the properties too?
