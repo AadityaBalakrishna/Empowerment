@@ -1,84 +1,13 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<beans default-lazy-init="true" xmlns="http://www.springframework.org/schema/beans"
-	   xmlns:aop="http://www.springframework.org/schema/aop"
-	   xmlns:context="http://www.springframework.org/schema/context"
-	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	   xsi:schemaLocation="http://www.springframework.org/schema/beans
-	http://www.springframework.org/schema/beans/spring-beans.xsd
-	http://www.springframework.org/schema/aop
-	http://www.springframework.org/schema/aop/spring-aop.xsd
-	http://www.springframework.org/schema/context
-	http://www.springframework.org/schema/context/spring-context.xsd">
-	<context:annotation-config />
-	<aop:aspectj-autoproxy />
-	<bean id="snapshotPersistenceUnitManager" name="snapshotPersistenceUnitManager"
-		class="org.springframework.orm.jpa.persistenceunit.DefaultPersistenceUnitManager">
-		<property name="persistenceXmlLocations">
-			<list>
-				<value>classpath*:META-INF/snapshotPersistence.xml</value>
-			</list>
-		</property>
-		<property name="dataSourceLookup">
-			<bean
-				class="org.springframework.jdbc.datasource.lookup.BeanFactoryDataSourceLookup" />
-		</property>
-	</bean>
-	<bean id="snapshotPersistenceReadOnlyUnitManager" name="snapshotPersistenceReadOnlyUnitManager"
-		class="org.springframework.orm.jpa.persistenceunit.DefaultPersistenceUnitManager">
-		<property name="persistenceXmlLocations">
-			<list>
-				<value>classpath*:META-INF/snapshotPersistenceReadOnly.xml</value>
-			</list>
-		</property>
-		<property name="dataSourceLookup">
-			<bean
-				class="org.springframework.jdbc.datasource.lookup.BeanFactoryDataSourceLookup" />
-		</property>
-	</bean>
-	<!-- Needed for Snapshot persistence context -->
-	<bean id="snapshotReadOnlyDataSource" name="snapshotReadOnlyDataSource" class="com.zaxxer.hikari.HikariDataSource"
-		destroy-method="close">
-		<constructor-arg index="0" ref="hikariDataPcapSnapshotReadOnlyConfig" />
-	</bean>
-	<bean id="hikariDataPcapSnapshotReadOnlyConfig" class="com.zaxxer.hikari.HikariConfig">
-		<constructor-arg index="0" value="${TEST_CONFIG_HOME}/hikaricp.configurationFile" />
-		<property name="jdbcUrl" value="${db.pcap.snapshot.readonly.jdbcUrl:jdbc:mysql://pcap-devtrunk-snapshot-db2.pcapcloud.net:3306/pcap_snapshot?sslMode=DISABLED}" />
-		<!-- Only for PCAP it is db.username -->
-		<property name="username" value="${db.readonly.username}" />
-		<property name="password" value="${db.readonly.password}" />
-		<property name="driverClassName" value="software.aws.rds.jdbc.mysql.Driver" />
-		<property name="dataSourceProperties">
-			<props>
-				<prop key="sendFractionalSecondsForTime" >false</prop>
-				<prop key="sendFractionalSeconds" >false</prop>
-			</props>
-		</property>
-	</bean>
-	<bean id="snapshotReadOnlyEntityManagerFactory" name="snapshotReadOnlyEntityManagerFactory"
-		class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
-		<property name="persistenceUnitManager" ref="snapshotPersistenceReadOnlyUnitManager" />
-		<property name="persistenceUnitName" value="read_only_pcap_snapshot" />
-		<property name="dataSource" ref="snapshotReadOnlyDataSource" />
-		<property name="jpaVendorAdapter" ref="jpaVendorAdapter" />
-		<property name="jpaDialect" ref="jpaDialect" />
-	</bean>
-	<bean id="snapshotReadOnlyTransactionManager" name="snapshotReadOnlyTransactionManager"
-		class="org.springframework.orm.jpa.JpaTransactionManager">
-		<property name="entityManagerFactory" ref="snapshotReadOnlyEntityManagerFactory" />
-		<qualifier value="snapshotReadOnlyTran" />
-		<property name="jpaDialect" ref="jpaDialect" />
-	</bean>
-	<bean id="jpaVendorAdapter"
-		class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
-		<property name="database" value="MYSQL" />
-		<property name="showSql" value="false" />
-		<property name="databasePlatform" value="org.hibernate.dialect.MySQLDialect" />
-	</bean>
-	<bean id="jpaDialect" class="org.springframework.orm.jpa.vendor.HibernateJpaDialect">
-	</bean>
-	<import resource="classpath:pcap-snapshot-data-common.xml" />
-	<import resource="classpath:pcap-snapshot-data.xml" />
-</beans>
-
-
-this is pcap-snapshot-test-data
+22:22:02  [INFO] Running com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest
+22:22:16  [ERROR] Tests run: 2, Failures: 0, Errors: 2, Skipped: 0, Time elapsed: 14.222 s <<< FAILURE! - in com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest
+22:22:16  [ERROR] com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest.testCalculateTargetPortfolioCompletionForCloseToRetirement  Time elapsed: 0.002 s  <<< ERROR!
+22:22:16  java.lang.IllegalStateException: Failed to load ApplicationContext for [MergedContextConfiguration@7fb468ed testClass = com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest, locations = ["classpath:pcapPlanningApplicationContext.xml"], classes = [], contextInitializerClasses = [], activeProfiles = [], propertySourceDescriptors = [PropertySourceDescriptor[locations=[classpath:application-test.properties], ignoreResourceNotFound=false, name=null, propertySourceFactory=null, encoding=null]], propertySourceProperties = [], contextCustomizers = [org.springframework.test.context.support.DynamicPropertiesContextCustomizer@0], contextLoader = org.springframework.test.context.support.DelegatingSmartContextLoader, parent = null]
+22:22:16  Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'snapshotPersistenceReadOnlyUnitManager' defined in class path resource [pcap-snapshot-test-data.xml]: Failed to look up DataSource bean with name 'snapshotReadOnlyDataSource'
+22:22:16  Caused by: org.springframework.jdbc.datasource.lookup.DataSourceLookupFailureException: Failed to look up DataSource bean with name 'snapshotReadOnlyDataSource'
+22:22:16  Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'snapshotReadOnlyDataSource' defined in class path resource [pcap-snapshot-test-data.xml]: Failed to instantiate [com.zaxxer.hikari.HikariDataSource]: Constructor threw exception
+22:22:16  Caused by: org.springframework.beans.BeanInstantiationException: Failed to instantiate [com.zaxxer.hikari.HikariDataSource]: Constructor threw exception
+22:22:16  Caused by: com.zaxxer.hikari.pool.HikariPool$PoolInitializationException: Failed to initialize pool: Access denied for user 'fp_app_devtrunk'@'10.205.121.23' (using password: NO)
+22:22:17  Caused by: java.sql.SQLException: Access denied for user 'fp_app_devtrunk'@'10.205.121.23' (using password: NO)
+22:22:17  
+22:22:17  [ERROR] com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest.testCalculateTargetPortfolioCompletionForNotCloseToRetirement  Time elapsed: 0.001 s  <<< ERROR!
+22:22:17  java.lang.IllegalStateException: ApplicationContext failure threshold (1) exceeded: skipping repeated attempt to load context for [MergedContextConfiguration@7fb468ed testClass = com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest, locations = ["classpath:pcapPlanningApplicationContext.xml"], classes = [], contextInitializerClasses = [], activeProfiles = [], propertySourceDescriptors = [PropertySourceDescriptor[locations=[classpath:application-test.properties], ignoreResourceNotFound=false, name=null, propertySourceFactory=null, encoding=null]], propertySourceProperties = [], contextCustomizers = [org.springframework.test.context.support.DynamicPropertiesContextCustomizer@0], contextLoader = org.springframework.test.context.support.DelegatingSmartContextLoader, parent = null]
