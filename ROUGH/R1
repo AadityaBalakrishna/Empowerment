@@ -1,13 +1,164 @@
-23:06:17  [ERROR] Tests run: 2, Failures: 0, Errors: 2, Skipped: 0, Time elapsed: 20.243 s <<< FAILURE! - in com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest
-23:06:17  [ERROR] com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest.testCalculateTargetPortfolioCompletionForCloseToRetirement  Time elapsed: 0.002 s  <<< ERROR!
-23:06:17  java.lang.IllegalStateException: Failed to load ApplicationContext for [MergedContextConfiguration@6831cb14 testClass = com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest, locations = ["classpath:pcapPlanningApplicationContext.xml"], classes = [], contextInitializerClasses = [], activeProfiles = [], propertySourceDescriptors = [PropertySourceDescriptor[locations=[classpath:application-test-planning.properties], ignoreResourceNotFound=false, name=null, propertySourceFactory=null, encoding=null]], propertySourceProperties = [], contextCustomizers = [org.springframework.test.context.support.DynamicPropertiesContextCustomizer@0], contextLoader = org.springframework.test.context.support.DelegatingSmartContextLoader, parent = null]
-23:06:17  Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'snapshotPersistenceReadOnlyUnitManager' defined in class path resource [pcap-snapshot-test-data.xml]: Failed to look up DataSource bean with name 'snapshotReadOnlyDataSource'
-23:06:17  Caused by: org.springframework.jdbc.datasource.lookup.DataSourceLookupFailureException: Failed to look up DataSource bean with name 'snapshotReadOnlyDataSource'
-23:06:17  Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'snapshotReadOnlyDataSource' defined in class path resource [pcap-snapshot-test-data.xml]: Failed to instantiate [com.zaxxer.hikari.HikariDataSource]: Constructor threw exception
-23:06:17  Caused by: org.springframework.beans.BeanInstantiationException: Failed to instantiate [com.zaxxer.hikari.HikariDataSource]: Constructor threw exception
-23:06:17  Caused by: com.zaxxer.hikari.pool.HikariPool$PoolInitializationException: Failed to initialize pool: Could not create connection to database server. Attempted reconnect 3 times. Giving up.
-23:06:17  Caused by: java.sql.SQLNonTransientConnectionException: Could not create connection to database server. Attempted reconnect 3 times. Giving up.
-23:06:17  Caused by: software.aws.rds.jdbc.mysql.shading.com.mysql.cj.exceptions.CJException: Access denied for user 'pcap_app_2'@'10.205.124.201' (using password: YES)
-23:06:17  
-23:06:17  [ERROR] com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest.testCalculateTargetPortfolioCompletionForNotCloseToRetirement  Time elapsed: 0.001 s  <<< ERROR!
-23:06:17  java.lang.IllegalStateException: ApplicationContext failure threshold (1) exceeded: skipping repeated attempt to load context for [MergedContextConfiguration@6831cb14 testClass = com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest, locations = ["classpath:pcapPlanningApplicationContext.xml"], classes = [], contextInitializerClasses = [], activeProfiles = [], propertySourceDescriptors = [PropertySourceDescriptor[locations=[classpath:application-test-planning.properties], ignoreResourceNotFound=false, name=null, propertySourceFactory=null, encoding=null]], propertySourceProperties = [], contextCustomizers = [org.springframework.test.context.support.DynamicPropertiesContextCustomizer@0], contextLoader = org.springframework.test.context.support.DelegatingSmartContextLoader, parent = null]
+package com.personalcapital.profile;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
+
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+import com.personalcapital.profile.data.Person;
+import com.personalcapital.profile.data.PersonDao;
+import com.personalcapital.user.data.UserInfo;
+import com.personalcapital.user.data.util.UserDataUtils;
+import com.safepage.user.data.User;
+import com.safepage.user.data.UserDao;
+
+/**
+ * @author rnukala Date: Sep 6, 2013
+ */
+@SpringJUnitConfig(locations = "classpath:pcapPlanningApplicationContext.xml")
+@TestPropertySource(locations =
+{
+		"classpath:application-test.properties"
+})
+public class TargetPortfolioAccuracyCalculatorTest
+{
+	private static final PcapLogger logger = PcapLoggerFactory
+			.getPcapLogger(TargetPortfolioAccuracyCalculatorTest.class);
+	private static final String USER_NAME = "testqa+test@personalcapital.com";
+
+	@Autowired
+	private UserDao userDao;
+
+	@Autowired
+	private UserDataUtils userDataUtils;
+
+	@Autowired
+	private PersonDao personDao;
+
+	@Autowired
+	private TargetPortfolioAccuracyCalculator targetPortfolioAccuracyCalculator;
+
+	/**
+	 * Test case to calculate target portfolio completion for close to retirement
+	 */
+	@Test
+	public void testCalculateTargetPortfolioCompletionForCloseToRetirement()
+	{
+		User user = userDao.getUserAssociatedWithEmail(USER_NAME);
+		try
+		{
+			UserInfo userInfo = userDataUtils.getUserInfoForUser(user);
+			Assertions.assertNotNull(userInfo);
+			Person person = personDao.getSelfPersonForUser(user);
+			Assertions.assertNotNull(person);
+			Double portfolioCompletion = targetPortfolioAccuracyCalculator
+					.calculateTargetPortfolioCompletion(user, person, userInfo, false);
+			Assertions.assertNotNull(portfolioCompletion);
+		}
+		catch (Exception e)
+		{
+			logger.error("Exception while processing the portfolio completion: " + e.getMessage(),
+					e);
+		}
+	}
+
+	/**
+	 * Test case to calculate target portfolio completion for not close to retirement
+	 */
+	@Test
+	public void testCalculateTargetPortfolioCompletionForNotCloseToRetirement()
+	{
+		User user = userDao.getUserAssociatedWithEmail(USER_NAME);
+		try
+		{
+			UserInfo userInfo = userDataUtils.getUserInfoForUser(user);
+			Person person = personDao.getSelfPersonForUser(user);
+			Double portfolioCompletion = targetPortfolioAccuracyCalculator
+					.calculateTargetPortfolioCompletion(user, person, userInfo, true);
+			Assertions.assertNotNull(portfolioCompletion);
+		}
+		catch (Exception e)
+		{
+			logger.error("Exception while processing the portfolio completion: " + e.getMessage(),
+					e);
+		}
+
+	}
+}
+
+
+this test class is failing in jenkins with :
+
+18:45:01  [ERROR] Tests run: 2, Failures: 0, Errors: 2, Skipped: 0, Time elapsed: 8.117 s <<< FAILURE! - in com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest
+18:45:01  [ERROR] com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest.testCalculateTargetPortfolioCompletionForCloseToRetirement  Time elapsed: 0.003 s  <<< ERROR!
+18:45:01  java.lang.IllegalStateException: Failed to load ApplicationContext for [MergedContextConfiguration@13e4287c testClass = com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest, locations = ["classpath:pcapPlanningApplicationContext1.xml"], classes = [], contextInitializerClasses = [], activeProfiles = [], propertySourceDescriptors = [PropertySourceDescriptor[locations=[classpath:application-test-planning.properties], ignoreResourceNotFound=false, name=null, propertySourceFactory=null, encoding=null]], propertySourceProperties = [], contextCustomizers = [org.springframework.test.context.support.DynamicPropertiesContextCustomizer@0], contextLoader = org.springframework.test.context.support.DelegatingSmartContextLoader, parent = null]
+18:45:01  Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'snapshotPersistenceReadOnlyUnitManager' defined in class path resource [pcap-snapshot-test-data.xml]: Failed to look up DataSource bean with name 'snapshotReadOnlyDataSource'
+18:45:01  Caused by: org.springframework.jdbc.datasource.lookup.DataSourceLookupFailureException: Failed to look up DataSource bean with name 'snapshotReadOnlyDataSource'
+18:45:01  Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'snapshotReadOnlyDataSource' defined in class path resource [pcap-snapshot-test-data.xml]: Failed to instantiate [com.zaxxer.hikari.HikariDataSource]: Constructor threw exception
+18:45:01  Caused by: org.springframework.beans.BeanInstantiationException: Failed to instantiate [com.zaxxer.hikari.HikariDataSource]: Constructor threw exception
+18:45:01  Caused by: com.zaxxer.hikari.pool.HikariPool$PoolInitializationException: Failed to initialize pool: Could not create connection to database server. Attempted reconnect 3 times. Giving up.
+18:45:01  Caused by: java.sql.SQLNonTransientConnectionException: Could not create connection to database server. Attempted reconnect 3 times. Giving up.
+18:45:01  Caused by: software.aws.rds.jdbc.mysql.shading.com.mysql.cj.exceptions.CJException: Access denied for user 'pcap_app_2'@'10.205.120.72' (using password: YES)
+18:45:01  
+18:45:01  [ERROR] com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest.testCalculateTargetPortfolioCompletionForNotCloseToRetirement  Time elapsed: 0.001 s  <<< ERROR!
+18:45:01  java.lang.IllegalStateException: ApplicationContext failure threshold (1) exceeded: skipping repeated attempt to load context for [MergedContextConfiguration@13e4287c testClass = com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest, locations = ["classpath:pcapPlanningApplicationContext1.xml"], classes = [], contextInitializerClasses = [], activeProfiles = [], propertySourceDescriptors = [PropertySourceDescriptor[locations=[classpath:application-test-planning.properties], ignoreResourceNotFound=false, name=null, propertySourceFactory=null, encoding=null]], propertySourceProperties = [], contextCustomizers = [org.springframework.test.context.support.DynamicPropertiesContextCustomizer@0], contextLoader = org.springframework.test.context.support.DelegatingSmartContextLoader, parent = null]
+
+i have shifted the test class from one repo to another, and now i feel there is a mismatch in properties required to run the test
+
+this is the xml file:
+<?xml version="1.0" encoding="UTF-8"?>
+<beans default-lazy-init="true"
+	xmlns="http://www.springframework.org/schema/beans" xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:context="http://www.springframework.org/schema/context" xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:util="http://www.springframework.org/schema/util" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:mockito="http://www.mockito.org/spring/mockito"
+	xsi:schemaLocation="
+			http://www.springframework.org/schema/beans
+			http://www.springframework.org/schema/beans/spring-beans.xsd
+			http://www.springframework.org/schema/aop
+			http://www.springframework.org/schema/aop/spring-aop.xsd
+			http://www.springframework.org/schema/context
+			http://www.springframework.org/schema/context/spring-context.xsd
+            http://www.springframework.org/schema/util
+            http://www.springframework.org/schema/util/spring-util.xsd
+			http://www.springframework.org/schema/tx
+    		http://www.springframework.org/schema/tx/spring-tx.xsd
+    		http://www.mockito.org/spring/mockito
+    		http://www.mockito.org/spring/mockito.xsd">
+
+	<!-- All dependencies for running integration test -->
+	<import
+			resource="file:${TEST_CONFIG_HOME}/spring/pcap-command-context-without-filecabinet.xml" />
+	<import resource="file:${TEST_CONFIG_HOME}/spring/pcap-snapshot-test-data.xml" />
+	<!-- from pcap-filecabinet -->
+	<import resource="file:${TEST_CONFIG_HOME}/spring/mocks/mock-pcap-filecabinet.xml" />
+	<mockito:mock id="userLockManager" class="com.personalcapital.lock.UserLockManager" />
+	<mockito:mock id="AccountTypeUtils" class="com.personalcapital.user.data.util.AccountTypeUtils" />
+	<mockito:mock id="popularSiteService" class="com.personalcapital.site.PopularSiteServiceImpl" />
+	<import resource="classpath:pcap-planning-common.xml" />
+
+		<!-- from pcap-planning -->
+	<import resource="classpath:pcap-planning.xml" />
+	<import resource="classpath:pcap-investing.xml" />
+	<import resource="classpath:pcap-efficient-frontier.xml" />
+
+	<!-- from pcap-core-services -->
+	<import resource="classpath:sp-core-services.xml" />
+	<!-- profile service needs it -->
+	<mockito:mock id="marketingNotificationManager" class="com.safepage.user.MarketingNotificationManager" />
+	<mockito:mock id="emailService" class="com.personalcapital.email.service.EmailService" />
+	<mockito:mock id="mailMessageConfig" class="com.personalcapital.email.builder.MailMessageConfig" />
+	<mockito:mock id="userEventManager" class="com.safepage.user.UserEventManager" />
+	<mockito:mock id="userEnrollmentFundEventManager" class="com.personalcapital.enrollment.UserEnrollmentFundEventManager" />
+	<mockito:mock id="transactionClientService"
+				  class="com.personalcapital.transaction.client.TransactionClientService" />
+	<!-- from pcap-service-client -->
+	<import resource="classpath:pcap-service-client.xml" />
+	<import resource="classpath*:account-api-client.xml"/>
+	<context:annotation-config />
+	<bean class="com.personalcapital.config.SalesforceHelperConfig" />
+</beans>
