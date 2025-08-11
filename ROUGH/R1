@@ -1,162 +1,84 @@
-package com.personalcapital.profile;
-
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
-
-import com.personalcapital.log.PcapLogger;
-import com.personalcapital.log.PcapLoggerFactory;
-import com.personalcapital.profile.data.Person;
-import com.personalcapital.profile.data.PersonDao;
-import com.personalcapital.user.data.UserInfo;
-import com.personalcapital.user.data.util.UserDataUtils;
-import com.safepage.user.data.User;
-import com.safepage.user.data.UserDao;
-
-/**
- * @author rnukala Date: Sep 6, 2013
- */
-@SpringJUnitConfig(locations = "classpath:pcapPlanningApplicationContext.xml")
-@TestPropertySource(locations =
-{
-		"classpath:application-test.properties"
-})
-public class TargetPortfolioAccuracyCalculatorTest
-{
-	private static final PcapLogger logger = PcapLoggerFactory
-			.getPcapLogger(TargetPortfolioAccuracyCalculatorTest.class);
-	private static final String USER_NAME = "testqa+test@personalcapital.com";
-
-	@Autowired
-	private UserDao userDao;
-
-	@Autowired
-	private UserDataUtils userDataUtils;
-
-	@Autowired
-	private PersonDao personDao;
-
-	@Autowired
-	private TargetPortfolioAccuracyCalculator targetPortfolioAccuracyCalculator;
-
-	/**
-	 * Test case to calculate target portfolio completion for close to retirement
-	 */
-	@Test
-	public void testCalculateTargetPortfolioCompletionForCloseToRetirement()
-	{
-		User user = userDao.getUserAssociatedWithEmail(USER_NAME);
-		try
-		{
-			UserInfo userInfo = userDataUtils.getUserInfoForUser(user);
-			Assertions.assertNotNull(userInfo);
-			Person person = personDao.getSelfPersonForUser(user);
-			Assertions.assertNotNull(person);
-			Double portfolioCompletion = targetPortfolioAccuracyCalculator
-					.calculateTargetPortfolioCompletion(user, person, userInfo, false);
-			Assertions.assertNotNull(portfolioCompletion);
-		}
-		catch (Exception e)
-		{
-			logger.error("Exception while processing the portfolio completion: " + e.getMessage(),
-					e);
-		}
-	}
-
-	/**
-	 * Test case to calculate target portfolio completion for not close to retirement
-	 */
-	@Test
-	public void testCalculateTargetPortfolioCompletionForNotCloseToRetirement()
-	{
-		User user = userDao.getUserAssociatedWithEmail(USER_NAME);
-		try
-		{
-			UserInfo userInfo = userDataUtils.getUserInfoForUser(user);
-			Person person = personDao.getSelfPersonForUser(user);
-			Double portfolioCompletion = targetPortfolioAccuracyCalculator
-					.calculateTargetPortfolioCompletion(user, person, userInfo, true);
-			Assertions.assertNotNull(portfolioCompletion);
-		}
-		catch (Exception e)
-		{
-			logger.error("Exception while processing the portfolio completion: " + e.getMessage(),
-					e);
-		}
-
-	}
-}
-
-
-this test class is failing in jenkins with :
-
-21:54:14  [ERROR] Tests run: 2, Failures: 0, Errors: 2, Skipped: 0, Time elapsed: 13.547 s <<< FAILURE! - in com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest
-21:54:14  [ERROR] com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest.testCalculateTargetPortfolioCompletionForCloseToRetirement  Time elapsed: 0.002 s  <<< ERROR!
-21:54:14  java.lang.IllegalStateException: Failed to load ApplicationContext for [MergedContextConfiguration@53177607 testClass = com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest, locations = ["classpath:pcapPlanningApplicationContext.xml"], classes = [], contextInitializerClasses = [], activeProfiles = [], propertySourceDescriptors = [PropertySourceDescriptor[locations=[classpath:application-test.properties], ignoreResourceNotFound=false, name=null, propertySourceFactory=null, encoding=null]], propertySourceProperties = [], contextCustomizers = [org.springframework.test.context.support.DynamicPropertiesContextCustomizer@0], contextLoader = org.springframework.test.context.support.DelegatingSmartContextLoader, parent = null]
-21:54:14  Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'snapshotPersistenceReadOnlyUnitManager' defined in URL [file:/home/jenkins/agent/workspace/build_fp_pcap-fp-service_MR-5353/pcap-fp-repo/spring/pcap-snapshot-test-data.xml]: Failed to look up DataSource bean with name 'snapshotReadOnlyDataSource'
-21:54:14  Caused by: org.springframework.jdbc.datasource.lookup.DataSourceLookupFailureException: Failed to look up DataSource bean with name 'snapshotReadOnlyDataSource'
-21:54:14  Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'snapshotReadOnlyDataSource' defined in URL [file:/home/jenkins/agent/workspace/build_fp_pcap-fp-service_MR-5353/pcap-fp-repo/spring/pcap-snapshot-test-data.xml]: Failed to instantiate [com.zaxxer.hikari.HikariDataSource]: Constructor threw exception
-21:54:14  Caused by: org.springframework.beans.BeanInstantiationException: Failed to instantiate [com.zaxxer.hikari.HikariDataSource]: Constructor threw exception
-21:54:14  Caused by: java.lang.RuntimeException: Failed to get driver instance for jdbcUrl=jdbc:aws-wrapper:mysql://pcap-devtrunk-aurora-sp-schema-v1.cluster-ro-cofa2vnzxbaz.us-west-2.rds.amazonaws.com:3306/pcap_snapshot?socketTimeout=600000&connectTimeout=15000&elideSetAutoCommits=false&useLocalSessionState=false&characterEncoding=UTF-8
-21:54:14  Caused by: java.sql.SQLException: Connector/J cannot handle a connection string 'jdbc:aws-wrapper:mysql://pcap-devtrunk-aurora-sp-schema-v1.cluster-ro-cofa2vnzxbaz.us-west-2.rds.amazonaws.com:3306/pcap_snapshot?socketTimeout=600000&connectTimeout=15000&elideSetAutoCommits=false&useLocalSessionState=false&characterEncoding=UTF-8'.
-21:54:14  
-21:54:14  [ERROR] com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest.testCalculateTargetPortfolioCompletionForNotCloseToRetirement  Time elapsed: 0 s  <<< ERROR!
-21:54:14  java.lang.IllegalStateException: ApplicationContext failure threshold (1) exceeded: skipping repeated attempt to load context for [MergedContextConfiguration@53177607 testClass = com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest, locations = ["classpath:pcapPlanningApplicationContext.xml"], classes = [], contextInitializerClasses = [], activeProfiles = [], propertySourceDescriptors = [PropertySourceDescriptor[locations=[classpath:application-test.properties], ignoreResourceNotFound=false, name=null, propertySourceFactory=null, encoding=null]], propertySourceProperties = [], contextCustomizers = [org.springframework.test.context.support.DynamicPropertiesContextCustomizer@0], contextLoader = org.springframework.test.context.support.DelegatingSmartContextLoader, parent = null]
-i have shifted the test class from one repo to another, and now i feel there is a mismatch in properties required to run the test
-
-this is the xml file:
 <?xml version="1.0" encoding="UTF-8"?>
-<beans default-lazy-init="true"
-	xmlns="http://www.springframework.org/schema/beans" xmlns:aop="http://www.springframework.org/schema/aop"
-	xmlns:context="http://www.springframework.org/schema/context" xmlns:tx="http://www.springframework.org/schema/tx"
-	xmlns:util="http://www.springframework.org/schema/util" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xmlns:mockito="http://www.mockito.org/spring/mockito"
-	xsi:schemaLocation="
-			http://www.springframework.org/schema/beans
-			http://www.springframework.org/schema/beans/spring-beans.xsd
-			http://www.springframework.org/schema/aop
-			http://www.springframework.org/schema/aop/spring-aop.xsd
-			http://www.springframework.org/schema/context
-			http://www.springframework.org/schema/context/spring-context.xsd
-            http://www.springframework.org/schema/util
-            http://www.springframework.org/schema/util/spring-util.xsd
-			http://www.springframework.org/schema/tx
-    		http://www.springframework.org/schema/tx/spring-tx.xsd
-    		http://www.mockito.org/spring/mockito
-    		http://www.mockito.org/spring/mockito.xsd">
-
-	<!-- All dependencies for running integration test -->
-	<import
-			resource="file:${TEST_CONFIG_HOME}/spring/pcap-command-context-without-filecabinet.xml" />
-	<import resource="file:${TEST_CONFIG_HOME}/spring/pcap-snapshot-test-data.xml" />
-	<!-- from pcap-filecabinet -->
-	<import resource="file:${TEST_CONFIG_HOME}/spring/mocks/mock-pcap-filecabinet.xml" />
-	<mockito:mock id="userLockManager" class="com.personalcapital.lock.UserLockManager" />
-	<mockito:mock id="AccountTypeUtils" class="com.personalcapital.user.data.util.AccountTypeUtils" />
-	<mockito:mock id="popularSiteService" class="com.personalcapital.site.PopularSiteServiceImpl" />
-	<import resource="classpath:pcap-planning-common.xml" />
-
-		<!-- from pcap-planning -->
-	<import resource="classpath:pcap-planning.xml" />
-	<import resource="classpath:pcap-investing.xml" />
-	<import resource="classpath:pcap-efficient-frontier.xml" />
-
-	<!-- from pcap-core-services -->
-	<import resource="classpath:sp-core-services.xml" />
-	<!-- profile service needs it -->
-	<mockito:mock id="marketingNotificationManager" class="com.safepage.user.MarketingNotificationManager" />
-	<mockito:mock id="emailService" class="com.personalcapital.email.service.EmailService" />
-	<mockito:mock id="mailMessageConfig" class="com.personalcapital.email.builder.MailMessageConfig" />
-	<mockito:mock id="userEventManager" class="com.safepage.user.UserEventManager" />
-	<mockito:mock id="userEnrollmentFundEventManager" class="com.personalcapital.enrollment.UserEnrollmentFundEventManager" />
-	<mockito:mock id="transactionClientService"
-				  class="com.personalcapital.transaction.client.TransactionClientService" />
-	<!-- from pcap-service-client -->
-	<import resource="classpath:pcap-service-client.xml" />
-	<import resource="classpath*:account-api-client.xml"/>
+<beans default-lazy-init="true" xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:aop="http://www.springframework.org/schema/aop"
+	   xmlns:context="http://www.springframework.org/schema/context"
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans
+	http://www.springframework.org/schema/beans/spring-beans.xsd
+	http://www.springframework.org/schema/aop
+	http://www.springframework.org/schema/aop/spring-aop.xsd
+	http://www.springframework.org/schema/context
+	http://www.springframework.org/schema/context/spring-context.xsd">
 	<context:annotation-config />
-	<bean class="com.personalcapital.config.SalesforceHelperConfig" />
+	<aop:aspectj-autoproxy />
+	<bean id="snapshotPersistenceUnitManager" name="snapshotPersistenceUnitManager"
+		class="org.springframework.orm.jpa.persistenceunit.DefaultPersistenceUnitManager">
+		<property name="persistenceXmlLocations">
+			<list>
+				<value>classpath*:META-INF/snapshotPersistence.xml</value>
+			</list>
+		</property>
+		<property name="dataSourceLookup">
+			<bean
+				class="org.springframework.jdbc.datasource.lookup.BeanFactoryDataSourceLookup" />
+		</property>
+	</bean>
+	<bean id="snapshotPersistenceReadOnlyUnitManager" name="snapshotPersistenceReadOnlyUnitManager"
+		class="org.springframework.orm.jpa.persistenceunit.DefaultPersistenceUnitManager">
+		<property name="persistenceXmlLocations">
+			<list>
+				<value>classpath*:META-INF/snapshotPersistenceReadOnly.xml</value>
+			</list>
+		</property>
+		<property name="dataSourceLookup">
+			<bean
+				class="org.springframework.jdbc.datasource.lookup.BeanFactoryDataSourceLookup" />
+		</property>
+	</bean>
+	<!-- Needed for Snapshot persistence context -->
+	<bean id="snapshotReadOnlyDataSource" name="snapshotReadOnlyDataSource" class="com.zaxxer.hikari.HikariDataSource"
+		destroy-method="close">
+		<constructor-arg index="0" ref="hikariDataPcapSnapshotReadOnlyConfig" />
+	</bean>
+	<bean id="hikariDataPcapSnapshotReadOnlyConfig" class="com.zaxxer.hikari.HikariConfig">
+		<constructor-arg index="0" value="${TEST_CONFIG_HOME}/hikaricp.configurationFile" />
+		<property name="jdbcUrl" value="${db.pcap.snapshot.readonly.jdbcUrl:jdbc:mysql://pcap-devtrunk-snapshot-db2.pcapcloud.net:3306/pcap_snapshot?sslMode=DISABLED}" />
+		<!-- Only for PCAP it is db.username -->
+		<property name="username" value="${db.readonly.username}" />
+		<property name="password" value="${db.readonly.password}" />
+		<property name="driverClassName" value="software.aws.rds.jdbc.mysql.Driver" />
+		<property name="dataSourceProperties">
+			<props>
+				<prop key="sendFractionalSecondsForTime" >false</prop>
+				<prop key="sendFractionalSeconds" >false</prop>
+			</props>
+		</property>
+	</bean>
+	<bean id="snapshotReadOnlyEntityManagerFactory" name="snapshotReadOnlyEntityManagerFactory"
+		class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+		<property name="persistenceUnitManager" ref="snapshotPersistenceReadOnlyUnitManager" />
+		<property name="persistenceUnitName" value="read_only_pcap_snapshot" />
+		<property name="dataSource" ref="snapshotReadOnlyDataSource" />
+		<property name="jpaVendorAdapter" ref="jpaVendorAdapter" />
+		<property name="jpaDialect" ref="jpaDialect" />
+	</bean>
+	<bean id="snapshotReadOnlyTransactionManager" name="snapshotReadOnlyTransactionManager"
+		class="org.springframework.orm.jpa.JpaTransactionManager">
+		<property name="entityManagerFactory" ref="snapshotReadOnlyEntityManagerFactory" />
+		<qualifier value="snapshotReadOnlyTran" />
+		<property name="jpaDialect" ref="jpaDialect" />
+	</bean>
+	<bean id="jpaVendorAdapter"
+		class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
+		<property name="database" value="MYSQL" />
+		<property name="showSql" value="false" />
+		<property name="databasePlatform" value="org.hibernate.dialect.MySQLDialect" />
+	</bean>
+	<bean id="jpaDialect" class="org.springframework.orm.jpa.vendor.HibernateJpaDialect">
+	</bean>
+	<import resource="classpath:pcap-snapshot-data-common.xml" />
+	<import resource="classpath:pcap-snapshot-data.xml" />
 </beans>
+
+
+this is pcap-snapshot-test-data
