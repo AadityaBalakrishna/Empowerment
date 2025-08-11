@@ -1,55 +1,124 @@
+23:49:57  [ERROR] Tests run: 2, Failures: 0, Errors: 2, Skipped: 0, Time elapsed: 11.215 s <<< FAILURE! - in com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest
+23:49:57  [ERROR] com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest.testCalculateTargetPortfolioCompletionForCloseToRetirement  Time elapsed: 0.003 s  <<< ERROR!
+23:49:57  java.lang.IllegalStateException: Failed to load ApplicationContext for [MergedContextConfiguration@3517e6a4 testClass = com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest, locations = ["classpath:pcapPlanningApplicationContext.xml"], classes = [], contextInitializerClasses = [], activeProfiles = [], propertySourceDescriptors = [PropertySourceDescriptor[locations=[classpath:application-test.properties], ignoreResourceNotFound=false, name=null, propertySourceFactory=null, encoding=null]], propertySourceProperties = [], contextCustomizers = [org.springframework.test.context.support.DynamicPropertiesContextCustomizer@0], contextLoader = org.springframework.test.context.support.DelegatingSmartContextLoader, parent = null]
+23:49:57  Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'entityManagerFactory' defined in class path resource [sp-data-common.xml]: Cannot resolve reference to bean 'dataSource' while setting bean property 'dataSource'
+23:49:57  Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'dataSource' defined in class path resource [sp-data-security-test.xml]: Failed to instantiate [com.zaxxer.hikari.HikariDataSource]: Constructor threw exception
+23:49:57  Caused by: org.springframework.beans.BeanInstantiationException: Failed to instantiate [com.zaxxer.hikari.HikariDataSource]: Constructor threw exception
+23:49:57  Caused by: com.zaxxer.hikari.pool.HikariPool$PoolInitializationException: Failed to initialize pool: Could not create connection to database server. Attempted reconnect 3 times. Giving up.
+23:49:57  Caused by: java.sql.SQLNonTransientConnectionException: Could not create connection to database server. Attempted reconnect 3 times. Giving up.
+23:49:57  Caused by: software.aws.rds.jdbc.mysql.shading.com.mysql.cj.exceptions.CJException: Access denied for user 'pcap_app_2'@'10.205.120.169' (using password: YES)
+
+
+sp-data-common:
 <?xml version="1.0" encoding="UTF-8"?>
 <beans xmlns="http://www.springframework.org/schema/beans"
-	xmlns:util="http://www.springframework.org/schema/util" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:aop="http://www.springframework.org/schema/aop" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:tx="http://www.springframework.org/schema/tx" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="
-            http://www.springframework.org/schema/beans
-            http://www.springframework.org/schema/beans/spring-beans.xsd
-            http://www.springframework.org/schema/util
-            http://www.springframework.org/schema/util/spring-util.xsd">
+	http://www.springframework.org/schema/beans
+	http://www.springframework.org/schema/beans/spring-beans.xsd
+	http://www.springframework.org/schema/aop
+	http://www.springframework.org/schema/aop/spring-aop.xsd
+	http://www.springframework.org/schema/context
+	http://www.springframework.org/schema/context/spring-context.xsd
+	http://www.springframework.org/schema/tx
+	http://www.springframework.org/schema/tx/spring-tx.xsd">
 
-	<import resource="classpath:pcap-target-portfolio.xml" />
-	<import resource="classpath:pcap-strategy-selection-service.xml" />
-
-	<bean id="personJsonDataService" class="com.personalcapital.profile.data.util.PersonJsonDataService" />
-	<bean id="retirementPlannerDefaultDataUtils" class="com.personalcapital.mylife.util.RetirementPlannerDefaultDataUtils">
-		<property name="lifeExpectancyFileName" value="life_expectancy.csv" />
-		<property name="contributionAmountToSavingsFileName" value="contribution_amount_to_savings_rate.csv" />
+	<context:annotation-config />
+	<aop:aspectj-autoproxy />
+	<bean id="entityManagerFactory" name="entityManagerFactory"
+		class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+		<property name="dataSource" ref="dataSource" />
+		<property name="persistenceUnitName" value="sp_schema" />
+		<property name="jpaVendorAdapter" ref="jpaVendorAdapterBean" />
+		<property name="jpaDialect" ref="jpaDialect" />
 	</bean>
-	<bean id="salaryCurveService"
-		  class="com.personalcapital.salarycurve.data.service.SalaryCurveDataService">
+	<bean
+		class="org.springframework.orm.jpa.support.PersistenceAnnotationBeanPostProcessor">
+		<property name="defaultPersistenceUnitName" value="sp_schema" />
 	</bean>
-	<bean id="salaryCurveHelper"
-		  class="com.personalcapital.salarycurve.data.service.SalaryCurveHelper" />
-
-	<bean id="socialSecurityTableHelper"
-		  class="com.personalcapital.socialsecurity.SocialSecurityTableHelper" />
-
-	<!-- Always together with StrategySelectionService -->
-	<bean id="targetPortfolioAccuracyCalculator"
-		class="com.personalcapital.profile.TargetPortfolioAccuracyCalculator">
-		<property name="targetPortfolioFieldWeightMap">
-			<map>
-				<entry key="person.birthdayYear" value="15" />
-				<entry key="person.retirementAge" value="15" />
-				<entry key="userInfo.investableAssets" value="15" />
-				<entry key="userInfo.networth" value="0" />
-				<entry key="person.userRiskTolerance" value="15" />
-				<entry key="person.income.userInputIncome" value="0" />
-				<entry key="person.pensionIncome.userInputIncome" value="0" />
-				<entry key="person.socialSecurityIncome.socialSecurityAmount"
-					value="3" />
-				<entry key="person.socialSecurityIncome.socialSecurityStartAge"
-					value="3" />
-				<entry key="person.annualSpendingGoal.userInputAnnualSpendingGoal"
-					value="15" />
-				<!-- closer to retirement -->
-				<entry key="person.legacy" value="0" />
-				<entry key="person.lifeExpectancy" value="4" />
-				<!-- not closer to retirement -->
-				<entry key="person.annualSavings.userInputAnnualSavings"
-					value="15" />
-			</map>
-		</property>
+	<bean id="jpaVendorAdapterBean"
+		class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
+		<property name="database" value="MYSQL" />
+		<property name="showSql" value="false" />
+		<property name="databasePlatform" value="org.hibernate.dialect.MySQLDialect" />
+	</bean>
+	<bean id="jpaVendorAdapter"
+		  class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
+		<property name="database" value="MYSQL" />
+		<property name="showSql" value="false" />
+		<property name="databasePlatform" value="org.hibernate.dialect.MySQLDialect" />
+	</bean>
+	<bean id="jpaDialect" class="org.springframework.orm.jpa.vendor.HibernateJpaDialect">
+	</bean>
+	<bean id="spTransactionManager" name="spTransactionManager" class="org.springframework.orm.jpa.JpaTransactionManager">
+		<property name="entityManagerFactory" ref="entityManagerFactory" />
+		<qualifier value="spTran" />
+		<property name="jpaDialect" ref="jpaDialect" />
+	</bean>
+	<tx:annotation-driven transaction-manager="entityManagerFactory" />
+	<bean id="spJdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+		<constructor-arg ref="dataSource" />
 	</bean>
 </beans>
-	
+
+
+sp-data-security-test.xml:
+<?xml version="1.0" encoding="UTF-8"?>
+<beans default-lazy-init="true" xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:aop="http://www.springframework.org/schema/aop"
+	   xmlns:context="http://www.springframework.org/schema/context"
+	   xmlns:tx="http://www.springframework.org/schema/tx"
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xmlns:mockito="http://www.mockito.org/spring/mockito"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans
+			http://www.springframework.org/schema/beans/spring-beans.xsd
+			http://www.springframework.org/schema/aop
+			http://www.springframework.org/schema/aop/spring-aop.xsd
+			http://www.springframework.org/schema/tx
+    		http://www.springframework.org/schema/tx/spring-tx.xsd
+    		http://www.mockito.org/spring/mockito
+    		http://www.mockito.org/spring/mockito.xsd">
+
+	<bean id="tokenDao" class="com.safepage.security.data.impl.TokenDaoImpl" />
+	<aop:aspectj-autoproxy />
+	<!-- Sprint_51- moved over from sp-data-common -->
+	<bean id="dataSource" name="dataSource" class="com.zaxxer.hikari.HikariDataSource"
+		destroy-method="close">
+		<constructor-arg index="0" ref="hikariDataSourceConfig" />
+	</bean>
+	<bean id="hikariDataSourceConfig" class="com.zaxxer.hikari.HikariConfig">
+		<constructor-arg index="0" value="${TEST_CONFIG_HOME}/hikaricp.configurationFile" />
+		<property name="jdbcUrl" value="${db.jdbcUrl}" />
+		<property name="username" value="${db.username}" />
+		<property name="password" value="${db.password}" />
+		<property name="driverClassName" value="software.aws.rds.jdbc.mysql.Driver" />
+		<property name="dataSourceProperties">
+			<props>
+				<prop key="sendFractionalSecondsForTime" >false</prop>
+				<prop key="sendFractionalSeconds" >false</prop>
+			</props>
+		</property>
+	</bean>
+
+	<!-- Enable Annotation based Declarative Transaction Management -->
+    <tx:annotation-driven proxy-target-class="true" transaction-manager="transactionManager" />
+
+	<!-- dataSource TransactionManager -->
+	  <bean id="spSecuritytransactionManager"
+        class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource" /> 
+    </bean>
+	<bean id="spSecurityJdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+		<constructor-arg ref="dataSource" />
+	</bean>
+
+	<bean id="keySeedDataService" class="com.safepage.security.service.impl.KeySeedDataServiceImpl" />
+	<bean id="keySeedDao" class="com.safepage.security.data.impl.KeySeedDaoImpl" />
+	<mockito:mock id="spExecutor" class="com.safepage.thread.SafePageExecutor"/>
+	<bean id="cryptEngine" class="com.safepage.security.CryptEngine" />
+	<bean id="keyManager" class="com.safepage.security.KeyManager" scope="singleton" />
+	<!-- Using test file that uses local repo for keystore -->
+	<!-- <import resource="classpath:sp-security-keystorage.xml"/> -->
+	<import resource="file:${TEST_CONFIG_HOME}/spring/sp-security-keystorage-test.xml" />
+</beans>
