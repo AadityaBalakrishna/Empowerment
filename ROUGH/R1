@@ -1,13 +1,55 @@
-22:22:02  [INFO] Running com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest
-22:22:16  [ERROR] Tests run: 2, Failures: 0, Errors: 2, Skipped: 0, Time elapsed: 14.222 s <<< FAILURE! - in com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest
-22:22:16  [ERROR] com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest.testCalculateTargetPortfolioCompletionForCloseToRetirement  Time elapsed: 0.002 s  <<< ERROR!
-22:22:16  java.lang.IllegalStateException: Failed to load ApplicationContext for [MergedContextConfiguration@7fb468ed testClass = com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest, locations = ["classpath:pcapPlanningApplicationContext.xml"], classes = [], contextInitializerClasses = [], activeProfiles = [], propertySourceDescriptors = [PropertySourceDescriptor[locations=[classpath:application-test.properties], ignoreResourceNotFound=false, name=null, propertySourceFactory=null, encoding=null]], propertySourceProperties = [], contextCustomizers = [org.springframework.test.context.support.DynamicPropertiesContextCustomizer@0], contextLoader = org.springframework.test.context.support.DelegatingSmartContextLoader, parent = null]
-22:22:16  Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'snapshotPersistenceReadOnlyUnitManager' defined in class path resource [pcap-snapshot-test-data.xml]: Failed to look up DataSource bean with name 'snapshotReadOnlyDataSource'
-22:22:16  Caused by: org.springframework.jdbc.datasource.lookup.DataSourceLookupFailureException: Failed to look up DataSource bean with name 'snapshotReadOnlyDataSource'
-22:22:16  Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'snapshotReadOnlyDataSource' defined in class path resource [pcap-snapshot-test-data.xml]: Failed to instantiate [com.zaxxer.hikari.HikariDataSource]: Constructor threw exception
-22:22:16  Caused by: org.springframework.beans.BeanInstantiationException: Failed to instantiate [com.zaxxer.hikari.HikariDataSource]: Constructor threw exception
-22:22:16  Caused by: com.zaxxer.hikari.pool.HikariPool$PoolInitializationException: Failed to initialize pool: Access denied for user 'fp_app_devtrunk'@'10.205.121.23' (using password: NO)
-22:22:17  Caused by: java.sql.SQLException: Access denied for user 'fp_app_devtrunk'@'10.205.121.23' (using password: NO)
-22:22:17  
-22:22:17  [ERROR] com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest.testCalculateTargetPortfolioCompletionForNotCloseToRetirement  Time elapsed: 0.001 s  <<< ERROR!
-22:22:17  java.lang.IllegalStateException: ApplicationContext failure threshold (1) exceeded: skipping repeated attempt to load context for [MergedContextConfiguration@7fb468ed testClass = com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest, locations = ["classpath:pcapPlanningApplicationContext.xml"], classes = [], contextInitializerClasses = [], activeProfiles = [], propertySourceDescriptors = [PropertySourceDescriptor[locations=[classpath:application-test.properties], ignoreResourceNotFound=false, name=null, propertySourceFactory=null, encoding=null]], propertySourceProperties = [], contextCustomizers = [org.springframework.test.context.support.DynamicPropertiesContextCustomizer@0], contextLoader = org.springframework.test.context.support.DelegatingSmartContextLoader, parent = null]
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:util="http://www.springframework.org/schema/util" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+            http://www.springframework.org/schema/beans
+            http://www.springframework.org/schema/beans/spring-beans.xsd
+            http://www.springframework.org/schema/util
+            http://www.springframework.org/schema/util/spring-util.xsd">
+
+	<import resource="classpath:pcap-target-portfolio.xml" />
+	<import resource="classpath:pcap-strategy-selection-service.xml" />
+
+	<bean id="personJsonDataService" class="com.personalcapital.profile.data.util.PersonJsonDataService" />
+	<bean id="retirementPlannerDefaultDataUtils" class="com.personalcapital.mylife.util.RetirementPlannerDefaultDataUtils">
+		<property name="lifeExpectancyFileName" value="life_expectancy.csv" />
+		<property name="contributionAmountToSavingsFileName" value="contribution_amount_to_savings_rate.csv" />
+	</bean>
+	<bean id="salaryCurveService"
+		  class="com.personalcapital.salarycurve.data.service.SalaryCurveDataService">
+	</bean>
+	<bean id="salaryCurveHelper"
+		  class="com.personalcapital.salarycurve.data.service.SalaryCurveHelper" />
+
+	<bean id="socialSecurityTableHelper"
+		  class="com.personalcapital.socialsecurity.SocialSecurityTableHelper" />
+
+	<!-- Always together with StrategySelectionService -->
+	<bean id="targetPortfolioAccuracyCalculator"
+		class="com.personalcapital.profile.TargetPortfolioAccuracyCalculator">
+		<property name="targetPortfolioFieldWeightMap">
+			<map>
+				<entry key="person.birthdayYear" value="15" />
+				<entry key="person.retirementAge" value="15" />
+				<entry key="userInfo.investableAssets" value="15" />
+				<entry key="userInfo.networth" value="0" />
+				<entry key="person.userRiskTolerance" value="15" />
+				<entry key="person.income.userInputIncome" value="0" />
+				<entry key="person.pensionIncome.userInputIncome" value="0" />
+				<entry key="person.socialSecurityIncome.socialSecurityAmount"
+					value="3" />
+				<entry key="person.socialSecurityIncome.socialSecurityStartAge"
+					value="3" />
+				<entry key="person.annualSpendingGoal.userInputAnnualSpendingGoal"
+					value="15" />
+				<!-- closer to retirement -->
+				<entry key="person.legacy" value="0" />
+				<entry key="person.lifeExpectancy" value="4" />
+				<!-- not closer to retirement -->
+				<entry key="person.annualSavings.userInputAnnualSavings"
+					value="15" />
+			</map>
+		</property>
+	</bean>
+</beans>
+	
