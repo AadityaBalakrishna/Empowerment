@@ -1,124 +1,213 @@
-23:49:57  [ERROR] Tests run: 2, Failures: 0, Errors: 2, Skipped: 0, Time elapsed: 11.215 s <<< FAILURE! - in com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest
-23:49:57  [ERROR] com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest.testCalculateTargetPortfolioCompletionForCloseToRetirement  Time elapsed: 0.003 s  <<< ERROR!
-23:49:57  java.lang.IllegalStateException: Failed to load ApplicationContext for [MergedContextConfiguration@3517e6a4 testClass = com.personalcapital.profile.TargetPortfolioAccuracyCalculatorTest, locations = ["classpath:pcapPlanningApplicationContext.xml"], classes = [], contextInitializerClasses = [], activeProfiles = [], propertySourceDescriptors = [PropertySourceDescriptor[locations=[classpath:application-test.properties], ignoreResourceNotFound=false, name=null, propertySourceFactory=null, encoding=null]], propertySourceProperties = [], contextCustomizers = [org.springframework.test.context.support.DynamicPropertiesContextCustomizer@0], contextLoader = org.springframework.test.context.support.DelegatingSmartContextLoader, parent = null]
-23:49:57  Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'entityManagerFactory' defined in class path resource [sp-data-common.xml]: Cannot resolve reference to bean 'dataSource' while setting bean property 'dataSource'
-23:49:57  Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'dataSource' defined in class path resource [sp-data-security-test.xml]: Failed to instantiate [com.zaxxer.hikari.HikariDataSource]: Constructor threw exception
-23:49:57  Caused by: org.springframework.beans.BeanInstantiationException: Failed to instantiate [com.zaxxer.hikari.HikariDataSource]: Constructor threw exception
-23:49:57  Caused by: com.zaxxer.hikari.pool.HikariPool$PoolInitializationException: Failed to initialize pool: Could not create connection to database server. Attempted reconnect 3 times. Giving up.
-23:49:57  Caused by: java.sql.SQLNonTransientConnectionException: Could not create connection to database server. Attempted reconnect 3 times. Giving up.
-23:49:57  Caused by: software.aws.rds.jdbc.mysql.shading.com.mysql.cj.exceptions.CJException: Access denied for user 'pcap_app_2'@'10.205.120.169' (using password: YES)
+package com.personalcapital.profile;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
+
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+import com.personalcapital.profile.data.Person;
+import com.personalcapital.profile.data.PersonDao;
+import com.personalcapital.user.data.UserInfo;
+import com.personalcapital.user.data.util.UserDataUtils;
+import com.safepage.user.data.User;
+import com.safepage.user.data.UserDao;
+
+/**
+ * @author rnukala Date: Sep 6, 2013
+ */
+@SpringJUnitConfig(locations = "classpath:pcapPlanningApplicationContext.xml")
+@TestPropertySource(locations =
+{
+		"classpath:application-test.properties"
+})
+public class TargetPortfolioAccuracyCalculatorTest
+{
+	private static final PcapLogger logger = PcapLoggerFactory
+			.getPcapLogger(TargetPortfolioAccuracyCalculatorTest.class);
+	private static final String USER_NAME = "testqa+test@personalcapital.com";
+
+	@Autowired
+	private UserDao userDao;
+
+	@Autowired
+	private UserDataUtils userDataUtils;
+
+	@Autowired
+	private PersonDao personDao;
+
+	@Autowired
+	private TargetPortfolioAccuracyCalculator targetPortfolioAccuracyCalculator;
+
+	/**
+	 * Test case to calculate target portfolio completion for close to retirement
+	 */
+	@Test
+	public void testCalculateTargetPortfolioCompletionForCloseToRetirement()
+	{
+		User user = userDao.getUserAssociatedWithEmail(USER_NAME);
+		try
+		{
+			UserInfo userInfo = userDataUtils.getUserInfoForUser(user);
+			Assertions.assertNotNull(userInfo);
+			Person person = personDao.getSelfPersonForUser(user);
+			Assertions.assertNotNull(person);
+			Double portfolioCompletion = targetPortfolioAccuracyCalculator
+					.calculateTargetPortfolioCompletion(user, person, userInfo, false);
+			Assertions.assertNotNull(portfolioCompletion);
+		}
+		catch (Exception e)
+		{
+			logger.error("Exception while processing the portfolio completion: " + e.getMessage(),
+					e);
+		}
+	}
+
+	/**
+	 * Test case to calculate target portfolio completion for not close to retirement
+	 */
+	@Test
+	public void testCalculateTargetPortfolioCompletionForNotCloseToRetirement()
+	{
+		User user = userDao.getUserAssociatedWithEmail(USER_NAME);
+		try
+		{
+			UserInfo userInfo = userDataUtils.getUserInfoForUser(user);
+			Person person = personDao.getSelfPersonForUser(user);
+			Double portfolioCompletion = targetPortfolioAccuracyCalculator
+					.calculateTargetPortfolioCompletion(user, person, userInfo, true);
+			Assertions.assertNotNull(portfolioCompletion);
+		}
+		catch (Exception e)
+		{
+			logger.error("Exception while processing the portfolio completion: " + e.getMessage(),
+					e);
+		}
+
+	}
+}
 
 
-sp-data-common:
+how do i enable logging just for this test case, i want to see all the properties it needs to establish db connection and from where those properties are being used, like the xml files
+
 <?xml version="1.0" encoding="UTF-8"?>
-<beans xmlns="http://www.springframework.org/schema/beans"
-	xmlns:aop="http://www.springframework.org/schema/aop" xmlns:context="http://www.springframework.org/schema/context"
-	xmlns:tx="http://www.springframework.org/schema/tx" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="
-	http://www.springframework.org/schema/beans
-	http://www.springframework.org/schema/beans/spring-beans.xsd
-	http://www.springframework.org/schema/aop
-	http://www.springframework.org/schema/aop/spring-aop.xsd
-	http://www.springframework.org/schema/context
-	http://www.springframework.org/schema/context/spring-context.xsd
-	http://www.springframework.org/schema/tx
-	http://www.springframework.org/schema/tx/spring-tx.xsd">
+<Configuration packages="com.personalcapital.log">
+	<Properties>
+		<Property name="LOG_PATTERN">%d %p %t [%c] [%X{spclient}] [%X{spdevice}] [%X{spsessid}] [%X{spuserguid}] - %gmc%n</Property>
+	</Properties>
+	<Appenders>
+		<Console name="Console" target="SYSTEM_OUT">
+			<PatternLayout pattern="${LOG_PATTERN}" />
+		</Console>
+	</Appenders>
+	<Loggers>
+		<Root level="WARN">
+			<AppenderRef ref="Console" />
+		</Root>
+		<Logger name="com.safepage.json.JSONHelper" additivity="false"
+				level="off">
+			<AppenderRef ref="Console" />
+		</Logger>
+		<Logger name="org.hibernate" additivity="false"
+				level="ERROR">
+			<AppenderRef ref="Console" />
+		</Logger>
+		<Logger name="com.amazonaws.request" additivity="false"
+				level="WARN">
+			<AppenderRef ref="Console" />
+		</Logger>
+		<Logger name="com.mysql" additivity="false"
+				level="WARN">
+			<AppenderRef ref="Console" />
+		</Logger>
+		<Logger name="io.netty" additivity="false"
+				level="WARN">
+			<AppenderRef ref="Console" />
+		</Logger>
+		<Logger name="org.apache.http" additivity="false"
+				level="WARN">
+			<AppenderRef ref="Console" />
+		</Logger>
+		<Logger name="com.mysql.etools" additivity="false"
+				level="WARN">
+			<AppenderRef ref="Console" />
+		</Logger>
+		<Logger name="net.sf" additivity="false"
+				level="WARN">
+			<AppenderRef ref="Console" />
+		</Logger>
+		<Logger name="org.springframework" additivity="false"
+				level="WARN">
+			<AppenderRef ref="Console" />
+		</Logger>
+		<Logger name="org.springframework.beans" additivity="false"
+				level="WARN">
+			<AppenderRef ref="Console" />
+		</Logger>
+		<Logger name="org.springframework.aop" additivity="false"
+				level="WARN">
+			<AppenderRef ref="Console" />
+		</Logger>
+		<Logger name="org.springframework.orm.jpa" additivity="false"
+				level="WARN">
+			<AppenderRef ref="Console" />
+		</Logger>
+		<Logger name="org.springframework.test" additivity="false"
+				level="WARN">
+			<AppenderRef ref="Console" />
+		</Logger>
+		<Logger name="AXIS_SOAP_HANDLER" additivity="false"
+				level="ERROR">
+			<AppenderRef ref="Console" />
+		</Logger>
+		<Logger name="com.personalcapital.api.client.proxy.PcapApiProxyClient" additivity="false"
+				level="INFO">
+			<AppenderRef ref="Console" />
+		</Logger>
+		<Logger name="com.personalcapital.config" additivity="false"
+				level="WARN">
+			<AppenderRef ref="Console" />
+		</Logger>
+		<Logger name="com.safepage.security.CryptEngine" additivity="false"
+				level="ERROR">
+			<AppenderRef ref="Console" />
+		</Logger>
+		<Logger name="com.personalcapital.site.search" additivity="false"
+				level="ERROR">
+			<AppenderRef ref="Console" />
+		</Logger>
+		<Logger name="com.personalcapital.site.SiteService" additivity="false"
+				level="ERROR">
+			<AppenderRef ref="Console" />
+		</Logger>
+		<Logger name="com.personalcapital" additivity="false"
+				level="WARN">
+			<AppenderRef ref="Console" />
+		</Logger>
+		<Logger name="com.safepage" additivity="false"
+				level="WARN">
+			<AppenderRef ref="Console" />
+		</Logger>
+		<Logger name="com.zaxxer.hikari.pool.HikariPool" additivity="false"
+				level="ERROR">
+			<AppenderRef ref="Console" />
+		</Logger>
+		<Logger name="com.zaxxer.hikari" additivity="false"
+				level="ERROR">
+			<AppenderRef ref="Console" />
+		</Logger>
+		<Logger name="org.redisson.config" additivity="false"
+				level="ERROR">
+			<AppenderRef ref="Console" />
+		</Logger>
+		<Logger name="com.amazonaws" additivity="false"
+				level="ERROR">
+			<AppenderRef ref="Console" />
+		</Logger>
+	</Loggers>
+</Configuration>
 
-	<context:annotation-config />
-	<aop:aspectj-autoproxy />
-	<bean id="entityManagerFactory" name="entityManagerFactory"
-		class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
-		<property name="dataSource" ref="dataSource" />
-		<property name="persistenceUnitName" value="sp_schema" />
-		<property name="jpaVendorAdapter" ref="jpaVendorAdapterBean" />
-		<property name="jpaDialect" ref="jpaDialect" />
-	</bean>
-	<bean
-		class="org.springframework.orm.jpa.support.PersistenceAnnotationBeanPostProcessor">
-		<property name="defaultPersistenceUnitName" value="sp_schema" />
-	</bean>
-	<bean id="jpaVendorAdapterBean"
-		class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
-		<property name="database" value="MYSQL" />
-		<property name="showSql" value="false" />
-		<property name="databasePlatform" value="org.hibernate.dialect.MySQLDialect" />
-	</bean>
-	<bean id="jpaVendorAdapter"
-		  class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
-		<property name="database" value="MYSQL" />
-		<property name="showSql" value="false" />
-		<property name="databasePlatform" value="org.hibernate.dialect.MySQLDialect" />
-	</bean>
-	<bean id="jpaDialect" class="org.springframework.orm.jpa.vendor.HibernateJpaDialect">
-	</bean>
-	<bean id="spTransactionManager" name="spTransactionManager" class="org.springframework.orm.jpa.JpaTransactionManager">
-		<property name="entityManagerFactory" ref="entityManagerFactory" />
-		<qualifier value="spTran" />
-		<property name="jpaDialect" ref="jpaDialect" />
-	</bean>
-	<tx:annotation-driven transaction-manager="entityManagerFactory" />
-	<bean id="spJdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
-		<constructor-arg ref="dataSource" />
-	</bean>
-</beans>
 
-
-sp-data-security-test.xml:
-<?xml version="1.0" encoding="UTF-8"?>
-<beans default-lazy-init="true" xmlns="http://www.springframework.org/schema/beans"
-	   xmlns:aop="http://www.springframework.org/schema/aop"
-	   xmlns:context="http://www.springframework.org/schema/context"
-	   xmlns:tx="http://www.springframework.org/schema/tx"
-	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	   xmlns:mockito="http://www.mockito.org/spring/mockito"
-	   xsi:schemaLocation="http://www.springframework.org/schema/beans
-			http://www.springframework.org/schema/beans/spring-beans.xsd
-			http://www.springframework.org/schema/aop
-			http://www.springframework.org/schema/aop/spring-aop.xsd
-			http://www.springframework.org/schema/tx
-    		http://www.springframework.org/schema/tx/spring-tx.xsd
-    		http://www.mockito.org/spring/mockito
-    		http://www.mockito.org/spring/mockito.xsd">
-
-	<bean id="tokenDao" class="com.safepage.security.data.impl.TokenDaoImpl" />
-	<aop:aspectj-autoproxy />
-	<!-- Sprint_51- moved over from sp-data-common -->
-	<bean id="dataSource" name="dataSource" class="com.zaxxer.hikari.HikariDataSource"
-		destroy-method="close">
-		<constructor-arg index="0" ref="hikariDataSourceConfig" />
-	</bean>
-	<bean id="hikariDataSourceConfig" class="com.zaxxer.hikari.HikariConfig">
-		<constructor-arg index="0" value="${TEST_CONFIG_HOME}/hikaricp.configurationFile" />
-		<property name="jdbcUrl" value="${db.jdbcUrl}" />
-		<property name="username" value="${db.username}" />
-		<property name="password" value="${db.password}" />
-		<property name="driverClassName" value="software.aws.rds.jdbc.mysql.Driver" />
-		<property name="dataSourceProperties">
-			<props>
-				<prop key="sendFractionalSecondsForTime" >false</prop>
-				<prop key="sendFractionalSeconds" >false</prop>
-			</props>
-		</property>
-	</bean>
-
-	<!-- Enable Annotation based Declarative Transaction Management -->
-    <tx:annotation-driven proxy-target-class="true" transaction-manager="transactionManager" />
-
-	<!-- dataSource TransactionManager -->
-	  <bean id="spSecuritytransactionManager"
-        class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
-        <property name="dataSource" ref="dataSource" /> 
-    </bean>
-	<bean id="spSecurityJdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
-		<constructor-arg ref="dataSource" />
-	</bean>
-
-	<bean id="keySeedDataService" class="com.safepage.security.service.impl.KeySeedDataServiceImpl" />
-	<bean id="keySeedDao" class="com.safepage.security.data.impl.KeySeedDaoImpl" />
-	<mockito:mock id="spExecutor" class="com.safepage.thread.SafePageExecutor"/>
-	<bean id="cryptEngine" class="com.safepage.security.CryptEngine" />
-	<bean id="keyManager" class="com.safepage.security.KeyManager" scope="singleton" />
-	<!-- Using test file that uses local repo for keystore -->
-	<!-- <import resource="classpath:sp-security-keystorage.xml"/> -->
-	<import resource="file:${TEST_CONFIG_HOME}/spring/sp-security-keystorage-test.xml" />
-</beans>
+this is the log4j2-test.xml file i have
