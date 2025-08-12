@@ -1,213 +1,221 @@
-package com.personalcapital.profile;
-
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
-
-import com.personalcapital.log.PcapLogger;
-import com.personalcapital.log.PcapLoggerFactory;
-import com.personalcapital.profile.data.Person;
-import com.personalcapital.profile.data.PersonDao;
-import com.personalcapital.user.data.UserInfo;
-import com.personalcapital.user.data.util.UserDataUtils;
-import com.safepage.user.data.User;
-import com.safepage.user.data.UserDao;
-
-/**
- * @author rnukala Date: Sep 6, 2013
- */
-@SpringJUnitConfig(locations = "classpath:pcapPlanningApplicationContext.xml")
-@TestPropertySource(locations =
-{
-		"classpath:application-test.properties"
-})
-public class TargetPortfolioAccuracyCalculatorTest
-{
-	private static final PcapLogger logger = PcapLoggerFactory
-			.getPcapLogger(TargetPortfolioAccuracyCalculatorTest.class);
-	private static final String USER_NAME = "testqa+test@personalcapital.com";
-
-	@Autowired
-	private UserDao userDao;
-
-	@Autowired
-	private UserDataUtils userDataUtils;
-
-	@Autowired
-	private PersonDao personDao;
-
-	@Autowired
-	private TargetPortfolioAccuracyCalculator targetPortfolioAccuracyCalculator;
-
-	/**
-	 * Test case to calculate target portfolio completion for close to retirement
-	 */
-	@Test
-	public void testCalculateTargetPortfolioCompletionForCloseToRetirement()
-	{
-		User user = userDao.getUserAssociatedWithEmail(USER_NAME);
-		try
-		{
-			UserInfo userInfo = userDataUtils.getUserInfoForUser(user);
-			Assertions.assertNotNull(userInfo);
-			Person person = personDao.getSelfPersonForUser(user);
-			Assertions.assertNotNull(person);
-			Double portfolioCompletion = targetPortfolioAccuracyCalculator
-					.calculateTargetPortfolioCompletion(user, person, userInfo, false);
-			Assertions.assertNotNull(portfolioCompletion);
-		}
-		catch (Exception e)
-		{
-			logger.error("Exception while processing the portfolio completion: " + e.getMessage(),
-					e);
-		}
-	}
-
-	/**
-	 * Test case to calculate target portfolio completion for not close to retirement
-	 */
-	@Test
-	public void testCalculateTargetPortfolioCompletionForNotCloseToRetirement()
-	{
-		User user = userDao.getUserAssociatedWithEmail(USER_NAME);
-		try
-		{
-			UserInfo userInfo = userDataUtils.getUserInfoForUser(user);
-			Person person = personDao.getSelfPersonForUser(user);
-			Double portfolioCompletion = targetPortfolioAccuracyCalculator
-					.calculateTargetPortfolioCompletion(user, person, userInfo, true);
-			Assertions.assertNotNull(portfolioCompletion);
-		}
-		catch (Exception e)
-		{
-			logger.error("Exception while processing the portfolio completion: " + e.getMessage(),
-					e);
-		}
-
-	}
-}
-
-
-how do i enable logging just for this test case, i want to see all the properties it needs to establish db connection and from where those properties are being used, like the xml files
-
 <?xml version="1.0" encoding="UTF-8"?>
-<Configuration packages="com.personalcapital.log">
-	<Properties>
-		<Property name="LOG_PATTERN">%d %p %t [%c] [%X{spclient}] [%X{spdevice}] [%X{spsessid}] [%X{spuserguid}] - %gmc%n</Property>
-	</Properties>
-	<Appenders>
-		<Console name="Console" target="SYSTEM_OUT">
-			<PatternLayout pattern="${LOG_PATTERN}" />
-		</Console>
-	</Appenders>
-	<Loggers>
-		<Root level="WARN">
-			<AppenderRef ref="Console" />
-		</Root>
-		<Logger name="com.safepage.json.JSONHelper" additivity="false"
-				level="off">
-			<AppenderRef ref="Console" />
-		</Logger>
-		<Logger name="org.hibernate" additivity="false"
-				level="ERROR">
-			<AppenderRef ref="Console" />
-		</Logger>
-		<Logger name="com.amazonaws.request" additivity="false"
-				level="WARN">
-			<AppenderRef ref="Console" />
-		</Logger>
-		<Logger name="com.mysql" additivity="false"
-				level="WARN">
-			<AppenderRef ref="Console" />
-		</Logger>
-		<Logger name="io.netty" additivity="false"
-				level="WARN">
-			<AppenderRef ref="Console" />
-		</Logger>
-		<Logger name="org.apache.http" additivity="false"
-				level="WARN">
-			<AppenderRef ref="Console" />
-		</Logger>
-		<Logger name="com.mysql.etools" additivity="false"
-				level="WARN">
-			<AppenderRef ref="Console" />
-		</Logger>
-		<Logger name="net.sf" additivity="false"
-				level="WARN">
-			<AppenderRef ref="Console" />
-		</Logger>
-		<Logger name="org.springframework" additivity="false"
-				level="WARN">
-			<AppenderRef ref="Console" />
-		</Logger>
-		<Logger name="org.springframework.beans" additivity="false"
-				level="WARN">
-			<AppenderRef ref="Console" />
-		</Logger>
-		<Logger name="org.springframework.aop" additivity="false"
-				level="WARN">
-			<AppenderRef ref="Console" />
-		</Logger>
-		<Logger name="org.springframework.orm.jpa" additivity="false"
-				level="WARN">
-			<AppenderRef ref="Console" />
-		</Logger>
-		<Logger name="org.springframework.test" additivity="false"
-				level="WARN">
-			<AppenderRef ref="Console" />
-		</Logger>
-		<Logger name="AXIS_SOAP_HANDLER" additivity="false"
-				level="ERROR">
-			<AppenderRef ref="Console" />
-		</Logger>
-		<Logger name="com.personalcapital.api.client.proxy.PcapApiProxyClient" additivity="false"
-				level="INFO">
-			<AppenderRef ref="Console" />
-		</Logger>
-		<Logger name="com.personalcapital.config" additivity="false"
-				level="WARN">
-			<AppenderRef ref="Console" />
-		</Logger>
-		<Logger name="com.safepage.security.CryptEngine" additivity="false"
-				level="ERROR">
-			<AppenderRef ref="Console" />
-		</Logger>
-		<Logger name="com.personalcapital.site.search" additivity="false"
-				level="ERROR">
-			<AppenderRef ref="Console" />
-		</Logger>
-		<Logger name="com.personalcapital.site.SiteService" additivity="false"
-				level="ERROR">
-			<AppenderRef ref="Console" />
-		</Logger>
-		<Logger name="com.personalcapital" additivity="false"
-				level="WARN">
-			<AppenderRef ref="Console" />
-		</Logger>
-		<Logger name="com.safepage" additivity="false"
-				level="WARN">
-			<AppenderRef ref="Console" />
-		</Logger>
-		<Logger name="com.zaxxer.hikari.pool.HikariPool" additivity="false"
-				level="ERROR">
-			<AppenderRef ref="Console" />
-		</Logger>
-		<Logger name="com.zaxxer.hikari" additivity="false"
-				level="ERROR">
-			<AppenderRef ref="Console" />
-		</Logger>
-		<Logger name="org.redisson.config" additivity="false"
-				level="ERROR">
-			<AppenderRef ref="Console" />
-		</Logger>
-		<Logger name="com.amazonaws" additivity="false"
-				level="ERROR">
-			<AppenderRef ref="Console" />
-		</Logger>
-	</Loggers>
-</Configuration>
+<!DOCTYPE log4j:configuration SYSTEM "log4j.dtd">
+<log4j:configuration
+	xmlns:log4j="http://jakarta.apache.org/log4j/">
+
+	<appender class="org.apache.log4j.RollingFileAppender"
+		name="http">
+		<param value="test_httplogger.log" name="File" />
+		<param name="MaxFileSize" value="20MB" />
+		<param name="MaxBackupIndex" value="20" />
+		<param name="append" value="true" />
+		<layout class="org.apache.log4j.PatternLayout">
+			<param value="%d %p %t [%c] - %m%n" name="ConversionPattern" />
+		</layout>
+	</appender>
+	<appender class="org.apache.log4j.RollingFileAppender"
+		name="main">
+		<param value="test_main.log" name="File" />
+		<param name="MaxFileSize" value="10MB" />
+		<param name="MaxBackupIndex" value="10" />
+		<param name="append" value="true" />
+		<layout class="org.apache.log4j.PatternLayout">
+			<param value="%d %p %t [%c] - %m%n" name="ConversionPattern" />
+		</layout>
+	</appender>
+	<appender class="org.apache.log4j.RollingFileAppender"
+		name="spring">
+		<param value="test_spring.log" name="File" />
+		<param name="MaxFileSize" value="10MB" />
+		<param name="MaxBackupIndex" value="10" />
+		<param name="append" value="true" />
+		<layout class="org.apache.log4j.PatternLayout">
+			<param value="%d %p %t [%c] - %m%n" name="ConversionPattern" />
+		</layout>
+	</appender>
+	<appender class="org.apache.log4j.RollingFileAppender"
+		name="yodleeHttpLogger">
+		<param value="pcap_fastlink_yodlee_http.log" name="File" />
+		<param name="MaxFileSize" value="20MB" />
+		<param name="MaxBackupIndex" value="10" />
+		<param name="append" value="true" />
+		<layout class="org.apache.log4j.PatternLayout">
+			<param value="%d %p %t [%c] - %m%n" name="ConversionPattern" />
+		</layout>
+	</appender>
+	<appender class="org.apache.log4j.AsyncAppender"
+		name="Async_yodleeHttpLogger">
+		<param name="BufferSize" value="2048" />
+		<param name="Blocking" value="false" />
+		<appender-ref ref="yodleeHttpLogger" />
+	</appender>
+	<appender class="org.apache.log4j.RollingFileAppender"
+		name="sql">
+		<param value="test_sql.log" name="File" />
+		<param name="MaxFileSize" value="10MB" />
+		<param name="MaxBackupIndex" value="10" />
+		<param name="append" value="true" />
+		<layout class="org.apache.log4j.PatternLayout">
+			<param value="%d %p %t [%c] - %m%n" name="ConversionPattern" />
+		</layout>
+	</appender>
+	<appender class="org.apache.log4j.RollingFileAppender"
+		name="thirdparty">
+		<param value="test_thirdparty.log" name="File" />
+		<param name="MaxFileSize" value="10MB" />
+		<param name="MaxBackupIndex" value="10" />
+		<param name="append" value="true" />
+		<layout class="org.apache.log4j.PatternLayout">
+			<param value="%d %p %t [%c] - %m%n" name="ConversionPattern" />
+		</layout>
+	</appender>
+	<appender class="org.apache.log4j.RollingFileAppender"
+		name="cache">
+		<param value="test_cache.log" name="File" />
+		<param name="MaxFileSize" value="10MB" />
+		<param name="MaxBackupIndex" value="10" />
+		<param name="append" value="true" />
+		<layout class="org.apache.log4j.PatternLayout">
+			<param value="%d %p %t [%c] - %m%n" name="ConversionPattern" />
+		</layout>
+	</appender>
+
+	<appender class="org.apache.log4j.RollingFileAppender"
+		name="search">
+		<param value="test_search.log" name="File" />
+		<param name="MaxFileSize" value="10MB" />
+		<param name="MaxBackupIndex" value="10" />
+		<param name="append" value="true" />
+		<layout class="org.apache.log4j.PatternLayout">
+			<!-- <param value="%d %p %t [%c] - %m%n" name="ConversionPattern" /> -->
+			<param value="[%c{1}] - %m%n" name="ConversionPattern" />
+		</layout>
+	</appender>
 
 
-this is the log4j2-test.xml file i have
+	<!-- Hibernate -->
+	<logger name="org.hibernate.SQL" additivity="false">
+		<level value="info" />
+		<appender-ref ref="main" />
+	</logger>
+	<logger name="org.hibernate" additivity="false">
+		<level value="info" />
+		<appender-ref ref="main" />
+	</logger>
+	<logger
+		name="org.hibernate.cache.ehcache.AbstractEhcacheRegionFactory"
+		additivity="false">
+		<level value="off" />
+		<appender-ref ref="main" />
+	</logger>
+
+	<logger name="org.hibernate.cfg.AnnotationBinder"
+		additivity="false">
+		<level value="info" />
+		<appender-ref ref="main" />
+	</logger>
+	<logger name="org.hibernate.cfg.annotations.EntityBinder"
+		additivity="false">
+		<level value="info" />
+		<appender-ref ref="main" />
+	</logger>
+	<!-- Mysql -->
+	<logger name="com.mysql" additivity="false">
+		<level value="info" />
+		<appender-ref ref="main" />
+	</logger>
+	<logger name="com.mysql.etools" additivity="false">
+		<level value="" />
+		<appender-ref ref="main" />
+	</logger>
+	<!-- Cache -->
+	<logger name="net.sf" additivity="false">
+		<level value="info" />
+		<appender-ref ref="main" />
+	</logger>
+	<!-- Spring -->
+	<logger name="org.springframework" additivity="false">
+		<level value="WARN" />
+		<appender-ref ref="spring" />
+	</logger>
+
+
+	<!-- Other 3rd parties -->
+	<logger name="AXIS_SOAP_HANDLER" additivity="false">
+		<level value="info" />
+		<appender-ref ref="Async_yodleeHttpLogger" />
+	</logger>
+
+	<!-- Pcap -->
+	<logger name="com.safepage.security.CryptEngine"
+		additivity="false">
+		<level value="error" />
+		<appender-ref ref="main" />
+	</logger>
+
+	<!-- search internals -->
+	<logger name="org.apache.lucene" additivity="false">
+		<level value="info" />
+		<appender-ref ref="search" />
+	</logger>
+	<logger name="com.personalcapital.site.search"
+		additivity="false">
+		<level value="info" />
+		<appender-ref ref="search" />
+	</logger>
+	<logger name="com.personalcapital.site.SiteService"
+		additivity="false">
+		<level value="info" />
+		<appender-ref ref="search" />
+	</logger>
+	<logger name="com.personalcapital" additivity="false">
+		<level value="info" />
+		<appender-ref ref="main" />
+	</logger>
+	<logger name="com.safepage" additivity="false">
+		<level value="info" />
+		<appender-ref ref="main" />
+	</logger>
+	<logger name="org.drools" additivity="false">
+		<level value="warn" />
+		<appender-ref ref="main" />
+	</logger>
+	<logger name="org.redisson" additivity="false">
+		<level value="error" />
+		<appender-ref ref="main" />
+	</logger>
+	<logger
+		name="org.hibernate.engine.internal.StatisticalLoggingSessionEventListener"
+		additivity="false">
+		<level value="error" />
+		<appender-ref ref="main" />
+	</logger>
+	<logger name="io.netty.channel" additivity="false">
+		<level value="error" />
+		<appender-ref ref="main" />
+	</logger>
+	<logger name="org.apache.commons" additivity="false">
+		<level value="error" />
+		<appender-ref ref="main" />
+	</logger>
+	<logger name="org.apache.http.impl" additivity="false">
+		<level value="error" />
+		<appender-ref ref="main" />
+	</logger>
+	<logger name="org.drools.metric.util.MetricLogUtils" additivity="false">
+		<level value="info" />
+		<appender-ref ref="main" />
+	</logger>
+	<root>
+		<level value="info" />
+		<appender-ref ref="main" />
+	</root>
+
+
+	<!-- NOT FOR GIT <logger name="com.personalcapital.refresh" additivity="false"> 
+		<level value="info" /> <appender-ref ref="console" /> </logger> -->
+
+</log4j:configuration>
+
+
+can you do the same for this log4j2-test file, something is diff
