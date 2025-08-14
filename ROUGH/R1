@@ -1,51 +1,34 @@
-public String decryptUsingAWSKey(String cipherText) throws SafePageException
-	{
-		if (StringUtils.isEmpty(cipherText))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
-		}
-		try
-		{
-			byte[] decodedCipherText = Utils.decodeBase64(cipherText);
-			DecryptRequest decryptRequest = new DecryptRequest()
-					.withCiphertextBlob(ByteBuffer.wrap(decodedCipherText));
-			long start = System.currentTimeMillis();
-			DecryptResult result = kmsClient.decrypt(decryptRequest);
-			long end = System.currentTimeMillis();
-			logger.info("[{}] decryptData took {}", getAwsSdkVersion(), end - start);
-			ByteBuffer plainTextBlob = result.getPlaintext();
-			return getString(plainTextBlob);
-		}
-		catch (KeyUnavailableException kue)
-		{
-			// The request was rejected because the specified CMK was not available. The request can
-			// be retried.
-			logger.error(String.format(
-					"[%s] Failed to decryptUsingAWSKey(KeyUnavailableException), cipherText:%s, due to:%s",
-					getAwsSdkVersion(), cipherText), kue);
-		}
-		catch (InvalidCiphertextException ice)
-		{
-			// The request was rejected because the specified ciphertext, or additional
-			// authenticated data incorporated
-			// into the ciphertext, such as the encryption context, is corrupted, missing, or
-			// otherwise invalid.
-			logger.error(
-					"[{}] Failed to decryptUsingAWSKey(InvalidCiphertextException), cipherText:{}, due to:{}",
-					getAwsSdkVersion(), cipherText, ExceptionUtils.getMessage(ice), ice);
-		}
-		catch (DisabledException de)
-		{
-			logger.error(
-					"[{}] Failed to decryptUsingAWSKey(DisabledException), cipherText:{}, due to:{}",
-					getAwsSdkVersion(), cipherText, ExceptionUtils.getMessage(de), de);
-		}
-		catch (Exception ex)
-		{
-			logger.error("[{}] Failed to decryptUsingAWSKey, cipherText:{}, due to:{}",
-					getAwsSdkVersion(), cipherText, ExceptionUtils.getMessage(ex), ex);
-		}
-		return null;
-	}
+package com.empower.epw.aws.api.kms.exception;
 
-help me fix this also
+public class KMSOperationException extends RuntimeException
+{
+	public KMSOperationException(String message, Throwable cause)
+	{
+		super(message, cause);
+	}
+}
+
+i have this, and now, i have this:
+
+package com.empower.epw.aws.v1.kms.util;
+
+import com.empower.epw.aws.api.kms.exception.KMSOperationException;
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+
+public class AwsExceptionHandler
+{
+	private static final PcapLogger logger = PcapLoggerFactory
+			.getPcapLogger(AwsExceptionHandler.class);
+
+	public static KMSOperationException handleKMSException(String sdkVersion, String operation, String keyId,
+			Exception e)
+	{
+		String errorMessage = String.format("'%s' KMS operation '%s' failed for keyId '%s': %s",
+				sdkVersion, operation, keyId, e.getMessage());
+		logger.error(errorMessage, e);
+		return new KMSOperationException(errorMessage, e);
+	}
+}
+
+both seem common for v1 iimpl and v2 impl, so how to reduce this redundancy?
