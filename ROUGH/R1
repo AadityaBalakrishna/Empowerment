@@ -1,12 +1,12 @@
-this will not work, because 
- 
-KMSOperationException extends RuntimeException 
- 
-catch (Exception ex)
-{
-    logger.error("Failed to encryptUsingAWSKey, plainText:{}, keyId:{}, due to:{}",
-          plainText, keyId, ExceptionUtils.getMessage(ex), ex);
+@Override
+public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException {
+    try {
+        return epwKmsService.encryptUsingAWSKey(plainText, keyId);
+    } catch (Exception ex) {
+        logger.error(
+            "Failed to encryptUsingAWSKey, plainText:{}, keyId:{}, due to:{}",
+            plainText, keyId, ExceptionUtils.getMessage(ex), ex
+        );
+        return null; // Legacy behavior
+    }
 }
- 
-this how you will cover?
- 
