@@ -233,3 +233,75 @@ public class KMSServiceImpl implements KMSService
 		return result;
 	}
 }
+
+i need to delegate this old KMSServiceImpl to EpwKmsService:
+
+package com.empower.epw.aws.api.kms;
+
+import com.empower.epw.aws.api.kms.dto.DescribeKeyResponseDTO;
+import com.empower.epw.aws.api.kms.dto.ListAliasesResponseDTO;
+import com.safepage.exception.SafePageException;
+
+/**
+ * {@code EpwKmsService} provides an abstraction over AWS Key Management Service (KMS) operations,
+ * supporting encryption, decryption, key description, and alias listing.
+ * <p>
+ * Implementations of this interface (e.g., using AWS SDK v1 or v2) allow consumers to securely
+ * manage cryptographic keys and perform key-related operations in a version-agnostic way.
+ */
+public interface EpwKmsService
+{
+
+	/**
+	 * Encrypts a plaintext string using an AWS KMS key identified by its keyId.
+	 *
+	 * @param plainText
+	 *            the plaintext string to encrypt
+	 * @param keyId
+	 *            the identifier of the KMS key to use for encryption
+	 * @return the encrypted ciphertext as a string
+	 * @throws SafePageException
+	 *             if encryption fails or the key cannot be accessed
+	 */
+	String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException;
+
+	/**
+	 * Decrypts a ciphertext string using the default AWS KMS key.
+	 *
+	 * @param cipherText
+	 *            the encrypted string to decrypt
+	 * @return the decrypted plaintext string
+	 * @throws SafePageException
+	 *             if decryption fails or the key cannot be accessed
+	 */
+	String decryptUsingAWSKey(String cipherText) throws SafePageException;
+
+	/**
+	 * Describes a KMS key using its keyId or alias.
+	 *
+	 * @param keyId
+	 *            the keyId or alias to describe
+	 * @return metadata and status information about the KMS key
+	 * @throws SafePageException
+	 *             if the key cannot be found or described
+	 */
+	DescribeKeyResponseDTO describeKey(String keyId) throws SafePageException;
+
+	/**
+	 * Lists all KMS key aliases in the current AWS region.
+	 *
+	 * @return a response containing a list of key aliases and their associated key IDs
+	 * @throws SafePageException
+	 *             if alias listing fails
+	 */
+	ListAliasesResponseDTO listAliases() throws SafePageException;
+
+	/**
+	 * Returns the version of the AWS SDK being used by this service.
+	 *
+	 * @return the AWS SDK version as a string
+	 */
+	String getAwsSdkVersion();
+}
+
+but keep it's old behaviour intact such that no consumers break
