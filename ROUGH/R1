@@ -1,41 +1,51 @@
-public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
+public String decryptUsingAWSKey(String cipherText) throws SafePageException
 	{
-		if (StringUtils.isEmpty(plainText))
+		if (StringUtils.isEmpty(cipherText))
 		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
-		}
-		if (StringUtils.isEmpty(keyId))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
 		}
 		try
 		{
-			EncryptRequest encryptRequest = new EncryptRequest().withKeyId(keyId)
-					.withPlaintext(getByteBuffer(plainText));
+			byte[] decodedCipherText = Utils.decodeBase64(cipherText);
+			DecryptRequest decryptRequest = new DecryptRequest()
+					.withCiphertextBlob(ByteBuffer.wrap(decodedCipherText));
 			long start = System.currentTimeMillis();
-			EncryptResult result = kmsClient.encrypt(encryptRequest);
-			if (result != null && result.getCiphertextBlob() != null)
-			{
-				long end = System.currentTimeMillis();
-				logger.info("[{}] encryptData took {} ", getAwsSdkVersion(), end - start);
-				return Utils.encodeBase64(result.getCiphertextBlob()
-						.array());
-			}
-			else
-			{
-				logger.error("[{}] encryptUsingAWSKey failed, EncryptResult is null for keyId: {}",
-						getAwsSdkVersion(), keyId);
-				throw AwsExceptionHandler.handleKMSException("encrypt", keyId,
-						new IllegalStateException("EncryptResult or CiphertextBlob is null"));
-			}
+			DecryptResult result = kmsClient.decrypt(decryptRequest);
+			long end = System.currentTimeMillis();
+			logger.info("[{}] decryptData took {}", getAwsSdkVersion(), end - start);
+			ByteBuffer plainTextBlob = result.getPlaintext();
+			return getString(plainTextBlob);
 		}
-		catch (DisabledException | KeyUnavailableException | UnsupportedEncodingException ex)
+		catch (KeyUnavailableException kue)
 		{
-			logger.error(String.format("[{}] Failed to encrypt, plainText:{}, keyId:{}, due to:{}",
-					getAwsSdkVersion(), plainText, keyId, ex.getMessage()), ex);
-			throw AwsExceptionHandler.handleKMSException("encrypt", keyId, ex);
+			// The request was rejected because the specified CMK was not available. The request can
+			// be retried.
+			logger.error(String.format(
+					"[%s] Failed to decryptUsingAWSKey(KeyUnavailableException), cipherText:%s, due to:%s",
+					getAwsSdkVersion(), cipherText), kue);
 		}
+		catch (InvalidCiphertextException ice)
+		{
+			// The request was rejected because the specified ciphertext, or additional
+			// authenticated data incorporated
+			// into the ciphertext, such as the encryption context, is corrupted, missing, or
+			// otherwise invalid.
+			logger.error(
+					"[{}] Failed to decryptUsingAWSKey(InvalidCiphertextException), cipherText:{}, due to:{}",
+					getAwsSdkVersion(), cipherText, ExceptionUtils.getMessage(ice), ice);
+		}
+		catch (DisabledException de)
+		{
+			logger.error(
+					"[{}] Failed to decryptUsingAWSKey(DisabledException), cipherText:{}, due to:{}",
+					getAwsSdkVersion(), cipherText, ExceptionUtils.getMessage(de), de);
+		}
+		catch (Exception ex)
+		{
+			logger.error("[{}] Failed to decryptUsingAWSKey, cipherText:{}, due to:{}",
+					getAwsSdkVersion(), cipherText, ExceptionUtils.getMessage(ex), ex);
+		}
+		return null;
 	}
 
-
-i'm getting this now : Expected 4 arguments but found 3 for this line : new IllegalStateException("EncryptResult or CiphertextBlob is null")); and last ex
+help me fix this also
