@@ -1,93 +1,13 @@
-old encryptUsingAWSKey
-public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
-	{
-		if (StringUtils.isEmpty(plainText))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
-		}
-		if (StringUtils.isEmpty(keyId))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
-		}
-		try
-		{
-			EncryptRequest encryptRequest = new EncryptRequest().withKeyId(keyId)
-					.withPlaintext(getByteBuffer(plainText));
-			long start = System.currentTimeMillis();
-			EncryptResult result = getKMSClient().encrypt(encryptRequest);
-			if (result != null && result.getCiphertextBlob() != null)
-			{
-				long end = System.currentTimeMillis();
-				logger.info("encryptData took {} " + (end - start));
-				return Utils.encodeBase64(result.getCiphertextBlob()
-						.array());
-			}
-			logger.error("encryptUsingAWSKey failed, EncryptResult is null!");
-			return null;
-		}
-		catch (DisabledException de)
-		{
-			logger.error(
-					"Failed to encryptUsingAWSKey(DisabledException), plainText:{}, keyId:{}, due to:{}",
-					plainText, keyId, ExceptionUtils.getMessage(de), de);
-		}
-		catch (KeyUnavailableException kue)
-		{
-			logger.error(
-					"Failed to encryptUsingAWSKey(KeyUnavailableException), plainText:{}, keyId:{}, due to:{}",
-					plainText, keyId, ExceptionUtils.getMessage(kue), kue);
-		}
-		catch (Exception ex)
-		{
-			logger.error("Failed to encryptUsingAWSKey, plainText:{}, keyId:{}, due to:{}",
-					plainText, keyId, ExceptionUtils.getMessage(ex), ex);
-		}
-		return null;
-	}
+what if i implement this in KMSServiceImpl
 
-new encryptUsingAWSKey:
-public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
-	{
-		if (StringUtils.isEmpty(plainText))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
-		}
-		if (StringUtils.isEmpty(keyId))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
-		}
-		try
-		{
-			EncryptRequest encryptRequest = new EncryptRequest().withKeyId(keyId)
-					.withPlaintext(getByteBuffer(plainText));
-			long start = System.currentTimeMillis();
-			EncryptResult result = kmsClient.encrypt(encryptRequest);
-			if (result != null && result.getCiphertextBlob() != null)
-			{
-				long end = System.currentTimeMillis();
-				logger.info("[{}] encryptData took {} ", getAwsSdkVersion(), end - start);
-				return Utils.encodeBase64(result.getCiphertextBlob()
-						.array());
-			}
-			else
-			{
-				logger.error("[{}] encryptUsingAWSKey failed, EncryptResult is null for keyId: {}",
-						getAwsSdkVersion(), keyId);
-				throw KmsExceptionHandler.handleKMSException(getAwsSdkVersion(), "encrypt", keyId,
-						new IllegalStateException("EncryptResult or CiphertextBlob is null"));
-			}
-		}
-		catch (DisabledException | KeyUnavailableException | UnsupportedEncodingException ex)
-		{
-			logger.error(String.format("[%s] Failed to encrypt, plainText:%s, keyId:%s, due to:%s",
-					getAwsSdkVersion(), plainText, keyId, ex.getMessage()), ex);
-			throw KmsExceptionHandler.handleKMSException(getAwsSdkVersion(), "encrypt", keyId, ex);
-		}
-	}
+@Override
+public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException {
+    try {
+        return epwKmsService.encryptUsingAWSKey(plainText, keyId);
+    } catch (KMSOperationException e) {
+        logger.error("Encryption failed in legacy KMSServiceImpl (keyId: {})", keyId, e);
+        return null; // Preserve legacy behavior of returning null on failure
+    }
+}
 
-
-can you tell me the behaviour changes in these two methods, it's advantage and disadvantage, if i use the new method in the old method like this:
-	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
-	{
-		return epwKmsService.encryptUsingAWSKey(plainText, keyId);
-	}
+So that it does not Break compatibility if old callers depend on null returns.
