@@ -1,104 +1,90 @@
-package com.safepage.security.service.impl;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
-
-import com.amazonaws.services.kms.AWSKMS;
-import com.amazonaws.services.kms.AWSKMSClient;
-import com.amazonaws.services.kms.model.DescribeKeyRequest;
-import com.amazonaws.services.kms.model.DescribeKeyResult;
-import com.amazonaws.services.kms.model.ListAliasesRequest;
-import com.amazonaws.services.kms.model.ListAliasesResult;
-import com.personalcapital.aws.AWSCredentialsManager;
-import com.safepage.exception.SafePageException;
-import com.empower.epw.aws.api.kms.EpwKmsService;
-import com.safepage.security.service.KMSService;
-
-/**
- * @author dizadi
- */
-public class KMSServiceImpl implements KMSService
-{
-	private AWSKMS kmsClient = null;
-	private final EpwKmsService epwKmsService;
-
-	private AWSKMS getKMSClient()
+Just like how this method doesn't retunr null:
+public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
 	{
-		if (kmsClient == null)
+		if (StringUtils.isEmpty(plainText))
 		{
-			AWSCredentialsManager awsCredentialsManager = new AWSCredentialsManager();
-			kmsClient = (AWSKMS) awsCredentialsManager
-					.getClientBuilderWithCredentials(AWSKMSClient.builder())
-					.build();
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
 		}
-		return kmsClient;
+		if (StringUtils.isEmpty(keyId))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
+		}
+		try
+		{
+			EncryptRequest encryptRequest = new EncryptRequest().withKeyId(keyId)
+					.withPlaintext(getByteBuffer(plainText));
+			long start = System.currentTimeMillis();
+			EncryptResult result = kmsClient.encrypt(encryptRequest);
+			if (result != null && result.getCiphertextBlob() != null)
+			{
+				long end = System.currentTimeMillis();
+				logger.info("[{}] encryptData took {} ", getAwsSdkVersion(), end - start);
+				return Utils.encodeBase64(result.getCiphertextBlob()
+						.array());
+			}
+			else
+			{
+				logger.error("[{}] encryptUsingAWSKey failed, EncryptResult is null for keyId: {}",
+						getAwsSdkVersion(), keyId);
+				throw AwsExceptionHandler.handleKMSException(getAwsSdkVersion(), "encrypt", keyId,
+						new IllegalStateException("EncryptResult or CiphertextBlob is null"));
+			}
+		}
+		catch (DisabledException | KeyUnavailableException | UnsupportedEncodingException ex)
+		{
+			logger.error(String.format("[%s] Failed to encrypt, plainText:%s, keyId:%s, due to:%s",
+					getAwsSdkVersion(), plainText, keyId, ex.getMessage()), ex);
+			throw AwsExceptionHandler.handleKMSException(getAwsSdkVersion(), "encrypt", keyId, ex);
+		}
 	}
 
-	@Autowired
-	public KMSServiceImpl(@Qualifier("epwKmsService") EpwKmsService epwKmsService)
+can we refactor this decrypt method, because a good method never returns null right?
+public String decryptUsingAWSKey(String cipherText) throws SafePageException
 	{
-		this.epwKmsService = epwKmsService;
+		if (StringUtils.isEmpty(cipherText))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
+		}
+		try
+		{
+			byte[] decodedCipherText = Utils.decodeBase64(cipherText);
+			DecryptRequest decryptRequest = new DecryptRequest()
+					.withCiphertextBlob(ByteBuffer.wrap(decodedCipherText));
+			long start = System.currentTimeMillis();
+			DecryptResult result = kmsClient.decrypt(decryptRequest);
+			long end = System.currentTimeMillis();
+			logger.info("[{}] decryptData took {}", getAwsSdkVersion(), end - start);
+			ByteBuffer plainTextBlob = result.getPlaintext();
+			return getString(plainTextBlob);
+		}
+		catch (KeyUnavailableException kue)
+		{
+			// The request was rejected because the specified CMK was not available. The request can
+			// be retried.
+			logger.error(
+					"[{}] Failed to decryptUsingAWSKey(KeyUnavailableException), cipherText:{}, due to:{}",
+					getAwsSdkVersion(), cipherText, ExceptionUtils.getMessage(kue), kue);
+		}
+		catch (InvalidCiphertextException ice)
+		{
+			// The request was rejected because the specified ciphertext, or additional
+			// authenticated data incorporated
+			// into the ciphertext, such as the encryption context, is corrupted, missing, or
+			// otherwise invalid.
+			logger.error(
+					"[{}] Failed to decryptUsingAWSKey(InvalidCiphertextException), cipherText:{}, due to:{}",
+					getAwsSdkVersion(), cipherText, ExceptionUtils.getMessage(ice), ice);
+		}
+		catch (DisabledException de)
+		{
+			logger.error(
+					"[{}] Failed to decryptUsingAWSKey(DisabledException), cipherText:{}, due to:{}",
+					getAwsSdkVersion(), cipherText, ExceptionUtils.getMessage(de), de);
+		}
+		catch (Exception ex)
+		{
+			logger.error("[{}] Failed to decryptUsingAWSKey, cipherText:{}, due to:{}",
+					getAwsSdkVersion(), cipherText, ExceptionUtils.getMessage(ex), ex);
+		}
+		return null;
 	}
-
-	/**
-	 * Encrypt data key (system secondary key) under AWS CMK Key using IAM role to access the key
-	 * AWS CMK
-	 *
-	 * @throws SafePageException
-	 */
-	@Override
-	// @Retryable(value =
-	// {
-	// Exception.class
-	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
-	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
-	{
-		return epwKmsService.encryptUsingAWSKey(plainText, keyId);
-	}
-
-	/**
-	 * Decrypt encrypted data key under AWS CMK Key using IAM role to access the key
-	 */
-	@Override
-	// @Retryable(value =
-	// {
-	// Exception.class
-	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
-	public String decryptUsingAWSKey(String cipherText) throws SafePageException
-	{
-		return epwKmsService.decryptUsingAWSKey(cipherText);
-	}
-
-	/**
-	 * Create a new customer master key. <br>
-	 * Customer master key (CMK) is designed to encrypt and decrypt data keys (System Secondary
-	 * Key). CMK cannot be used to encrypt/decrypt data more than 4 KB (4096 bytes) of data.
-	 */
-	// public void createCMK()
-	// {
-	// String desc = "PCAP Master Key for encrypting system secondary keys";
-	// CreateKeyRequest req = new CreateKeyRequest().withDescription(desc);
-	// CreateKeyResult result = getKMSClient().createKey(req);
-	// }
-
-	@Override
-	@Deprecated
-	public DescribeKeyResult describeKey(String keyId)
-	{
-		DescribeKeyRequest describeKeyRequest = new DescribeKeyRequest().withKeyId(keyId);
-		DescribeKeyResult result = getKMSClient().describeKey(describeKeyRequest);
-		return result;
-	}
-
-	@Override
-	@Deprecated
-	public ListAliasesResult getKeyAliases(String keyId)
-	{
-		ListAliasesRequest listAliasesRequest = new ListAliasesRequest().withLimit(10);
-		ListAliasesResult result = getKMSClient().listAliases(listAliasesRequest);
-		return result;
-	}
-}
-
-
-after delegating to new epwkmsservice, it will be like this, so how to perfect the test case so that it'll hit al the good and bad cases
