@@ -1,9 +1,41 @@
-oh right, for that i have this in epwKMSServie: String getAwsSdkVersion();
-
-used like this in EpwKmsServiceImpl 
-
-	@Override
-	public String getAwsSdkVersion()
+public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
 	{
-		return "AWS SDK v1";
+		if (StringUtils.isEmpty(plainText))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
+		}
+		if (StringUtils.isEmpty(keyId))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
+		}
+		try
+		{
+			EncryptRequest encryptRequest = new EncryptRequest().withKeyId(keyId)
+					.withPlaintext(getByteBuffer(plainText));
+			long start = System.currentTimeMillis();
+			EncryptResult result = kmsClient.encrypt(encryptRequest);
+			if (result != null && result.getCiphertextBlob() != null)
+			{
+				long end = System.currentTimeMillis();
+				logger.info("[{}] encryptData took {} ", getAwsSdkVersion(), end - start);
+				return Utils.encodeBase64(result.getCiphertextBlob()
+						.array());
+			}
+			else
+			{
+				logger.error("[{}] encryptUsingAWSKey failed, EncryptResult is null for keyId: {}",
+						getAwsSdkVersion(), keyId);
+				throw AwsExceptionHandler.handleKMSException("encrypt", keyId,
+						new IllegalStateException("EncryptResult or CiphertextBlob is null"));
+			}
+		}
+		catch (DisabledException | KeyUnavailableException | UnsupportedEncodingException ex)
+		{
+			logger.error(String.format("[{}] Failed to encrypt, plainText:{}, keyId:{}, due to:{}",
+					getAwsSdkVersion(), plainText, keyId, ex.getMessage()), ex);
+			throw AwsExceptionHandler.handleKMSException("encrypt", keyId, ex);
+		}
 	}
+
+
+i'm getting this now : Expected 4 arguments but found 3 for this line : new IllegalStateException("EncryptResult or CiphertextBlob is null")); and last ex
