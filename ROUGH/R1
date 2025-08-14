@@ -1,13 +1,12 @@
-what if i implement this in KMSServiceImpl
-
-@Override
-public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException {
-    try {
-        return epwKmsService.encryptUsingAWSKey(plainText, keyId);
-    } catch (KMSOperationException e) {
-        logger.error("Encryption failed in legacy KMSServiceImpl (keyId: {})", keyId, e);
-        return null; // Preserve legacy behavior of returning null on failure
-    }
+this will not work, because 
+ 
+KMSOperationException extends RuntimeException 
+ 
+catch (Exception ex)
+{
+    logger.error("Failed to encryptUsingAWSKey, plainText:{}, keyId:{}, due to:{}",
+          plainText, keyId, ExceptionUtils.getMessage(ex), ex);
 }
-
-So that it does not Break compatibility if old callers depend on null returns.
+ 
+this how you will cover?
+ 
