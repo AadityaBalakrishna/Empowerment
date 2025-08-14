@@ -1,208 +1,286 @@
-package com.empower.epw.aws.v1.kms;
+package com.empower.epw.aws.api.s3.exception;
+import java.io.Serial;
+public class S3OperationException extends RuntimeException
+{
+	@Serial
+	private static final long serialVersionUID = 1L;
+	public S3OperationException(String message)
+	{
+		super(message);
+	}
+	public S3OperationException(String message, Throwable cause)
+	{
+		super(message, cause);
+	}
+}
 
-import java.io.UnsupportedEncodingException;
-import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
-import java.util.stream.Collectors;
-import java.util.List;
+package com.empower.epw.aws.v1.s3;
 
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.springframework.stereotype.Service;
-
-import com.amazonaws.services.kms.AWSKMS;
-import com.amazonaws.services.kms.model.DecryptRequest;
-import com.amazonaws.services.kms.model.DecryptResult;
-import com.amazonaws.services.kms.model.DescribeKeyRequest;
-import com.amazonaws.services.kms.model.DescribeKeyResult;
-import com.amazonaws.services.kms.model.DisabledException;
-import com.amazonaws.services.kms.model.EncryptRequest;
-import com.amazonaws.services.kms.model.EncryptResult;
-import com.amazonaws.services.kms.model.InvalidCiphertextException;
-import com.amazonaws.services.kms.model.KeyUnavailableException;
-import com.amazonaws.services.kms.model.ListAliasesRequest;
-import com.amazonaws.services.kms.model.ListAliasesResult;
-import com.empower.epw.aws.api.kms.dto.DescribeKeyResponseDTO;
-import com.empower.epw.aws.api.kms.dto.ListAliasesResponseDTO;
-import com.empower.epw.aws.v1.kms.util.AwsExceptionHandler;
+import com.amazonaws.AmazonClientException;
+import com.amazonaws.AmazonServiceException;
+import com.amazonaws.HttpMethod;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.model.*;
+import com.empower.epw.aws.api.s3.EpwS3Service;
+import com.empower.epw.aws.api.s3.model.S3UploadOptions;
+import com.empower.epw.aws.api.s3.model.SseAlgorithm;
+import com.empower.epw.aws.api.s3.exception.S3OperationException;
 import com.personalcapital.log.PcapLogger;
 import com.personalcapital.log.PcapLoggerFactory;
-import com.safepage.error.SafePageErrorType;
-import com.safepage.exception.SafePageException;
-import com.empower.epw.aws.api.kms.EpwKmsService;
-import com.safepage.util.Utils;
+import lombok.Builder;
+import lombok.Getter;
+import org.apache.commons.io.IOUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.stream.Collectors;
+
+/**
+ * Service implementation for S3 operations using the AWS SDK v1. This class acts as the v1 adapter.
+ */
 @Service
-public class EpwKmsServiceImpl implements EpwKmsService
+public class EpwS3ServiceImpl implements EpwS3Service
 {
 
 	private static final PcapLogger logger = PcapLoggerFactory
-			.getPcapLogger(EpwKmsServiceImpl.class);
-	private static final Charset charset = StandardCharsets.UTF_8;
+			.getPcapLogger(EpwS3ServiceImpl.class);
 
-	private final AWSKMS kmsClient;
+	private final AmazonS3 amazonS3;
 
-	public EpwKmsServiceImpl(AWSKMS kmsClient)
+	@Autowired
+	public EpwS3ServiceImpl(AmazonS3 amazonS3)
 	{
-		this.kmsClient = kmsClient;
+		this.amazonS3 = amazonS3;
 	}
 
-	/**
-	 * Encrypt data key (system secondary key) under AWS CMK Key using IAM role to access the key
-	 * AWS CMK
-	 *
-	 * @throws SafePageException
-	 */
-	@Override
-	// @Retryable(value =
-	// {
-	// Exception.class
-	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
-	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
+	@Getter
+	@Builder
+	public static class S3UploadPartResponse
 	{
-		if (StringUtils.isEmpty(plainText))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
-		}
-		if (StringUtils.isEmpty(keyId))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
-		}
+		private final String eTag;
+		private final int partNumber;
+	}
+
+	private void uploadFileInternal(String bucketName, String key, InputStream inputStream,
+			long contentLength, SseAlgorithm sseAlgorithm)
+	{
+		validateS3Inputs(bucketName, key);
 		try
 		{
-			EncryptRequest encryptRequest = new EncryptRequest().withKeyId(keyId)
-					.withPlaintext(getByteBuffer(plainText));
-			long start = System.currentTimeMillis();
-			EncryptResult result = kmsClient.encrypt(encryptRequest);
-			if (result != null && result.getCiphertextBlob() != null)
+			ObjectMetadata metadata = new ObjectMetadata();
+			metadata.setContentLength(contentLength);
+
+			if (sseAlgorithm == SseAlgorithm.AES256)
 			{
-				long end = System.currentTimeMillis();
-				logger.info("[{}] encryptData took {} ", getAwsSdkVersion(), end - start);
-				return Utils.encodeBase64(result.getCiphertextBlob()
-						.array());
+				metadata.setSSEAlgorithm(ObjectMetadata.AES_256_SERVER_SIDE_ENCRYPTION);
 			}
-			else
-			{
-				logger.error("[{}] encryptUsingAWSKey failed, EncryptResult is null for keyId: {}",
-						getAwsSdkVersion(), keyId);
-				throw AwsExceptionHandler.handleKMSException("encrypt", keyId,
-						new IllegalStateException("EncryptResult or CiphertextBlob is null"));
-			}
+
+			amazonS3.putObject(bucketName, key, inputStream, metadata);
+			logger.info("[{}] Successfully uploaded file to bucket: {}, key: {}",
+					getAwsSdkVersion(), bucketName, key);
 		}
-		catch (DisabledException | KeyUnavailableException | UnsupportedEncodingException ex)
+		catch (AmazonClientException e)
 		{
-			logger.error("[{}] Failed to encrypt, plainText:{}, keyId:{}, due to:{}",
-					getAwsSdkVersion(), plainText, keyId, ExceptionUtils.getMessage(ex), ex);
-			throw AwsExceptionHandler.handleKMSException("encrypt", keyId, ex);
+			throw handleS3Exception("Failed to upload file.", bucketName, key, e);
 		}
 	}
 
-	/**
-	 * Decrypt encrypted data key under AWS CMK Key using IAM role to access the key
-	 */
 	@Override
-	// @Retryable(value =
-	// {
-	// Exception.class
-	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
-	public String decryptUsingAWSKey(String cipherText) throws SafePageException
+	public void uploadFile(String bucketName, String key, InputStream inputStream,
+			S3UploadOptions uploadOptions)
 	{
-		if (StringUtils.isEmpty(cipherText))
+		if (uploadOptions == null)
 		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
+			throw new IllegalArgumentException("Upload options cannot be null.");
 		}
+		uploadFileInternal(bucketName, key, inputStream, uploadOptions.getContentLength(),
+				uploadOptions.getSseAlgorithm());
+	}
+
+	@Override
+	public void uploadFile(String bucketName, String key, File file)
+	{
+		try (InputStream inputStream = new FileInputStream(file))
+		{
+			uploadFileInternal(bucketName, key, inputStream, file.length(), null);
+		}
+		catch (IOException e)
+		{
+			throw new S3OperationException("Failed to read file for upload.", e);
+		}
+	}
+
+	@Override
+	public void copyFile(String sourceBucketName, String sourceKey, String destinationBucketName,
+			String destinationKey)
+	{
+		validateS3Inputs(sourceBucketName, sourceKey);
+		validateS3Inputs(destinationBucketName, destinationKey);
 		try
 		{
-			byte[] decodedCipherText = Utils.decodeBase64(cipherText);
-			DecryptRequest decryptRequest = new DecryptRequest()
-					.withCiphertextBlob(ByteBuffer.wrap(decodedCipherText));
+			CopyObjectRequest copyObjRequest = new CopyObjectRequest(sourceBucketName, sourceKey,
+					destinationBucketName, destinationKey);
+			amazonS3.copyObject(copyObjRequest);
+			logger.info(
+					"[{}] Successfully copied file from bucket: {}, key: {} to bucket: {}, key: {}",
+					getAwsSdkVersion(), sourceBucketName, sourceKey, destinationBucketName,
+					destinationKey);
+		}
+		catch (AmazonClientException e)
+		{
+			throw handleS3Exception("Failed to copy file.", sourceBucketName, sourceKey, e);
+		}
+	}
+
+	@Override
+	public boolean multipartUploadFile(String bucketName, String key, InputStream inputStream,
+			Integer partSize)
+	{
+		validateS3Inputs(bucketName, key);
+		String uploadId = startMultipartUpload(bucketName, key);
+		logger.info("[{}] Started multipart upload for key: {}, uploadId: {}", getAwsSdkVersion(),
+				key, uploadId);
+		List<PartETag> partETags = new ArrayList<>();
+		try
+		{
 			long start = System.currentTimeMillis();
-			DecryptResult result = kmsClient.decrypt(decryptRequest);
+
+			/*
+			 * 2- Upload the parts of the object
+			 */
+			byte[] buffer = new byte[Math.toIntExact(partSize)];
+			// number of parts
+			int part = 1;
+			// total number of bytes read into the buffer
+			int read = inputStream.read(buffer);
+			long totalSize = 0;
+			while (read != -1)
+			{
+				totalSize += read;
+				S3UploadPartResponse partResponse = uploadPart(bucketName, key, uploadId,
+						new ByteArrayInputStream(buffer), part, read);
+				partETags.add(new PartETag(partResponse.getPartNumber(), partResponse.getETag()));
+				part++;
+				read = inputStream.read(buffer);
+			}
+
+			// 3- Complete the multipart upload
+			completeMultipartUpload(bucketName, key, uploadId, partETags);
 			long end = System.currentTimeMillis();
-			logger.info("[{}] decryptData took {}", getAwsSdkVersion(), end - start);
-			ByteBuffer plainTextBlob = result.getPlaintext();
-			return getString(plainTextBlob);
+			logger.info(
+					"[{}] Successfully completed multipartUploadObject upload for key: {},size: {},time consumed: {} milliseconds, uploadId: {} ",
+					getAwsSdkVersion(), key, totalSize, end - start, uploadId);
+			return true;
 		}
-		catch (KeyUnavailableException kue)
+		catch (Exception e)
 		{
-			// The request was rejected because the specified CMK was not available. The request can
-			// be retried.
-			logger.error(
-					"[{}] Failed to decryptUsingAWSKey(KeyUnavailableException), cipherText:{}, due to:{}",
-					getAwsSdkVersion(), cipherText, ExceptionUtils.getMessage(kue), kue);
+			logger.error("[{}] Error during multipart upload for key: {}, uploadId: {}. Aborting.",
+					getAwsSdkVersion(), key, uploadId, e);
+			abortMultipartUpload(bucketName, key, uploadId);
+			if (e instanceof S3OperationException)
+				throw (S3OperationException) e;
+			throw new S3OperationException("A failure occurred during multipart upload.", e);
 		}
-		catch (InvalidCiphertextException ice)
+		finally
 		{
-			// The request was rejected because the specified ciphertext, or additional
-			// authenticated data incorporated
-			// into the ciphertext, such as the encryption context, is corrupted, missing, or
-			// otherwise invalid.
-			logger.error(
-					"[{}] Failed to decryptUsingAWSKey(InvalidCiphertextException), cipherText:{}, due to:{}",
-					getAwsSdkVersion(), cipherText, ExceptionUtils.getMessage(ice), ice);
+			IOUtils.closeQuietly(inputStream);
 		}
-		catch (DisabledException de)
-		{
-			logger.error(
-					"[{}] Failed to decryptUsingAWSKey(DisabledException), cipherText:{}, due to:{}",
-					getAwsSdkVersion(), cipherText, ExceptionUtils.getMessage(de), de);
-		}
-		catch (Exception ex)
-		{
-			logger.error("[{}] Failed to decryptUsingAWSKey, cipherText:{}, due to:{}",
-					getAwsSdkVersion(), cipherText, ExceptionUtils.getMessage(ex), ex);
-		}
-		return null;
 	}
 
 	@Override
-	@Deprecated
-	public ListAliasesResponseDTO listAliases() throws SafePageException
+	public InputStream downloadFile(String bucketName, String key)
 	{
+		GetObjectRequest request = new GetObjectRequest(bucketName, key);
+		return executeS3GetRequest(request);
+	}
+
+	@Override
+	public InputStream downloadFile(String bucketName, String key, Long startPosition,
+			Long endPosition)
+	{
+		GetObjectRequest request = new GetObjectRequest(bucketName, key).withRange(startPosition,
+				endPosition);
+		return executeS3GetRequest(request);
+	}
+
+	@Override
+	public long getFileSize(String bucketName, String key)
+	{
+		validateS3Inputs(bucketName, key);
 		try
 		{
-			ListAliasesResult result = kmsClient
-					.listAliases(new ListAliasesRequest().withLimit(100));
-			List<ListAliasesResponseDTO.AliasEntry> aliasEntries = result.getAliases()
+			ObjectMetadata metadata = amazonS3.getObjectMetadata(bucketName, key);
+			logger.info("[{}] Successfully retrieved file size for bucket: {}, key: {}, Size",
+					getAwsSdkVersion(), bucketName, key, metadata.getContentLength());
+			return metadata.getContentLength();
+		}
+		catch (AmazonClientException e)
+		{
+			throw handleS3Exception("Failed to get file size.", bucketName, key, e);
+		}
+	}
+
+	@Override
+	public void deleteFile(String bucketName, String key)
+	{
+		validateS3Inputs(bucketName, key);
+		try
+		{
+			amazonS3.deleteObject(bucketName, key);
+			logger.info("[{}] Successfully deleted file from bucket: {}, key: {}",
+					getAwsSdkVersion(), bucketName, key);
+		}
+		catch (AmazonClientException e)
+		{
+			throw handleS3Exception("Failed to delete file.", bucketName, key, e);
+		}
+	}
+
+	@Override
+	public List<String> listFiles(String bucketName, String folderName)
+	{
+		validateS3Inputs(bucketName, folderName);
+		try
+		{
+			ListObjectsV2Request request = new ListObjectsV2Request().withBucketName(bucketName)
+					.withPrefix(folderName);
+			ListObjectsV2Result result = this.amazonS3.listObjectsV2(request);
+			logger.info("[{}] Successfully listed {} files in bucket: {}, folder: {}",
+					getAwsSdkVersion(), result.getKeyCount(), bucketName, folderName);
+			return result.getObjectSummaries()
 					.stream()
-					.map(alias -> new ListAliasesResponseDTO.AliasEntry(alias.getAliasName(),
-							alias.getTargetKeyId()))
+					.map(S3ObjectSummary::getKey)
 					.collect(Collectors.toList());
-			return new ListAliasesResponseDTO(aliasEntries);
 		}
-		catch (Exception ex)
+		catch (AmazonClientException e)
 		{
-			logger.error("[{}] Failed to listAliases, due to:{}", getAwsSdkVersion(),
-					ExceptionUtils.getMessage(ex), ex);
-			return new ListAliasesResponseDTO();
+			throw handleS3Exception("Failed to list files.", bucketName, folderName, e);
 		}
 	}
 
 	@Override
-	@Deprecated
-	public DescribeKeyResponseDTO describeKey(String keyId) throws SafePageException
+	public String generatePresignedDownloadUrl(String bucketName, String key, Date expiration)
 	{
+		validateS3Inputs(bucketName, key);
 		try
 		{
-			DescribeKeyResult result = kmsClient
-					.describeKey(new DescribeKeyRequest().withKeyId(keyId));
-
-			return new DescribeKeyResponseDTO(result.getKeyMetadata()
-					.getKeyId(),
-					result.getKeyMetadata()
-							.getArn(),
-					result.getKeyMetadata()
-							.getKeyState()
-							.toString(),
-					result.getKeyMetadata()
-							.getEnabled());
+			GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucketName, key)
+					.withExpiration(expiration)
+					.withMethod(HttpMethod.GET);
+			return this.amazonS3.generatePresignedUrl(request)
+					.toString();
 		}
-		catch (Exception ex)
+		catch (AmazonClientException e)
 		{
-			logger.error("[{}] Failed to describeKey, keyId:{}, due to:{}", getAwsSdkVersion(),
-					keyId, ExceptionUtils.getMessage(ex), ex);
-			return new DescribeKeyResponseDTO();
+			throw handleS3Exception("Failed to generate presigned URL.", bucketName, key, e);
 		}
 	}
 
@@ -212,35 +290,115 @@ public class EpwKmsServiceImpl implements EpwKmsService
 		return "AWS SDK v1";
 	}
 
-	/**
-	 * Converts a String to a ByteBuffer using the specified charset.
-	 *
-	 * @param string
-	 *            the String to convert
-	 * @return the ByteBuffer representation of the String
-	 */
-	public static ByteBuffer getByteBuffer(String string)
+	private void validateS3Inputs(String bucketName, String keyOrFolder)
 	{
-		return ByteBuffer.wrap(string.getBytes(charset));
+		if (bucketName == null || bucketName.isBlank())
+		{
+			throw new IllegalArgumentException("Bucket name cannot be empty.");
+		}
+		if (keyOrFolder == null || keyOrFolder.isBlank())
+		{
+			throw new IllegalArgumentException("File key or folder name cannot be empty.");
+		}
 	}
 
-	/**
-	 * Converts a ByteBuffer to a String using the specified charset.
-	 *
-	 * @param byteBuffer
-	 *            the ByteBuffer to convert
-	 * @return the String representation of the ByteBuffer
-	 */
-	public static String getString(ByteBuffer byteBuffer)
+	private InputStream executeS3GetRequest(GetObjectRequest request)
 	{
-		byte[] byteArray = new byte[byteBuffer.remaining()];
-		byteBuffer.get(byteArray);
-		return new String(byteArray, charset);
+		validateS3Inputs(request.getBucketName(), request.getKey());
+		try
+		{
+			S3Object s3Object = this.amazonS3.getObject(request);
+			logger.info("[{}] Successfully downloaded file from bucket: {}, key: {}",
+					getAwsSdkVersion(), request.getBucketName(), request.getKey());
+			return s3Object.getObjectContent();
+		}
+		catch (AmazonClientException e)
+		{
+			throw handleS3Exception("Failed to download file.", request.getBucketName(),
+					request.getKey(), e);
+		}
+	}
+
+	private String startMultipartUpload(String bucketName, String key)
+	{
+		try
+		{
+			InitiateMultipartUploadRequest request = new InitiateMultipartUploadRequest(bucketName,
+					key);
+			return this.amazonS3.initiateMultipartUpload(request)
+					.getUploadId();
+		}
+		catch (AmazonClientException e)
+		{
+			throw new S3OperationException("Failed to start multipart upload.", e);
+		}
+	}
+
+	private S3UploadPartResponse uploadPart(String bucketName, String key, String uploadId,
+			InputStream inputStream, int partNumber, long partSize)
+	{
+		try
+		{
+			UploadPartRequest request = new UploadPartRequest().withBucketName(bucketName)
+					.withKey(key)
+					.withUploadId(uploadId)
+					.withInputStream(inputStream)
+					.withPartSize(partSize)
+					.withPartNumber(partNumber);
+			UploadPartResult result = this.amazonS3.uploadPart(request);
+			return S3UploadPartResponse.builder()
+					.partNumber(result.getPartNumber())
+					.eTag(result.getETag())
+					.build();
+		}
+		catch (AmazonClientException e)
+		{
+			throw new S3OperationException("Failed to upload part " + partNumber, e);
+		}
+	}
+
+	private void completeMultipartUpload(String bucketName, String key, String uploadId,
+			List<PartETag> partETags)
+	{
+		try
+		{
+			CompleteMultipartUploadRequest request = new CompleteMultipartUploadRequest(bucketName,
+					key, uploadId, partETags);
+			this.amazonS3.completeMultipartUpload(request);
+		}
+		catch (AmazonClientException e)
+		{
+			throw new S3OperationException("Failed to complete multipart upload.", e);
+		}
+	}
+
+	private void abortMultipartUpload(String bucketName, String key, String uploadId)
+	{
+		try
+		{
+			AbortMultipartUploadRequest request = new AbortMultipartUploadRequest(bucketName, key,
+					uploadId);
+			this.amazonS3.abortMultipartUpload(request);
+		}
+		catch (AmazonClientException e)
+		{
+			logger.error(
+					"[{}] CRITICAL: Failed to abort multipart upload with ID: {}. Orphaned parts may exist.",
+					getAwsSdkVersion(), uploadId);
+			logger.debug("[{}] Exception occurred while connecting S3: {}", getAwsSdkVersion(),
+					e.getMessage(), e);
+		}
+	}
+
+	private S3OperationException handleS3Exception(String message, String bucket, String key,
+												   Exception e) {
+		if (e instanceof AmazonServiceException ase) {
+			logger.error(String.format("[%s] %s Bucket: %s, Key: %s. AWS Error Code: %s, Request ID: %s, HTTP Status: %d",
+					getAwsSdkVersion(), message, bucket, key, ase.getErrorCode(), ase.getRequestId(), ase.getStatusCode()), ase);
+		} else {
+			logger.error(String.format("[%s] %s Bucket: %s, Key: %s. Error: %s",
+					getAwsSdkVersion(), message, bucket, key, e.getMessage()), e);
+		}
+		return new S3OperationException(message, e);
 	}
 }
-
-maybe the review comments are taking about the change of null return with exceptions for the encrypt and decrypt methods and not the Describe key and list aliases methods, basically, 
-
-the old KMSServiceImpl should delegate the new one, so in KMSService why should i keep the new methods?
-
-i can keep the same 4 methods right?
