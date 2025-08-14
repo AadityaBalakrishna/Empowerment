@@ -1,26 +1,9 @@
-for format: i am getting this: Too many arguments for format string (found: 4, expected: 0)
+oh right, for that i have this in epwKMSServie: String getAwsSdkVersion();
 
-package com.empower.epw.aws.v1.kms.util;
+used like this in EpwKmsServiceImpl 
 
-import com.empower.epw.aws.api.kms.exception.KMSOperationException;
-import com.personalcapital.log.PcapLogger;
-import com.personalcapital.log.PcapLoggerFactory;
-
-public class AwsExceptionHandler
-{
-	public static final String FAILURE_MSG_PREFIX = "[AWS SDK v1] Failed to ";
-
-	private static final PcapLogger logger = PcapLoggerFactory
-			.getPcapLogger(AwsExceptionHandler.class);
-
-	public static KMSOperationException handleKMSException(String operation, String keyId,
-			Exception e)
+	@Override
+	public String getAwsSdkVersion()
 	{
-		String errorMessage = String.format("'%s' KMS operation '%s' failed for keyId '%s': %s",
-				FAILURE_MSG_PREFIX, keyId, e.getMessage());
-		logger.error(errorMessage, e);
-		return new KMSOperationException(errorMessage, e);
+		return "AWS SDK v1";
 	}
-}
-
-i have this, anything needs to be changed?
