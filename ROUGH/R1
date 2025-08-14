@@ -1,309 +1,145 @@
-Review Comments:
-Please don't remove old methods, public DescribeKeyResult describeKey(String awsCmkKeyAlias); and public ListAliasesResult getKeyAliases(String awsCmkKeyAlias);
-behavior changes. 
-in old: if result is null, we will return null, 
-but now, if result is null, we throwing custom exception
-in old:  when an exception like DisabledException | KeyUnavailableException | UnsupportedEncodingException
-we log error and return null, but now we are throwing exception
- 
-public void testGetAliasListForKey() throws Exception, Here also we throwing exception, in old we are not throwing 
+package com.empower.epw.aws.kms.config;
 
-this should be used
-logger.error("[{}] Failed to encrypt, plainText:{}, keyId:{}, due to:{}",
-       getAwsSdkVersion(), plainText, keyId, ExceptionUtils.getMessage(ex), ex);
-refer S3Impl ( logger.error - using different overload method 
-void error(String format, Object... args);
-from PcapLogger, which don't print stackTrace
-void error(String msg, Throwable thrown);
+import com.amazonaws.services.kms.AWSKMS;
+import com.amazonaws.services.kms.AWSKMSClientBuilder;
+import com.empower.epw.aws.api.kms.EpwKmsService;
 
-so those two deprecated methods i should keep it as it is, in both KMSService and KMSServiceImpl ? ---> yeah mark as Deprecated for old method, keep the new methods ( remove Deprecated ) 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.*;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.util.StringUtils;
 
-old KMSService:
-package com.safepage.security.service;
-import com.amazonaws.services.kms.model.DescribeKeyResult;
-import com.amazonaws.services.kms.model.ListAliasesResult;
-import com.safepage.exception.SafePageException;
-public interface KMSService
+import software.amazon.awssdk.services.kms.KmsClient;
+
+/**
+ * Auto-configuration for AWS KMS clients and services.
+ * <p>
+ * This configuration class provides beans for AWS Key Management Service (KMS) clients and
+ * services, supporting both AWS SDK v1 and v2. The desired SDK version can be specified using the
+ * property {@code epw.aws.kms.sdk-version}. If no version is specified, the v1 implementation is
+ * used by default.
+ * </p>
+ * <p>
+ * Beans are conditionally created based on the specified SDK version, and credentials are
+ * configured using either the AWS profile or the default credentials provider chain.
+ * </p>
+ */
+@Configuration
+public class EpwKmsAutoConfig
 {
-	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException;
-	public String decryptUsingAWSKey(String cipherText) throws SafePageException;
-	public ListAliasesResult getKeyAliases(String awsCmkKeyAlias);
-	public DescribeKeyResult describeKey(String awsCmkKeyAlias);
-}
 
-new KMSService:
-package com.safepage.security.service;
-import com.amazonaws.services.kms.model.DescribeKeyResult;
-import com.amazonaws.services.kms.model.ListAliasesResult;
-import com.empower.epw.aws.api.kms.dto.DescribeKeyResponseDTO;
-import com.empower.epw.aws.api.kms.dto.ListAliasesResponseDTO;
-import com.safepage.exception.SafePageException;
-public interface KMSService
-{
-	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException;
-	public String decryptUsingAWSKey(String cipherText) throws SafePageException;
-	@Deprecated
-	public ListAliasesResponseDTO getKeyAliases(String awsCmkKeyAlias) throws SafePageException;
-	@Deprecated
-	public DescribeKeyResponseDTO describeKey(String awsCmkKeyAlias) throws SafePageException;
-}
+	private static final Logger logger = LoggerFactory.getLogger(EpwKmsAutoConfig.class);
+	private static final String DEFAULT_AWS_REGION = "us-west-2";
+	public static final String AWS_REGION_KEY = "aws.region";
+	public static final String AWS_PROFILE = "aws.profile";
 
-old KMSServiceImpl:
-package com.safepage.security.service.impl;
-public class KMSServiceImpl implements KMSService
-{
-	private AWSKMS kmsClient = null;
-	private static PcapLogger logger = PcapLoggerFactory.getPcapLogger(KMSServiceImpl.class);
-	private static Charset charset = StandardCharsets.UTF_8;
-	private AWSKMS getKMSClient()
+	/**
+	 * Creates a KMS client for AWS SDK v2.
+	 * <p>
+	 * This bean is created only if the property {@code epw.aws.kms.sdk-version} is set to
+	 * {@code v2}. The client is configured with credentials from either the specified AWS profile
+	 * or the default credentials provider chain, and the region is determined from the
+	 * {@code aws.region} property.
+	 * </p>
+	 *
+	 * @return A configured {@link KmsClient} instance for AWS SDK v2.
+	 */
+	@Bean("epwKmsClient")
+	@ConditionalOnProperty(name = "epw.aws.kms.sdk-version", havingValue = "v2")
+	public KmsClient kmsClient()
 	{
-		if (kmsClient == null)
+		String awsProfile = System.getProperty(AWS_PROFILE);
+		software.amazon.awssdk.auth.credentials.AwsCredentialsProvider credentialsProvider;
+		if (StringUtils.hasText(awsProfile))
 		{
-			AWSCredentialsManager awsCredentialsManager = new AWSCredentialsManager();
-			kmsClient = (AWSKMS) awsCredentialsManager
-					.getClientBuilderWithCredentials(AWSKMSClient.builder())
+			logger.info("Using AWS profile for AWS SDK v2: {}", awsProfile);
+			credentialsProvider = software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider
+					.builder()
+					.profileName(awsProfile)
 					.build();
 		}
-		return kmsClient;
-	}
+		else
+		{
+			logger.info("Using default AWS credentials provider chain for SDK v2.");
+			credentialsProvider = software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider
+					.create();
+		}
 
-	// private constructor
-	private KMSServiceImpl()
-	{
-		/*
-		 * 1. can only be initialized using inner static class on first access.
-		 */
-		logger.info("Initialized the KMSServiceImpl");
-	}
-
-	/*
-	 * Bill Pugh Singleton creation using static inner class, thread safe and no synchronized block
-	 */
-	private static class KMSServiceHolder
-	{
-		private static final KMSService INSTANCE = new KMSServiceImpl();
-	}
-
-	public static KMSService getInstance()
-	{
-		/*
-		 * only when someone calls the method, this class gets loaded and creates the Singleton
-		 * class instance
-		 */
-		return KMSServiceHolder.INSTANCE;
-
+		String awsRegion = System.getProperty(AWS_REGION_KEY, DEFAULT_AWS_REGION);
+		logger.info("Creating KmsClient for AWS SDK v2 with region: {}", awsRegion);
+		return KmsClient.builder()
+				.credentialsProvider(credentialsProvider)
+				.region(software.amazon.awssdk.regions.Region.of(awsRegion))
+				.build();
 	}
 
 	/**
-	 * Encrypt data key (system secondary key) under AWS CMK Key using IAM role to access the key
-	 * AWS CMK
+	 * Creates the primary EpwKmsService bean using the AWS SDK v2 implementation.
 	 *
-	 * @throws SafePageException
+	 * @param kmsClient
+	 *            The shared AWS SDK v2 client.
+	 * @return The EpwKmsServiceImpl instance for AWS SDK v2.
 	 */
-	@Override
-	// @Retryable(value =
-	// {
-	// Exception.class
-	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
-	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
+	@Bean(name = "epwKmsService")
+	@ConditionalOnProperty(name = "epw.aws.kms.sdk-version", havingValue = "v2")
+	public EpwKmsService epwKmsServiceV2(@Qualifier("epwKmsClient") KmsClient kmsClient)
 	{
-		if (StringUtils.isEmpty(plainText))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
-		}
-		if (StringUtils.isEmpty(keyId))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
-		}
-		try
-		{
-			EncryptRequest encryptRequest = new EncryptRequest().withKeyId(keyId)
-					.withPlaintext(getByteBuffer(plainText));
-			long start = System.currentTimeMillis();
-			EncryptResult result = getKMSClient().encrypt(encryptRequest);
-			if (result != null && result.getCiphertextBlob() != null)
-			{
-				long end = System.currentTimeMillis();
-				logger.info("encryptData took {} " + (end - start));
-				return Utils.encodeBase64(result.getCiphertextBlob()
-						.array());
-			}
-			logger.error("encryptUsingAWSKey failed, EncryptResult is null!");
-			return null;
-		}
-		catch (DisabledException de)
-		{
-			logger.error(
-					"Failed to encryptUsingAWSKey(DisabledException), plainText:{}, keyId:{}, due to:{}",
-					plainText, keyId, ExceptionUtils.getMessage(de), de);
-		}
-		catch (KeyUnavailableException kue)
-		{
-			logger.error(
-					"Failed to encryptUsingAWSKey(KeyUnavailableException), plainText:{}, keyId:{}, due to:{}",
-					plainText, keyId, ExceptionUtils.getMessage(kue), kue);
-		}
-		catch (Exception ex)
-		{
-			logger.error("Failed to encryptUsingAWSKey, plainText:{}, keyId:{}, due to:{}",
-					plainText, keyId, ExceptionUtils.getMessage(ex), ex);
-		}
-		return null;
+		logger.info("Creating EpwKmsServiceImpl bean for AWS SDK v2");
+		return new com.empower.epw.aws.v2.kms.EpwKmsServiceImpl(kmsClient);
 	}
 
 	/**
-	 * Decrypt encrypted data key under AWS CMK Key using IAM role to access the key
+	 * Creates an AWS KMS client for AWS SDK v1.
+	 * <p>
+	 * This bean is created only if the property {@code epw.aws.kms.sdk-version} is set to
+	 * {@code v1} or is not specified. The client is configured with credentials from either the
+	 * specified AWS profile or the default credentials provider chain, and the region is determined
+	 * from the {@code aws.region} property.
+	 * </p>
+	 *
+	 * @return A configured {@link AWSKMS} instance for AWS SDK v1.
 	 */
-	@Override
-	// @Retryable(value =
-	// {
-	// Exception.class
-	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
-	public String decryptUsingAWSKey(String cipherText) throws SafePageException
+	@Bean(name = "epwAWSKMSClient")
+	@ConditionalOnProperty(name = "epw.aws.kms.sdk-version", havingValue = "v1", matchIfMissing = true)
+	public AWSKMS awsKmsClient()
 	{
-		if (StringUtils.isEmpty(cipherText))
+		String awsRegion = System.getProperty(AWS_REGION_KEY, DEFAULT_AWS_REGION);
+		String awsProfile = System.getProperty(AWS_PROFILE);
+		com.amazonaws.auth.AWSCredentialsProvider credentialsProvider;
+		if (StringUtils.hasText(awsProfile))
 		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
+			logger.info("Using AWS profile for AWS SDK v1: {}", awsProfile);
+			credentialsProvider = new com.amazonaws.auth.profile.ProfileCredentialsProvider(
+					awsProfile);
 		}
-		try
+		else
 		{
-			byte[] decodedCipherText = Utils.decodeBase64(cipherText);
-			DecryptRequest decryptRequest = new DecryptRequest()
-					.withCiphertextBlob(ByteBuffer.wrap(decodedCipherText));
-			long start = System.currentTimeMillis();
-			DecryptResult result = getKMSClient().decrypt(decryptRequest);
-			long end = System.currentTimeMillis();
-			logger.info("decryptData took {}" + (end - start));
-			ByteBuffer plainTextBlob = result.getPlaintext();
-			return getString(plainTextBlob);
+			logger.info("Using default AWS credentials provider chain.");
+			credentialsProvider = com.amazonaws.auth.DefaultAWSCredentialsProviderChain
+					.getInstance();
 		}
-		catch (KeyUnavailableException kue)
-		{
-			// The request was rejected because the specified CMK was not available. The request can
-			// be retried.
-			logger.error(
-					"Failed to decryptUsingAWSKey(KeyUnavailableException), cipherText:{}, due to:{}",
-					cipherText, ExceptionUtils.getMessage(kue), kue);
-		}
-		catch (InvalidCiphertextException ice)
-		{
-			// The request was rejected because the specified ciphertext, or additional
-			// authenticated data incorporated
-			// into the ciphertext, such as the encryption context, is corrupted, missing, or
-			// otherwise invalid.
-			logger.error(
-					"Failed to decryptUsingAWSKey(InvalidCiphertextException), cipherText:{}, due to:{}",
-					cipherText, ExceptionUtils.getMessage(ice), ice);
-		}
-		catch (DisabledException de)
-		{
-			logger.error(
-					"Failed to decryptUsingAWSKey(DisabledException), cipherText:{}, due to:{}",
-					cipherText, ExceptionUtils.getMessage(de), de);
-		}
-		catch (Exception ex)
-		{
-			logger.error("Failed to decryptUsingAWSKey, cipherText:{}, due to:{}", cipherText,
-					ExceptionUtils.getMessage(ex), ex);
-		}
-
-		return null;
+		logger.info("Creating AWSKMS client with region for AWS SDK v1: {}", awsRegion);
+		return AWSKMSClientBuilder.standard()
+				.withCredentials(credentialsProvider)
+				.withRegion(awsRegion)
+				.build();
 	}
 
-	public static String getString(ByteBuffer byteBuffer)
+	/**
+	 * Creates the primary EpwKmsService bean using the AWS SDK v1 implementation.
+	 *
+	 * @param awsKmsClient
+	 *            The shared AWS SDK v1 client.
+	 * @return The EpwKmsServiceImpl instance for AWS SDK v1.
+	 */
+	@Bean(name = "epwKmsService")
+	@ConditionalOnProperty(name = "epw.aws.kms.sdk-version", havingValue = "v1", matchIfMissing = true)
+	public EpwKmsService epwKmsServiceV1(@Qualifier("epwAWSKMSClient") AWSKMS awsKmsClient)
 	{
-		byte[] byteArray = new byte[byteBuffer.remaining()];
-		byteBuffer.get(byteArray);
-		return new String(byteArray, charset);
-	}
-
-	public static ByteBuffer getByteBuffer(String string)
-	{
-		return ByteBuffer.wrap(string.getBytes(charset));
-	}
-
-	@Override
-	public DescribeKeyResult describeKey(String keyId)
-	{
-		DescribeKeyRequest describeKeyRequest = new DescribeKeyRequest().withKeyId(keyId);
-		DescribeKeyResult result = getKMSClient().describeKey(describeKeyRequest);
-		return result;
-	}
-
-	@Override
-	public ListAliasesResult getKeyAliases(String keyId)
-	{
-		ListAliasesRequest listAliasesRequest = new ListAliasesRequest().withLimit(10);
-		ListAliasesResult result = getKMSClient().listAliases(listAliasesRequest);
-		return result;
-	}
-}
-
-New KMSServiceImpl which delegates to the new EpwKmsService:
-package com.safepage.security.service.impl;
-public class KMSServiceImpl implements KMSService
-{
-	private static final PcapLogger logger = PcapLoggerFactory.getPcapLogger(KMSServiceImpl.class);
-
-	private final EpwKmsService epwKmsService;
-
-	@Autowired
-	public KMSServiceImpl(@Qualifier("epwKmsService") EpwKmsService epwKmsService)
-	{
-		this.epwKmsService = epwKmsService;
-	}
-
-	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
-	{
-		if (StringUtils.isEmpty(plainText))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
-		}
-		if (StringUtils.isEmpty(keyId))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
-		}
-
-		String cipherText = epwKmsService.encryptUsingAWSKey(plainText, keyId);
-
-		if (StringUtils.isEmpty(cipherText))
-		{
-			logger.error("KMS encryption returned null or empty ciphertext.");
-			return null;
-		}
-		return cipherText;
-	}
-
-
-	public String decryptUsingAWSKey(String cipherText) throws SafePageException
-	{
-		if (StringUtils.isEmpty(cipherText))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
-		}
-
-		String plaintext = epwKmsService.decryptUsingAWSKey(cipherText);
-
-		if (StringUtils.isEmpty(plaintext))
-		{
-			logger.error("KMS decryption returned null or empty plaintext.");
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "Decryption failed.");
-		}
-
-		return plaintext;
-	}
-
-	@Override
-	@Deprecated
-	public DescribeKeyResponseDTO describeKey(String keyId) throws SafePageException
-	{
-		return epwKmsService.describeKey(keyId);
-	}
-
-	@Override
-	@Deprecated
-	public ListAliasesResponseDTO getKeyAliases(String keyId) throws SafePageException
-	{
-		return epwKmsService.listAliases();
+		logger.info("Creating EpwKmsService bean for AWS SDK v1.");
+		return new com.empower.epw.aws.v1.kms.EpwKmsServiceImpl(awsKmsClient);
 	}
 }
