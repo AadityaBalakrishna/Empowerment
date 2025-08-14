@@ -86,4 +86,8 @@ public String encryptUsingAWSKey(String plainText, String keyId) throws SafePage
 	}
 
 
-can you tell me the behaviour changes in these two methods?
+can you tell me the behaviour changes in these two methods, it's advantage and disadvantage, if i use the new method in the old method like this:
+	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
+	{
+		return epwKmsService.encryptUsingAWSKey(plainText, keyId);
+	}
