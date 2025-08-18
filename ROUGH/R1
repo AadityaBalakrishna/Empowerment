@@ -1,11 +1,42 @@
 package com.empower.epw.aws.api.kms.exception;
 
-public class KMSOperationException extends RuntimeException
-{
-	public KMSOperationException(String message, Throwable cause)
-	{
-		super(message, cause);
-	}
-}
+public class KMSOperationException extends RuntimeException {
+    private static final long serialVersionUID = 1L;
 
-anything to improve in this?
+    private final String sdkVersion;
+    private final String operation;
+    private final String keyId;
+
+    public KMSOperationException(String message) {
+        super(message);
+        this.sdkVersion = null;
+        this.operation = null;
+        this.keyId = null;
+    }
+
+    public KMSOperationException(String message, Throwable cause) {
+        super(message, cause);
+        this.sdkVersion = null;
+        this.operation = null;
+        this.keyId = null;
+    }
+
+    public KMSOperationException(String sdkVersion, String operation, String keyId, String message, Throwable cause) {
+        super(message, cause);
+        this.sdkVersion = sdkVersion;
+        this.operation = operation;
+        this.keyId = keyId;
+    }
+
+    public String getSdkVersion() {
+        return sdkVersion;
+    }
+
+    public String getOperation() {
+        return operation;
+    }
+
+    public String getKeyId() {
+        return keyId;
+    }
+}
