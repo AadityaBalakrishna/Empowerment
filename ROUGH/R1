@@ -1,42 +1,20 @@
-package com.empower.epw.aws.api.kms.exception;
+package com.empower.epw.aws.v1.kms.util;
 
-public class KMSOperationException extends RuntimeException {
-    private static final long serialVersionUID = 1L;
+import com.empower.epw.aws.api.kms.exception.KMSOperationException;
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
 
-    private final String sdkVersion;
-    private final String operation;
-    private final String keyId;
+public class AwsExceptionHandler
+{
+	private static final PcapLogger logger = PcapLoggerFactory
+			.getPcapLogger(AwsExceptionHandler.class);
 
-    public KMSOperationException(String message) {
-        super(message);
-        this.sdkVersion = null;
-        this.operation = null;
-        this.keyId = null;
-    }
-
-    public KMSOperationException(String message, Throwable cause) {
-        super(message, cause);
-        this.sdkVersion = null;
-        this.operation = null;
-        this.keyId = null;
-    }
-
-    public KMSOperationException(String sdkVersion, String operation, String keyId, String message, Throwable cause) {
-        super(message, cause);
-        this.sdkVersion = sdkVersion;
-        this.operation = operation;
-        this.keyId = keyId;
-    }
-
-    public String getSdkVersion() {
-        return sdkVersion;
-    }
-
-    public String getOperation() {
-        return operation;
-    }
-
-    public String getKeyId() {
-        return keyId;
-    }
+	public static KMSOperationException handleKMSException(String sdkVersion, String operation,
+			String keyId, Exception e)
+	{
+		String errorMessage = String.format("'%s' KMS operation '%s' failed for keyId '%s': %s",
+				sdkVersion, operation, keyId, e.getMessage());
+		logger.error(errorMessage, e);
+		return new KMSOperationException(errorMessage, e);
+	}
 }
