@@ -13,35 +13,28 @@ public String encryptUsingAWSKey(String plainText, String keyId) throws SafePage
 			EncryptRequest encryptRequest = new EncryptRequest().withKeyId(keyId)
 					.withPlaintext(getByteBuffer(plainText));
 			long start = System.currentTimeMillis();
-			EncryptResult result = getKMSClient().encrypt(encryptRequest);
+			EncryptResult result = kmsClient.encrypt(encryptRequest);
 			if (result != null && result.getCiphertextBlob() != null)
 			{
 				long end = System.currentTimeMillis();
-				logger.info("encryptData took {} " + (end - start));
+				logger.info("[{}] encryptData took {} ", getAwsSdkVersion(), end - start);
 				return Utils.encodeBase64(result.getCiphertextBlob()
 						.array());
 			}
-			logger.error("encryptUsingAWSKey failed, EncryptResult is null!");
-			return null;
+			else
+			{
+				logger.error("[{}] encryptUsingAWSKey failed, EncryptResult is null for keyId: {}",
+						getAwsSdkVersion(), keyId);
+				throw AwsExceptionHandler.handleKMSException(getAwsSdkVersion(), "encrypt", keyId,
+						new IllegalStateException("EncryptResult or CiphertextBlob is null"));
+			}
 		}
-		catch (DisabledException de)
+		catch (AmazonClientException | UnsupportedEncodingException ex)
 		{
-			logger.error(
-					"Failed to encryptUsingAWSKey(DisabledException), plainText:{}, keyId:{}, due to:{}",
-					plainText, keyId, ExceptionUtils.getMessage(de), de);
+			logger.error(String.format("[%s] Failed to encrypt, plainText:%s, keyId:%s, due to:%s",
+					getAwsSdkVersion(), plainText, keyId, ex.getMessage()), ex);
+			throw AwsExceptionHandler.handleKMSException(getAwsSdkVersion(), "encrypt", keyId, ex);
 		}
-		catch (KeyUnavailableException kue)
-		{
-			logger.error(
-					"Failed to encryptUsingAWSKey(KeyUnavailableException), plainText:{}, keyId:{}, due to:{}",
-					plainText, keyId, ExceptionUtils.getMessage(kue), kue);
-		}
-		catch (Exception ex)
-		{
-			logger.error("Failed to encryptUsingAWSKey, plainText:{}, keyId:{}, due to:{}",
-					plainText, keyId, ExceptionUtils.getMessage(ex), ex);
-		}
-		return null;
 	}
 
-this is how it was done earlier, just try to make my adapter a better one now
+what if i just do this?
