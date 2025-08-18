@@ -1,42 +1,18 @@
-	public String decryptUsingAWSKey(String cipherText) throws SafePageException
-	{
-		if (StringUtils.isEmpty(cipherText))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
-		}
-		try
-		{
-			byte[] decodedCipherText;
-			try
-			{
-				decodedCipherText = Base64.getDecoder()
-						.decode(cipherText);
-			}
-			catch (IllegalArgumentException e)
-			{
-				throw new SafePageException(SafePageErrorType.INVALID_INPUT,
-						"cipherText is not a valid Base64 encoded string");
-			}
-			DecryptRequest decryptRequest = new DecryptRequest()
-					.withCiphertextBlob(ByteBuffer.wrap(decodedCipherText));
-			long start = System.currentTimeMillis();
-			DecryptResult result = kmsClient.decrypt(decryptRequest);
-			long end = System.currentTimeMillis();
-			logger.info("[{}] decryptData took {}", getAwsSdkVersion(), end - start);
-			if (result == null || result.getPlaintext() == null)
-			{
-				throw AwsExceptionHandler.handleKMSException(getAwsSdkVersion(), "decrypt", null,
-						new IllegalStateException("DecryptResult or PlainText is null"));
-			}
-			return getString(result.getPlaintext());
-		}
-		catch (KeyUnavailableException | InvalidCiphertextException | DisabledException ex)
-		{
-			logger.error(String.format("[%s] decryptUsingAWSKey failed, cipherText:%s, due to:%s",
-					getAwsSdkVersion(), cipherText, ex.getMessage()), ex);
-			throw AwsExceptionHandler.handleKMSException(getAwsSdkVersion(), "decryptUsingAWSKey",
-					null, ex);
-		}
-	}
+for this error:
+org.opentest4j.AssertionFailedError: Unexpected exception type thrown, 
+Expected :class com.safepage.exception.SafePageException
+Actual   :class com.empower.epw.aws.api.kms.exception.KMSOperationException
 
-what to do to this?
+refactor this:
+		@Test
+		void testDecryptValueThrowsExceptionWhenCiphertextIsInvalid()
+		{
+			String invalidCiphertext = "not-base64-or-kms-data";
+
+			SafePageException exception = assertThrows(SafePageException.class,
+					() -> epwKmsService.decryptUsingAWSKey(invalidCiphertext));
+
+			assertEquals(SafePageErrorType.INVALID_INPUT, exception.getSafePageErrorType());
+			assertTrue(exception.getMessage()
+					.contains("Base64"));
+		}
