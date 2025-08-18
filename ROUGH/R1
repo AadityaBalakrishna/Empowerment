@@ -1,308 +1,211 @@
-please review this code, and give me suggestions to make it better
-package com.empower.epw.aws.v1.kms;
+i am really conflicted on how to refactor the old KMSServiceImpl to delegate to the new EpwKmsService interface while keeping it's old method behaviour intact so that no consumer will be affected, and in order to do so i will need you to refer and learn from how it's done by my senior in their S3 refactor
 
-import java.io.UnsupportedEncodingException;
-import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
-import java.util.stream.Collectors;
-import java.util.List;
-
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.springframework.stereotype.Service;
-
-import com.amazonaws.services.kms.AWSKMS;
-import com.amazonaws.services.kms.model.DecryptRequest;
-import com.amazonaws.services.kms.model.DecryptResult;
-import com.amazonaws.services.kms.model.DescribeKeyRequest;
-import com.amazonaws.services.kms.model.DescribeKeyResult;
-import com.amazonaws.services.kms.model.DisabledException;
-import com.amazonaws.services.kms.model.EncryptRequest;
-import com.amazonaws.services.kms.model.EncryptResult;
-import com.amazonaws.services.kms.model.InvalidCiphertextException;
-import com.amazonaws.services.kms.model.KeyUnavailableException;
-import com.amazonaws.services.kms.model.ListAliasesRequest;
-import com.amazonaws.services.kms.model.ListAliasesResult;
-import com.empower.epw.aws.api.kms.dto.DescribeKeyResponseDTO;
-import com.empower.epw.aws.api.kms.dto.ListAliasesResponseDTO;
-import com.empower.epw.aws.v1.kms.util.AwsExceptionHandler;
-import com.personalcapital.log.PcapLogger;
-import com.personalcapital.log.PcapLoggerFactory;
-import com.safepage.error.SafePageErrorType;
-import com.safepage.exception.SafePageException;
-import com.empower.epw.aws.api.kms.EpwKmsService;
-import com.safepage.util.Utils;
-
-@Service
-public class EpwKmsServiceImpl implements EpwKmsService
-{
-
-	private static final PcapLogger logger = PcapLoggerFactory
-			.getPcapLogger(EpwKmsServiceImpl.class);
-	private static final Charset charset = StandardCharsets.UTF_8;
-
-	private final AWSKMS kmsClient;
-
-	public EpwKmsServiceImpl(AWSKMS kmsClient)
+old:
+public boolean multipartUploadObject(PcapS3Request pcapS3Request, String bucketName,
+			Integer partSize) throws SafePageException
 	{
-		this.kmsClient = kmsClient;
-	}
-
-	/**
-	 * Encrypt data key (system secondary key) under AWS CMK Key using IAM role to access the key
-	 * AWS CMK
-	 *
-	 * @throws SafePageException
-	 */
-	@Override
-	// @Retryable(value =
-	// {
-	// Exception.class
-	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
-	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
-	{
-		if (StringUtils.isEmpty(plainText))
+		if (BaseUtils.isNullOrNull(bucketName))
 		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
+			throw new SafePageException("bucketName is null hence skipping further S3 processing");
 		}
-		if (StringUtils.isEmpty(keyId))
+		if (pcapS3Request == null || Utils.isNull(pcapS3Request.getKey())
+				|| pcapS3Request.getObject() == null)
 		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
+			throw new SafePageException(
+					"PcapS3Request is null hence skipping further S3 processing");
 		}
+		if (amazonS3Client == null)
+		{
+			throw new SafePageException(
+					"Cannot upload the object to S3 as amazonS3Client is null for bucketName: "
+							+ bucketName);
+		}
+		int fileSize = 0;
 		try
 		{
-			EncryptRequest encryptRequest = new EncryptRequest().withKeyId(keyId)
-					.withPlaintext(getByteBuffer(plainText));
-			long start = System.currentTimeMillis();
-			EncryptResult result = kmsClient.encrypt(encryptRequest);
-			if (result != null && result.getCiphertextBlob() != null)
-			{
-				long end = System.currentTimeMillis();
-				logger.info("[{}] encryptData took {} ", getAwsSdkVersion(), end - start);
-				return Utils.encodeBase64(result.getCiphertextBlob()
-						.array());
-			}
-			else
-			{
-				logger.error("[{}] encryptUsingAWSKey failed, EncryptResult is null for keyId: {}",
-						getAwsSdkVersion(), keyId);
-				throw AwsExceptionHandler.handleKMSException(getAwsSdkVersion(), "encrypt", keyId,
-						new IllegalStateException("EncryptResult or CiphertextBlob is null"));
-			}
+			fileSize = pcapS3Request.getObject()
+					.available();
 		}
-		catch (DisabledException | KeyUnavailableException | UnsupportedEncodingException ex)
+		catch (IOException e)
 		{
-			logger.error(String.format("[%s] Failed to encrypt, plainText:%s, keyId:%s, due to:%s",
-					getAwsSdkVersion(), plainText, keyId, ex.getMessage()), ex);
-			throw AwsExceptionHandler.handleKMSException(getAwsSdkVersion(), "encrypt", keyId, ex);
+			logger.error("Failed to get file size from pcapS3Request, key: {}, bucketName: {}",
+					pcapS3Request.getKey(), bucketName, e);
 		}
-	}
 
-	/**
-	 * Decrypt encrypted data key under AWS CMK Key using IAM role to access the key
-	 */
-	@Override
-	// @Retryable(value =
-	// {
-	// Exception.class
-	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
-	public String decryptUsingAWSKey(String cipherText) throws SafePageException
-	{
-		if (StringUtils.isEmpty(cipherText))
+		// Check if file size if less that part size limit throw an exception
+		if (fileSize < AWS_S3_MULTIPART_UPLOAD_PART_SIZE_LIMIT)
 		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
+			throw new SafePageException("Cannot use multipart upload for objects smaller that {}:"
+					+ AWS_S3_MULTIPART_UPLOAD_PART_SIZE_LIMIT + ", pcapS3Request.key:"
+					+ pcapS3Request.getKey());
 		}
+
+		// Check if part size is not less than AWS limit
+		if (partSize == null || partSize < AWS_S3_MULTIPART_UPLOAD_PART_SIZE_LIMIT)
+		{
+			logger.debug("multipartUploadObject part size if setting to default of "
+					+ AWS_S3_MULTIPART_UPLOAD_PART_SIZE_LIMIT);
+			partSize = AWS_S3_MULTIPART_UPLOAD_PART_SIZE_LIMIT;
+		}
+
+		InputStream fileUploadInputStram = null;
+		/*
+		 * 1- Initiate the multipart upload
+		 */
+		InitiateMultipartUploadResult initResult = amazonS3Client.initiateMultipartUpload(
+				new InitiateMultipartUploadRequest(bucketName, pcapS3Request.getKey()));
 		try
 		{
-			byte[] decodedCipherText = Utils.decodeBase64(cipherText);
-			DecryptRequest decryptRequest = new DecryptRequest()
-					.withCiphertextBlob(ByteBuffer.wrap(decodedCipherText));
 			long start = System.currentTimeMillis();
-			DecryptResult result = kmsClient.decrypt(decryptRequest);
+			fileUploadInputStram = pcapS3Request.getObject();
+
+			/*
+			 * 2- Upload the parts of the object
+			 */
+			byte[] buffer = new byte[partSize];
+			List<PartETag> list = new ArrayList<>();
+			// number of parts
+			int part = 1;
+			// total number of bytes read into the buffer
+			int read = fileUploadInputStram.read(buffer);
+			while (read != -1)
+			{
+				UploadPartRequest req = new UploadPartRequest().withPartSize(partSize)
+						.withInputStream(new ByteArrayInputStream(buffer))
+						.withBucketName(bucketName)
+						.withUploadId(initResult.getUploadId())
+						.withKey(pcapS3Request.getKey())
+						.withPartNumber(part);
+
+				list.add(amazonS3Client.uploadPart(req)
+						.getPartETag());
+				part++;
+				read = fileUploadInputStram.read(buffer);
+			}
+
+			// 3- Complete the multipart upload
+			CompleteMultipartUploadRequest completeRequest = new CompleteMultipartUploadRequest(
+					bucketName, pcapS3Request.getKey(), initResult.getUploadId(), list);
+			amazonS3Client.completeMultipartUpload(completeRequest);
 			long end = System.currentTimeMillis();
-			logger.info("[{}] decryptData took {}", getAwsSdkVersion(), end - start);
-			ByteBuffer plainTextBlob = result.getPlaintext();
-			return getString(plainTextBlob);
+			logger.info("multipartUploadObject uploaded; file: {}, size: {} consumed: {} ",
+					pcapS3Request.getKey(), fileSize, (end - start));
+			return true;
 		}
-		catch (KeyUnavailableException kue)
-		{
-			// The request was rejected because the specified CMK was not available. The request can
-			// be retried.
-			logger.error(
-					"[{}] Failed to decryptUsingAWSKey(KeyUnavailableException), cipherText:{}, due to:{}",
-					getAwsSdkVersion(), cipherText, ExceptionUtils.getMessage(kue), kue);
-		}
-		catch (InvalidCiphertextException ice)
-		{
-			// The request was rejected because the specified ciphertext, or additional
-			// authenticated data incorporated
-			// into the ciphertext, such as the encryption context, is corrupted, missing, or
-			// otherwise invalid.
-			logger.error(
-					"[{}] Failed to decryptUsingAWSKey(InvalidCiphertextException), cipherText:{}, due to:{}",
-					getAwsSdkVersion(), cipherText, ExceptionUtils.getMessage(ice), ice);
-		}
-		catch (DisabledException de)
+		catch (IOException ie)
 		{
 			logger.error(
-					"[{}] Failed to decryptUsingAWSKey(DisabledException), cipherText:{}, due to:{}",
-					getAwsSdkVersion(), cipherText, ExceptionUtils.getMessage(de), de);
+					"Exception while multipartUploadObject, keyname: {}, bucketname: {}, due to: {}",
+					pcapS3Request.getKey(), bucketName, ie.getMessage(), ie);
+			abortMultipartUploadRequest(pcapS3Request, bucketName, initResult);
+
+			return false;
 		}
-		catch (Exception ex)
+		catch (AmazonServiceException ase)
 		{
-			logger.error("[{}] Failed to decryptUsingAWSKey, cipherText:{}, due to:{}",
-					getAwsSdkVersion(), cipherText, ExceptionUtils.getMessage(ex), ex);
+			logger.error(
+					"Caught an AmazonServiceException for multipartUploadObject, which means your request made it "
+							+ "to Amazon S3, but was rejected with an error response"
+							+ " for some reason. Keyname: " + pcapS3Request.getKey()
+							+ ", BucketName:" + bucketName + ", Error Message: " + ase.getMessage()
+							+ "  HTTP Status Code: " + ase.getStatusCode() + "  AWS Error Code: "
+							+ ase.getErrorCode() + "  Error Type:       " + ase.getErrorType()
+							+ " Request ID:       " + ase.getRequestId(),
+					ase);
+			abortMultipartUploadRequest(pcapS3Request, bucketName, initResult);
+			return false;
 		}
-		return null;
+		catch (AmazonClientException ace)
+		{
+			logger.error(
+					"Caught an AmazonClientException for multipartUploadObject, which means the client encountered "
+							+ "an internal error while trying to communicate with S3, "
+							+ "such as not being able to access the network." + ", Keyname: "
+							+ pcapS3Request.getKey() + ", BucketName:" + bucketName
+							+ " Error Message: " + ace.getMessage(),
+					ace);
+			abortMultipartUploadRequest(pcapS3Request, bucketName, initResult);
+			return false;
+		}
+		finally
+		{
+			IOUtils.closeQuietly(fileUploadInputStram);
+		}
 	}
 
-	@Override
-	@Deprecated
-	public ListAliasesResponseDTO listAliases() {
+	protected void abortMultipartUploadRequest(PcapS3Request pcapS3Request, String bucketName,
+			InitiateMultipartUploadResult initResult)
+	{
+		// Abort if exception happened
+		logger.info(
+				"Unable to put object as multipart to Amazon S3 for file: {}, aborting the MultipartUploadRequest",
+				pcapS3Request.getKey());
+		amazonS3Client.abortMultipartUpload(new AbortMultipartUploadRequest(bucketName,
+				pcapS3Request.getKey(), initResult.getUploadId()));
+
+	}
+
+
+new:
+	public boolean multipartUploadObject(PcapS3Request pcapS3Request, String bucketName,
+			Integer partSize) throws SafePageException
+	{
+		if (BaseUtils.isNullOrNull(bucketName))
+		{
+			throw new SafePageException("bucketName is null hence skipping further S3 processing");
+		}
+		if (pcapS3Request == null || Utils.isNull(pcapS3Request.getKey())
+				|| pcapS3Request.getObject() == null)
+		{
+			throw new SafePageException(
+					"PcapS3Request is null hence skipping further S3 processing");
+		}
+		if (epwS3Service == null)
+		{
+			throw new SafePageException(
+					"Cannot upload the object to S3 as epwS3Service is null for bucketName: "
+							+ bucketName);
+		}
+		int fileSize = 0;
 		try
 		{
-			ListAliasesResult result = kmsClient
-					.listAliases(new ListAliasesRequest().withLimit(100));
-			List<ListAliasesResponseDTO.AliasEntry> aliasEntries = result.getAliases()
-					.stream()
-					.map(alias -> new ListAliasesResponseDTO.AliasEntry(alias.getAliasName(),
-							alias.getTargetKeyId()))
-					.collect(Collectors.toList());
-			return new ListAliasesResponseDTO(aliasEntries);
+			fileSize = pcapS3Request.getObject()
+					.available();
 		}
-		catch (Exception ex)
+		catch (IOException e)
 		{
-			logger.error("[{}] Failed to listAliases, due to:{}", getAwsSdkVersion(),
-					ExceptionUtils.getMessage(ex), ex);
-			return new ListAliasesResponseDTO();
+			logger.error("Failed to get file size from pcapS3Request, key: {}, bucketName: {}",
+					pcapS3Request.getKey(), bucketName, e);
 		}
-	}
 
-	@Override
-	@Deprecated
-	public DescribeKeyResponseDTO describeKey(String keyId) {
+		// Check if file size if less that part size limit throw an exception
+		if (fileSize < AWS_S3_MULTIPART_UPLOAD_PART_SIZE_LIMIT)
+		{
+			throw new SafePageException("Cannot use multipart upload for objects smaller that {}:"
+					+ AWS_S3_MULTIPART_UPLOAD_PART_SIZE_LIMIT + ", pcapS3Request.key:"
+					+ pcapS3Request.getKey());
+		}
+
+		// Check if part size is not less than AWS limit
+		if (partSize == null || partSize < AWS_S3_MULTIPART_UPLOAD_PART_SIZE_LIMIT)
+		{
+			logger.debug("multipartUploadObject part size if setting to default of "
+					+ AWS_S3_MULTIPART_UPLOAD_PART_SIZE_LIMIT);
+			partSize = AWS_S3_MULTIPART_UPLOAD_PART_SIZE_LIMIT;
+		}
+		InputStream fileUploadInputStream = null;
 		try
 		{
-			DescribeKeyResult result = kmsClient
-					.describeKey(new DescribeKeyRequest().withKeyId(keyId));
+			fileUploadInputStream = pcapS3Request.getObject();
 
-			return new DescribeKeyResponseDTO(result.getKeyMetadata()
-					.getKeyId(),
-					result.getKeyMetadata()
-							.getArn(),
-                    result.getKeyMetadata()
-                            .getKeyState(),
-					result.getKeyMetadata()
-							.getEnabled());
+			return epwS3Service.multipartUploadFile(bucketName, pcapS3Request.getKey(),
+					fileUploadInputStream, partSize);
 		}
-		catch (Exception ex)
+		catch (S3OperationException e)
 		{
-			logger.error("[{}] Failed to describeKey, keyId:{}, due to:{}", getAwsSdkVersion(),
-					keyId, ExceptionUtils.getMessage(ex), ex);
-			return new DescribeKeyResponseDTO();
+			logger.error("Exception during multipart upload for key: {}, bucket: {}",
+					pcapS3Request.getKey(), bucketName);
+
+			return false;
 		}
 	}
-
-	@Override
-	public String getAwsSdkVersion()
-	{
-		return "AWS SDK v1";
-	}
-
-	/**
-	 * Converts a String to a ByteBuffer using the specified charset.
-	 *
-	 * @param string
-	 *            the String to convert
-	 * @return the ByteBuffer representation of the String
-	 */
-	public static ByteBuffer getByteBuffer(String string)
-	{
-		return ByteBuffer.wrap(string.getBytes(charset));
-	}
-
-	/**
-	 * Converts a ByteBuffer to a String using the specified charset.
-	 *
-	 * @param byteBuffer
-	 *            the ByteBuffer to convert
-	 * @return the String representation of the ByteBuffer
-	 */
-	public static String getString(ByteBuffer byteBuffer)
-	{
-		byte[] byteArray = new byte[byteBuffer.remaining()];
-		byteBuffer.get(byteArray);
-		return new String(byteArray, charset);
-	}
-}
-
-
-service class for reference:
-package com.empower.epw.aws.api.kms;
-
-import com.empower.epw.aws.api.kms.dto.DescribeKeyResponseDTO;
-import com.empower.epw.aws.api.kms.dto.ListAliasesResponseDTO;
-import com.safepage.exception.SafePageException;
-
-/**
- * {@code EpwKmsService} provides an abstraction over AWS Key Management Service (KMS) operations,
- * supporting encryption, decryption, key description, and alias listing.
- * <p>
- * Implementations of this interface (e.g., using AWS SDK v1 or v2) allow consumers to securely
- * manage cryptographic keys and perform key-related operations in a version-agnostic way.
- */
-public interface EpwKmsService
-{
-
-	/**
-	 * Encrypts a plaintext string using an AWS KMS key identified by its keyId.
-	 *
-	 * @param plainText
-	 *            the plaintext string to encrypt
-	 * @param keyId
-	 *            the identifier of the KMS key to use for encryption
-	 * @return the encrypted ciphertext as a string
-	 * @throws SafePageException
-	 *             if encryption fails or the key cannot be accessed
-	 */
-	String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException;
-
-	/**
-	 * Decrypts a ciphertext string using the default AWS KMS key.
-	 *
-	 * @param cipherText
-	 *            the encrypted string to decrypt
-	 * @return the decrypted plaintext string
-	 * @throws SafePageException
-	 *             if decryption fails or the key cannot be accessed
-	 */
-	String decryptUsingAWSKey(String cipherText) throws SafePageException;
-
-	/**
-	 * Describes a KMS key using its keyId or alias.
-	 *
-	 * @param keyId
-	 *            the keyId or alias to describe
-	 * @return metadata and status information about the KMS key
-	 * @throws SafePageException
-	 *             if the key cannot be found or described
-	 */
-	DescribeKeyResponseDTO describeKey(String keyId);
-
-	/**
-	 * Lists all KMS key aliases in the current AWS region.
-	 *
-	 * @return a response containing a list of key aliases and their associated key IDs
-	 * @throws SafePageException
-	 *             if alias listing fails
-	 */
-	ListAliasesResponseDTO listAliases();
-
-	/**
-	 * Returns the version of the AWS SDK being used by this service.
-	 *
-	 * @return the AWS SDK version as a string
-	 */
-	String getAwsSdkVersion();
-}
