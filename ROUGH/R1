@@ -8,102 +8,109 @@ import org.junit.jupiter.api.Test;
 import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-class KMSServiceImplUnitTest
-{
+class KMSServiceImplUnitTest {
 
-	private KMSServiceImpl kmsService;
-	private EpwKmsService mockEpwKmsService;
+    private KMSServiceImpl kmsService;
+    private EpwKmsService mockEpwKmsService;
 
-	@BeforeEach
-	void setUp()
-	{
-		mockEpwKmsService = mock(EpwKmsService.class);
-		kmsService = new KMSServiceImpl(mockEpwKmsService);
-	}
+    @BeforeEach
+    void setUp() {
+        mockEpwKmsService = mock(EpwKmsService.class);
+        kmsService = new KMSServiceImpl(mockEpwKmsService);
+    }
 
-	@Test
-	void testEncryptUsingAWSKey_Success() throws SafePageException
-	{
-		String plainText = "hello";
-		String keyId = "testKeyId";
-		String expectedCipherText = "cipherText123";
+    // ---------------- ENCRYPT ----------------
 
-		when(mockEpwKmsService.encryptUsingAWSKey(plainText, keyId)).thenReturn(expectedCipherText);
+    @Test
+    void testEncryptUsingAWSKey_Success() throws SafePageException {
+        String plainText = "hello";
+        String keyId = "testKeyId";
+        String expectedCipherText = "cipherText123";
 
-		String result = kmsService.encryptUsingAWSKey(plainText, keyId);
+        when(mockEpwKmsService.encryptUsingAWSKey(plainText, keyId))
+                .thenReturn(expectedCipherText);
 
-		assertEquals(expectedCipherText, result);
-		verify(mockEpwKmsService, times(1)).encryptUsingAWSKey(plainText, keyId);
-	}
+        String result = kmsService.encryptUsingAWSKey(plainText, keyId);
 
-	@Test
-	void testEncryptUsingAWSKey_InvalidPlainText()
-	{
-		String plainText = "";
-		String keyId = "keyId";
+        assertEquals(expectedCipherText, result);
+        verify(mockEpwKmsService, times(1)).encryptUsingAWSKey(plainText, keyId);
+    }
 
-		SafePageException ex = assertThrows(SafePageException.class,
-				() -> kmsService.encryptUsingAWSKey(plainText, keyId));
+    @Test
+    void testEncryptUsingAWSKey_InvalidPlainText() {
+        String plainText = "";
+        String keyId = "keyId";
 
-		assertEquals("plainText is required!", ex.getMessage());
-		verifyNoInteractions(mockEpwKmsService);
-	}
+        SafePageException ex = assertThrows(SafePageException.class,
+                () -> kmsService.encryptUsingAWSKey(plainText, keyId));
 
-	@Test
-	void testEncryptUsingAWSKey_InvalidKeyId()
-	{
-		String plainText = "hello";
-		String keyId = "";
+        assertEquals("plainText is required!", ex.getMessage());
+        verifyNoInteractions(mockEpwKmsService);
+    }
 
-		SafePageException ex = assertThrows(SafePageException.class,
-				() -> kmsService.encryptUsingAWSKey(plainText, keyId));
+    @Test
+    void testEncryptUsingAWSKey_InvalidKeyId() {
+        String plainText = "hello";
+        String keyId = "";
 
-		assertEquals("keyId is required!", ex.getMessage());
-		verifyNoInteractions(mockEpwKmsService);
-	}
+        SafePageException ex = assertThrows(SafePageException.class,
+                () -> kmsService.encryptUsingAWSKey(plainText, keyId));
 
-	@Test
-	void testEncryptUsingAWSKey_ExceptionFromDelegate_ReturnsNull() throws SafePageException
-	{
-		String plainText = "hello";
-		String keyId = "keyId";
+        assertEquals("keyId is required!", ex.getMessage());
+        verifyNoInteractions(mockEpwKmsService);
+    }
 
-		when(mockEpwKmsService.encryptUsingAWSKey(plainText, keyId))
-				.thenThrow(new RuntimeException("boom"));
+    @Test
+    void testEncryptUsingAWSKey_ExceptionFromDelegate_ReturnsNull() throws SafePageException {
+        String plainText = "hello";
+        String keyId = "keyId";
 
-		String result = kmsService.encryptUsingAWSKey(plainText, keyId);
+        when(mockEpwKmsService.encryptUsingAWSKey(plainText, keyId))
+                .thenThrow(new RuntimeException("boom"));
 
-		assertNull(result);
-		verify(mockEpwKmsService, times(1)).encryptUsingAWSKey(plainText, keyId);
-	}
+        String result = kmsService.encryptUsingAWSKey(plainText, keyId);
 
-	@Test
-	void testDecryptUsingAWSKey_Success() throws SafePageException
-	{
-		String cipherText = "cipherText123";
-		String expectedPlainText = "hello";
+        assertNull(result);
+        verify(mockEpwKmsService, times(1)).encryptUsingAWSKey(plainText, keyId);
+    }
 
-		when(mockEpwKmsService.decryptUsingAWSKey(cipherText)).thenReturn(expectedPlainText);
+    // ---------------- DECRYPT ----------------
 
-		String result = kmsService.decryptUsingAWSKey(cipherText);
+    @Test
+    void testDecryptUsingAWSKey_Success() throws SafePageException {
+        String cipherText = "cipherText123";
+        String expectedPlainText = "hello";
 
-		assertEquals(expectedPlainText, result);
-		verify(mockEpwKmsService, times(1)).decryptUsingAWSKey(cipherText);
-	}
+        when(mockEpwKmsService.decryptUsingAWSKey(cipherText))
+                .thenReturn(expectedPlainText);
 
-	@Test
-	void testDecryptUsingAWSKey_ExceptionFromDelegate_ReturnsNull() throws SafePageException
-	{
-		String cipherText = "cipherText123";
+        String result = kmsService.decryptUsingAWSKey(cipherText);
 
-		when(mockEpwKmsService.decryptUsingAWSKey(cipherText))
-				.thenThrow(new RuntimeException("boom"));
+        assertEquals(expectedPlainText, result);
+        verify(mockEpwKmsService, times(1)).decryptUsingAWSKey(cipherText);
+    }
 
-		String result = kmsService.decryptUsingAWSKey(cipherText);
+    @Test
+    void testDecryptUsingAWSKey_InvalidCipherText() {
+        String cipherText = "";
 
-		assertNull(result);
-		verify(mockEpwKmsService, times(1)).decryptUsingAWSKey(cipherText);
-	}
+        SafePageException ex = assertThrows(SafePageException.class,
+                () -> kmsService.decryptUsingAWSKey(cipherText));
+
+        assertEquals("cipherText is required!", ex.getMessage());
+        verifyNoInteractions(mockEpwKmsService);
+    }
+
+    @Test
+    void testDecryptUsingAWSKey_ExceptionFromDelegate_ReturnsNull() throws SafePageException {
+        String cipherText = "cipherText123";
+
+        when(mockEpwKmsService.decryptUsingAWSKey(cipherText))
+                .thenThrow(new RuntimeException("boom"));
+
+        String result = kmsService.decryptUsingAWSKey(cipherText);
+
+        assertNull(result);
+        verify(mockEpwKmsService, times(1)).decryptUsingAWSKey(cipherText);
+    }
 }
-
-and the same for this
