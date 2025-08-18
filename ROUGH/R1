@@ -236,4 +236,4 @@ public class EpwKmsServiceImpl implements EpwKmsService
 	}
 }
 
-now that refactoring is done, can you help me review this code? one thing i am concerned is that encrpyt doesn't return null but decrypt returns null, can you fix that ?
+can you make my v1 implementation better by using AmzonClientException? and also make decrypt not return null
