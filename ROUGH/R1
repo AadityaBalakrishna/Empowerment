@@ -1,39 +1,48 @@
-public String encryptUsingAWSKey(String plainText, String keyId)
-{
-    if (StringUtils.isEmpty(plainText))
-    {
-        throw new KMSOperationException("Invalid input: plainText is required!", null);
-    }
-    if (StringUtils.isEmpty(keyId))
-    {
-        throw new KMSOperationException("Invalid input: keyId is required!", null);
-    }
+public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
+	{
+		if (StringUtils.isEmpty(plainText))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
+		}
+		if (StringUtils.isEmpty(keyId))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
+		}
+		try
+		{
+			EncryptRequest encryptRequest = new EncryptRequest().withKeyId(keyId)
+					.withPlaintext(getByteBuffer(plainText));
+			long start = System.currentTimeMillis();
+			EncryptResult result = kmsClient.encrypt(encryptRequest);
+			if (result != null && result.getCiphertextBlob() != null)
+			{
+				long end = System.currentTimeMillis();
+				logger.info("[{}] encryptData took {} ", getAwsSdkVersion(), end - start);
+				return Utils.encodeBase64(result.getCiphertextBlob()
+						.array());
+			}
+			else
+			{
+				throw AwsExceptionHandler.handleKMSException(getAwsSdkVersion(), "encrypt", keyId,
+						new IllegalStateException("EncryptResult or CiphertextBlob is null"));
+			}
+		}
+		catch (DisabledException | KeyUnavailableException | UnsupportedEncodingException ex)
+		{
+			logger.error(String.format(
+					"[%s] encryptUsingAWSKey failed, plainText:%s, keyId:%s, due to:%s",
+					getAwsSdkVersion(), plainText, keyId, ex.getMessage()), ex);
+			throw AwsExceptionHandler.handleKMSException(getAwsSdkVersion(), "encryptUsingAWSKey",
+					keyId, ex);
+		}
+		catch (Exception e)
+		{
+			logger.error(String.format(
+					"[%s] encryptUsingAWSKey failed, plainText:%s, keyId:%s, due to:%s",
+					getAwsSdkVersion(), plainText, keyId, e.getMessage()), e);
+			throw AwsExceptionHandler.handleKMSException(getAwsSdkVersion(), "encryptUsingAWSKey",
+					keyId, e);
+		}
+	}
 
-    try
-    {
-        EncryptRequest encryptRequest = new EncryptRequest()
-                .withKeyId(keyId)
-                .withPlaintext(getByteBuffer(plainText));
-
-        long start = System.currentTimeMillis();
-        EncryptResult result = getKMSClient().encrypt(encryptRequest);
-
-        if (result != null && result.getCiphertextBlob() != null)
-        {
-            long end = System.currentTimeMillis();
-            logger.info("encryptData took {} ms", (end - start));
-            return Utils.encodeBase64(result.getCiphertextBlob().array());
-        }
-
-        throw new KMSOperationException(
-                String.format("EncryptResult was null for keyId '%s'", keyId), null);
-    }
-    catch (DisabledException | KeyUnavailableException e)
-    {
-        throw AwsExceptionHandler.handleKMSException("AWS SDK v1", "encrypt", keyId, e);
-    }
-    catch (Exception e)
-    {
-        throw AwsExceptionHandler.handleKMSException("AWS SDK v1", "encrypt", keyId, e);
-    }
-}
+fix this
