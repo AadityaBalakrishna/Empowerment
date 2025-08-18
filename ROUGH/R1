@@ -3,6 +3,7 @@ package com.empower.epw.aws.v2.kms.util;
 import com.empower.epw.aws.api.kms.exception.KMSOperationException;
 import com.personalcapital.log.PcapLogger;
 import com.personalcapital.log.PcapLoggerFactory;
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
 
 public class AwsExceptionHandler
 {
@@ -12,8 +13,33 @@ public class AwsExceptionHandler
 	public static KMSOperationException handleKMSException(String sdkVersion, String operation,
 														   String keyId, Exception e)
 	{
-		String errorMessage = String.format("'%s' KMS operation '%s' failed for keyId '%s': %s",
-				sdkVersion, operation, keyId, e.getMessage());
+		String errorCode = null;
+		String errorMessage;
+
+		if (e instanceof AwsServiceException)
+		{
+			AwsServiceException awsEx = (AwsServiceException) e;
+			errorCode = awsEx.awsErrorDetails().errorCode(); // e.g. "InvalidCiphertextException"
+			errorMessage = String.format(
+					"'%s' KMS operation '%s' failed for keyId '%s': %s (Error Code: %s)",
+					sdkVersion,
+					operation,
+					keyId,
+					awsEx.getMessage(),
+					errorCode
+			);
+		}
+		else
+		{
+			errorMessage = String.format(
+					"'%s' KMS operation '%s' failed for keyId '%s': %s",
+					sdkVersion,
+					operation,
+					keyId,
+					e.getMessage()
+			);
+		}
+
 		logger.error(errorMessage, e);
 		return new KMSOperationException(errorMessage, e);
 	}
