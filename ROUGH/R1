@@ -1,69 +1,23 @@
-package com.safepage.security.service.impl;
+    @Test
+    void testEncrypt_NullPlaintext_ThrowsException() {
+        SafePageException ex = assertThrows(SafePageException.class,
+                () -> kmsService.encryptUsingAWSKey(null, AWS_CMK_KEY_ALIAS));
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+        assertTrue(ex.getMessage().contains("plainText is required!"));
+    }
 
-import com.amazonaws.services.kms.model.DescribeKeyResult;
-import com.amazonaws.services.kms.model.ListAliasesResult;
-import com.empower.epw.aws.kms.config.EpwKmsAutoConfig;
-import com.empower.epw.aws.v1.kms.EpwKmsServiceImpl;
+    @Test
+    void testEncrypt_EmptyKeyId_ThrowsException() {
+        SafePageException ex = assertThrows(SafePageException.class,
+                () -> kmsService.encryptUsingAWSKey("someText", ""));
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+        assertTrue(ex.getMessage().contains("keyId is required!"));
+    }
 
-@SpringBootTest(classes =
-{
-		KMSServiceImpl.class, EpwKmsAutoConfig.class, EpwKmsServiceImpl.class
-})
-public class KMSServiceImplTest
-{
-	private final static String AWS_CMK_KEY_ALIAS = "alias/app/pcap/pcap/system_primary/v1";
+    @Test
+    void testEncrypt_Failure_ReturnsNull() {
+        // supply an invalid key alias to force AWS KMS failure
+        String result = kmsService.encryptUsingAWSKey("someText", "alias/this/does/not/exist");
 
-	@Autowired
-	private KMSServiceImpl kmsService;
-
-	@Test
-	public void testEncryptDercrypt()
-	{
-		try
-		{
-			String plainTextToTest = "ammN3OegV2l6aM3UTDohq6T8ocsn/n7Q";
-			String cipherText = kmsService.encryptUsingAWSKey(plainTextToTest, AWS_CMK_KEY_ALIAS);
-			assertNotNull(cipherText);
-			assertTrue(cipherText.length() == 248);
-			String plainText = kmsService.decryptUsingAWSKey(cipherText);
-			assertNotNull(plainText);
-			assertTrue(plainText.equals(plainTextToTest));
-		}
-		catch (Exception ex)
-		{
-			Assertions
-					.fail("Faied to testEncryptDercrypt using AWS Key, dut to:" + ex.getMessage());
-		}
-	}
-
-	@Test
-	@Disabled
-	public void testGetAliasListForKey()
-	{
-		// list aliases for key
-		ListAliasesResult listAliasesResult = kmsService.getKeyAliases(AWS_CMK_KEY_ALIAS);
-		assertNotNull(listAliasesResult);
-		// result.getAliases().forEach(a->System.out.println(a.getAliasName()));
-	}
-
-	@Test
-	@Disabled
-	public void testDescribeKey()
-	{
-		// Describe key
-		DescribeKeyResult describeKeyResult = kmsService.describeKey(AWS_CMK_KEY_ALIAS);
-		assertNotNull(describeKeyResult);
-	}
-}
-
-i have refactored the encrypt method like you said in KMSServiceImplTest, can you write a test case to verify all it's behaviour, here is the existing test which was refactored
-
+        assertNull(result, "Should return null when encryption fails");
+    }
