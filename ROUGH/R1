@@ -1,152 +1,102 @@
 package com.safepage.security.service.impl;
 
-import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
-
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
-
-import com.amazonaws.services.kms.AWSKMS;
-import com.amazonaws.services.kms.AWSKMSClient;
-import com.amazonaws.services.kms.model.DescribeKeyRequest;
-import com.amazonaws.services.kms.model.DescribeKeyResult;
-import com.amazonaws.services.kms.model.ListAliasesRequest;
-import com.amazonaws.services.kms.model.ListAliasesResult;
-import com.personalcapital.aws.AWSCredentialsManager;
-import com.personalcapital.log.PcapLogger;
-import com.personalcapital.log.PcapLoggerFactory;
-import com.safepage.error.SafePageErrorType;
-import com.safepage.exception.SafePageException;
 import com.empower.epw.aws.api.kms.EpwKmsService;
-import com.safepage.security.service.KMSService;
+import com.safepage.exception.SafePageException;
+import com.safepage.error.SafePageErrorType;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-/**
- * @author dizadi
- */
-public class KMSServiceImpl implements KMSService
-{
-	private AWSKMS kmsClient = null;
-	private static PcapLogger logger = PcapLoggerFactory.getPcapLogger(KMSServiceImpl.class);
+import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
 
-	private static Charset charset = StandardCharsets.UTF_8;
-	private final EpwKmsService epwKmsService;
+class KMSServiceImplTest {
 
-	private AWSKMS getKMSClient()
-	{
-		if (kmsClient == null)
-		{
-			AWSCredentialsManager awsCredentialsManager = new AWSCredentialsManager();
-			kmsClient = (AWSKMS) awsCredentialsManager
-					.getClientBuilderWithCredentials(AWSKMSClient.builder())
-					.build();
-		}
-		return kmsClient;
-	}
+    private KMSServiceImpl kmsService;
+    private EpwKmsService mockEpwKmsService;
 
-	@Autowired
-	public KMSServiceImpl(@Qualifier("epwKmsService") EpwKmsService epwKmsService)
-	{
-		this.epwKmsService = epwKmsService;
-	}
+    @BeforeEach
+    void setUp() {
+        mockEpwKmsService = mock(EpwKmsService.class);
+        kmsService = new KMSServiceImpl(mockEpwKmsService);
+    }
 
-	/**
-	 * Encrypt data key (system secondary key) under AWS CMK Key using IAM role to access the key
-	 * AWS CMK
-	 *
-	 * @throws SafePageException
-	 */
-	@Override
-	// @Retryable(value =
-	// {
-	// Exception.class
-	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
-	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
-	{
-		if (StringUtils.isEmpty(plainText))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
-		}
-		if (StringUtils.isEmpty(keyId))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
-		}
-		try
-		{
-			return epwKmsService.encryptUsingAWSKey(plainText, keyId);
-		}
-		catch (Exception ex)
-		{
-			logger.error("Failed to encryptUsingAWSKey, plainText:{}, keyId:{}, due to:{}",
-					plainText, keyId, ExceptionUtils.getMessage(ex), ex);
-		}
-		return null;
-	}
+    @Test
+    void testEncryptUsingAWSKey_Success() throws SafePageException {
+        String plainText = "hello";
+        String keyId = "testKeyId";
+        String expectedCipherText = "cipherText123";
 
-	/**
-	 * Decrypt encrypted data key under AWS CMK Key using IAM role to access the key
-	 */
-	@Override
-	// @Retryable(value =
-	// {
-	// Exception.class
-	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
-	public String decryptUsingAWSKey(String cipherText) throws SafePageException
-	{
-		try
-		{
-			return epwKmsService.decryptUsingAWSKey(cipherText);
-		}
-		catch (Exception ex)
-		{
-			logger.error("Failed to decryptUsingAWSKey, cipherText:{}, due to:{}", cipherText,
-					ExceptionUtils.getMessage(ex), ex);
-		}
+        when(mockEpwKmsService.encryptUsingAWSKey(plainText, keyId)).thenReturn(expectedCipherText);
 
-		return null;
-	}
+        String result = kmsService.encryptUsingAWSKey(plainText, keyId);
 
-	public static String getString(ByteBuffer byteBuffer)
-	{
-		byte[] byteArray = new byte[byteBuffer.remaining()];
-		byteBuffer.get(byteArray);
-		return new String(byteArray, charset);
-	}
+        assertEquals(expectedCipherText, result);
+        verify(mockEpwKmsService, times(1)).encryptUsingAWSKey(plainText, keyId);
+    }
 
-	public static ByteBuffer getByteBuffer(String string)
-	{
-		return ByteBuffer.wrap(string.getBytes(charset));
-	}
+    @Test
+    void testEncryptUsingAWSKey_InvalidPlainText() {
+        String plainText = "";
+        String keyId = "keyId";
 
-	/**
-	 * Create a new customer master key. <br>
-	 * Customer master key (CMK) is designed to encrypt and decrypt data keys (System Secondary
-	 * Key). CMK cannot be used to encrypt/decrypt data more than 4 KB (4096 bytes) of data.
-	 */
-	// public void createCMK()
-	// {
-	// String desc = "PCAP Master Key for encrypting system secondary keys";
-	// CreateKeyRequest req = new CreateKeyRequest().withDescription(desc);
-	// CreateKeyResult result = getKMSClient().createKey(req);
-	// }
+        SafePageException ex = assertThrows(SafePageException.class, () ->
+                kmsService.encryptUsingAWSKey(plainText, keyId));
 
-	@Override
-	@Deprecated
-	public DescribeKeyResult describeKey(String keyId)
-	{
-		DescribeKeyRequest describeKeyRequest = new DescribeKeyRequest().withKeyId(keyId);
-		DescribeKeyResult result = getKMSClient().describeKey(describeKeyRequest);
-		return result;
-	}
+        assertEquals(SafePageErrorType.INVALID_INPUT, ex.getErrorType());
+        assertEquals("plainText is required!", ex.getMessage());
+        verifyNoInteractions(mockEpwKmsService);
+    }
 
-	@Override
-	@Deprecated
-	public ListAliasesResult getKeyAliases(String keyId)
-	{
-		ListAliasesRequest listAliasesRequest = new ListAliasesRequest().withLimit(10);
-		ListAliasesResult result = getKMSClient().listAliases(listAliasesRequest);
-		return result;
-	}
+    @Test
+    void testEncryptUsingAWSKey_InvalidKeyId() {
+        String plainText = "hello";
+        String keyId = "";
+
+        SafePageException ex = assertThrows(SafePageException.class, () ->
+                kmsService.encryptUsingAWSKey(plainText, keyId));
+
+        assertEquals(SafePageErrorType.INVALID_INPUT, ex.getErrorType());
+        assertEquals("keyId is required!", ex.getMessage());
+        verifyNoInteractions(mockEpwKmsService);
+    }
+
+    @Test
+    void testEncryptUsingAWSKey_ExceptionFromDelegate_ReturnsNull() throws SafePageException {
+        String plainText = "hello";
+        String keyId = "keyId";
+
+        when(mockEpwKmsService.encryptUsingAWSKey(plainText, keyId))
+                .thenThrow(new RuntimeException("boom"));
+
+        String result = kmsService.encryptUsingAWSKey(plainText, keyId);
+
+        assertNull(result);
+        verify(mockEpwKmsService, times(1)).encryptUsingAWSKey(plainText, keyId);
+    }
+
+    @Test
+    void testDecryptUsingAWSKey_Success() throws SafePageException {
+        String cipherText = "cipherText123";
+        String expectedPlainText = "hello";
+
+        when(mockEpwKmsService.decryptUsingAWSKey(cipherText)).thenReturn(expectedPlainText);
+
+        String result = kmsService.decryptUsingAWSKey(cipherText);
+
+        assertEquals(expectedPlainText, result);
+        verify(mockEpwKmsService, times(1)).decryptUsingAWSKey(cipherText);
+    }
+
+    @Test
+    void testDecryptUsingAWSKey_ExceptionFromDelegate_ReturnsNull() throws SafePageException {
+        String cipherText = "cipherText123";
+
+        when(mockEpwKmsService.decryptUsingAWSKey(cipherText))
+                .thenThrow(new RuntimeException("boom"));
+
+        String result = kmsService.decryptUsingAWSKey(cipherText);
+
+        assertNull(result);
+        verify(mockEpwKmsService, times(1)).decryptUsingAWSKey(cipherText);
+    }
 }
