@@ -1,33 +1,27 @@
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class DescribeKeyResponseDTO
-{
-	private String keyId;
-	private String keyArn;
-	private String keyState;
-	private boolean enabled;
+@Override
+@Deprecated
+public DescribeKeyResult describeKey(String keyId) {
+    DescribeKeyResponseDTO dto = this.describeKey(keyId); // delegate to new method
+
+    KeyMetadata metadata = new KeyMetadata()
+            .withKeyId(dto.getKeyId())
+            .withArn(dto.getKeyArn())
+            .withKeyState(dto.getKeyState())
+            .withEnabled(dto.isEnabled());
+
+    return new DescribeKeyResult().withKeyMetadata(metadata);
 }
 
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class ListAliasesResponseDTO
-{
+@Override
+@Deprecated
+public ListAliasesResult getKeyAliases(String keyId) {
+    ListAliasesResponseDTO dto = this.listAliases(); // delegate to new method
 
-	private List<AliasEntry> aliases;
+    List<AliasListEntry> aliasEntries = dto.getAliases().stream()
+            .map(alias -> new AliasListEntry()
+                    .withAliasName(alias.getAliasName())
+                    .withTargetKeyId(alias.getTargetKeyId()))
+            .collect(Collectors.toList());
 
-	@Data
-	@Builder
-	@NoArgsConstructor
-	@AllArgsConstructor
-	public static class AliasEntry
-	{
-		private String aliasName;
-		private String targetKeyId;
-	}
+    return new ListAliasesResult().withAliases(aliasEntries);
 }
-
-dtos in question
