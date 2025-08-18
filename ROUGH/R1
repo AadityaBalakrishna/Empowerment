@@ -1,62 +1,69 @@
-/**
-	 * Decrypt encrypted data key under AWS CMK Key using IAM role to access the key
-	 */
-	@Override
-	// @Retryable(value =
-	// {
-	// Exception.class
-	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
-	public String decryptUsingAWSKey(String cipherText) throws SafePageException
+package com.safepage.security.service.impl;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
+import com.amazonaws.services.kms.model.DescribeKeyResult;
+import com.amazonaws.services.kms.model.ListAliasesResult;
+import com.empower.epw.aws.kms.config.EpwKmsAutoConfig;
+import com.empower.epw.aws.v1.kms.EpwKmsServiceImpl;
+
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+@SpringBootTest(classes =
+{
+		KMSServiceImpl.class, EpwKmsAutoConfig.class, EpwKmsServiceImpl.class
+})
+public class KMSServiceImplTest
+{
+	private final static String AWS_CMK_KEY_ALIAS = "alias/app/pcap/pcap/system_primary/v1";
+
+	@Autowired
+	private KMSServiceImpl kmsService;
+
+	@Test
+	public void testEncryptDercrypt()
 	{
-		if (StringUtils.isEmpty(cipherText))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
-		}
 		try
 		{
-			byte[] decodedCipherText = Utils.decodeBase64(cipherText);
-			DecryptRequest decryptRequest = new DecryptRequest()
-					.withCiphertextBlob(ByteBuffer.wrap(decodedCipherText));
-			long start = System.currentTimeMillis();
-			DecryptResult result = getKMSClient().decrypt(decryptRequest);
-			long end = System.currentTimeMillis();
-			logger.info("decryptData took {}" + (end - start));
-			ByteBuffer plainTextBlob = result.getPlaintext();
-			return getString(plainTextBlob);
-		}
-		catch (KeyUnavailableException kue)
-		{
-			// The request was rejected because the specified CMK was not available. The request can
-			// be retried.
-			logger.error(
-					"Failed to decryptUsingAWSKey(KeyUnavailableException), cipherText:{}, due to:{}",
-					cipherText, ExceptionUtils.getMessage(kue), kue);
-		}
-		catch (InvalidCiphertextException ice)
-		{
-			// The request was rejected because the specified ciphertext, or additional
-			// authenticated data incorporated
-			// into the ciphertext, such as the encryption context, is corrupted, missing, or
-			// otherwise invalid.
-			logger.error(
-					"Failed to decryptUsingAWSKey(InvalidCiphertextException), cipherText:{}, due to:{}",
-					cipherText, ExceptionUtils.getMessage(ice), ice);
-		}
-		catch (DisabledException de)
-		{
-			logger.error(
-					"Failed to decryptUsingAWSKey(DisabledException), cipherText:{}, due to:{}",
-					cipherText, ExceptionUtils.getMessage(de), de);
+			String plainTextToTest = "ammN3OegV2l6aM3UTDohq6T8ocsn/n7Q";
+			String cipherText = kmsService.encryptUsingAWSKey(plainTextToTest, AWS_CMK_KEY_ALIAS);
+			assertNotNull(cipherText);
+			assertTrue(cipherText.length() == 248);
+			String plainText = kmsService.decryptUsingAWSKey(cipherText);
+			assertNotNull(plainText);
+			assertTrue(plainText.equals(plainTextToTest));
 		}
 		catch (Exception ex)
 		{
-			logger.error("Failed to decryptUsingAWSKey, cipherText:{}, due to:{}", cipherText,
-					ExceptionUtils.getMessage(ex), ex);
+			Assertions
+					.fail("Faied to testEncryptDercrypt using AWS Key, dut to:" + ex.getMessage());
 		}
-
-		return null;
 	}
 
+	@Test
+	@Disabled
+	public void testGetAliasListForKey()
+	{
+		// list aliases for key
+		ListAliasesResult listAliasesResult = kmsService.getKeyAliases(AWS_CMK_KEY_ALIAS);
+		assertNotNull(listAliasesResult);
+		// result.getAliases().forEach(a->System.out.println(a.getAliasName()));
+	}
 
+	@Test
+	@Disabled
+	public void testDescribeKey()
+	{
+		// Describe key
+		DescribeKeyResult describeKeyResult = kmsService.describeKey(AWS_CMK_KEY_ALIAS);
+		assertNotNull(describeKeyResult);
+	}
+}
 
-what about the decrypt mthod, it has a lot of different type of exceptions too
+i have refactored the encrypt method like you said in KMSServiceImplTest, can you write a test case to verify all it's behaviour, here is the existing test which was refactored
+
