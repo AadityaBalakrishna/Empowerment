@@ -1,150 +1,69 @@
 package com.safepage.security.service.impl;
 
-import com.empower.epw.aws.api.kms.EpwKmsService;
-import com.empower.epw.aws.api.kms.exception.KMSOperationException;
-import com.safepage.exception.SafePageException;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
 
-import static org.mockito.Mockito.*;
-import static org.junit.jupiter.api.Assertions.*;
+import com.amazonaws.services.kms.model.DescribeKeyResult;
+import com.amazonaws.services.kms.model.ListAliasesResult;
+import com.empower.epw.aws.kms.config.EpwKmsAutoConfig;
+import com.empower.epw.aws.v1.kms.EpwKmsServiceImpl;
 
-class KMSServiceImplTest {
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-    private KMSServiceImpl kmsService;
-    private EpwKmsService mockEpwKmsService;
+@SpringBootTest(classes =
+{
+		KMSServiceImpl.class, EpwKmsAutoConfig.class, EpwKmsServiceImpl.class
+})
+public class KMSServiceImplTest
+{
+	private final static String AWS_CMK_KEY_ALIAS = "alias/app/pcap/pcap/system_primary/v1";
 
-    @BeforeEach
-    void setUp() {
-        mockEpwKmsService = mock(EpwKmsService.class);
-        kmsService = new KMSServiceImpl(mockEpwKmsService);
-    }
+	@Autowired
+	private KMSServiceImpl kmsService;
 
-    // ---------- ENCRYPT ----------
+	@Test
+	public void testEncryptDercrypt()
+	{
+		try
+		{
+			String plainTextToTest = "ammN3OegV2l6aM3UTDohq6T8ocsn/n7Q";
+			String cipherText = kmsService.encryptUsingAWSKey(plainTextToTest, AWS_CMK_KEY_ALIAS);
+			assertNotNull(cipherText);
+			assertTrue(cipherText.length() == 248);
+			String plainText = kmsService.decryptUsingAWSKey(cipherText);
+			assertNotNull(plainText);
+			assertTrue(plainText.equals(plainTextToTest));
+		}
+		catch (Exception ex)
+		{
+			Assertions
+					.fail("Faied to testEncryptDercrypt using AWS Key, dut to:" + ex.getMessage());
+		}
+	}
 
-    @Test
-    void testEncryptUsingAWSKey_Success() throws SafePageException {
-        String plainText = "hello";
-        String keyId = "testKeyId";
-        String expectedCipherText = "cipherText123";
+	@Test
+	@Disabled
+	public void testGetAliasListForKey()
+	{
+		// list aliases for key
+		ListAliasesResult listAliasesResult = kmsService.getKeyAliases(AWS_CMK_KEY_ALIAS);
+		assertNotNull(listAliasesResult);
+		// result.getAliases().forEach(a->System.out.println(a.getAliasName()));
+	}
 
-        when(mockEpwKmsService.encryptUsingAWSKey(plainText, keyId)).thenReturn(expectedCipherText);
-
-        String result = kmsService.encryptUsingAWSKey(plainText, keyId);
-
-        assertEquals(expectedCipherText, result);
-        verify(mockEpwKmsService, times(1)).encryptUsingAWSKey(plainText, keyId);
-    }
-
-    @Test
-    void testEncryptUsingAWSKey_InvalidPlainText() {
-        SafePageException ex = assertThrows(SafePageException.class,
-                () -> kmsService.encryptUsingAWSKey("", "keyId"));
-
-        assertEquals("plainText is required!", ex.getMessage());
-        verifyNoInteractions(mockEpwKmsService);
-    }
-
-    @Test
-    void testEncryptUsingAWSKey_InvalidKeyId() {
-        SafePageException ex = assertThrows(SafePageException.class,
-                () -> kmsService.encryptUsingAWSKey("hello", ""));
-
-        assertEquals("keyId is required!", ex.getMessage());
-        verifyNoInteractions(mockEpwKmsService);
-    }
-
-    @Test
-    void testEncryptUsingAWSKey_ExceptionFromDelegate_ReturnsNull() throws SafePageException {
-        when(mockEpwKmsService.encryptUsingAWSKey("hello", "keyId"))
-                .thenThrow(new KMSOperationException("boom", new RuntimeException()));
-
-        String result = kmsService.encryptUsingAWSKey("hello", "keyId");
-
-        assertNull(result);
-        verify(mockEpwKmsService, times(1)).encryptUsingAWSKey("hello", "keyId");
-    }
-
-    // ---------- DECRYPT ----------
-
-    @Test
-    void testDecryptUsingAWSKey_Success() throws SafePageException {
-        when(mockEpwKmsService.decryptUsingAWSKey("cipherText123")).thenReturn("hello");
-
-        String result = kmsService.decryptUsingAWSKey("cipherText123");
-
-        assertEquals("hello", result);
-        verify(mockEpwKmsService, times(1)).decryptUsingAWSKey("cipherText123");
-    }
-
-    @Test
-    void testDecryptUsingAWSKey_InvalidCipherText() {
-        SafePageException ex = assertThrows(SafePageException.class,
-                () -> kmsService.decryptUsingAWSKey(""));
-
-        assertEquals("cipherText is required!", ex.getMessage());
-        verifyNoInteractions(mockEpwKmsService);
-    }
-
-    @Test
-    void testDecryptUsingAWSKey_ExceptionFromDelegate_ReturnsNull() throws SafePageException {
-        when(mockEpwKmsService.decryptUsingAWSKey("cipherText123"))
-                .thenThrow(new KMSOperationException("boom", new RuntimeException()));
-
-        String result = kmsService.decryptUsingAWSKey("cipherText123");
-
-        assertNull(result);
-        verify(mockEpwKmsService, times(1)).decryptUsingAWSKey("cipherText123");
-    }
-
-    // ---------- DESCRIBE KEY ----------
-
-    @Test
-    void testDescribeKey_Success() {
-        String keyId = "testKeyId";
-        String expected = "KeyMetadata";
-
-        when(mockEpwKmsService.describeKey(keyId)).thenReturn(expected);
-
-        String result = kmsService.describeKey(keyId);
-
-        assertEquals(expected, result);
-        verify(mockEpwKmsService, times(1)).describeKey(keyId);
-    }
-
-    @Test
-    void testDescribeKey_ExceptionFromDelegate_ReturnsNull() {
-        when(mockEpwKmsService.describeKey("testKeyId"))
-                .thenThrow(new KMSOperationException("boom", new RuntimeException()));
-
-        String result = kmsService.describeKey("testKeyId");
-
-        assertNull(result);
-        verify(mockEpwKmsService, times(1)).describeKey("testKeyId");
-    }
-
-    // ---------- GET KEY ALIASES ----------
-
-    @Test
-    void testGetKeyAliases_Success() {
-        String expected = "alias/my-key";
-
-        when(mockEpwKmsService.getKeyAliases()).thenReturn(expected);
-
-        String result = kmsService.getKeyAliases();
-
-        assertEquals(expected, result);
-        verify(mockEpwKmsService, times(1)).getKeyAliases();
-    }
-
-    @Test
-    void testGetKeyAliases_ExceptionFromDelegate_ReturnsNull() {
-        when(mockEpwKmsService.getKeyAliases())
-                .thenThrow(new KMSOperationException("boom", new RuntimeException()));
-
-        String result = kmsService.getKeyAliases();
-
-        assertNull(result);
-        verify(mockEpwKmsService, times(1)).getKeyAliases();
-    }
+	@Test
+	@Disabled
+	public void testDescribeKey()
+	{
+		// Describe key
+		DescribeKeyResult describeKeyResult = kmsService.describeKey(AWS_CMK_KEY_ALIAS);
+		assertNotNull(describeKeyResult);
+	}
 }
+
+
+can you refactor this test so that, all the corner bad and good path of encrypt and decrypt are tested?
