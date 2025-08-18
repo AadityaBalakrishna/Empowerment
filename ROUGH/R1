@@ -1,14 +1,15 @@
-here we are catching only checked exception, 
+The phrase "It was return null for all Exception" likely means that the method in question is designed to return null as its result whenever an exception occurs, instead of throwing the exception or handling it in a meaningful way.
 
-catch (Exception ex)
+This is generally not a good practice because:
 
-but here 
-throw AwsExceptionHandler.handleKMSException(getAwsSdkVersion(), "encryptUsingAWSKey",
-					keyId, ex);
 
-throwing KMS custom exception which is unchecked exception ( runtime exception ) not catched in main method above
+Silent Failures: Returning null for all exceptions can make it difficult to identify and debug issues, as the root cause of the problem is hidden.
+Null Pointer Exceptions: The calling code might not expect a null result and could lead to NullPointerException at runtime.
+Loss of Context: The original exception and its stack trace are lost, making it harder to trace the source of the error.
+A better approach would be to handle the exception properly, log it, and either rethrow a meaningful custom exception or return an appropriate error response.
 
-	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
+old:
+public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
 	{
 		if (StringUtils.isEmpty(plainText))
 		{
@@ -23,26 +24,66 @@ throwing KMS custom exception which is unchecked exception ( runtime exception )
 			EncryptRequest encryptRequest = new EncryptRequest().withKeyId(keyId)
 					.withPlaintext(getByteBuffer(plainText));
 			long start = System.currentTimeMillis();
-			EncryptResult result = kmsClient.encrypt(encryptRequest);
+			EncryptResult result = getKMSClient().encrypt(encryptRequest);
 			if (result != null && result.getCiphertextBlob() != null)
 			{
 				long end = System.currentTimeMillis();
-				logger.info("[{}] encryptData took {} ", getAwsSdkVersion(), end - start);
+				logger.info("encryptData took {} " + (end - start));
 				return Utils.encodeBase64(result.getCiphertextBlob()
 						.array());
 			}
-			else
-			{
-				throw AwsExceptionHandler.handleKMSException(getAwsSdkVersion(), "encrypt", keyId,
-						new IllegalStateException("EncryptResult or CiphertextBlob is null"));
-			}
+			logger.error("encryptUsingAWSKey failed, EncryptResult is null!");
+			return null;
 		}
-		catch (DisabledException | KeyUnavailableException | UnsupportedEncodingException ex)
+		catch (DisabledException de)
 		{
-			logger.error(String.format(
-					"[%s] encryptUsingAWSKey failed, plainText:%s, keyId:%s, due to:%s",
-					getAwsSdkVersion(), plainText, keyId, ex.getMessage()), ex);
-			throw AwsExceptionHandler.handleKMSException(getAwsSdkVersion(), "encryptUsingAWSKey",
-					keyId, ex);
+			logger.error(
+					"Failed to encryptUsingAWSKey(DisabledException), plainText:{}, keyId:{}, due to:{}",
+					plainText, keyId, ExceptionUtils.getMessage(de), de);
 		}
+		catch (KeyUnavailableException kue)
+		{
+			logger.error(
+					"Failed to encryptUsingAWSKey(KeyUnavailableException), plainText:{}, keyId:{}, due to:{}",
+					plainText, keyId, ExceptionUtils.getMessage(kue), kue);
+		}
+		catch (Exception ex)
+		{
+			logger.error("Failed to encryptUsingAWSKey, plainText:{}, keyId:{}, due to:{}",
+					plainText, keyId, ExceptionUtils.getMessage(ex), ex);
+		}
+		return null;
 	}
+
+
+i have this, make use of it:
+package com.empower.epw.aws.v1.kms.util;
+
+import com.empower.epw.aws.api.kms.exception.KMSOperationException;
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+
+public class AwsExceptionHandler
+{
+	private static final PcapLogger logger = PcapLoggerFactory
+			.getPcapLogger(AwsExceptionHandler.class);
+
+	public static KMSOperationException handleKMSException(String sdkVersion, String operation,
+			String keyId, Exception e)
+	{
+		String errorMessage = String.format("'%s' KMS operation '%s' failed for keyId '%s': %s",
+				sdkVersion, operation, keyId, e.getMessage());
+		logger.error(errorMessage, e);
+		return new KMSOperationException(errorMessage, e);
+	}
+}
+
+package com.empower.epw.aws.api.kms.exception;
+
+public class KMSOperationException extends RuntimeException
+{
+	public KMSOperationException(String message, Throwable cause)
+	{
+		super(message, cause);
+	}
+}
