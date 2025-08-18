@@ -1,81 +1,33 @@
-Old service:
-	@Deprecated
-	public ListAliasesResult getKeyAliases(String awsCmkKeyAlias);
-	@Deprecated
-	public DescribeKeyResult describeKey(String awsCmkKeyAlias);
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class DescribeKeyResponseDTO
+{
+	private String keyId;
+	private String keyArn;
+	private String keyState;
+	private boolean enabled;
+}
 
-old methds:
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class ListAliasesResponseDTO
+{
 
-	@Override
-	@Deprecated
-	public DescribeKeyResult describeKey(String keyId)
+	private List<AliasEntry> aliases;
+
+	@Data
+	@Builder
+	@NoArgsConstructor
+	@AllArgsConstructor
+	public static class AliasEntry
 	{
-		DescribeKeyRequest describeKeyRequest = new DescribeKeyRequest().withKeyId(keyId);
-		DescribeKeyResult result = getKMSClient().describeKey(describeKeyRequest);
-		return result;
+		private String aliasName;
+		private String targetKeyId;
 	}
+}
 
-	@Override
-	@Deprecated
-	public ListAliasesResult getKeyAliases(String keyId)
-	{
-		ListAliasesRequest listAliasesRequest = new ListAliasesRequest().withLimit(10);
-		ListAliasesResult result = getKMSClient().listAliases(listAliasesRequest);
-		return result;
-	}
-
-these from the old KMSServiceImpl should also delegate to the new ones right?
-
-new Service:
-	DescribeKeyResponseDTO describeKey(String keyId);
-	ListAliasesResponseDTO listAliases();
-
-new methods:
-@Override
-	@Deprecated
-	public ListAliasesResponseDTO listAliases()
-	{
-		try
-		{
-			ListAliasesResult result = kmsClient
-					.listAliases(new ListAliasesRequest().withLimit(100));
-			List<ListAliasesResponseDTO.AliasEntry> aliasEntries = result.getAliases()
-					.stream()
-					.map(alias -> new ListAliasesResponseDTO.AliasEntry(alias.getAliasName(),
-							alias.getTargetKeyId()))
-					.collect(Collectors.toList());
-			return new ListAliasesResponseDTO(aliasEntries);
-		}
-		catch (Exception ex)
-		{
-			logger.error("[{}] Failed to listAliases, due to:{}", getAwsSdkVersion(),
-					ExceptionUtils.getMessage(ex), ex);
-			return new ListAliasesResponseDTO();
-		}
-	}
-
-	@Override
-	@Deprecated
-	public DescribeKeyResponseDTO describeKey(String keyId)
-	{
-		try
-		{
-			DescribeKeyResult result = kmsClient
-					.describeKey(new DescribeKeyRequest().withKeyId(keyId));
-
-			return new DescribeKeyResponseDTO(result.getKeyMetadata()
-					.getKeyId(),
-					result.getKeyMetadata()
-							.getArn(),
-					result.getKeyMetadata()
-							.getKeyState(),
-					result.getKeyMetadata()
-							.getEnabled());
-		}
-		catch (Exception ex)
-		{
-			logger.error("[{}] Failed to describeKey, keyId:{}, due to:{}", getAwsSdkVersion(),
-					keyId, ExceptionUtils.getMessage(ex), ex);
-			return new DescribeKeyResponseDTO();
-		}
-	}
+dtos in question
