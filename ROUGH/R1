@@ -1,1 +1,3 @@
-Types in multi-catch must be disjoint: 'com.amazonaws.services.kms.model.DisabledException' is a subclass of 'java.lang.Exception'
+'catch' branch identical to 'DisabledException | KeyUnavailableException' branch
+
+warning
