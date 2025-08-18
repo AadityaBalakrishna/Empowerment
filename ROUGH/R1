@@ -1,17 +1,60 @@
-now all the migration files are refactored, i want to test the consumers, 
-
-before:
+	/**
+	 * If SYSTEM_PRIMARY version is 'V2' encrypt using AWS CMK, otherwise use keystore
+	 *
+	 * @param rawValue
+	 * @return
+	 * @throws Exception
+	 */
+	protected String encryptUsingSystemPrimaryKey(String rawValue) throws Exception
+	{
+		if (this.getKeyManager()
+				.isSystmePrimaryKeyMigratedToAWS())
+		{
+			if (StringUtils.isEmpty(this.getKeyManager()
+					.getSystemPrimaryAliasName()))
+			{
+				throw new SafePageException("systemPrimaryAliasName is null!");
+			}
 			String result = KMSServiceImpl.getInstance()
 					.encryptUsingAWSKey(rawValue, this.getKeyManager()
-							.getSystemPrimaryAliasName());	
+							.getSystemPrimaryAliasName());
+			if (StringUtils.isNoneEmpty(result))
+			{
+				return CryptType.SYSTEM_PRIMARY.getVersion() + result;
+			}
+		}
+		return null;
+	}
 
-now:
+protected String decryptUsingSystemPrimaryKey(String encryptedValue) throws Exception
+	{
+		if (StringUtils.isEmpty(encryptedValue))
+		{
+			return null;
+		}
+		try
+		{
+			/*
+			 * Data encrypted with system primary keys are formatted as [version][encrypted data];
+			 * e.g. V1encrypteddata
+			 */
+			String version = CryptType.getVersionFromEncryptedData(encryptedValue);
+			if (StringUtils.isNotEmpty(version))
+			{
+				encryptedValue = encryptedValue.substring(CryptType.SEED_VERSION_LENGTH);
+				// System Primary key in AWS KMS will be version V2
+				if (CryptType.V2.equals(version))
+				{
+					return KMSServiceImpl.getInstance()
+							.decryptUsingAWSKey(encryptedValue);
+				}
+			}
+		}
+		catch (Exception anException)
+		{
+			logger.warn("Failed to decrypt because: ", anException);
+		}
+		return null;
+	}
 
-@Autowired
-	private EpwKmsService epwKmsService;
-
-			String result = epwKmsService.encryptUsingAWSKey(rawValue, this.getKeyManager()
-					.getSystemPrimaryAliasName());
-
-
-should it go to the new epwKmsService.encrypt or should it go to the old KMSserviceImpl which has been refactored
+these are the old two methods using it, would it be affected?
