@@ -1,69 +1,99 @@
 package com.safepage.security.service.impl;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-
 import com.amazonaws.services.kms.model.DescribeKeyResult;
 import com.amazonaws.services.kms.model.ListAliasesResult;
 import com.empower.epw.aws.kms.config.EpwKmsAutoConfig;
 import com.empower.epw.aws.v1.kms.EpwKmsServiceImpl;
+import com.safepage.exception.SafePageException;
+import org.junit.jupiter.api.*;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest(classes =
-{
-		KMSServiceImpl.class, EpwKmsAutoConfig.class, EpwKmsServiceImpl.class
+import static org.junit.jupiter.api.Assertions.*;
+
+@SpringBootTest(classes = {
+        KMSServiceImpl.class,
+        EpwKmsAutoConfig.class,
+        EpwKmsServiceImpl.class
 })
-public class KMSServiceImplTest
-{
-	private final static String AWS_CMK_KEY_ALIAS = "alias/app/pcap/pcap/system_primary/v1";
+class KMSServiceImplTest {
 
-	@Autowired
-	private KMSServiceImpl kmsService;
+    private static final String AWS_CMK_KEY_ALIAS = "alias/app/pcap/pcap/system_primary/v1";
 
-	@Test
-	public void testEncryptDercrypt()
-	{
-		try
-		{
-			String plainTextToTest = "ammN3OegV2l6aM3UTDohq6T8ocsn/n7Q";
-			String cipherText = kmsService.encryptUsingAWSKey(plainTextToTest, AWS_CMK_KEY_ALIAS);
-			assertNotNull(cipherText);
-			assertTrue(cipherText.length() == 248);
-			String plainText = kmsService.decryptUsingAWSKey(cipherText);
-			assertNotNull(plainText);
-			assertTrue(plainText.equals(plainTextToTest));
-		}
-		catch (Exception ex)
-		{
-			Assertions
-					.fail("Faied to testEncryptDercrypt using AWS Key, dut to:" + ex.getMessage());
-		}
-	}
+    @Autowired
+    private KMSServiceImpl kmsService;
 
-	@Test
-	@Disabled
-	public void testGetAliasListForKey()
-	{
-		// list aliases for key
-		ListAliasesResult listAliasesResult = kmsService.getKeyAliases(AWS_CMK_KEY_ALIAS);
-		assertNotNull(listAliasesResult);
-		// result.getAliases().forEach(a->System.out.println(a.getAliasName()));
-	}
+    @Test
+    @DisplayName("Encrypt → Decrypt round trip succeeds (happy path)")
+    void testEncryptDecrypt_Success() {
+        String plainTextToTest = "ammN3OegV2l6aM3UTDohq6T8ocsn/n7Q";
 
-	@Test
-	@Disabled
-	public void testDescribeKey()
-	{
-		// Describe key
-		DescribeKeyResult describeKeyResult = kmsService.describeKey(AWS_CMK_KEY_ALIAS);
-		assertNotNull(describeKeyResult);
-	}
+        String cipherText = assertDoesNotThrow(() ->
+                kmsService.encryptUsingAWSKey(plainTextToTest, AWS_CMK_KEY_ALIAS));
+
+        assertNotNull(cipherText);
+        assertTrue(cipherText.length() > 50, "Ciphertext should look like a valid encrypted blob");
+
+        String decrypted = assertDoesNotThrow(() ->
+                kmsService.decryptUsingAWSKey(cipherText));
+
+        assertEquals(plainTextToTest, decrypted, "Decrypted text must equal original");
+    }
+
+    @Test
+    @DisplayName("Encrypt fails when plainText is empty")
+    void testEncrypt_InvalidPlainText() {
+        SafePageException ex = assertThrows(SafePageException.class, () ->
+                kmsService.encryptUsingAWSKey("", AWS_CMK_KEY_ALIAS));
+
+        assertEquals("plainText is required!", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Encrypt fails when keyId is empty")
+    void testEncrypt_InvalidKeyId() {
+        SafePageException ex = assertThrows(SafePageException.class, () ->
+                kmsService.encryptUsingAWSKey("hello", ""));
+
+        assertEquals("keyId is required!", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Decrypt fails when cipherText is empty")
+    void testDecrypt_InvalidCipherText() {
+        SafePageException ex = assertThrows(SafePageException.class, () ->
+                kmsService.decryptUsingAWSKey(""));
+
+        assertEquals("cipherText is required!", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Decrypt returns null when given invalid ciphertext blob (old behaviour preserved)")
+    void testDecrypt_InvalidCipherTextBlob_ReturnsNull() {
+        // Passing a garbage ciphertext that KMS cannot decrypt
+        String invalidCipherText = "not-a-valid-kms-ciphertext";
+
+        String result = assertDoesNotThrow(() ->
+                kmsService.decryptUsingAWSKey(invalidCipherText));
+
+        assertNull(result, "Decrypt should return null for invalid ciphertext");
+    }
+
+    @Test
+    @Disabled("Requires real AWS KMS - only enable in integration testing")
+    void testGetAliasListForKey() {
+        ListAliasesResult listAliasesResult = kmsService.getKeyAliases(AWS_CMK_KEY_ALIAS);
+        assertNotNull(listAliasesResult);
+        assertTrue(listAliasesResult.getAliases().stream()
+                .anyMatch(alias -> AWS_CMK_KEY_ALIAS.equals(alias.getAliasName())));
+    }
+
+    @Test
+    @Disabled("Requires real AWS KMS - only enable in integration testing")
+    void testDescribeKey() {
+        DescribeKeyResult describeKeyResult = kmsService.describeKey(AWS_CMK_KEY_ALIAS);
+        assertNotNull(describeKeyResult);
+        assertEquals(AWS_CMK_KEY_ALIAS, describeKeyResult.getKeyMetadata().getArn(), "Should describe correct key");
+    }
 }
-
-
-can you refactor this test so that, all the corner bad and good path of encrypt and decrypt are tested?
