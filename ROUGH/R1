@@ -1,3 +1,11 @@
-'catch' branch identical to 'DisabledException | KeyUnavailableException' branch
+package com.empower.epw.aws.api.kms.exception;
 
-warning
+public class KMSOperationException extends RuntimeException
+{
+	public KMSOperationException(String message, Throwable cause)
+	{
+		super(message, cause);
+	}
+}
+
+anything to improve in this?
