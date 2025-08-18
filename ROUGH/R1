@@ -1,40 +1,9 @@
-/**
-	 * Decrypt encrypted data key under AWS CMK Key using IAM role to access the key
-	 */
-	@Override
-	// @Retryable(value =
-	// {
-	// Exception.class
-	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
-	public String decryptUsingAWSKey(String cipherText) throws SafePageException
-	{
-		if (StringUtils.isEmpty(cipherText))
+		@Test
+		void testDecryptValueThrowsOrLogsExceptionWhenCiphertextIsInvalid() throws SafePageException
 		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
+			String invalidCiphertext = "not-base64-or-kms-data";
+			String response = epwKmsService.decryptUsingAWSKey(invalidCiphertext);
+			assertNull(response);
 		}
-		try
-		{
-			byte[] decodedCipherText;
-			try{
-				decodedCipherText = Utils.decodeBase64(cipherText);
-			}catch (Exception ex){
-				throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is not a valid Base64 encoded string");
-			}
-			DecryptRequest decryptRequest = new DecryptRequest()
-					.withCiphertextBlob(ByteBuffer.wrap(decodedCipherText));
-			long start = System.currentTimeMillis();
-			DecryptResult result = kmsClient.decrypt(decryptRequest);
-			long end = System.currentTimeMillis();
-			logger.info("[{}] decryptData took {}", getAwsSdkVersion(), end - start);
-			if (result == null || result.getPlaintext() == null){
-				throw AwsExceptionHandler.handleKMSException(getAwsSdkVersion(), "decrypt", null, new IllegalStateException("DecryptResult or PlainText is null"));
-			}
-			return getString(result.getPlaintext());
-		}
-		catch (AmazonClientException ex)
-		{
-			logger.error(String.format("[%s] decryptUsingAWSKey failed, cipherText:%s, due to:%s",
-					getAwsSdkVersion(), cipherText, ex.getMessage()), ex);
-			throw AwsExceptionHandler.handleKMSException(getAwsSdkVersion(), "decrypt", null, ex);
-		}
-	}
+
+i meant this test code
