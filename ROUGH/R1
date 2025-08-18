@@ -1,116 +1,48 @@
-package com.safepage.security.service.impl;
+here we are catching only checked exception, 
 
-import com.empower.epw.aws.api.kms.EpwKmsService;
-import com.safepage.exception.SafePageException;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+catch (Exception ex)
 
-import static org.mockito.Mockito.*;
-import static org.junit.jupiter.api.Assertions.*;
+but here 
+throw AwsExceptionHandler.handleKMSException(getAwsSdkVersion(), "encryptUsingAWSKey",
+					keyId, ex);
 
-class KMSServiceImplUnitTest {
+throwing KMS custom exception which is unchecked exception ( runtime exception ) not catched in main method above
 
-    private KMSServiceImpl kmsService;
-    private EpwKmsService mockEpwKmsService;
-
-    @BeforeEach
-    void setUp() {
-        mockEpwKmsService = mock(EpwKmsService.class);
-        kmsService = new KMSServiceImpl(mockEpwKmsService);
-    }
-
-    // ---------------- ENCRYPT ----------------
-
-    @Test
-    void testEncryptUsingAWSKey_Success() throws SafePageException {
-        String plainText = "hello";
-        String keyId = "testKeyId";
-        String expectedCipherText = "cipherText123";
-
-        when(mockEpwKmsService.encryptUsingAWSKey(plainText, keyId))
-                .thenReturn(expectedCipherText);
-
-        String result = kmsService.encryptUsingAWSKey(plainText, keyId);
-
-        assertEquals(expectedCipherText, result);
-        verify(mockEpwKmsService, times(1)).encryptUsingAWSKey(plainText, keyId);
-    }
-
-    @Test
-    void testEncryptUsingAWSKey_InvalidPlainText() {
-        String plainText = "";
-        String keyId = "keyId";
-
-        SafePageException ex = assertThrows(SafePageException.class,
-                () -> kmsService.encryptUsingAWSKey(plainText, keyId));
-
-        assertEquals("plainText is required!", ex.getMessage());
-        verifyNoInteractions(mockEpwKmsService);
-    }
-
-    @Test
-    void testEncryptUsingAWSKey_InvalidKeyId() {
-        String plainText = "hello";
-        String keyId = "";
-
-        SafePageException ex = assertThrows(SafePageException.class,
-                () -> kmsService.encryptUsingAWSKey(plainText, keyId));
-
-        assertEquals("keyId is required!", ex.getMessage());
-        verifyNoInteractions(mockEpwKmsService);
-    }
-
-    @Test
-    void testEncryptUsingAWSKey_ExceptionFromDelegate_ReturnsNull() throws SafePageException {
-        String plainText = "hello";
-        String keyId = "keyId";
-
-        when(mockEpwKmsService.encryptUsingAWSKey(plainText, keyId))
-                .thenThrow(new RuntimeException("boom"));
-
-        String result = kmsService.encryptUsingAWSKey(plainText, keyId);
-
-        assertNull(result);
-        verify(mockEpwKmsService, times(1)).encryptUsingAWSKey(plainText, keyId);
-    }
-
-    // ---------------- DECRYPT ----------------
-
-    @Test
-    void testDecryptUsingAWSKey_Success() throws SafePageException {
-        String cipherText = "cipherText123";
-        String expectedPlainText = "hello";
-
-        when(mockEpwKmsService.decryptUsingAWSKey(cipherText))
-                .thenReturn(expectedPlainText);
-
-        String result = kmsService.decryptUsingAWSKey(cipherText);
-
-        assertEquals(expectedPlainText, result);
-        verify(mockEpwKmsService, times(1)).decryptUsingAWSKey(cipherText);
-    }
-
-    @Test
-    void testDecryptUsingAWSKey_InvalidCipherText() {
-        String cipherText = "";
-
-        SafePageException ex = assertThrows(SafePageException.class,
-                () -> kmsService.decryptUsingAWSKey(cipherText));
-
-        assertEquals("cipherText is required!", ex.getMessage());
-        verifyNoInteractions(mockEpwKmsService);
-    }
-
-    @Test
-    void testDecryptUsingAWSKey_ExceptionFromDelegate_ReturnsNull() throws SafePageException {
-        String cipherText = "cipherText123";
-
-        when(mockEpwKmsService.decryptUsingAWSKey(cipherText))
-                .thenThrow(new RuntimeException("boom"));
-
-        String result = kmsService.decryptUsingAWSKey(cipherText);
-
-        assertNull(result);
-        verify(mockEpwKmsService, times(1)).decryptUsingAWSKey(cipherText);
-    }
-}
+	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
+	{
+		if (StringUtils.isEmpty(plainText))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
+		}
+		if (StringUtils.isEmpty(keyId))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
+		}
+		try
+		{
+			EncryptRequest encryptRequest = new EncryptRequest().withKeyId(keyId)
+					.withPlaintext(getByteBuffer(plainText));
+			long start = System.currentTimeMillis();
+			EncryptResult result = kmsClient.encrypt(encryptRequest);
+			if (result != null && result.getCiphertextBlob() != null)
+			{
+				long end = System.currentTimeMillis();
+				logger.info("[{}] encryptData took {} ", getAwsSdkVersion(), end - start);
+				return Utils.encodeBase64(result.getCiphertextBlob()
+						.array());
+			}
+			else
+			{
+				throw AwsExceptionHandler.handleKMSException(getAwsSdkVersion(), "encrypt", keyId,
+						new IllegalStateException("EncryptResult or CiphertextBlob is null"));
+			}
+		}
+		catch (DisabledException | KeyUnavailableException | UnsupportedEncodingException ex)
+		{
+			logger.error(String.format(
+					"[%s] encryptUsingAWSKey failed, plainText:%s, keyId:%s, due to:%s",
+					getAwsSdkVersion(), plainText, keyId, ex.getMessage()), ex);
+			throw AwsExceptionHandler.handleKMSException(getAwsSdkVersion(), "encryptUsingAWSKey",
+					keyId, ex);
+		}
+	}
