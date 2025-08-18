@@ -1,4 +1,20 @@
-2025-08-18T19:45:08.903+05:30 ERROR 9463 --- [           main] c.e.e.a.v2.kms.util.AwsExceptionHandler  : 'AWS SDK v2' KMS operation 'decryptUsingAWSKey' failed for keyId 'null': LocalStack is unable to deserialize the ciphertext blob. Perhaps the blob didn't come from LocalStack (Service: Kms, Status Code: 400, Request ID: ce2d1e93-e209-4759-b16a-070fc0985d0a)
-2025-08-18T19:48:42.323+05:30 ERROR 15492 --- [           main] c.e.e.a.v1.kms.util.AwsExceptionHandler  : 'AWS SDK v1' KMS operation 'decryptUsingAWSKey' failed for keyId 'null': LocalStack is unable to deserialize the ciphertext blob. Perhaps the blob didn't come from LocalStack (Service: AWSKMS; Status Code: 400; Error Code: InvalidCiphertextException; Request ID: 50a69703-0e60-493c-8c41-408288be43d8; Proxy: eproxy-personalcapital.goskope.com)
-when i ran v1 test, there was error code in the logs, but in v2 it's not there
+package com.empower.epw.aws.v2.kms.util;
 
+import com.empower.epw.aws.api.kms.exception.KMSOperationException;
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+
+public class AwsExceptionHandler
+{
+	private static final PcapLogger logger = PcapLoggerFactory
+			.getPcapLogger(AwsExceptionHandler.class);
+
+	public static KMSOperationException handleKMSException(String sdkVersion, String operation,
+														   String keyId, Exception e)
+	{
+		String errorMessage = String.format("'%s' KMS operation '%s' failed for keyId '%s': %s",
+				sdkVersion, operation, keyId, e.getMessage());
+		logger.error(errorMessage, e);
+		return new KMSOperationException(errorMessage, e);
+	}
+}
