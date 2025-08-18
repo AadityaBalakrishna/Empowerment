@@ -1,20 +1,20 @@
 package com.safepage.security.service.impl;
- 
+
 import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
- 
+
 import com.amazonaws.services.kms.AWSKMS;
 import com.amazonaws.services.kms.model.DisabledException;
 import com.amazonaws.services.kms.model.EncryptRequest;
 import com.safepage.exception.SafePageException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
- 
-public class KMSServiceImplTest {
- 
+
+public class KMSServiceImplUnitTest {
+
     private KMSServiceImpl kmsService;
     private AWSKMS mockKmsClient;
- 
+
     @BeforeEach
     public void setUp() {
         kmsService = (KMSServiceImpl) KMSServiceImpl.getInstance();
@@ -22,35 +22,45 @@ public class KMSServiceImplTest {
         // Inject the mocked KMS client
         kmsService.kmsClient = mockKmsClient;
     }
- 
+
     @Test
     public void testEncryptUsingAWSKey_ThrowsDisabledException() {
         String plainText = "testPlainText";
         String keyId = "testKeyId";
- 
+
         // Mock the behavior to throw DisabledException
-        when(mockKmsClient.encrypt(any(EncryptRequest.class))).thenThrow(new DisabledException("Key is disabled"));
- 
+        when(mockKmsClient.encrypt(any(EncryptRequest.class)))
+                .thenThrow(new DisabledException("Key is disabled"));
+
         // Call the method and assert that it handles the exception gracefully
         String result = kmsService.encryptUsingAWSKey(plainText, keyId);
- 
+
         assertNull(result, "Result should be null when an exception occurs");
         // Verify that the encrypt method was called
         verify(mockKmsClient, times(1)).encrypt(any(EncryptRequest.class));
     }
- 
+
     @Test
-    public void testEncryptUsingAWSKey_InvalidInput() {
+    public void testEncryptUsingAWSKey_InvalidInput_PlainText() {
         String plainText = "";
-        String keyId = "";
- 
-        // Assert that SafePageException is thrown for invalid input
-        SafePageException exception = assertThrows(SafePageException.class, () -> {
-            kmsService.encryptUsingAWSKey(plainText, keyId);
-        });
- 
+        String keyId = "testKeyId";
+
+        SafePageException exception = assertThrows(SafePageException.class, () ->
+                kmsService.encryptUsingAWSKey(plainText, keyId)
+        );
+
         assertEquals("plainText is required!", exception.getMessage());
     }
-}
 
-here is something he asked me to do, can you incorporate this?
+    @Test
+    public void testEncryptUsingAWSKey_InvalidInput_KeyId() {
+        String plainText = "testPlainText";
+        String keyId = "";
+
+        SafePageException exception = assertThrows(SafePageException.class, () ->
+                kmsService.encryptUsingAWSKey(plainText, keyId)
+        );
+
+        assertEquals("keyId is required!", exception.getMessage());
+    }
+}
