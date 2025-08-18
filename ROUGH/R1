@@ -1,86 +1,3 @@
-package com.safepage.security.service.impl;
-
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
-
-import com.amazonaws.services.kms.AWSKMS;
-import com.amazonaws.services.kms.AWSKMSClient;
-import com.amazonaws.services.kms.model.DescribeKeyRequest;
-import com.amazonaws.services.kms.model.DescribeKeyResult;
-import com.amazonaws.services.kms.model.ListAliasesRequest;
-import com.amazonaws.services.kms.model.ListAliasesResult;
-import com.empower.epw.aws.api.kms.exception.KMSOperationException;
-import com.personalcapital.aws.AWSCredentialsManager;
-import com.personalcapital.log.PcapLogger;
-import com.personalcapital.log.PcapLoggerFactory;
-import com.safepage.error.SafePageErrorType;
-import com.safepage.exception.SafePageException;
-import com.empower.epw.aws.api.kms.EpwKmsService;
-import com.safepage.security.service.KMSService;
-
-/**
- * @author dizadi
- */
-public class KMSServiceImpl implements KMSService
-{
-	private AWSKMS kmsClient = null;
-	private static PcapLogger logger = PcapLoggerFactory.getPcapLogger(KMSServiceImpl.class);
-
-	private final EpwKmsService epwKmsService;
-
-	private AWSKMS getKMSClient()
-	{
-		if (kmsClient == null)
-		{
-			AWSCredentialsManager awsCredentialsManager = new AWSCredentialsManager();
-			kmsClient = (AWSKMS) awsCredentialsManager
-					.getClientBuilderWithCredentials(AWSKMSClient.builder())
-					.build();
-		}
-		return kmsClient;
-	}
-
-	@Autowired
-	public KMSServiceImpl(@Qualifier("epwKmsService") EpwKmsService epwKmsService)
-	{
-		this.epwKmsService = epwKmsService;
-	}
-
-	/**
-	 * Encrypt data key (system secondary key) under AWS CMK Key using IAM role to access the key
-	 * AWS CMK
-	 *
-	 * @throws SafePageException
-	 */
-	@Override
-	// @Retryable(value =
-	// {
-	// Exception.class
-	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
-	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
-	{
-		if (StringUtils.isEmpty(plainText))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
-		}
-		if (StringUtils.isEmpty(keyId))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
-		}
-		try
-		{
-			return epwKmsService.encryptUsingAWSKey(plainText, keyId);
-		}
-		catch (KMSOperationException ex)
-		{
-			logger.error("Failed to encryptUsingAWSKey, plainText:{}, keyId:{}, due to:{}",
-					plainText, keyId, ExceptionUtils.getMessage(ex), ex);
-		}
-		return null;
-	}
-
 	/**
 	 * Decrypt encrypted data key under AWS CMK Key using IAM role to access the key
 	 */
@@ -97,47 +14,240 @@ public class KMSServiceImpl implements KMSService
 		}
 		try
 		{
-			return epwKmsService.decryptUsingAWSKey(cipherText);
+			byte[] decodedCipherText = Utils.decodeBase64(cipherText);
+			DecryptRequest decryptRequest = new DecryptRequest()
+					.withCiphertextBlob(ByteBuffer.wrap(decodedCipherText));
+			long start = System.currentTimeMillis();
+			DecryptResult result = kmsClient.decrypt(decryptRequest);
+			long end = System.currentTimeMillis();
+			logger.info("[{}] decryptData took {}", getAwsSdkVersion(), end - start);
+			if (result == null || result.getPlaintext() == null)
+			{
+				throw AwsExceptionHandler.handleKMSException(getAwsSdkVersion(), "decrypt", null,
+						new IllegalStateException("DecryptResult or PlainText is null"));
+			}
+			return getString(result.getPlaintext());
 		}
-		catch (KMSOperationException ex)
+		catch (KeyUnavailableException | InvalidCiphertextException | DisabledException ex)
 		{
-			logger.error("Failed to decryptUsingAWSKey, cipherText:{}, due to:{}", cipherText,
-					ExceptionUtils.getMessage(ex), ex);
+			logger.error(String.format("[%s] decryptUsingAWSKey failed, cipherText:%s, due to:%s",
+					getAwsSdkVersion(), cipherText, ex.getMessage()), ex);
+			throw AwsExceptionHandler.handleKMSException(getAwsSdkVersion(), "decryptUsingAWSKey",
+					null, ex);
+		}
+		catch (Exception e)
+		{
+			throw AwsExceptionHandler.handleKMSException(getAwsSdkVersion(), "decryptUsingAWSKey",
+					null, e);
+		}
+	}
+
+for this method:
+
+package com.empower.epw.aws.v1.kms;
+
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+
+import org.apache.commons.codec.binary.Base64;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.localstack.LocalStackContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
+
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.client.builder.AwsClientBuilder;
+import com.amazonaws.services.kms.AWSKMS;
+import com.amazonaws.services.kms.AWSKMSClientBuilder;
+import com.amazonaws.services.kms.model.CreateAliasRequest;
+import com.amazonaws.services.kms.model.CreateKeyResult;
+import com.amazonaws.services.kms.model.DecryptRequest;
+import com.amazonaws.services.kms.model.DecryptResult;
+import com.amazonaws.services.kms.model.EncryptRequest;
+import com.amazonaws.services.kms.model.EncryptResult;
+import com.empower.epw.aws.api.kms.EpwKmsService;
+import com.empower.epw.aws.api.kms.exception.KMSOperationException;
+import com.safepage.exception.SafePageException;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+@SpringBootTest(classes =
+{
+		EpwKmsServiceImpl.class, EpwKmsServiceImplIntegrationTest.KMSTestConfig.class
+})
+@Testcontainers
+public class EpwKmsServiceImplIntegrationTest
+{
+
+	private static final String KEY_ALIAS = "alias/app/pcap/pcap/system_primary/v1";
+	private static String keyId;
+
+	@Container
+	static LocalStackContainer localStack = new LocalStackContainer(
+			DockerImageName.parse("localstack/localstack:3.0"))
+					.withServices(LocalStackContainer.Service.KMS)
+					.withReuse(true);
+
+	@DynamicPropertySource
+	static void overrideProperties(DynamicPropertyRegistry registry)
+	{
+		registry.add("cloud.aws.region.static", localStack::getRegion);
+		registry.add("cloud.aws.credentials.access-key", localStack::getAccessKey);
+		registry.add("cloud.aws.credentials.secret-key", localStack::getSecretKey);
+	}
+
+	@TestConfiguration
+	static class KMSTestConfig
+	{
+		// Additional test configuration can be added here if needed
+		@Bean
+		public AWSKMS awskms()
+		{
+			return AWSKMSClientBuilder.standard()
+					.withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(
+							localStack.getEndpointOverride(LocalStackContainer.Service.KMS)
+									.toString(),
+							localStack.getRegion()))
+					.withCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials(
+							localStack.getAccessKey(), localStack.getSecretKey())))
+					.build();
 		}
 
-		return null;
+		@Bean
+		public EpwKmsService epwKmsService(AWSKMS awskms)
+		{
+			return new EpwKmsServiceImpl(awskms);
+		}
 	}
 
-	/**
-	 * Create a new customer master key. <br>
-	 * Customer master key (CMK) is designed to encrypt and decrypt data keys (System Secondary
-	 * Key). CMK cannot be used to encrypt/decrypt data more than 4 KB (4096 bytes) of data.
-	 */
-	// public void createCMK()
-	// {
-	// String desc = "PCAP Master Key for encrypting system secondary keys";
-	// CreateKeyRequest req = new CreateKeyRequest().withDescription(desc);
-	// CreateKeyResult result = getKMSClient().createKey(req);
-	// }
+	@Autowired
+	private AWSKMS awskms;
 
-	@Override
-	@Deprecated
-	public DescribeKeyResult describeKey(String keyId)
+	@Autowired
+	private EpwKmsService epwKmsService;
+
+	@BeforeEach
+	void setUpKmsKeyAlias()
 	{
-		DescribeKeyRequest describeKeyRequest = new DescribeKeyRequest().withKeyId(keyId);
-		DescribeKeyResult result = getKMSClient().describeKey(describeKeyRequest);
-		return result;
+		if (keyId == null)
+		{
+			CreateKeyResult keyResult = awskms.createKey();
+			keyId = keyResult.getKeyMetadata()
+					.getKeyId();
+
+			awskms.createAlias(new CreateAliasRequest().withAliasName(KEY_ALIAS)
+					.withTargetKeyId(keyId));
+		}
 	}
 
-	@Override
-	@Deprecated
-	public ListAliasesResult getKeyAliases(String keyId)
+	@Test
+	void testEncryptDecryptWithKmsClientDirectly()
 	{
-		ListAliasesRequest listAliasesRequest = new ListAliasesRequest().withLimit(10);
-		ListAliasesResult result = getKMSClient().listAliases(listAliasesRequest);
-		return result;
+		String plaintext = "hello-localstack-kms";
+
+		EncryptRequest encryptRequest = new EncryptRequest().withKeyId(KEY_ALIAS)
+				.withPlaintext(ByteBuffer.wrap(plaintext.getBytes(StandardCharsets.UTF_8)));
+
+		EncryptResult encryptResult = awskms.encrypt(encryptRequest);
+		ByteBuffer ciphertextBlob = encryptResult.getCiphertextBlob();
+		assertNotNull(ciphertextBlob);
+
+		DecryptRequest decryptRequest = new DecryptRequest().withCiphertextBlob(ciphertextBlob);
+
+		DecryptResult decryptResult = awskms.decrypt(decryptRequest);
+		String decryptedText = StandardCharsets.UTF_8.decode(decryptResult.getPlaintext())
+				.toString();
+
+		assertEquals(plaintext, decryptedText);
+	}
+
+	@Test
+	void testEncryptDecryptWithEpwKmsService() throws SafePageException
+	{
+		String plaintext = "integration-test-message-v1";
+
+		String encrypted = epwKmsService.encryptUsingAWSKey(plaintext, KEY_ALIAS);
+		assertNotNull(encrypted);
+
+		String decrypted = epwKmsService.decryptUsingAWSKey(encrypted);
+		assertNotNull(decrypted);
+		assertEquals(plaintext, decrypted);
+	}
+
+	@Test
+	void testEncyptedCiphertextisBase64Encoded() throws SafePageException
+	{
+		String plaintext = "test-base64-encoded-ciphertext";
+
+		String response = epwKmsService.encryptUsingAWSKey(plaintext, KEY_ALIAS);
+		assertNotNull(response);
+
+		boolean isBase64 = Base64.isBase64(response);
+		assertTrue(isBase64, "Ciphertext should be Base64 encoded");
+	}
+
+	@Test
+	void testEncryptDecryptConsistency() throws SafePageException
+	{
+		String original = "{\"name\":\"EPW Account\",\"source\":\"yodlee\",\"lastUpdated\":1702040247000}";
+
+		String encrypted = epwKmsService.encryptUsingAWSKey(original, KEY_ALIAS);
+		String decrypted = epwKmsService.decryptUsingAWSKey(encrypted);
+
+		assertEquals(original, decrypted);
+	}
+
+	@Nested
+	class NegativeCasesForBadDataAndExceptions
+	{
+
+		@Test
+		void testEncryptThrowsSafePageExceptionForEmptyPlaintext()
+		{
+			SafePageException exception = assertThrows(SafePageException.class,
+					() -> epwKmsService.encryptUsingAWSKey("", KEY_ALIAS));
+			assertEquals("plainText is required!", exception.getMessage());
+		}
+
+		@Test
+		void testEncryptValueThrowsSafePageExceptionWhenKeyIdIsMissing()
+		{
+			SafePageException exception = assertThrows(SafePageException.class,
+					() -> epwKmsService.encryptUsingAWSKey("Dummy", null));
+			assertEquals("keyId is required!", exception.getMessage());
+		}
+
+		@Test
+		void testDecryptValueThrowsOrLogsExceptionWhenCiphertextIsInvalid() throws SafePageException
+		{
+			String invalidCiphertext = "not-base64-or-kms-data";
+			String response = epwKmsService.decryptUsingAWSKey(invalidCiphertext);
+			assertNotNull(response);
+		}
+
+		@Test
+		void testDecryptValueThrowsSafePageExceptionWhenCiphertextIsMissing()
+		{
+			SafePageException exception = assertThrows(SafePageException.class,
+					() -> epwKmsService.decryptUsingAWSKey(null));
+			assertEquals("cipherText is required!", exception.getMessage());
+		}
 	}
 }
 
 
-review this
+refactor any test case in this code that might need refactoring
