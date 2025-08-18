@@ -1,23 +1,17 @@
     @Test
-    void testEncrypt_NullPlaintext_ThrowsException() {
-        SafePageException ex = assertThrows(SafePageException.class,
-                () -> kmsService.encryptUsingAWSKey(null, AWS_CMK_KEY_ALIAS));
-
-        assertTrue(ex.getMessage().contains("plainText is required!"));
+    public void testEncryptUsingAWSKey_ThrowsDisabledException() {
+        String plainText = "testPlainText";
+        String keyId = "testKeyId";
+ 
+        // Mock the behavior to throw DisabledException
+        when(mockKmsClient.encrypt(any(EncryptRequest.class))).thenThrow(new DisabledException("Key is disabled"));
+ 
+        // Call the method and assert that it handles the exception gracefully
+        String result = kmsService.encryptUsingAWSKey(plainText, keyId);
+ 
+        assertNull(result, "Result should be null when an exception occurs");
+        // Verify that the encrypt method was called
+        verify(mockKmsClient, times(1)).encrypt(any(EncryptRequest.class));
     }
 
-    @Test
-    void testEncrypt_EmptyKeyId_ThrowsException() {
-        SafePageException ex = assertThrows(SafePageException.class,
-                () -> kmsService.encryptUsingAWSKey("someText", ""));
-
-        assertTrue(ex.getMessage().contains("keyId is required!"));
-    }
-
-    @Test
-    void testEncrypt_Failure_ReturnsNull() {
-        // supply an invalid key alias to force AWS KMS failure
-        String result = kmsService.encryptUsingAWSKey("someText", "alias/this/does/not/exist");
-
-        assertNull(result, "Should return null when encryption fails");
-    }
+what is this test cases, it was shared by my senior was asked if this test cases will pass in my current impl of KMSService, can you add this in the test class i just shared?
