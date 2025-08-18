@@ -1,211 +1,62 @@
-i am really conflicted on how to refactor the old KMSServiceImpl to delegate to the new EpwKmsService interface while keeping it's old method behaviour intact so that no consumer will be affected, and in order to do so i will need you to refer and learn from how it's done by my senior in their S3 refactor
-
-old:
-public boolean multipartUploadObject(PcapS3Request pcapS3Request, String bucketName,
-			Integer partSize) throws SafePageException
+/**
+	 * Decrypt encrypted data key under AWS CMK Key using IAM role to access the key
+	 */
+	@Override
+	// @Retryable(value =
+	// {
+	// Exception.class
+	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
+	public String decryptUsingAWSKey(String cipherText) throws SafePageException
 	{
-		if (BaseUtils.isNullOrNull(bucketName))
+		if (StringUtils.isEmpty(cipherText))
 		{
-			throw new SafePageException("bucketName is null hence skipping further S3 processing");
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
 		}
-		if (pcapS3Request == null || Utils.isNull(pcapS3Request.getKey())
-				|| pcapS3Request.getObject() == null)
-		{
-			throw new SafePageException(
-					"PcapS3Request is null hence skipping further S3 processing");
-		}
-		if (amazonS3Client == null)
-		{
-			throw new SafePageException(
-					"Cannot upload the object to S3 as amazonS3Client is null for bucketName: "
-							+ bucketName);
-		}
-		int fileSize = 0;
 		try
 		{
-			fileSize = pcapS3Request.getObject()
-					.available();
-		}
-		catch (IOException e)
-		{
-			logger.error("Failed to get file size from pcapS3Request, key: {}, bucketName: {}",
-					pcapS3Request.getKey(), bucketName, e);
-		}
-
-		// Check if file size if less that part size limit throw an exception
-		if (fileSize < AWS_S3_MULTIPART_UPLOAD_PART_SIZE_LIMIT)
-		{
-			throw new SafePageException("Cannot use multipart upload for objects smaller that {}:"
-					+ AWS_S3_MULTIPART_UPLOAD_PART_SIZE_LIMIT + ", pcapS3Request.key:"
-					+ pcapS3Request.getKey());
-		}
-
-		// Check if part size is not less than AWS limit
-		if (partSize == null || partSize < AWS_S3_MULTIPART_UPLOAD_PART_SIZE_LIMIT)
-		{
-			logger.debug("multipartUploadObject part size if setting to default of "
-					+ AWS_S3_MULTIPART_UPLOAD_PART_SIZE_LIMIT);
-			partSize = AWS_S3_MULTIPART_UPLOAD_PART_SIZE_LIMIT;
-		}
-
-		InputStream fileUploadInputStram = null;
-		/*
-		 * 1- Initiate the multipart upload
-		 */
-		InitiateMultipartUploadResult initResult = amazonS3Client.initiateMultipartUpload(
-				new InitiateMultipartUploadRequest(bucketName, pcapS3Request.getKey()));
-		try
-		{
+			byte[] decodedCipherText = Utils.decodeBase64(cipherText);
+			DecryptRequest decryptRequest = new DecryptRequest()
+					.withCiphertextBlob(ByteBuffer.wrap(decodedCipherText));
 			long start = System.currentTimeMillis();
-			fileUploadInputStram = pcapS3Request.getObject();
-
-			/*
-			 * 2- Upload the parts of the object
-			 */
-			byte[] buffer = new byte[partSize];
-			List<PartETag> list = new ArrayList<>();
-			// number of parts
-			int part = 1;
-			// total number of bytes read into the buffer
-			int read = fileUploadInputStram.read(buffer);
-			while (read != -1)
-			{
-				UploadPartRequest req = new UploadPartRequest().withPartSize(partSize)
-						.withInputStream(new ByteArrayInputStream(buffer))
-						.withBucketName(bucketName)
-						.withUploadId(initResult.getUploadId())
-						.withKey(pcapS3Request.getKey())
-						.withPartNumber(part);
-
-				list.add(amazonS3Client.uploadPart(req)
-						.getPartETag());
-				part++;
-				read = fileUploadInputStram.read(buffer);
-			}
-
-			// 3- Complete the multipart upload
-			CompleteMultipartUploadRequest completeRequest = new CompleteMultipartUploadRequest(
-					bucketName, pcapS3Request.getKey(), initResult.getUploadId(), list);
-			amazonS3Client.completeMultipartUpload(completeRequest);
+			DecryptResult result = getKMSClient().decrypt(decryptRequest);
 			long end = System.currentTimeMillis();
-			logger.info("multipartUploadObject uploaded; file: {}, size: {} consumed: {} ",
-					pcapS3Request.getKey(), fileSize, (end - start));
-			return true;
+			logger.info("decryptData took {}" + (end - start));
+			ByteBuffer plainTextBlob = result.getPlaintext();
+			return getString(plainTextBlob);
 		}
-		catch (IOException ie)
+		catch (KeyUnavailableException kue)
+		{
+			// The request was rejected because the specified CMK was not available. The request can
+			// be retried.
+			logger.error(
+					"Failed to decryptUsingAWSKey(KeyUnavailableException), cipherText:{}, due to:{}",
+					cipherText, ExceptionUtils.getMessage(kue), kue);
+		}
+		catch (InvalidCiphertextException ice)
+		{
+			// The request was rejected because the specified ciphertext, or additional
+			// authenticated data incorporated
+			// into the ciphertext, such as the encryption context, is corrupted, missing, or
+			// otherwise invalid.
+			logger.error(
+					"Failed to decryptUsingAWSKey(InvalidCiphertextException), cipherText:{}, due to:{}",
+					cipherText, ExceptionUtils.getMessage(ice), ice);
+		}
+		catch (DisabledException de)
 		{
 			logger.error(
-					"Exception while multipartUploadObject, keyname: {}, bucketname: {}, due to: {}",
-					pcapS3Request.getKey(), bucketName, ie.getMessage(), ie);
-			abortMultipartUploadRequest(pcapS3Request, bucketName, initResult);
-
-			return false;
+					"Failed to decryptUsingAWSKey(DisabledException), cipherText:{}, due to:{}",
+					cipherText, ExceptionUtils.getMessage(de), de);
 		}
-		catch (AmazonServiceException ase)
+		catch (Exception ex)
 		{
-			logger.error(
-					"Caught an AmazonServiceException for multipartUploadObject, which means your request made it "
-							+ "to Amazon S3, but was rejected with an error response"
-							+ " for some reason. Keyname: " + pcapS3Request.getKey()
-							+ ", BucketName:" + bucketName + ", Error Message: " + ase.getMessage()
-							+ "  HTTP Status Code: " + ase.getStatusCode() + "  AWS Error Code: "
-							+ ase.getErrorCode() + "  Error Type:       " + ase.getErrorType()
-							+ " Request ID:       " + ase.getRequestId(),
-					ase);
-			abortMultipartUploadRequest(pcapS3Request, bucketName, initResult);
-			return false;
+			logger.error("Failed to decryptUsingAWSKey, cipherText:{}, due to:{}", cipherText,
+					ExceptionUtils.getMessage(ex), ex);
 		}
-		catch (AmazonClientException ace)
-		{
-			logger.error(
-					"Caught an AmazonClientException for multipartUploadObject, which means the client encountered "
-							+ "an internal error while trying to communicate with S3, "
-							+ "such as not being able to access the network." + ", Keyname: "
-							+ pcapS3Request.getKey() + ", BucketName:" + bucketName
-							+ " Error Message: " + ace.getMessage(),
-					ace);
-			abortMultipartUploadRequest(pcapS3Request, bucketName, initResult);
-			return false;
-		}
-		finally
-		{
-			IOUtils.closeQuietly(fileUploadInputStram);
-		}
-	}
 
-	protected void abortMultipartUploadRequest(PcapS3Request pcapS3Request, String bucketName,
-			InitiateMultipartUploadResult initResult)
-	{
-		// Abort if exception happened
-		logger.info(
-				"Unable to put object as multipart to Amazon S3 for file: {}, aborting the MultipartUploadRequest",
-				pcapS3Request.getKey());
-		amazonS3Client.abortMultipartUpload(new AbortMultipartUploadRequest(bucketName,
-				pcapS3Request.getKey(), initResult.getUploadId()));
-
+		return null;
 	}
 
 
-new:
-	public boolean multipartUploadObject(PcapS3Request pcapS3Request, String bucketName,
-			Integer partSize) throws SafePageException
-	{
-		if (BaseUtils.isNullOrNull(bucketName))
-		{
-			throw new SafePageException("bucketName is null hence skipping further S3 processing");
-		}
-		if (pcapS3Request == null || Utils.isNull(pcapS3Request.getKey())
-				|| pcapS3Request.getObject() == null)
-		{
-			throw new SafePageException(
-					"PcapS3Request is null hence skipping further S3 processing");
-		}
-		if (epwS3Service == null)
-		{
-			throw new SafePageException(
-					"Cannot upload the object to S3 as epwS3Service is null for bucketName: "
-							+ bucketName);
-		}
-		int fileSize = 0;
-		try
-		{
-			fileSize = pcapS3Request.getObject()
-					.available();
-		}
-		catch (IOException e)
-		{
-			logger.error("Failed to get file size from pcapS3Request, key: {}, bucketName: {}",
-					pcapS3Request.getKey(), bucketName, e);
-		}
 
-		// Check if file size if less that part size limit throw an exception
-		if (fileSize < AWS_S3_MULTIPART_UPLOAD_PART_SIZE_LIMIT)
-		{
-			throw new SafePageException("Cannot use multipart upload for objects smaller that {}:"
-					+ AWS_S3_MULTIPART_UPLOAD_PART_SIZE_LIMIT + ", pcapS3Request.key:"
-					+ pcapS3Request.getKey());
-		}
-
-		// Check if part size is not less than AWS limit
-		if (partSize == null || partSize < AWS_S3_MULTIPART_UPLOAD_PART_SIZE_LIMIT)
-		{
-			logger.debug("multipartUploadObject part size if setting to default of "
-					+ AWS_S3_MULTIPART_UPLOAD_PART_SIZE_LIMIT);
-			partSize = AWS_S3_MULTIPART_UPLOAD_PART_SIZE_LIMIT;
-		}
-		InputStream fileUploadInputStream = null;
-		try
-		{
-			fileUploadInputStream = pcapS3Request.getObject();
-
-			return epwS3Service.multipartUploadFile(bucketName, pcapS3Request.getKey(),
-					fileUploadInputStream, partSize);
-		}
-		catch (S3OperationException e)
-		{
-			logger.error("Exception during multipart upload for key: {}, bucket: {}",
-					pcapS3Request.getKey(), bucketName);
-
-			return false;
-		}
-	}
+what about the decrypt mthod, it has a lot of different type of exceptions too
