@@ -1,3 +1,6 @@
+pcap-planning has, 64 classes, in the src in which 9 are enum files, so out of the remaining 55 files, 
+29 of them are using in pcap-fp-service:
+ 
 com.personalcapital.advice.util: HistoricalReturnsCalculator
 com.personalcapital.calculator.engine: MonteCarloSimulator
 com.personalcapital.calculator.historical: HistoricalReturnsCalculator
@@ -8,3 +11,6 @@ com.personalcapital.investing.data: MonteCarloPortfolioComparisonResult, Portfol
 com.personalcapital.investing.factResult: HarvestingBenefitFactResult, DataSeriesFactResult, IdleCashFactResult, FundFeeFactResult, TacticalWeightedResult, AssetLocationFactResult, TaxLossHarvestResult
 com.personalcapital.investing.helper: StrategySelectionHelper
 com.personalcapital.mylife.service: StrategySelectionHelper, EfficientFrontierCalculator
+
+i need to make a strong case that since pcap-planning isn't used in pcap-server, and 29 of it's files are used pcap-fp-common-service, pcap-fp-manager, pcap-fp-service, pcap-planning-advice, pcap-proposal
+these modules of pcap-fp-service repo, it should show that why these files or this pcap-planning module should be in fp-service repo
