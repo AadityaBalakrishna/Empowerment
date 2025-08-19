@@ -1,47 +1,9 @@
-[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.10.1:compile (default-compile) on project epw-fp-serializers: Compilation failure: Compilation failure: 
-[ERROR] /home/abalakrishna/glab/pcap-fp-service/epw-fp-serializers/src/main/java/com/empower/epw/kryo/util/customserializer/KryoMonteCarloTransactionSerializer.java:[7,49] package com.personalcapital.calculator.montecarlo does not exist
-[ERROR] /home/abalakrishna/glab/pcap-fp-service/epw-fp-serializers/src/main/java/com/empower/epw/kryo/util/customserializer/KryoMonteCarloTransactionSerializer.java:[9,69] cannot find symbol
-[ERROR]   symbol: class MonteCarloTransaction
-[ERROR] /home/abalakrishna/glab/pcap-fp-service/epw-fp-serializers/src/main/java/com/empower/epw/kryo/util/customserializer/KryoMonteCarloTransactionSerializer.java:[13,53] cannot find symbol
-[ERROR]   symbol:   class MonteCarloTransaction
-[ERROR]   location: class com.empower.epw.kryo.util.customserializer.KryoMonteCarloTransactionSerializer
-[ERROR] /home/abalakrishna/glab/pcap-fp-service/epw-fp-serializers/src/main/java/com/empower/epw/kryo/util/customserializer/KryoMonteCarloTransactionSerializer.java:[23,41] cannot find symbol
-[ERROR]   symbol:   class MonteCarloTransaction
-[ERROR]   location: class com.empower.epw.kryo.util.customserializer.KryoMonteCarloTransactionSerializer
-[ERROR] /home/abalakrishna/glab/pcap-fp-service/epw-fp-serializers/src/main/java/com/empower/epw/kryo/util/customserializer/KryoMonteCarloTransactionSerializer.java:[22,16] cannot find symbol
-[ERROR]   symbol:   class MonteCarloTransaction
-[ERROR]   location: class com.empower.epw.kryo.util.customserializer.KryoMonteCarloTransactionSerializer
-[ERROR] /home/abalakrishna/glab/pcap-fp-service/epw-fp-serializers/src/main/java/com/empower/epw/kryo/util/customserializer/KryoWrappedAccountSerializer.java:[7,50] package com.personalcapital.user.data.impl.wrapper does not exist
-[ERROR] /home/abalakrishna/glab/pcap-fp-service/epw-fp-serializers/src/main/java/com/empower/epw/kryo/util/customserializer/KryoWrappedAccountSerializer.java:[8,30] package com.safepage.user.data does not exist
-[ERROR] /home/abalakrishna/glab/pcap-fp-service/epw-fp-serializers/src/main/java/com/empower/epw/kryo/util/customserializer/KryoWrappedAccountSerializer.java:[10,67] cannot find symbol
-[ERROR]   symbol: class WrappedAccount
-[ERROR] /home/abalakrishna/glab/pcap-fp-service/epw-fp-serializers/src/main/java/com/empower/epw/kryo/util/customserializer/KryoWrappedAccountSerializer.java:[18,53] cannot find symbol
-[ERROR]   symbol:   class WrappedAccount
-[ERROR]   location: class com.empower.epw.kryo.util.customserializer.KryoWrappedAccountSerializer
-[ERROR] /home/abalakrishna/glab/pcap-fp-service/epw-fp-serializers/src/main/java/com/empower/epw/kryo/util/customserializer/KryoWrappedAccountSerializer.java:[24,76] cannot find symbol
-[ERROR]   symbol:   class WrappedAccount
-[ERROR]   location: class com.empower.epw.kryo.util.customserializer.KryoWrappedAccountSerializer
-[ERROR] /home/abalakrishna/glab/pcap-fp-service/epw-fp-serializers/src/main/java/com/empower/epw/kryo/util/customserializer/KryoWrappedAccountSerializer.java:[24,16] cannot find symbol
-[ERROR]   symbol:   class WrappedAccount
-[ERROR]   location: class com.empower.epw.kryo.util.customserializer.KryoWrappedAccountSerializer
-[ERROR] /home/abalakrishna/glab/pcap-fp-service/epw-fp-serializers/src/main/java/com/empower/epw/kryo/util/search/ClassesForRegistration.java:[21,27] package com.rometools.utils does not exist
-[ERROR] /home/abalakrishna/glab/pcap-fp-service/epw-fp-serializers/src/main/java/com/empower/epw/kryo/util/search/ClassesForRegistration.java:[22,27] package com.rometools.utils does not exist
-[ERROR] /home/abalakrishna/glab/pcap-fp-service/epw-fp-serializers/src/main/java/com/empower/epw/kryo/util/customserializer/KryoNotesForAdvisorSerializer.java:[9,42] package com.personalcapital.user.data.impl does not exist
-[ERROR] /home/abalakrishna/glab/pcap-fp-service/epw-fp-serializers/src/main/java/com/empower/epw/kryo/util/customserializer/KryoNotesForAdvisorSerializer.java:[10,42] package com.personalcapital.user.data.impl does not exist
-[ERROR] /home/abalakrishna/glab/pcap-fp-service/epw-fp-serializers/src/main/java/com/empower/epw/kryo/util/customserializer/KryoNotesForAdvisorSerializer.java:[11,42] package com.personalcapital.user.data.impl does not exist
-[ERROR] /home/abalakrishna/glab/pcap-fp-service/epw-fp-serializers/src/main/java/com/empower/epw/kryo/util/customserializer/KryoNotesForAdvisorSerializer.java:[13,68] cannot find symbol
-[ERROR]   symbol: class NotesForAdvisor
-[ERROR] /home/abalakrishna/glab/pcap-fp-service/epw-fp-serializers/src/main/java/com/empower/epw/kryo/util/customserializer/KryoNotesForAdvisorSerializer.java:[21,53] cannot find symbol
-[ERROR]   symbol:   class NotesForAdvisor
-[ERROR]   location: class com.empower.epw.kryo.util.customserializer.KryoNotesForAdvisorSerializer
-[ERROR] /home/abalakrishna/glab/pcap-fp-service/epw-fp-serializers/src/main/java/com/empower/epw/kryo/util/customserializer/KryoNotesForAdvisorSerializer.java:[36,77] cannot find symbol
-[ERROR]   symbol:   class NotesForAdvisor
-[ERROR]   location: class com.empower.epw.kryo.util.customserializer.KryoNotesForAdvisorSerializer
-[ERROR] /home/abalakrishna/glab/pcap-fp-service/epw-fp-serializers/src/main/java/com/empower/epw/kryo/util/customserializer/KryoNotesForAdvisorSerializer.java:[36,16] cannot find symbol
-[ERROR]   symbol:   class NotesForAdvisor
-[ERROR]   location: class com.empower.epw.kryo.util.customserializer.KryoNotesForAdvisorSerializer
-[ERROR] /home/abalakrishna/glab/pcap-fp-service/epw-fp-serializers/src/main/java/com/empower/epw/kryo/util/search/FileBasedClasses.java:[15,27] package com.rometools.utils does not exist
-[ERROR] -> [Help 1]
+com.personalcapital.calculator.montecarlo: MonteCarloTransaction
 
+com.personalcapital.user.data.impl: NotesForAdvisor
 
-can you do the same analysis for pcap-planning-common module, i had removed the pcap-planning-common dependencies from the fp-repo and this is the error i get while building without test
+com.personalcapital.user.data.impl.wrapper: WrappedAccount
+
+com.safepage.user.data: WrappedAccount
+
+com.rometools.utils: [entire package missing, multiple imports failing]
