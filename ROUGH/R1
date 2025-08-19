@@ -1,147 +1,78 @@
-package com.safepage.security.service.impl;
+Created by 
+Add your avatar Balakrishna, Aaditya, last updated on Jul 16, 2025  2 minute read
+StoryPLAT-12555 - Move/reshuffle pcap-planning out RELEASE TESTING
 
-import java.util.List;
-import java.util.stream.Collectors;
+Validation Document for Moving pcap-planning Module
+Overview
+This document validates the successful migration of the pcap-planning module from pcap-server to pcap-fp-repo. The module's groupId has been updated from com.personalcapital to com.empower.epw. The validation includes build checks, dependency updates, and runtime tests.
 
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
+Validation Steps
+1. Module Migration
+Old Location: pcap-server
+New Location: pcap-fp-service
+Group ID Change:
+                       Old: com.personalcapital:pcap-planning
+                     New: com.empower.epw:pcap-planning
 
-import com.amazonaws.services.kms.model.AliasListEntry;
-import com.amazonaws.services.kms.model.DescribeKeyResult;
-import com.amazonaws.services.kms.model.KeyMetadata;
-import com.amazonaws.services.kms.model.ListAliasesResult;
-import com.empower.epw.aws.api.kms.dto.DescribeKeyResponseDTO;
-import com.empower.epw.aws.api.kms.dto.ListAliasesResponseDTO;
-import com.empower.epw.aws.api.kms.exception.KMSOperationException;
-import com.personalcapital.log.PcapLogger;
-import com.personalcapital.log.PcapLoggerFactory;
-import com.safepage.error.SafePageErrorType;
-import com.safepage.exception.SafePageException;
-import com.empower.epw.aws.api.kms.EpwKmsService;
-import com.safepage.security.service.KMSService;
+2. Parent POM Update
+Verified that the pcap-planning module is added to the <modules> section of the parent POM (pcap-fp-repo/pom.xml).
+Confirmed that the groupId in pcap-planning/pom.xml is updated to com.empower.epw.
 
-/**
- * @author dizadi
- */
-public class KMSServiceImpl implements KMSService
-{
-	private static PcapLogger logger = PcapLoggerFactory.getPcapLogger(KMSServiceImpl.class);
+3. Dependency Validation
+Checked all modules in the repository (fp-service) that previously used com.personalcapital:pcap-planning to ensure they now reference com.empower.epw:pcap-planning.
+Ran mvn dependency:tree to confirm proper dependency resolution.
 
-	private final EpwKmsService epwKmsService;
+4. Build Validation
+Ran the following Maven commands:
+mvn clean install -DskipTests
+mvn test
+Verified that the build completed successfully without errors.
 
-	@Autowired
-	public KMSServiceImpl(@Qualifier("epwKmsService") EpwKmsService epwKmsService)
-	{
-		this.epwKmsService = epwKmsService;
-	}
+5. Jenkins Pipeline Validation
+Checked Jenkins pipelines for both develop and sandbox branches:
+Develop: Build and tests passed (green status) - MR not yet Merged
+Sandbox: Build and tests passed after merging (green status).
 
-	/**
-	 * Encrypt data key (system secondary key) under AWS CMK Key using IAM role to access the key
-	 * AWS CMK
-	 *
-	 * @throws SafePageException
-	 */
-	@Override
-	// @Retryable(value =
-	// {
-	// Exception.class
-	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
-	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
-	{
-		if (StringUtils.isEmpty(plainText))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
-		}
-		if (StringUtils.isEmpty(keyId))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
-		}
-		try
-		{
-			return epwKmsService.encryptUsingAWSKey(plainText, keyId);
-		}
-		catch (KMSOperationException ex)
-		{
-			logger.error("Failed to encryptUsingAWSKey, plainText:{}, keyId:{}, due to:{}",
-					plainText, keyId, ExceptionUtils.getMessage(ex), ex);
-			return null;
-		}
-	}
+Sandbox MR - https://gitlab.retirementpartner.com/pwt-foundation-cdx/pcap-fp-service/-/merge_requests/5274 
 
-	/**
-	 * Decrypt encrypted data key under AWS CMK Key using IAM role to access the key
-	 */
-	@Override
-	// @Retryable(value =
-	// {
-	// Exception.class
-	// }, maxAttempts = 3, backoff = @Backoff(delay = 1000))
-	public String decryptUsingAWSKey(String cipherText) throws SafePageException
-	{
-		if (StringUtils.isEmpty(cipherText))
-		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
-		}
-		try
-		{
-			return epwKmsService.decryptUsingAWSKey(cipherText);
-		}
-		catch (KMSOperationException ex)
-		{
-			logger.error("Failed to decryptUsingAWSKey, cipherText:{}, due to:{}", cipherText,
-					ExceptionUtils.getMessage(ex), ex);
-			return null;
-		}
-	}
+6. Runtime Validation
+After merging the updated repository sandbox deployed to devtrunk the environment.
+Verified that the application runs without issues and all modules function correctly.
 
-	/**
-	 * Create a new customer master key. <br>
-	 * Customer master key (CMK) is designed to encrypt and decrypt data keys (System Secondary
-	 * Key). CMK cannot be used to encrypt/decrypt data more than 4 KB (4096 bytes) of data.
-	 */
-	// public void createCMK()
-	// {
-	// String desc = "PCAP Master Key for encrypting system secondary keys";
-	// CreateKeyRequest req = new CreateKeyRequest().withDescription(desc);
-	// CreateKeyResult result = getKMSClient().createKey(req);
-	// }
+7. API Validation
+Confirmed that APIs exposed by pcap-planning are accessible and functional in the sandbox environment.
 
-	@Override
-	@Deprecated
-	public DescribeKeyResult describeKey(String keyId)
-	{
-		DescribeKeyResponseDTO dto = epwKmsService.describeKey(keyId);
+To confirm that the APIs exposed by pcap-planning are accessible and functional in the sandbox environment, the following steps were performed:
 
-		KeyMetadata metadata = new KeyMetadata().withKeyId(dto.getKeyId())
-				.withArn(dto.getKeyArn())
-				.withKeyState(dto.getKeyState())
-				.withEnabled(dto.isEnabled());
+a. API Accessibility
+Swagger Documentation: Verified that the APIs are listed in the Swagger UI endpoint for the sandbox environment.
+Swagger URL: https://pcsvc.dt.pcapqa.app/fp/swagger-ui.html
 
-		return new DescribeKeyResult().withKeyMetadata(metadata);
-	}
+b. Functional Validation
+Request-Response Validation: Sent sample requests to the endpoints and verified that the responses match the expected output (e.g., correct JSON structure, data values, etc.).
+Integration Tests: Ran integration tests specific to pcap-planning to ensure the APIs interact correctly with other modules and services.
 
-	@Override
-	@Deprecated
-	public ListAliasesResult getKeyAliases(String keyId)
-	{
-		ListAliasesResponseDTO dto = epwKmsService.listAliases();
+c. Error Handling
+Verified that the APIs handle edge cases and return appropriate error codes (e.g., 400 Bad Request, 404 Not Found, 500 Internal Server Error) for invalid inputs or system errors.
 
-		List<AliasListEntry> aliasEntries = dto.getAliases()
-				.stream()
-				.map(alias -> new AliasListEntry().withAliasName(alias.getAliasName())
-						.withTargetKeyId(alias.getTargetKeyId()))
-				.collect(Collectors.toList());
+*Screenshots attached in the Jira below to show the api endpoints hit after the sandbox image is deployed in devtrunk 
+Project TaskPLAT-14826 - pcap-planning: validation with fp CLOSED
 
-		return new ListAliasesResult().withAliases(aliasEntries);
-	}
-}
+Project TaskPLAT-14828 - pcap-planning: QA validation CLOSED
 
 
-i have been given this review comment:
-Looks Good, 
- 
-for safety, we can catch general Exception along with KMSException
- 
-catch (Exception ex)
+Results
+Build Status: Successful.
+Tests: Passed.
+Jenkins Pipeline: Green for both develop (MR only) and sandbox.
+Sandbox Deployment: Successful.
+Dependencies: Updated and resolved correctly.
+
+Conclusion
+The migration of the pcap-planning module to pcap-fp-repo with the updated groupId (com.empower.epw) has been successfully validated. All builds, tests, and deployments are functioning as expected.
+
+
+
+
+
+this is what i have already now, i need to make a planning and design doc out of this, basically it's one module moved out of a repo into another repo, pcap-server has just this module and no other modules of pcap-server depends on pcap-planning but, in pcap-fp-service, 5 other modules depends on it, so help me come up with a doc with whatever is existing stays that is the validation and additionally the desing or conclusion to say why it's suitable to be moved to pcap-fp-service
