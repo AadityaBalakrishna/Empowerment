@@ -1,137 +1,170 @@
-Created by 
- Bread, Yerriswamy, last updated 20 minutes ago  3 minute read
-Objective:-
-To migrate the pcap-webversion-service module from the pcap-server repository to the pcap-apps-common repository to improve modularity, code reuse, and centralized management.
-Current State:-
-Repository: pcap-server
-Module: com.personalcapital:pcap-webversion-service
-Dependencies:
--Internal: pcap-aws, sp-core, sp-data, pcap-cache.
--External: gson, jakarta.xml.bind-api, jaxb-runtime, epw-springockito (test scope).
-Consumers: This module's files used in pcap-apps-common and api service calls from pcap-agent and pcap-root apps
-Proposed State:-
-Target Repository: pcap-apps-common
-New Module: com.empower.epw:pcap-webversion-service
-Dependencies:
--Retain all current dependencies.
--Ensure compatibility with the pcap-apps-common repository structure.
-Contains business logic specific to access the versions of the apps for a web server.
-Steps for Migration:-
- Analyze Dependencies**
-- Identify all dependencies of `pcap-webversion-service`:
-  - Internal dependencies (e.g., `pcap-common`, `pcap-data`).
-  - External dependencies (e.g., Spring Boot, third-party libraries).
- Refactor Code
-- Remove any server-specific logic or dependencies.
-- Ensure the module is self-contained and reusable across applications.
- Create New Module in pcap-apps-common
-- Add a new directory pcap-webversion-service in the pcap-apps-common repository.
-- Create a pom.xml for the new module:
-   <project xmlns="http://maven.apache.org/POM/4.0.0"
-           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-           xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
-       <parent>
-        <groupId>com.safepage</groupId>
-        <artifactId>pcap-apps-common</artifactId>
-        <version>release-SNAPSHOT</version>
-        <relativePath>../pom.xml</relativePath>
-       </parent>
-      <modelVersion>4.0.0</modelVersion>
-      <groupId>com.empower.epw<groupId>
-      <artifactId>pcap-webversion-service</artifactId>
-      <packaging>jar</packaging>
-     <name>PCAP Web Version Service</name>
-     <description>Service for managing web versioning</description>
-      <dependencies>
-        <dependency>
-            <groupId>com.personalcapital</groupId>
-            <artifactId>pcap-aws</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.safepage</groupId>
-            <artifactId>sp-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.safepage</groupId>
-            <artifactId>sp-data</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.empower.epw</groupId>
-            <artifactId>pcap-cache</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.google.code.gson</groupId>
-            <artifactId>gson</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>jakarta.xml.bind</groupId>
-            <artifactId>jakarta.xml.bind-api</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.glassfish.jaxb</groupId>
-            <artifactId>jaxb-runtime</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.empower.epw</groupId>
-            <artifactId>epw-springockito</artifactId>
-            <scope>test</scope>
-        </dependency>
-      </dependencies>
-     </project>
- Migrate Code
-- Move all source files (`src/main/java` and `src/main/resources`) from pcap-server/pcap-webversion-service to the new module in pcap-apps-common.
- Update Build Configuration
-- Add the new module to the pcap-apps-common parent pom.xml
-  <modules>
-      <module>pcap-webversion-service</module>
-  </modules>
- Update References
-- Update all references to pcap-webversion-service in the pcap-server repository to point to the new location in pcap-apps-common.
-- Note:- retire of this module will do clean up of pcap-server task once consumers used com.empower:epw:pcap-webversion-service module.
- Test the Migration
-- Build and test the pcap-apps-common repository to ensure the new module works as expected.
-- Test the pcap-server repository to verify compatibility with the migrated module.
- Documentation
-- Update the documentation in both repositories to reflect the new module structure.
-Testing
-Unit Tests:
--Ensure all unit tests in pcap-webversion-service pass after migration.
-Integration Tests:
--NA, No Integration Tests
-End-to-End Tests:
--Test the pcap-server repository to ensure compatibility with the migrated module.
-Risks and Mitigation
-- Risk: Breaking changes in pcap-server due to the migration.
-  - Mitigation: Perform thorough testing and ensure backward compatibility.
-- Risk: Dependency conflicts in the new repository.
-  - Mitigation: Use dependency management in the parent POM to resolve conflicts.
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.10.1:compile (default-compile) on project pcap-fp-common-service: Compilation failure: Compilation failure: 
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/MonteCarloPortfolioResultFactCollector.java:[14,45] package com.personalcapital.calculator.engine does not exist
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/MonteCarloPortfolioResultFactCollector.java:[16,42] cannot find symbol
+[ERROR]   symbol:   class MonteCarloPortfolioComparisonResult
+[ERROR]   location: package com.personalcapital.investing.data
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/MonteCarloPortfolioResultFactCollector.java:[45,17] cannot find symbol
+[ERROR]   symbol:   class MonteCarloSimulator
+[ERROR]   location: class com.personalcapital.advice.data.impl.MonteCarloPortfolioResultFactCollector
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/HarvestingBenefitFactCollector.java:[12,48] cannot find symbol
+[ERROR]   symbol:   class HarvestingBenefitFactResult
+[ERROR]   location: package com.personalcapital.investing.factResult
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/HarvestingBenefitFactCollector.java:[67,33] cannot find symbol
+[ERROR]   symbol:   class HarvestingBenefitFactResult
+[ERROR]   location: class com.personalcapital.advice.data.impl.HarvestingBenefitFactCollector
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/MyStrategyProjectionFactCollector.java:[11,37] cannot find symbol
+[ERROR]   symbol:   class StrategyProjectionManager
+[ERROR]   location: package com.personalcapital.investing
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/MyStrategyProjectionFactCollector.java:[28,17] cannot find symbol
+[ERROR]   symbol:   class StrategyProjectionManager
+[ERROR]   location: class com.personalcapital.advice.data.impl.MyStrategyProjectionFactCollector
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/PortfolioAllocationTakeawayTypeFactCollector.java:[14,45] package com.personalcapital.efficientFrontier does not exist
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/PortfolioAllocationTakeawayTypeFactCollector.java:[15,42] cannot find symbol
+[ERROR]   symbol:   class PortfolioAllocationTakeawayType
+[ERROR]   location: package com.personalcapital.investing.data
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/PortfolioAllocationTakeawayTypeFactCollector.java:[16,42] cannot find symbol
+[ERROR]   symbol:   class UserPortfolioReturnType
+[ERROR]   location: package com.personalcapital.investing.data
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/mylife/service/MyLifeService.java:[34,45] package com.personalcapital.efficientFrontier does not exist
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/mylife/service/MyLifeService.java:[35,45] package com.personalcapital.efficientFrontier does not exist
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/mylife/service/MyLifeService.java:[49,44] cannot find symbol
+[ERROR]   symbol:   class StrategySelectionHelper
+[ERROR]   location: package com.personalcapital.investing.helper
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/util/TaxAwareMonteCarloSimulator.java:[20,45] package com.personalcapital.calculator.engine does not exist
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/util/TaxAwareMonteCarloSimulator.java:[25,43] cannot find symbol
+[ERROR]   symbol:   class AnnualData
+[ERROR]   location: package com.personalcapital.calculator.seed
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/util/PortfolioResultFactCollectorUtils.java:[15,45] package com.personalcapital.calculator.engine does not exist
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/util/PortfolioResultFactCollectorUtils.java:[18,43] cannot find symbol
+[ERROR]   symbol:   class AnnualData
+[ERROR]   location: package com.personalcapital.calculator.seed
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/util/PortfolioResultFactCollectorUtils.java:[36,23] cannot find symbol
+[ERROR]   symbol:   class HistoricalReturnsCalculator
+[ERROR]   location: class com.personalcapital.advice.util.PortfolioResultFactCollectorUtils
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/util/PortfolioResultFactCollectorUtils.java:[33,1] cannot find symbol
+[ERROR]   symbol:   class HistoricalReturnsCalculator
+[ERROR]   location: class com.personalcapital.advice.util.PortfolioResultFactCollectorUtils
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/util/TaxAwareMonteCarloSimulator.java:[58,17] cannot find symbol
+[ERROR]   symbol:   class HistoricalReturnsCalculator
+[ERROR]   location: class com.personalcapital.advice.util.TaxAwareMonteCarloSimulator
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/mylife/service/MyLifeService.java:[152,17] cannot find symbol
+[ERROR]   symbol:   class StrategySelectionHelper
+[ERROR]   location: class com.personalcapital.mylife.service.MyLifeService
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/mylife/service/MyLifeService.java:[173,17] cannot find symbol
+[ERROR]   symbol:   class EfficientFrontierCalculator
+[ERROR]   location: class com.personalcapital.mylife.service.MyLifeService
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/IdleCashFactCollector.java:[12,48] cannot find symbol
+[ERROR]   symbol:   class DataSeriesFactResult
+[ERROR]   location: package com.personalcapital.investing.factResult
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/IdleCashFactCollector.java:[13,48] cannot find symbol
+[ERROR]   symbol:   class IdleCashFactResult
+[ERROR]   location: package com.personalcapital.investing.factResult
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/CurrentUserPortfolioProjectionFactCalculator.java:[16,45] package com.personalcapital.calculator.engine does not exist
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/CurrentUserPortfolioProjectionFactCalculator.java:[58,17] cannot find symbol
+[ERROR]   symbol:   class MonteCarloSimulator
+[ERROR]   location: class com.personalcapital.advice.data.impl.CurrentUserPortfolioProjectionFactCalculator
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/BaseFeeComparisonFactCollector.java:[4,48] cannot find symbol
+[ERROR]   symbol:   class DataSeriesFactResult
+[ERROR]   location: package com.personalcapital.investing.factResult
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/BaseFeeComparisonFactCollector.java:[5,48] cannot find symbol
+[ERROR]   symbol:   class FundFeeFactResult
+[ERROR]   location: package com.personalcapital.investing.factResult
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/BaseFeeComparisonFactCollector.java:[24,16] cannot find symbol
+[ERROR]   symbol:   class FundFeeFactResult
+[ERROR]   location: class com.personalcapital.advice.data.impl.BaseFeeComparisonFactCollector
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/UserPortfolioReturnTypeFactCollector.java:[14,42] cannot find symbol
+[ERROR]   symbol:   class UserPortfolioReturnType
+[ERROR]   location: package com.personalcapital.investing.data
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/InvestmentCheckupFactCollector.java:[11,45] package com.personalcapital.efficientFrontier does not exist
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/InvestmentCheckupFactCollector.java:[12,42] cannot find symbol
+[ERROR]   symbol:   class MonteCarloPortfolioComparisonResult
+[ERROR]   location: package com.personalcapital.investing.data
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/InvestmentCheckupFactCollector.java:[13,42] cannot find symbol
+[ERROR]   symbol:   class TargetPortfolioComparisonResult
+[ERROR]   location: package com.personalcapital.investing.data
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/EfficientFrontierResultFactCollector.java:[13,45] package com.personalcapital.efficientFrontier does not exist
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/EfficientFrontierResultFactCollector.java:[14,45] package com.personalcapital.efficientFrontier does not exist
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/EfficientFrontierResultFactCollector.java:[37,19] cannot find symbol
+[ERROR]   symbol:   class EfficientFrontierCalculator
+[ERROR]   location: class com.personalcapital.advice.data.impl.EfficientFrontierResultFactCollector
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/TargetPortfolioComparisonFactCollector.java:[10,42] cannot find symbol
+[ERROR]   symbol:   class TargetPortfolioComparisonResult
+[ERROR]   location: package com.personalcapital.investing.data
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/FundFeeComparisonFactCollector.java:[20,48] cannot find symbol
+[ERROR]   symbol:   class DataSeriesFactResult
+[ERROR]   location: package com.personalcapital.investing.factResult
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/FundFeeComparisonFactCollector.java:[21,48] cannot find symbol
+[ERROR]   symbol:   class FundFeeFactResult
+[ERROR]   location: package com.personalcapital.investing.factResult
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/MonteCarloManagedPortfolioResultListFactCollector.java:[19,45] package com.personalcapital.calculator.engine does not exist
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/MonteCarloManagedPortfolioResultListFactCollector.java:[25,42] cannot find symbol
+[ERROR]   symbol:   class MonteCarloPortfolioComparisonResult
+[ERROR]   location: package com.personalcapital.investing.data
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/MonteCarloManagedPortfolioResultListFactCollector.java:[57,17] cannot find symbol
+[ERROR]   symbol:   class MonteCarloSimulator
+[ERROR]   location: class com.personalcapital.advice.data.impl.MonteCarloManagedPortfolioResultListFactCollector
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/InvestmentHoldingFactCollector.java:[22,42] cannot find symbol
+[ERROR]   symbol:   class SectorComparisonResult
+[ERROR]   location: package com.personalcapital.investing.data
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/InvestmentHoldingFactCollector.java:[23,42] cannot find symbol
+[ERROR]   symbol:   class SectorType
+[ERROR]   location: package com.personalcapital.investing.data
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/InvestmentHoldingFactCollector.java:[24,42] cannot find symbol
+[ERROR]   symbol:   class StyleComparisonResult
+[ERROR]   location: package com.personalcapital.investing.data
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/InvestmentHoldingFactCollector.java:[25,42] cannot find symbol
+[ERROR]   symbol:   class StyleType
+[ERROR]   location: package com.personalcapital.investing.data
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/InvestmentHoldingFactCollector.java:[193,21] cannot find symbol
+[ERROR]   symbol:   class SectorType
+[ERROR]   location: class com.personalcapital.advice.data.impl.InvestmentHoldingFactCollector
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/InvestmentHoldingFactCollector.java:[281,21] cannot find symbol
+[ERROR]   symbol:   class StyleType
+[ERROR]   location: class com.personalcapital.advice.data.impl.InvestmentHoldingFactCollector
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/InvestmentHoldingFactCollector.java:[342,21] cannot find symbol
+[ERROR]   symbol:   class StyleType
+[ERROR]   location: class com.personalcapital.advice.data.impl.InvestmentHoldingFactCollector
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/investing/MyLifeManager.java:[26,42] cannot find symbol
+[ERROR]   symbol:   class TargetPortfolioComparisonResult
+[ERROR]   location: package com.personalcapital.investing.data
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/investing/MyLifeManager.java:[1295,24] cannot find symbol
+[ERROR]   symbol:   class TargetPortfolioComparisonResult
+[ERROR]   location: class com.personalcapital.investing.MyLifeManager
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/TacticalWeightingGrowthFactCollector.java:[12,48] cannot find symbol
+[ERROR]   symbol:   class DataSeriesFactResult
+[ERROR]   location: package com.personalcapital.investing.factResult
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/TacticalWeightingGrowthFactCollector.java:[13,48] cannot find symbol
+[ERROR]   symbol:   class TacticalWeightedResult
+[ERROR]   location: package com.personalcapital.investing.factResult
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/ICAllocationTakeawayTypeFactCollector.java:[14,45] package com.personalcapital.efficientFrontier does not exist
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/ICAllocationTakeawayTypeFactCollector.java:[15,42] cannot find symbol
+[ERROR]   symbol:   class ICAllocationTakeawayType
+[ERROR]   location: package com.personalcapital.investing.data
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/ICAllocationTakeawayTypeFactCollector.java:[16,42] cannot find symbol
+[ERROR]   symbol:   class UserPortfolioAllocationType
+[ERROR]   location: package com.personalcapital.investing.data
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/ICAllocationTakeawayTypeFactCollector.java:[17,42] cannot find symbol
+[ERROR]   symbol:   class UserPortfolioReturnType
+[ERROR]   location: package com.personalcapital.investing.data
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/UserPortfolioAllocationTypeFactCollector.java:[13,42] cannot find symbol
+[ERROR]   symbol:   class UserPortfolioAllocationType
+[ERROR]   location: package com.personalcapital.investing.data
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/HistoricalReturnsResultFactCollector.java:[13,45] package com.personalcapital.calculator.engine does not exist
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/HistoricalReturnsResultFactCollector.java:[14,49] package com.personalcapital.calculator.historical does not exist
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/HistoricalReturnsResultFactCollector.java:[15,49] package com.personalcapital.calculator.historical does not exist
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/HistoricalReturnsResultFactCollector.java:[36,17] cannot find symbol
+[ERROR]   symbol:   class HistoricalReturnsCalculator
+[ERROR]   location: class com.personalcapital.advice.data.impl.HistoricalReturnsResultFactCollector
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/AssetLocationFactCollector.java:[16,48] cannot find symbol
+[ERROR]   symbol:   class AssetLocationFactResult
+[ERROR]   location: package com.personalcapital.investing.factResult
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/TaxLossHarvestingComparisonFactCollector.java:[15,48] cannot find symbol
+[ERROR]   symbol:   class DataSeriesFactResult
+[ERROR]   location: package com.personalcapital.investing.factResult
+[ERROR] /home/abalakrishna/glab/pcap-fp-service/pcap-fp-common-service/src/main/java/com/personalcapital/advice/data/impl/TaxLossHarvestingComparisonFactCollector.java:[16,48] cannot find symbol
+[ERROR]   symbol:   class TaxLossHarvestResult
+[ERROR]   location: package com.personalcapital.investing.factResult
 
-Timeline
-the below tasks identified for pcap-webversion-service module in pcap-server.
 
-module files analysis for mving to target repo -2days
-
-Design doc and development doc -1days
-
-Migrate the main module to target repo and validation  -3days
-
-QA validation for moved repo - 2days
-
-consumers list collection from gitLab repo -2days
-
-consumers validation task -3days
-
-cleanup MRs in the pcap-server -2days
-
-QA validation after pcap-server clean up -2days
-
-developer guide doc and Readme file update -2days
-
-Outcome:-
-The pcap-webversion-service module will be successfully migrated to the pcap-apps-common repository, improving pcap-server jenkins build time.
-
-Consumers list:-
-
-
-
-can you use this as the structure of the migration design document?
+i want you to go through this and find me the names of all the classes that is required in these error messages, give it to me in the form:
+<package - location>:<class name - symbol>
