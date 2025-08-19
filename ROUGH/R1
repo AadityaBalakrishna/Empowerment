@@ -1,4 +1,137 @@
-i have a doubt regarding bean creation :
-previously, i had to refactor a class in the module sp-security, KMSServiceImpl to delegate to EpwKmsService and another class, CryptEngine used to be a direct consumer of KMSServiceImpl and i had to mention @Autowired EpwKmsService epwKmsService in CryptEngine and everything within sp-security was working fine, but in pcap-server, there were other classes in other modules who were consumers of cryptengine and i used to get an error in the jenkins :" Caused by: org.springframework.beans.factory.NoSuchBeanDefinitionException: No qualifying bean of type 'com.empower.epw.aws.api.kms.EpwKmsService' available: expected at least 1 bean which qualifies as autowire candidate. Dependency annotations: {@org.springframework.beans.factory.annotation.Autowired(required=true)}" and i used to fix it with mock of epwKMsservice or providing the bean in the xml
+Created by 
+ Bread, Yerriswamy, last updated 20 minutes ago  3 minute read
+Objective:-
+To migrate the pcap-webversion-service module from the pcap-server repository to the pcap-apps-common repository to improve modularity, code reuse, and centralized management.
+Current State:-
+Repository: pcap-server
+Module: com.personalcapital:pcap-webversion-service
+Dependencies:
+-Internal: pcap-aws, sp-core, sp-data, pcap-cache.
+-External: gson, jakarta.xml.bind-api, jaxb-runtime, epw-springockito (test scope).
+Consumers: This module's files used in pcap-apps-common and api service calls from pcap-agent and pcap-root apps
+Proposed State:-
+Target Repository: pcap-apps-common
+New Module: com.empower.epw:pcap-webversion-service
+Dependencies:
+-Retain all current dependencies.
+-Ensure compatibility with the pcap-apps-common repository structure.
+Contains business logic specific to access the versions of the apps for a web server.
+Steps for Migration:-
+ Analyze Dependencies**
+- Identify all dependencies of `pcap-webversion-service`:
+  - Internal dependencies (e.g., `pcap-common`, `pcap-data`).
+  - External dependencies (e.g., Spring Boot, third-party libraries).
+ Refactor Code
+- Remove any server-specific logic or dependencies.
+- Ensure the module is self-contained and reusable across applications.
+ Create New Module in pcap-apps-common
+- Add a new directory pcap-webversion-service in the pcap-apps-common repository.
+- Create a pom.xml for the new module:
+   <project xmlns="http://maven.apache.org/POM/4.0.0"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+       <parent>
+        <groupId>com.safepage</groupId>
+        <artifactId>pcap-apps-common</artifactId>
+        <version>release-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+       </parent>
+      <modelVersion>4.0.0</modelVersion>
+      <groupId>com.empower.epw<groupId>
+      <artifactId>pcap-webversion-service</artifactId>
+      <packaging>jar</packaging>
+     <name>PCAP Web Version Service</name>
+     <description>Service for managing web versioning</description>
+      <dependencies>
+        <dependency>
+            <groupId>com.personalcapital</groupId>
+            <artifactId>pcap-aws</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.safepage</groupId>
+            <artifactId>sp-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.safepage</groupId>
+            <artifactId>sp-data</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.empower.epw</groupId>
+            <artifactId>pcap-cache</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.xml.bind</groupId>
+            <artifactId>jakarta.xml.bind-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.jaxb</groupId>
+            <artifactId>jaxb-runtime</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.empower.epw</groupId>
+            <artifactId>epw-springockito</artifactId>
+            <scope>test</scope>
+        </dependency>
+      </dependencies>
+     </project>
+ Migrate Code
+- Move all source files (`src/main/java` and `src/main/resources`) from pcap-server/pcap-webversion-service to the new module in pcap-apps-common.
+ Update Build Configuration
+- Add the new module to the pcap-apps-common parent pom.xml
+  <modules>
+      <module>pcap-webversion-service</module>
+  </modules>
+ Update References
+- Update all references to pcap-webversion-service in the pcap-server repository to point to the new location in pcap-apps-common.
+- Note:- retire of this module will do clean up of pcap-server task once consumers used com.empower:epw:pcap-webversion-service module.
+ Test the Migration
+- Build and test the pcap-apps-common repository to ensure the new module works as expected.
+- Test the pcap-server repository to verify compatibility with the migrated module.
+ Documentation
+- Update the documentation in both repositories to reflect the new module structure.
+Testing
+Unit Tests:
+-Ensure all unit tests in pcap-webversion-service pass after migration.
+Integration Tests:
+-NA, No Integration Tests
+End-to-End Tests:
+-Test the pcap-server repository to ensure compatibility with the migrated module.
+Risks and Mitigation
+- Risk: Breaking changes in pcap-server due to the migration.
+  - Mitigation: Perform thorough testing and ensure backward compatibility.
+- Risk: Dependency conflicts in the new repository.
+  - Mitigation: Use dependency management in the parent POM to resolve conflicts.
 
-but now, sp-security module was moved out of pcap-server , so along with it the KMSServiceImpl and Cryptengine files are also moved out of the pcap-server repo, so shoul i still go back to pcap-server and use the epwkmsservice in xml files?
+Timeline
+the below tasks identified for pcap-webversion-service module in pcap-server.
+
+module files analysis for mving to target repo -2days
+
+Design doc and development doc -1days
+
+Migrate the main module to target repo and validation  -3days
+
+QA validation for moved repo - 2days
+
+consumers list collection from gitLab repo -2days
+
+consumers validation task -3days
+
+cleanup MRs in the pcap-server -2days
+
+QA validation after pcap-server clean up -2days
+
+developer guide doc and Readme file update -2days
+
+Outcome:-
+The pcap-webversion-service module will be successfully migrated to the pcap-apps-common repository, improving pcap-server jenkins build time.
+
+Consumers list:-
+
+
+
+can you use this as the structure of the migration design document?
