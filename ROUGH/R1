@@ -1,13 +1,11 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<beans xmlns="http://www.springframework.org/schema/beans"
-       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-       xmlns:mockito="http://www.mockito.org/spring/mockito"
-       xsi:schemaLocation="
-           http://www.springframework.org/schema/beans
-           http://www.springframework.org/schema/beans/spring-beans.xsd
-           http://www.mockito.org/spring/mockito
-           http://www.mockito.org/spring/mockito.xsd"
-       default-lazy-init="true">
+[2025-08-20T09:45:36.593Z] Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'epwKmsService': Unsatisfied dependency expressed through constructor parameter 0: Could not convert argument value of type [java.lang.String] to required type [java.lang.Class]: Failed to convert value of type 'java.lang.String' to required type 'java.lang.Class'; Could not find class [com.empower.epw.aws.api.kms.EpwKmsService]
 
-    <mockito:mock id="epwKmsService" class="com.empower.epw.aws.api.kms.EpwKmsService" />
-</beans>
+i seee this error in persistenceApplicationContext.xml, here i haven't directly declared the beans in the xml, because
+persistenceApplicationContext.xml  -imports-> sp-base-test.xml -imports-> sp-data-test.xml -imports-> sp-security-test.xml where i have declared this:
+
+	<bean id="awsKmsClient" class="com.amazonaws.services.kms.AWSKMSClientBuilder" factory-method="defaultClient" />
+	<bean id="epwKmsService" class="com.empower.epw.aws.v1.kms.EpwKmsServiceImpl">
+		<constructor-arg ref="awsKmsClient"/>
+	</bean>
+
+i did this to avoid askingfor many approvals in the MR
