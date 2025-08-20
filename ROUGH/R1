@@ -1,11 +1,13 @@
-Caused by: org.xml.sax.SAXParseException; lineNumber: 7; columnNumber: 87; cvc-complex-type.2.4.c: The matching wildcard is strict, but no declaration can be found for element 'mockito:mock'.
-
-issue in this:
 <?xml version="1.0" encoding="UTF-8"?>
-<beans default-lazy-init="true" xmlns="http://www.springframework.org/schema/beans"
-	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	   xmlns:mockito="http://www.mockito.org/spring/mockito"
-	   xsi:schemaLocation="http://www.springframework.org/schema/beans
-			http://www.springframework.org/schema/beans/spring-beans.xsd">
-	<mockito:mock id="epwKmsService" class="com.empower.epw.aws.api.kms.EpwKmsService" />
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:mockito="http://www.mockito.org/spring/mockito"
+       xsi:schemaLocation="
+           http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans.xsd
+           http://www.mockito.org/spring/mockito
+           http://www.mockito.org/spring/mockito.xsd"
+       default-lazy-init="true">
+
+    <mockito:mock id="epwKmsService" class="com.empower.epw.aws.api.kms.EpwKmsService" />
 </beans>
