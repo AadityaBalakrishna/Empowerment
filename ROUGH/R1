@@ -1,50 +1,36 @@
-	public ListAliasesResponseDTO listAliases()
-	{
-		try
-		{
-			ListAliasesResult result = kmsClient
-					.listAliases(new ListAliasesRequest().withLimit(100));
-			List<ListAliasesResponseDTO.AliasEntry> aliasEntries = result.getAliases()
-					.stream()
-					.map(alias -> new ListAliasesResponseDTO.AliasEntry(alias.getAliasName(),
-							alias.getTargetKeyId()))
-					.collect(Collectors.toList());
-			return new ListAliasesResponseDTO(aliasEntries);
-		}
-		catch (Exception ex)
-		{
-			logger.error(String.format("[%s] Failed to listAliases, due to:%s", getAwsSdkVersion(),
-					ExceptionUtils.getMessage(ex)), ex);
-			return new ListAliasesResponseDTO();
-		}
-	}
+the current implementation of listAliases() is swallowing the exception and always returning an empty DTO, which makes it impossible for consumers to distinguish between:
+
+a valid case where no aliases exist, and
+
+an error scenario where the KMS call itself failed.
+
+In the old code (getKeyAliases), we were delegating directly to the AWS SDK v1 client. If KMS failed, the SDK would throw an exception (AmazonServiceException / AmazonClientException), and that exception propagated to the caller. This allowed consumers to handle error scenarios correctly.
+
+With the refactor, getKeyAliases → epwKmsService.listAliases() currently masks those errors, which changes the contract and could break existing consumers (they might wrongly assume “no aliases” instead of recognizing a failure).
+
+To fix this while still keeping the DTO return type for the new listAliases() method, I’m updating the catch block to throw a KMSOperationException instead of returning an empty DTO. That way, error signaling is preserved and callers of getKeyAliases continue to see the same behavior as before.
+
+Updated code:
+
+public ListAliasesResponseDTO listAliases() {
+    try {
+        ListAliasesResult result = kmsClient
+                .listAliases(new ListAliasesRequest().withLimit(100));
+
+        List<ListAliasesResponseDTO.AliasEntry> aliasEntries = result.getAliases()
+                .stream()
+                .map(alias -> new ListAliasesResponseDTO.AliasEntry(alias.getAliasName(),
+                        alias.getTargetKeyId()))
+                .collect(Collectors.toList());
+
+        return new ListAliasesResponseDTO(aliasEntries);
+    } catch (Exception ex) {
+        logger.error(String.format("[%s] Failed to listAliases, due to:%s",
+                getAwsSdkVersion(), ExceptionUtils.getMessage(ex)), ex);
+
+        throw new KMSOperationException("Failed to list aliases", ex); // propagate instead of swallowing
+    }
+}
 
 
-for this method i got a review comment:
-if not throwing exception how consumers get error scenario communicated?
-
-
-the old method:
-	public ListAliasesResult getKeyAliases(String keyId)
-	{
-		ListAliasesRequest listAliasesRequest = new ListAliasesRequest().withLimit(10);
-		ListAliasesResult result = getKMSClient().listAliases(listAliasesRequest);
-		return result;
-	}
-
-refactored old method:
-	public ListAliasesResult getKeyAliases(String keyId)
-	{
-		ListAliasesResponseDTO dto = epwKmsService.listAliases();
-
-		List<AliasListEntry> aliasEntries = dto.getAliases()
-				.stream()
-				.map(alias -> new AliasListEntry().withAliasName(alias.getAliasName())
-						.withTargetKeyId(alias.getTargetKeyId()))
-				.collect(Collectors.toList());
-
-		return new ListAliasesResult().withAliases(aliasEntries);
-	}
-
-
-main point to notice here is the old delegates to new and it shouldn't break any consumers
+This ensures consumers of getKeyAliases still get an exception when KMS fails, just like they did with the old SDK v1 code.
