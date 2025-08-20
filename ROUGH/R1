@@ -9,3 +9,5 @@ persistenceApplicationContext.xml  -imports-> sp-base-test.xml -imports-> sp-dat
 	</bean>
 
 i did this to avoid askingfor many approvals in the MR
+
+but sp-security-test.xml -imports-> sp-security-keystorage-test.xml which has <mockito:mock id="epwKmsService" class="com.empower.epw.aws.api.kms.EpwKmsService" />
