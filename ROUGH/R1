@@ -1,116 +1,123 @@
-i would like an answer for this review comment:
-what is the functional usage of DisabledException, how that is managed by KMSOperationException?
+how to reply for this review comment:
 
-old usage:
-public String decryptUsingAWSKey(String cipherText) throws SafePageException
+seeing performance log removed for the task:
+
+old:
+	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
 	{
-		if (StringUtils.isEmpty(cipherText))
+		if (StringUtils.isEmpty(plainText))
 		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
+		}
+		if (StringUtils.isEmpty(keyId))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
 		}
 		try
 		{
-			byte[] decodedCipherText = Utils.decodeBase64(cipherText);
-			DecryptRequest decryptRequest = new DecryptRequest()
-					.withCiphertextBlob(ByteBuffer.wrap(decodedCipherText));
+			EncryptRequest encryptRequest = new EncryptRequest().withKeyId(keyId)
+					.withPlaintext(getByteBuffer(plainText));
 			long start = System.currentTimeMillis();
-			DecryptResult result = getKMSClient().decrypt(decryptRequest);
-			long end = System.currentTimeMillis();
-			logger.info("decryptData took {}" + (end - start));
-			ByteBuffer plainTextBlob = result.getPlaintext();
-			return getString(plainTextBlob);
-		}
-		catch (KeyUnavailableException kue)
-		{
-			// The request was rejected because the specified CMK was not available. The request can
-			// be retried.
-			logger.error(
-					"Failed to decryptUsingAWSKey(KeyUnavailableException), cipherText:{}, due to:{}",
-					cipherText, ExceptionUtils.getMessage(kue), kue);
-		}
-		catch (InvalidCiphertextException ice)
-		{
-			// The request was rejected because the specified ciphertext, or additional
-			// authenticated data incorporated
-			// into the ciphertext, such as the encryption context, is corrupted, missing, or
-			// otherwise invalid.
-			logger.error(
-					"Failed to decryptUsingAWSKey(InvalidCiphertextException), cipherText:{}, due to:{}",
-					cipherText, ExceptionUtils.getMessage(ice), ice);
+			EncryptResult result = getKMSClient().encrypt(encryptRequest);
+			if (result != null && result.getCiphertextBlob() != null)
+			{
+				long end = System.currentTimeMillis();
+				logger.info("encryptData took {} " + (end - start));
+				return Utils.encodeBase64(result.getCiphertextBlob()
+						.array());
+			}
+			logger.error("encryptUsingAWSKey failed, EncryptResult is null!");
+			return null;
 		}
 		catch (DisabledException de)
 		{
 			logger.error(
-					"Failed to decryptUsingAWSKey(DisabledException), cipherText:{}, due to:{}",
-					cipherText, ExceptionUtils.getMessage(de), de);
+					"Failed to encryptUsingAWSKey(DisabledException), plainText:{}, keyId:{}, due to:{}",
+					plainText, keyId, ExceptionUtils.getMessage(de), de);
+		}
+		catch (KeyUnavailableException kue)
+		{
+			logger.error(
+					"Failed to encryptUsingAWSKey(KeyUnavailableException), plainText:{}, keyId:{}, due to:{}",
+					plainText, keyId, ExceptionUtils.getMessage(kue), kue);
 		}
 		catch (Exception ex)
 		{
-			logger.error("Failed to decryptUsingAWSKey, cipherText:{}, due to:{}", cipherText,
-					ExceptionUtils.getMessage(ex), ex);
+			logger.error("Failed to encryptUsingAWSKey, plainText:{}, keyId:{}, due to:{}",
+					plainText, keyId, ExceptionUtils.getMessage(ex), ex);
 		}
-
 		return null;
 	}
 
-
-newly refactored to:
-	public String decryptUsingAWSKey(String cipherText) throws SafePageException
+refactored:
+	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
 	{
-		if (StringUtils.isEmpty(cipherText))
+		if (StringUtils.isEmpty(plainText))
 		{
-			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "cipherText is required!");
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
+		}
+		if (StringUtils.isEmpty(keyId))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
 		}
 		try
 		{
-			return epwKmsService.decryptUsingAWSKey(cipherText);
+			return epwKmsService.encryptUsingAWSKey(plainText, keyId);
 		}
 		catch (KMSOperationException ex)
 		{
-			logger.error(String.format("decryptUsingAWSKey failed, cipherText:%s, due to:%s",
-					cipherText, ex.getMessage()), ex);
+			logger.error(
+					String.format("encryptUsingAWSKey failed, plainText:%s, keyId:%s, due to:%s",
+							plainText, keyId, ex.getMessage()),
+					ex);
 			return null;
 		}
 		catch (Exception e)
 		{
-			logger.error(String.format("Failed to decryptUsingAWSKey, cipherText:%s, due to:%s",
-					cipherText, e.getMessage()), e);
+			logger.error(
+					String.format("Failed to encryptUsingAWSKey, plainText:%s, keyId:%s, due to:%s",
+							plainText, keyId, e.getMessage()),
+					e);
 			return null;
 		}
 	}
 
-
-context:
-package com.empower.epw.aws.api.kms.exception;
-
-public class KMSOperationException extends RuntimeException
-{
-	public KMSOperationException(String message, Throwable cause)
+new adapter:
+	public String encryptUsingAWSKey(String plainText, String keyId) throws SafePageException
 	{
-		super(message, cause);
+		if (StringUtils.isEmpty(plainText))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "plainText is required!");
+		}
+		if (StringUtils.isEmpty(keyId))
+		{
+			throw new SafePageException(SafePageErrorType.INVALID_INPUT, "keyId is required!");
+		}
+		try
+		{
+			EncryptRequest encryptRequest = new EncryptRequest().withKeyId(keyId)
+					.withPlaintext(getByteBuffer(plainText));
+			long start = System.currentTimeMillis();
+			EncryptResult result = kmsClient.encrypt(encryptRequest);
+			if (result != null && result.getCiphertextBlob() != null)
+			{
+				long end = System.currentTimeMillis();
+				logger.info("[{}] encryptData took {} ", getAwsSdkVersion(), end - start);
+				return Utils.encodeBase64(result.getCiphertextBlob()
+						.array());
+			}
+			else
+			{
+				logger.error("[{}] encryptUsingAWSKey failed, EncryptResult is null for keyId: {}",
+						getAwsSdkVersion(), keyId);
+				throw AwsExceptionHandler.handleKMSException("encrypt", keyId,
+						new IllegalStateException("EncryptResult or CiphertextBlob is null"));
+			}
+		}
+		catch (DisabledException | KeyUnavailableException | UnsupportedEncodingException ex)
+		{
+			logger.error("[{}] Failed to encrypt, plainText:{}, keyId:{}, due to:{}",
+					getAwsSdkVersion(), plainText, keyId, ExceptionUtils.getMessage(ex), ex);
+			throw AwsExceptionHandler.handleKMSException("encrypt", keyId, ex);
+		}
 	}
-}
-
-package com.empower.epw.aws.v1.kms.util;
-
-import com.empower.epw.aws.api.kms.exception.KMSOperationException;
-import com.personalcapital.log.PcapLogger;
-import com.personalcapital.log.PcapLoggerFactory;
-
-public class AwsExceptionHandler
-{
-	private static final PcapLogger logger = PcapLoggerFactory
-			.getPcapLogger(AwsExceptionHandler.class);
-
-	public static KMSOperationException handleKMSException(String sdkVersion, String operation,
-			String keyId, Exception e)
-	{
-		String errorMessage = String.format("'%s' KMS operation '%s' failed for keyId '%s': %s",
-				sdkVersion, operation, keyId, e.getMessage());
-		logger.error(errorMessage, e);
-		return new KMSOperationException(errorMessage, e);
-	}
-}
-
-
-could please help me answer the review comment and also correct my implementation if required?
