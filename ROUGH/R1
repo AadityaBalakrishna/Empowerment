@@ -1,8 +1,11 @@
-com.personalcapital.calculator.engine : HistoricalReturnsCalculator, MonteCarloSimulator
-com.personalcapital.calculator.historical : HistoricalReturnsResultFactCollector
-com.personalcapital.calculator.seed : AnnualData
-com.personalcapital.efficientFrontier : EfficientFrontierCalculator, EfficientFrontierResultFactCollector, InvestmentCheckupFactCollector, MyLifeService (refs)
-com.personalcapital.investing : StrategyProjectionManager
-com.personalcapital.investing.data : MonteCarloPortfolioComparisonResult, PortfolioAllocationTakeawayType, UserPortfolioReturnType, TargetPortfolioComparisonResult, SectorComparisonResult, SectorType, StyleComparisonResult, StyleType, ICAllocationTakeawayType, UserPortfolioAllocationType
-com.personalcapital.investing.factResult : HarvestingBenefitFactResult, DataSeriesFactResult, IdleCashFactResult, FundFeeFactResult, TacticalWeightedResult, AssetLocationFactResult, TaxLossHarvestResult
-com.personalcapital.investing.helper : StrategySelectionHelper
+Caused by: org.xml.sax.SAXParseException; lineNumber: 7; columnNumber: 87; cvc-complex-type.2.4.c: The matching wildcard is strict, but no declaration can be found for element 'mockito:mock'.
+
+issue in this:
+<?xml version="1.0" encoding="UTF-8"?>
+<beans default-lazy-init="true" xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xmlns:mockito="http://www.mockito.org/spring/mockito"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans
+			http://www.springframework.org/schema/beans/spring-beans.xsd">
+	<mockito:mock id="epwKmsService" class="com.empower.epw.aws.api.kms.EpwKmsService" />
+</beans>
