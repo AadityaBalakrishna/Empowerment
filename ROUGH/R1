@@ -1,5 +1,1 @@
-suggestions from my senior:
-
-"in old not there, we don't need here in new method, uness you not throwing"
-
- 
+The old methods also didn’t declare throws — they directly propagated AWS exceptions. In the new implementation, we’re not rethrowing but returning safe default DTOs instead, so there’s no need for a throws clause here either. Errors are still logged for visibility.
