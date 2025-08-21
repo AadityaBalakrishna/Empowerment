@@ -1,1 +1,58 @@
-The performance log hasn’t been removed — it has been moved into the new adapter implementation. Since the old methods delegate to the adapter, the performance logging still occurs as before, ensuring we don’t lose latency visibility while avoiding duplication.
+I would like to answer this review comment:
+"seeing in 2 places instead of error, or null it returns a non null object while earlier code is "return null", I assume it wud impact consumer implementation."
+
+the context:
+in the new EpwKmsServiceImpl 
+	@Override
+	public DescribeKeyResponseDTO describeKey(String keyId)
+	{
+		try
+		{
+			DescribeKeyResponse response = kmsClient.describeKey(DescribeKeyRequest.builder()
+					.keyId(keyId)
+					.build());
+			return new DescribeKeyResponseDTO(response.keyMetadata()
+					.keyId(),
+					response.keyMetadata()
+							.arn(),
+					response.keyMetadata()
+							.keyStateAsString(),
+					response.keyMetadata()
+							.enabled());
+		}
+		catch (Exception ex)
+		{
+			logger.error(String.format("[%s] Failed to describeKey, keyId:%s, due to:%s",
+					getAwsSdkVersion(), keyId, ExceptionUtils.getMessage(ex)), ex);
+			return new DescribeKeyResponseDTO();
+		}
+	}
+
+
+previously:
+in the KMSServiceImpl:
+	@Override
+	public DescribeKeyResult describeKey(String keyId)
+	{
+		DescribeKeyRequest describeKeyRequest = new DescribeKeyRequest().withKeyId(keyId);
+		DescribeKeyResult result = getKMSClient().describeKey(describeKeyRequest);
+		return result;
+	}
+
+refactored KMSServiceImpl which delegates to the new one:
+	@Override
+	@Deprecated
+	public DescribeKeyResult describeKey(String keyId)
+	{
+		DescribeKeyResponseDTO dto = epwKmsService.describeKey(keyId);
+
+		KeyMetadata metadata = new KeyMetadata().withKeyId(dto.getKeyId())
+				.withArn(dto.getKeyArn())
+				.withKeyState(dto.getKeyState())
+				.withEnabled(dto.isEnabled());
+
+		return new DescribeKeyResult().withKeyMetadata(metadata);
+	}
+
+
+can you give me a valid answer for the review comment?
