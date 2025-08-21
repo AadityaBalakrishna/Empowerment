@@ -1,1 +1,5 @@
+In the old implementation, describeKey didn’t explicitly return null — it either returned a valid DescribeKeyResult or threw an AWS exception on failure.
 
+In the new implementation, we catch exceptions and instead return a non-null but empty DescribeKeyResponseDTO (and the refactored v1 adapter wraps that into a non-null DescribeKeyResult with empty metadata). This ensures that consumers don’t have to deal with unexpected nulls, while still logging errors for visibility.
+
+I also confirmed that describeKey and listAliases don’t currently have active consumers in our codebase, so there’s no impact to existing flows.
