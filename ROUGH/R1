@@ -1,5 +1,21 @@
-In the old implementation, describeKey didn’t explicitly return null — it either returned a valid DescribeKeyResult or threw an AWS exception on failure.
 
-In the new implementation, we catch exceptions and instead return a non-null but empty DescribeKeyResponseDTO (and the refactored v1 adapter wraps that into a non-null DescribeKeyResult with empty metadata). This ensures that consumers don’t have to deal with unexpected nulls, while still logging errors for visibility.
+[2025-08-20T09:45:36.593Z] Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'epwKmsService': Unsatisfied dependency expressed through constructor parameter 0: Could not convert argument value of type [java.lang.String] to required type [java.lang.Class]: Failed to convert value of type 'java.lang.String' to required type 'java.lang.Class'; Could not find class [com.empower.epw.aws.api.kms.EpwKmsService]
 
-I also confirmed that describeKey and listAliases don’t currently have active consumers in our codebase, so there’s no impact to existing flows.
+i seee this error in persistenceApplicationContext.xml, here i haven't directly declared the beans in the xml, because
+persistenceApplicationContext.xml  -imports-> sp-base-test.xml -imports-> sp-data-test.xml -imports-> sp-security-test.xml where i have declared this:
+
+	<bean id="awsKmsClient" class="com.amazonaws.services.kms.AWSKMSClientBuilder" factory-method="defaultClient" />
+	<bean id="epwKmsService" class="com.empower.epw.aws.v1.kms.EpwKmsServiceImpl">
+		<constructor-arg ref="awsKmsClient"/>
+	</bean>
+
+but sp-security-test.xml -imports-> sp-security-keystorage-test.xml which has 
+
+<mockito:mock id="epwKmsService" class="com.empower.epw.aws.api.kms.EpwKmsService" />
+
+the error explaination:
+So now you have two competing bean definitions for the same id: epwKmsService.
+Spring sees this conflict and when the mockito:mock tag is parsed, it fails because the schema for mockito: isn’t loaded and it falls back to treating it like a bean definition with a string "com.empower.epw.aws.api.kms.EpwKmsService" instead of an actual Class. That’s why you see:
+
+Could not convert argument value of type [java.lang.String] to required type [java.lang.Class];
+Could not find class [com.empower.epw.aws.api.kms.EpwKmsService]
