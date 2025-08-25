@@ -1,27 +1,145 @@
-pcap-analytics-dao/
-├── pom.xml
-├── src/main/java/com/personalcapital/analytics/model/
-│   └── TransactionClassificationData.java
-├── src/main/java/com/personalcapital/data/
-│   └── TransactionData.java
-├── src/main/java/com/personalcapital/investment/transaction/
-│   └── AdvisoryFeeCategorizationEngine.java
-├── src/main/java/com/personalcapital/training/config/
-│   └── PcapAnalyticsDataSourceConfig.java
-├── src/main/java/com/personalcapital/training/dao/
-│   ├── TrainingData.java
-│   ├── TrainingDataDao.java
-│   └── base/
-│       └── AnalyticsBaseDaoImpl.java
-├── src/main/java/com/personalcapital/training/dao/impl/
-│   ├── TrainingDataDaoImpl.java
-│   └── TrainingDataImpl.java
-├── src/main/resources/
-│   ├── META-INF/analytics-persistence.xml
-│   ├── hikaricpSpSchema.configurationFile
-│   ├── pcap-analytics-dao.xml
-│   ├── pcap-analytics-data.xml
-│   └── pcap-training-data-dao.xml
-└── src/test/
-    ├── java/com/personalcapital/training/model/TrainingDataDaoTest.java
-    └── resources/pcapAnalyticsApplicationContext.xml
+i need this data in the format
+
+Sl. no. ) Class name
+path :
+imports  (dependencies)
+pcakage - and what's its importing, 
+usage:
+modules - classes used in
+
+can you do it for this:
+file by file analysis:
+
+pcap-analytics-dao/pom.xml
+
+1. TransactionClassificationData.java
+Path: pcap-analytics-dao/src/main/java/com/personalcapital/analytics/model/TransactionClassificationData.java
+Imports (dependencies)
+--> import com.personalcapital.data.TransactionData  --> pcap-analytics-dao
+Usage Accross code base:
+pcap-analytics-dao/src/main/java/com/personalcapital/investment/transaction/AdvisoryFeeCategorizationEngine.java
+pcap-weka/src/test/java/com/personalcapital/data/csv/TransactionClassifierTest.java
+pcap-weka/src/test/java/com/personalcapital/weka/classifier/AdvisoryFeeTransactionClassifierModelTest.java
+pcap-analytics-dao/src/main/java/com/personalcapital/training/dao/TrainingData.java
+pcap-weka/src/test/java/com/personalcapital/weka/classifier/TransactionClassificationUtilsTest.java
+pcap-weka/src/test/java/com/personalcapital/weka/TransactionClassifier.java
+pcap-weka/src/test/java/com/personalcapital/weka/engine/AdvisoryFeeCategorizationEngineImplTest.java
+pcap-weka/src/main/java/com/personalcapital/weka/classifier/AdvisoryTransactionClassifier.java
+pcap-analytics-dao/src/main/java/com/personalcapital/training/dao/impl/TrainingDataImpl.java
+pcap-weka/src/test/java/com/personalcapital/weka/classifier/TransactionClassifierTestUtils.java
+pcap-weka/src/main/java/com/personalcapital/weka/util/TransactionClassificationUtils.java
+pcap-weka/src/main/java/com/personalcapital/weka/engine/AdvisoryFeeCategorizationEngineImpl.java
+pcap-weka/src/main/java/com/personalcapital/training/TrainingDataManager.java
+pcap-mvc-admin/src/main/java/com/safepage/admin/controller/AdminSiteController.java
+
+2. pcap-analytics-dao/src/main/java/com/personalcapital/data/TransactionData.java
+--> import com.safepage.error.SafePageErrorType; --> pcap-common-data
+--> import com.safepage.exception.SafePageException; --> pcap-common-data
+--> import com.safepage.user.data.Account; --> pcap-data
+--> import com.safepage.user.data.UserTransaction; --> pcap-data
+usage :
+pcap-analytics-dao/src/main/java/com/personalcapital/investment/transaction/AdvisoryFeeCategorizationEngine.java
+pcap-weka/src/test/java/com/personalcapital/weka/classifier/TransactionClassificationUtilsTest.java
+pcap-analytics-dao/src/main/java/com/personalcapital/analytics/model/TransactionClassificationData.java
+pcap-weka/src/test/java/com/personalcapital/weka/engine/AdvisoryFeeCategorizationEngineImplTest.java
+pcap-weka/src/test/java/com/personalcapital/weka/classifier/TransactionClassifierTestUtils.java
+pcap-weka/src/main/java/com/personalcapital/weka/util/TransactionClassificationUtils.java
+pcap-weka/src/main/java/com/personalcapital/weka/engine/AdvisoryFeeCategorizationEngineImpl.java
+pcap-weka/src/main/java/com/personalcapital/training/TrainingDataManager.java
+pcap-mvc-admin/src/main/java/com/safepage/admin/controller/AdminSiteController.java
+
+3. pcap-analytics-dao/src/main/java/com/personalcapital/investment/transaction/AdvisoryFeeCategorizationEngine.java
+--> import com.personalcapital.analytics.model.TransactionClassificationData;  --> pcap-analytics-dao
+--> import com.personalcapital.data.TransactionData;  --> pcap-analytics-dao
+--> import com.personalcapital.training.dao.TrainingData;  --> pcap-analytics-dao
+--> import com.personalcapital.user.data.impl.transaction.TransactionCategoryDataStore.TransactionCategoryDataSource;--> pcap-data
+--> import com.safepage.exception.SafePageException; --> pcap-common-data
+--> import com.safepage.user.data.User; --> pcap-common-data
+usage:
+pcap-weka/src/main/java/com/personalcapital/command/InvestmentTransactionCategorizerCommand.java
+pcap-weka/src/main/java/com/personalcapital/weka/engine/AdvisoryFeeCategorizationEngineImpl.java
+pcap-weka/src/main/java/com/personalcapital/training/TrainingDataManager.java
+pcap-mvc-admin/src/main/java/com/safepage/admin/controller/AdminSiteController.java
+
+4. pcap-analytics-dao/src/main/java/com/personalcapital/training/config/PcapAnalyticsDataSourceConfig.java
+dependencies:
+import com.personalcapital.config.AppType;--> pcap-common-data
+import com.personalcapital.log.PcapLogger;--> pcap-platform-common
+import com.personalcapital.log.PcapLoggerFactory;--> pcap-platform-common
+import com.personalcapital.platform.persistence.common.utils.RdsIamAuthHelper;--> pcap-platform-persistance-common
+import static com.safepage.util.BaseUtils.equalsIgnoreCase; --> pcap-common-data
+usage : none
+
+5. pcap-analytics-dao/src/main/java/com/personalcapital/training/dao/base/AnalyticsBaseDaoImpl.java - 3
+import com.personalcapital.log.PcapLogger;--> pcap-platform-common
+import com.personalcapital.log.PcapLoggerFactory;--> pcap-platform-common
+import com.personalcapital.transaction.PcapTransactionQualifier;--> pcap-common-data
+import com.personalcapital.transaction.annotation.DbType;--> pcap-common-data
+import com.safepage.data.DaoObject;--> pcap-common-data
+import com.safepage.data.impl.PcapDaoImpl;--> sp-data
+import com.safepage.error.SafePageErrorType;--> pcap-common-data
+import com.safepage.exception.SafePageRuntimeException;--> pcap-common-data
+usage:
+pcap-analytics-dao/src/main/java/com/personalcapital/training/dao/impl/TrainingDataDaoImpl.java
+
+6. pcap-analytics-dao/src/main/java/com/personalcapital/training/dao/impl/TrainingDataDaoImpl.java
+--> import com.personalcapital.training.dao.TrainingData; --> pcap-analytics-dao
+--> import com.personalcapital.training.dao.TrainingDataDao; --> pcap-analytics-dao
+--> import com.personalcapital.training.dao.base.AnalyticsBaseDaoImpl; --> pcap-analytics-dao
+--> import com.personalcapital.transaction.PcapTransactionQualifier; --> pcap-common-data
+--> import com.personalcapital.transaction.annotation.DbType; --> pcap-common-data
+--> import com.safepage.data.JpaHelper; --> sp-data
+--> import com.safepage.error.SafePageErrorType; --> pcap-common-data
+--> import com.safepage.exception.SafePageException; --> pcap-common-data
+--> import com.safepage.exception.SafePageRuntimeException; --> pcap-common-data
+usage:
+pcap-analytics-dao/src/main/resources/pcap-training-data-dao.xml
+
+7. pcap-analytics-dao/src/main/java/com/personalcapital/training/dao/impl/TrainingDataImpl.java - 3
+--> import com.personalcapital.analytics.model.TransactionClassificationData; --> pcap-analytics-dao
+--> import com.personalcapital.training.dao.TrainingData; --> pcap-analytics-dao
+--> import com.safepage.data.impl.AbstractTableWithDeleteAsyncImpl; --> sp-data
+usage:
+pcap-analytics-dao/src/test/java/com/personalcapital/training/model/TrainingDataDaoTest.java
+pcap-weka/src/main/java/com/personalcapital/training/TrainingDataManager.java
+
+8. pcap-analytics-dao/src/main/java/com/personalcapital/training/dao/TrainingData.java
+imports: 
+import com.personalcapital.analytics.model.TransactionClassificationData;--> pcap-analytics-dao
+import com.safepage.data.DaoObject;--> pcap-common-data
+usage:
+pcap-analytics-dao/src/main/java/com/personalcapital/investment/transaction/AdvisoryFeeCategorizationEngine.java
+pcap-analytics-dao/src/main/java/com/personalcapital/training/dao/impl/TrainingDataDaoImpl.java
+pcap-weka/src/main/java/com/personalcapital/training/TransformSpSchemaToTrainingDataMT.java
+pcap-analytics-dao/src/test/java/com/personalcapital/training/model/TrainingDataDaoTest.java
+pcap-analytics-dao/src/main/java/com/personalcapital/training/dao/impl/TrainingDataImpl.java
+pcap-weka/src/main/java/com/personalcapital/weka/util/TransactionClassificationUtils.java
+pcap-weka/src/main/java/com/personalcapital/weka/engine/AdvisoryFeeCategorizationEngineImpl.java
+
+9. pcap-analytics-dao/src/main/java/com/personalcapital/training/dao/TrainingDataDao.java
+imports:
+import com.safepage.data.Dao;--> pcap-data
+import com.safepage.exception.SafePageException; --> pcap-common-data
+usage:
+pcap-analytics-dao/src/main/java/com/personalcapital/training/dao/impl/TrainingDataDaoImpl.java
+pcap-analytics-dao/src/test/java/com/personalcapital/training/model/TrainingDataDaoTest.java
+pcap-weka/src/main/java/com/personalcapital/training/TrainingDataManager.java
+
+10. pcap-analytics-dao/src/main/resources/META-INF/analytics-persistence.xml
+11. pcap-analytics-dao/src/main/resources/hikaricpSpSchema.configurationFile
+12. pcap-analytics-dao/src/main/resources/pcap-analytics-dao.xml
+13. pcap-analytics-dao/src/main/resources/pcap-analytics-data.xml
+14. pcap-analytics-dao/src/main/resources/pcap-training-data-dao.xml
+
+15. pcap-analytics-dao/src/test/java/com/personalcapital/training/model/TrainingDataDaoTest.java
+Test is disabled
+imports:
+import com.personalcapital.log.PcapLogger;--> pcap-platform-common
+import com.personalcapital.log.PcapLoggerFactory;--> pcap-platform-common
+import com.personalcapital.platform.persistence.common.utils.UuidUtils; -->pcap-platform-persistance-common
+import com.personalcapital.training.dao.TrainingData; --> pcap-analytics-dao
+import com.personalcapital.training.dao.TrainingDataDao;-> pcap-analytics-dao
+import com.personalcapital.training.dao.impl.TrainingDataImpl;-> pcap-analytics-dao
+import com.safepage.util.DateTimeUtils;--> pcap-common-data
+
+16. pcap-analytics-dao/src/test/resources/pcapAnalyticsApplicationContext.xml
