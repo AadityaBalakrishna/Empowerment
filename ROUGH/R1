@@ -1,1 +1,20 @@
-s
+pcap-analytics-dao/src/main/java/com/personalcapital/analytics/model/TransactionClassificationData.java
+pcap-analytics-dao/src/main/java/com/personalcapital/data/TransactionData.java
+pcap-analytics-dao/src/main/java/com/personalcapital/investment/transaction/AdvisoryFeeCategorizationEngine.java
+pcap-analytics-dao/src/main/java/com/personalcapital/training/config/PcapAnalyticsDataSourceConfig.java
+pcap-analytics-dao/src/main/java/com/personalcapital/training/dao/TrainingData.java
+pcap-analytics-dao/src/main/java/com/personalcapital/training/dao/TrainingDataDao.java
+pcap-analytics-dao/src/main/java/com/personalcapital/training/dao/base/AnalyticsBaseDaoImpl.java
+pcap-analytics-dao/src/main/java/com/personalcapital/training/dao/impl/TrainingDataDaoImpl.java
+pcap-analytics-dao/src/main/java/com/personalcapital/training/dao/impl/TrainingDataImpl.java
+pcap-analytics-dao/src/main/resources/META-INF/analytics-persistence.xml
+pcap-analytics-dao/src/main/resources/hikaricpSpSchema.configurationFile
+pcap-analytics-dao/src/main/resources/pcap-analytics-dao.xml
+pcap-analytics-dao/src/main/resources/pcap-analytics-data.xml
+pcap-analytics-dao/src/main/resources/pcap-training-data-dao.xml
+pcap-analytics-dao/src/test/java/com/personalcapital/training/model/TrainingDataDaoTest.java
+pcap-analytics-dao/src/test/resources/pcapAnalyticsApplicationContext.xml
+
+
+
+please format this like it would be in a module in a repository, tree or branch wise
