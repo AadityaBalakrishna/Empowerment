@@ -1,58 +1,27 @@
-pcap-analytics-dao/pom.xml
-
-pcap-analytics-dao/src/main/java/com/personalcapital/analytics/model/TransactionClassificationData.java
---> import com.personalcapital.data.TransactionData  --> pcap-analytics-dao
-
-pcap-analytics-dao/src/main/java/com/personalcapital/data/TransactionData.java - 1
---> import com.safepage.error.SafePageErrorType; --> pcap-common-data
---> import com.safepage.exception.SafePageException; --> pcap-common-data
---> import com.safepage.user.data.Account; --> pcap-data
---> import com.safepage.user.data.UserTransaction; --> pcap-data
-
-pcap-analytics-dao/src/main/java/com/personalcapital/investment/transaction/AdvisoryFeeCategorizationEngine.java - 2
---> import java.util.List;
---> import com.personalcapital.analytics.model.TransactionClassificationData;  --> pcap-analytics-dao
---> import com.personalcapital.data.TransactionData;  --> pcap-analytics-dao
---> import com.personalcapital.training.dao.TrainingData;  --> pcap-analytics-dao
---> import com.personalcapital.user.data.impl.transaction.TransactionCategoryDataStore.TransactionCategoryDataSource;--> pcap-data
---> import com.safepage.exception.SafePageException; --> pcap-common-data
---> import com.safepage.user.data.User; --> pcap-common-data
-
-pcap-analytics-dao/src/main/java/com/personalcapital/training/config/PcapAnalyticsDataSourceConfig.java
---> none
-
-pcap-analytics-dao/src/main/java/com/personalcapital/training/dao/TrainingData.java
-
-pcap-analytics-dao/src/main/java/com/personalcapital/training/dao/TrainingDataDao.java
-
-pcap-analytics-dao/src/main/java/com/personalcapital/training/dao/base/AnalyticsBaseDaoImpl.java - 3
---> sp-data
-
-pcap-analytics-dao/src/main/java/com/personalcapital/training/dao/impl/TrainingDataDaoImpl.java
---> import com.personalcapital.training.dao.TrainingData; --> pcap-analytics-dao
---> import com.personalcapital.training.dao.TrainingDataDao; --> pcap-analytics-dao
---> import com.personalcapital.training.dao.base.AnalyticsBaseDaoImpl; --> pcap-analytics-dao
---> import com.personalcapital.transaction.PcapTransactionQualifier; --> pcap-common-data
---> import com.personalcapital.transaction.annotation.DbType; --> pcap-common-data
---> import com.safepage.data.JpaHelper; --> sp-data
---> import com.safepage.error.SafePageErrorType; --> pcap-common-data
---> import com.safepage.exception.SafePageException; --> pcap-common-data
---> import com.safepage.exception.SafePageRuntimeException; --> pcap-common-data
-
-pcap-analytics-dao/src/main/java/com/personalcapital/training/dao/impl/TrainingDataImpl.java - 3
---> import com.personalcapital.analytics.model.TransactionClassificationData; --> pcap-analytics-dao
---> import com.personalcapital.training.dao.TrainingData; --> pcap-analytics-dao
---> import com.safepage.data.impl.AbstractTableWithDeleteAsyncImpl; --> sp-data
-
-pcap-analytics-dao/src/main/resources/META-INF/analytics-persistence.xml
-pcap-analytics-dao/src/main/resources/hikaricpSpSchema.configurationFile
-pcap-analytics-dao/src/main/resources/pcap-analytics-dao.xml
-pcap-analytics-dao/src/main/resources/pcap-analytics-data.xml
-pcap-analytics-dao/src/main/resources/pcap-training-data-dao.xml
-
-pcap-analytics-dao/src/test/java/com/personalcapital/training/model/TrainingDataDaoTest.java
-pcap-analytics-dao/src/test/resources/pcapAnalyticsApplicationContext.xml
-
-
-
-i want to format this data such that every files has it's imports to show where it's imported from and the usage of this file int he code base, to help in  my migration task, but i am unsure of the formating og this data in the design doc
+pcap-analytics-dao/
+├── pom.xml
+├── src/main/java/com/personalcapital/analytics/model/
+│   └── TransactionClassificationData.java
+├── src/main/java/com/personalcapital/data/
+│   └── TransactionData.java
+├── src/main/java/com/personalcapital/investment/transaction/
+│   └── AdvisoryFeeCategorizationEngine.java
+├── src/main/java/com/personalcapital/training/config/
+│   └── PcapAnalyticsDataSourceConfig.java
+├── src/main/java/com/personalcapital/training/dao/
+│   ├── TrainingData.java
+│   ├── TrainingDataDao.java
+│   └── base/
+│       └── AnalyticsBaseDaoImpl.java
+├── src/main/java/com/personalcapital/training/dao/impl/
+│   ├── TrainingDataDaoImpl.java
+│   └── TrainingDataImpl.java
+├── src/main/resources/
+│   ├── META-INF/analytics-persistence.xml
+│   ├── hikaricpSpSchema.configurationFile
+│   ├── pcap-analytics-dao.xml
+│   ├── pcap-analytics-data.xml
+│   └── pcap-training-data-dao.xml
+└── src/test/
+    ├── java/com/personalcapital/training/model/TrainingDataDaoTest.java
+    └── resources/pcapAnalyticsApplicationContext.xml
