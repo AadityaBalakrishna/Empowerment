@@ -1,38 +1,24 @@
-	@Test
-	void testGetByteBuffer() {
-		String input = "test-string";
-		ByteBuffer buffer = EpwKmsServiceImpl.getByteBuffer(input);
-		assertNotNull(buffer);
-		assertEquals(input, StandardCharsets.UTF_8.decode(buffer).toString());
-	}
+I would like my QA to validate one of my task, it involves removing a module pcap-analytics-dao from a repos called pcap-server, out of the 16 files, 4 were used by pcap-appps-common, so it was moved there:
+TransactionClassificationData.java
+TransactionData.java
+AdvisoryFeeCategorizationEngine.java
+TrainingData.java
 
-	@Test
-	void testGetString() {
-		String input = "test-string";
-		ByteBuffer buffer = ByteBuffer.wrap(input.getBytes(StandardCharsets.UTF_8));
-		String output = EpwKmsServiceImpl.getString(buffer);
-		assertEquals(input, output);
-	}
+the rest weren't used anywhere in the code base, hence was removed:
+PcapAnalyticsDataSourceConfig.java
+AnalyticsBaseDaoImpl.java
+TrainingDataDaoImpl.java, 
+TrainingDataImpl.java 
+TrainingDataDao.java 
+pcap-analytics-dao/src/main/resources/META-INF/analytics-persistence.xml
+pcap-analytics-dao/src/main/resources/hikaricpSpSchema.configurationFile
+pcap-analytics-dao/src/main/resources/pcap-analytics-dao.xml
+pcap-analytics-dao/src/main/resources/pcap-analytics-data.xml
+pcap-analytics-dao/src/main/resources/pcap-training-data-dao.xml
+TrainingDataDaoTest.java [ Test is disabled ]
+pcap-analytics-dao/src/test/resources/pcapAnalyticsApplicationContext.xml
 
-these two test classes are fro v1 impl, can i get the v2 impl?
+in these consumers: initially the pcap-analytics-dao was just mentioned in the parent pom file under the dependencyManagement block and now after clean up even that is removed:
+pcap-root, epw-wm-artifacts, pcap-salesforce, pcap-server, pcap-agent, pcap-admin, pcap-mv, pcap-ace 
 
-	private ByteBuffer getByteBuffer(String string)
-	{
-		return ByteBuffer.wrap(string.getBytes(charset));
-	}
-
-	/**
-	 * Converts a ByteBuffer to a String using the specified charset.
-	 *
-	 * @param byteBuffer
-	 *            the ByteBuffer to convert
-	 * @return the String representation of the ByteBuffer
-	 */
-	public static String getString(ByteBuffer byteBuffer)
-	{
-		byte[] byteArray = new byte[byteBuffer.remaining()];
-		byteBuffer.get(byteArray);
-		return new String(byteArray, charset);
-	}
-
-these are the v2 methods
+So how can i assign my QA the task to validate that these changes has not broken anything and everythign is good for story signoff, also the migration of the 4 files to pcap-apps-common is validated
