@@ -1,6 +1,7 @@
 package com.mypersonal.aexpconfig.controller;
 
-import org.springframework.context.ApplicationContext;
+import org.springframework.beans.factory.config.BeanDefinition;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -10,18 +11,21 @@ import java.util.List;
 @RestController
 public class StarterBeanController {
 
-    private final ApplicationContext context;
+    private final ConfigurableApplicationContext context;
 
-    public StarterBeanController(ApplicationContext context) {
+    public StarterBeanController(ConfigurableApplicationContext context) {
         this.context = context;
     }
 
     @GetMapping("/starter/beans")
     public List<String> getStarterBeans() {
         return Arrays.stream(context.getBeanDefinitionNames())
-                .filter(name -> context.getBean(name).getClass().getPackageName()
-                        .startsWith("com.empower.epw.starter.config.store"))
-                .map(name -> name + " -> " + context.getBean(name).getClass().getName())
+                .map(name -> {
+                    BeanDefinition def = context.getBeanFactory().getBeanDefinition(name);
+                    return name + " -> " + def.getResourceDescription();
+                })
+                .filter(desc -> desc != null && desc.contains("EpwConfigServiceBootstrapConfiguration"))
                 .toList();
     }
 }
+
