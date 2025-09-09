@@ -1,3 +1,21 @@
+application.properties
+#Default configs (Used when config-store is enabled)
+server.port=8081
+
+application-local.properties
+#Override properties for 'local' profile
+server.port=8082
+app.message=Hello Local World
+
+bootstrap.properties
+#Default configs (Used when config-store is enabled)
+spring.cloud.config.enabled=true
+identity.serverArray=aexp-config
+spring.application.name=${identity.serverArray}
+aws.account=dev
+identity.stage=devtrunk
+
+bootstrap-local.properties
 #Override properties for 'local' profile
 spring.cloud.config.enabled=false
 identity.serverArray=aexp-config
@@ -12,4 +30,4 @@ pcsvc.server.useLocalEKSUrl=false
 #To override config-store url
 #spring.cloud.config.uri=http://localhost:8080/cfg-store
 
-these props i found in a consumer of epw-starter, what is spring cloud config uri?
+this is what i have doen so far, let me know if there's any correction
