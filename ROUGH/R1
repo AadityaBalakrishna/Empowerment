@@ -131,3 +131,22 @@ spring.application.name=${identity.serverArray}
 pcsvc.server.useLocalEKSUrl=false
 
 
+   1. epw-config-store:
+
+Add depenendcy in pom.xml :
+<dependency>
+    <groupId>com.empower.epw.plat</groupId>
+    <artifactId>epw-starter-config-store</artifactId>
+    <version>${epw-starters.version}</version>
+</dependency>
+After adding dependency, The Service will act as Spring cloud Config Client
+Add bootstrap.properties (local too)
+spring.cloud.config.enabled=true
+identity.serverArray=service-name
+spring.application.name=${identity.serverArray}
+aws.account=dev
+identity.stage=devtrunk
+pcsvc.server.useLocalEKSUrl=true
+
+For local, disable spring.cloud.config.enabled=false and properties from config store can be override in application-local.properties
+
