@@ -1,30 +1,15 @@
-db.readonly.jdbcUrl=${db.jdbcUrl}
-epw.datasource.defaults.wrapperPlugins=iam
-epw.datasource.overrides.PCAP_CV.READ_ONLY.driverClassName=software.amazon.jdbc.Driver
-epw.datasource.overrides.PCAP_CV.READ_WRITE.driverClassName=software.amazon.jdbc.Driver
-epw.datasource.overrides.PCAP_CV.READ_WRITE.url=${rds.iam.pcap.cv.datasource.url}
-epw.datasource.overrides.PCAP_SNAPSHOT.READ_ONLY.driverClassName=software.amazon.jdbc.Driver
-epw.datasource.overrides.PCAP_SNAPSHOT.READ_ONLY.url=jdbc:aws-wrapper:mysql://${sp_schema.readonly.endpoint}:3306/pcap_snapshot?socketTimeout=600000&connectTimeout=15000&elideSetAutoCommits=false&useLocalSessionState=false&characterEncoding=UTF-8
-epw.datasource.overrides.PCAP_SNAPSHOT.READ_WRITE.driverClassName=software.amazon.jdbc.Driver
-epw.datasource.overrides.PCAP_SNAPSHOT.READ_WRITE.url=jdbc:aws-wrapper:mysql://${sp_schema.endpoint}:3306/pcap_snapshot?socketTimeout=600000&connectTimeout=15000&elideSetAutoCommits=false&useLocalSessionState=false&characterEncoding=UTF-8
-pcap.ace.datasource.username=${rds.iam.username}
-pcap.analytics.datasource.username=${rds.iam.username}
-pcap.cv.datasource.username=${rds.iam.username}
-pcap.cv.readonly.datasource.url=jdbc:aws-wrapper:mysql://${sp_schema.readonly.endpoint}:3306/pcap_cv?socketTimeout=600000&connectTimeout=15000&elideSetAutoCommits=false&useLocalSessionState=false&characterEncoding=UTF-8
-rds.iam.pcap.cv.datasource.url=jdbc:aws-wrapper:mysql://${sp_schema.endpoint}:3306/pcap_cv?socketTimeout=60000&connectTimeout=15000&elideSetAutoCommits=true&useLocalSessionState=true
-rds.iam.username=sf_app_devtrunk
-salesforce.advisory.team.ids=005F00000047qFvIAI
-service.request.record.type.account.maintenance=012D4000001D28RIAS
-service.request.record.type.service.operations=#change_me#
-service.request.record.type.transfer.out.of.pershing=#change_me#
-sf.sqs.fifo.tasks.name=pcap-pcapeks-devtrunk-sf-tasks.fifo
-sp.schema.datasource.url=jdbc:aws-wrapper:mysql://${sp_schema.endpoint}:3306/sp_schema?socketTimeout=600000&connectTimeout=15000&elideSetAutoCommits=true&useLocalSessionState=true&characterEncoding=UTF-8&wrapperPlugins=iam
-sp.schema.datasource.username=${rds.iam.username}
-sp.schema.readonly.datasource.url=${sp.schema.datasource.url}
-spschema.datasource.driver-class-name=software.amazon.jdbc.Driver
+#Override properties for 'local' profile
+spring.cloud.config.enabled=false
+identity.serverArray=aexp-config
+spring.application.name=${identity.serverArray}
+aws.account=dev
+identity.stage=devtrunk
+pcsvc.server.useLocalEKSUrl=false
 
+#logging.level.com.empower.epw.starter.config.store=DEBUG
+#logging.level.org.springframework.cloud.config=DEBUG
 
+#To override config-store url
+#spring.cloud.config.uri=http://localhost:8080/cfg-store
 
-these are the contents of pcap-config-store/cfg-store-app/store/pcap/pcapeks/devtrunk/sf/application.properties
-
-can we mimic this from my local?
+these props i found in a consumer of epw-starter, what is spring cloud config uri?
