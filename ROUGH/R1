@@ -1,14 +1,30 @@
-["com.empower.epw.starter.config.store.EpwConfigServiceBootstrapConfiguration -> null","configClientProperties -> class path resource [com/empower/epw/starter/config/store/EpwConfigServiceBootstrapConfiguration.class]"]
+db.readonly.jdbcUrl=${db.jdbcUrl}
+epw.datasource.defaults.wrapperPlugins=iam
+epw.datasource.overrides.PCAP_CV.READ_ONLY.driverClassName=software.amazon.jdbc.Driver
+epw.datasource.overrides.PCAP_CV.READ_WRITE.driverClassName=software.amazon.jdbc.Driver
+epw.datasource.overrides.PCAP_CV.READ_WRITE.url=${rds.iam.pcap.cv.datasource.url}
+epw.datasource.overrides.PCAP_SNAPSHOT.READ_ONLY.driverClassName=software.amazon.jdbc.Driver
+epw.datasource.overrides.PCAP_SNAPSHOT.READ_ONLY.url=jdbc:aws-wrapper:mysql://${sp_schema.readonly.endpoint}:3306/pcap_snapshot?socketTimeout=600000&connectTimeout=15000&elideSetAutoCommits=false&useLocalSessionState=false&characterEncoding=UTF-8
+epw.datasource.overrides.PCAP_SNAPSHOT.READ_WRITE.driverClassName=software.amazon.jdbc.Driver
+epw.datasource.overrides.PCAP_SNAPSHOT.READ_WRITE.url=jdbc:aws-wrapper:mysql://${sp_schema.endpoint}:3306/pcap_snapshot?socketTimeout=600000&connectTimeout=15000&elideSetAutoCommits=false&useLocalSessionState=false&characterEncoding=UTF-8
+pcap.ace.datasource.username=${rds.iam.username}
+pcap.analytics.datasource.username=${rds.iam.username}
+pcap.cv.datasource.username=${rds.iam.username}
+pcap.cv.readonly.datasource.url=jdbc:aws-wrapper:mysql://${sp_schema.readonly.endpoint}:3306/pcap_cv?socketTimeout=600000&connectTimeout=15000&elideSetAutoCommits=false&useLocalSessionState=false&characterEncoding=UTF-8
+rds.iam.pcap.cv.datasource.url=jdbc:aws-wrapper:mysql://${sp_schema.endpoint}:3306/pcap_cv?socketTimeout=60000&connectTimeout=15000&elideSetAutoCommits=true&useLocalSessionState=true
+rds.iam.username=sf_app_devtrunk
+salesforce.advisory.team.ids=005F00000047qFvIAI
+service.request.record.type.account.maintenance=012D4000001D28RIAS
+service.request.record.type.service.operations=#change_me#
+service.request.record.type.transfer.out.of.pershing=#change_me#
+sf.sqs.fifo.tasks.name=pcap-pcapeks-devtrunk-sf-tasks.fifo
+sp.schema.datasource.url=jdbc:aws-wrapper:mysql://${sp_schema.endpoint}:3306/sp_schema?socketTimeout=600000&connectTimeout=15000&elideSetAutoCommits=true&useLocalSessionState=true&characterEncoding=UTF-8&wrapperPlugins=iam
+sp.schema.datasource.username=${rds.iam.username}
+sp.schema.readonly.datasource.url=${sp.schema.datasource.url}
+spschema.datasource.driver-class-name=software.amazon.jdbc.Driver
 
-i got the above line for this:
-    @GetMapping("/starter/beans")
-    public List<String> getStarterBeans() {
-        return Arrays.stream(context.getBeanDefinitionNames())
-                .map(name -> {
-                    BeanDefinition def = context.getBeanFactory().getBeanDefinition(name);
-                    return name + " -> " + def.getResourceDescription();
-                })
-                .filter(desc -> desc != null && desc.contains("EpwConfigServiceBootstrapConfiguration"))
-                .toList();
-    }
-what does it mean?
+
+
+these are the contents of pcap-config-store/cfg-store-app/store/pcap/pcapeks/devtrunk/sf/application.properties
+
+can we mimic this from my local?
