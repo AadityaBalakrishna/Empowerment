@@ -1,7 +1,14 @@
-@ImportAutoConfiguration(
-{
-		EpwConfigServiceBootstrapConfiguration.class
-})
+["com.empower.epw.starter.config.store.EpwConfigServiceBootstrapConfiguration -> null","configClientProperties -> class path resource [com/empower/epw/starter/config/store/EpwConfigServiceBootstrapConfiguration.class]"]
 
-
-why is this used in all the classes, only the tests tho
+i got the above line for this:
+    @GetMapping("/starter/beans")
+    public List<String> getStarterBeans() {
+        return Arrays.stream(context.getBeanDefinitionNames())
+                .map(name -> {
+                    BeanDefinition def = context.getBeanFactory().getBeanDefinition(name);
+                    return name + " -> " + def.getResourceDescription();
+                })
+                .filter(desc -> desc != null && desc.contains("EpwConfigServiceBootstrapConfiguration"))
+                .toList();
+    }
+what does it mean?
