@@ -1,107 +1,45 @@
-package com.mypersonal.aexpconfig;
+package com.mypersonal.aexpconfig.controller;
 
-import com.mypersonal.aexpconfig.service.DemoService;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.core.env.Environment;
+import org.springframework.cloud.config.client.ConfigClientProperties;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-import static org.assertj.core.api.Assertions.assertThat;
+@RestController
+public class ConfigStoreInfoController {
 
-@SpringBootTest(
-        properties = {
-                "spring.cloud.config.enabled=false",
-                "my.custom.value=HelloFromTest"
-        })
-class LocalProfileTests {
+    private final ConfigClientProperties properties;
 
-    @Autowired
-    private DemoService demoService;
-
-    @Autowired
-    private Environment environment;
-
-    @Test
-    void testCustomValueFromLocalProfile() {
-        assertThat(demoService.getCustomValue())
-                .isEqualTo("HelloFromTest");
+    public ConfigStoreInfoController(ConfigClientProperties properties) {
+        this.properties = properties;
     }
 
-    @Test
-    void testSpringCloudConfigDisabledInLocal() {
-        assertThat(environment.getProperty("spring.cloud.config.enabled"))
-                .isEqualTo("false");
+    @GetMapping("/config-store/info")
+    public String configInfo() {
+        return "URI: " + String.join(",", properties.getUri()) +
+               " | Label: " + properties.getLabel() +
+               " | Profile: " + properties.getProfile();
     }
 }
 
 package com.mypersonal.aexpconfig;
 
-import com.mypersonal.aexpconfig.service.DemoService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.core.env.Environment;
+import org.springframework.cloud.config.client.ConfigClientProperties;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest(
-        properties = {
-                "aws.account=dev",
-                "identity.stage=devstaging",
-                "identity.parentStage=devparent",
-                "spring.cloud.config.enabled=true",
-                "my.custom.value=FromConfigStoreSimulation"
-        })
-class ConfigStoreProfileTests {
+@SpringBootTest
+class ConfigStoreBeanTests {
 
     @Autowired
-    private DemoService demoService;
-
-    @Autowired
-    private Environment environment;
+    private ConfigClientProperties properties;
 
     @Test
-    void testCustomValueFromConfigStoreSimulation() {
-        assertThat(demoService.getCustomValue())
-                .isEqualTo("FromConfigStoreSimulation");
-    }
-
-    @Test
-    void testAwsPropertiesInjected() {
-        assertThat(environment.getProperty("aws.account")).isEqualTo("dev");
-        assertThat(environment.getProperty("identity.stage")).isEqualTo("devstaging");
-        assertThat(environment.getProperty("identity.parentStage")).isEqualTo("devparent");
-    }
-
-    @Test
-    void testSpringCloudConfigEnabled() {
-        assertThat(environment.getProperty("spring.cloud.config.enabled"))
-                .isEqualTo("true");
-    }
-}
-
-
-package com.mypersonal.aexpconfig;
-
-import com.mypersonal.aexpconfig.service.DemoService;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
-@SpringBootTest(
-        properties = {
-                "spring.cloud.config.enabled=false"
-                // Notice: no my.custom.value set here
-        })
-class DefaultValueTests {
-
-    @Autowired
-    private DemoService demoService;
-
-    @Test
-    void testFallbackDefaultValue() {
-        assertThat(demoService.getCustomValue()).isEqualTo("default-value");
+    void configClientPropertiesBeanLoaded() {
+        assertThat(properties).isNotNull();
+        assertThat(properties.getUri()).isNotEmpty();
+        assertThat(properties.getLabel()).isEqualTo("pcapeks");
     }
 }
