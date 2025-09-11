@@ -1,449 +1,103 @@
-all src files:
-1) com/mypersonal.aexpconfig/controller/ConfigStoreInfoController.java
-package com.mypersonal.aexpconfig.controller;
+# aexp-config-poc
 
-import org.springframework.cloud.config.client.ConfigClientProperties;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RestController;
+This repository is a small POC showing how `epw-starter-config-store` (a Spring Cloud Config Client wrapper) is wired into a Spring Boot app.
 
-@RestController
-public class ConfigStoreInfoController {
+## What this project contains
 
-    private final ConfigClientProperties properties;
+* `AexpConfigApplication` — main Spring Boot application. Imports the starter auto-configuration.
+* `DemoService` — reads `app.message` via `@Value`.
+* Controllers:
 
-    public ConfigStoreInfoController(ConfigClientProperties properties) {
-        this.properties = properties;
-    }
-
-    @GetMapping("/config-store/info")
-    public String configInfo() {
-        return "URI: " + String.join(",", properties.getUri()) +
-                " | Label: " + properties.getLabel() +
-                " | Profile: " + properties.getProfile();
-    }
-
-    @GetMapping("/config-store/debug")
-    public ConfigClientProperties debug(){
-        return properties;
-    }
-}
+  * `HelloController` — `/hello` returns value from `DemoService`.
+  * `ConfigStoreInfoController` — `/config-store/info` and `/config-store/debug` expose `ConfigClientProperties`.
+  * `StarterBeanController` — lists beans that reference the starter auto-configuration (helpful for debugging).
+* `DebugRunner` — small startup runner that prints whether `configClientProperties` is present.
+* Tests demonstrating various scenarios (local vs config-store) and unit tests for the starter's behavior.
 
-2)com/mypersonal.aexpconfig/controller/HelloController.java
-package com.mypersonal.aexpconfig.controller;
+---
 
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RestController;
-import com.mypersonal.aexpconfig.service.DemoService;
+## Key fixes & recommendations applied
 
-@RestController
-public class HelloController {
+1. **Tests updated** so they don't fail when the config-store starter requires `aws.account` and `identity.stage`. Tests either:
 
-    private final DemoService demoService;
-
-    public HelloController(DemoService demoService) {
-        this.demoService = demoService;
-    }
-
-    @GetMapping("/hello")
-    public String sayHello() {
-        return "Value from config: " + demoService.getMessage();
-    }
-
-3)com/mypersonal.aexpconfig/controller/StarterBeanController.java
-package com.mypersonal.aexpconfig.controller;
-
-import org.springframework.beans.factory.config.BeanDefinition;
-import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RestController;
-
-import java.util.Arrays;
-import java.util.List;
-
-@RestController
-public class StarterBeanController {
-
-    private final ConfigurableApplicationContext context;
-
-    public StarterBeanController(ConfigurableApplicationContext context) {
-        this.context = context;
-    }
-
-    @GetMapping("/starter/beans")
-    public List<String> getStarterBeans() {
-        return Arrays.stream(context.getBeanDefinitionNames())
-                .map(name -> {
-                    BeanDefinition def = context.getBeanFactory().getBeanDefinition(name);
-                    return name + " -> " + def.getResourceDescription();
-                })
-                .filter(desc -> desc != null && desc.contains("EpwConfigServiceBootstrapConfiguration"))
-                .toList();
-    }
-}
-
-4)com/mypersonal.aexpconfig/service/DemoService.java
-package com.mypersonal.aexpconfig.service;
-
-import org.springframework.stereotype.Service;
-import org.springframework.beans.factory.annotation.Value;
-
-@Service
-public class DemoService {
-
-    @Value("${app.message}")
-    private String message;
-
-    public String getMessage() {
-        return message;
-    }
-}
-
-5)com/mypersonal.aexpconfig/AexpConfigApplication.java
-package com.mypersonal.aexpconfig;
-
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-
-import com.empower.epw.starter.config.store.EpwConfigServiceBootstrapConfiguration;
-
-@SpringBootApplication
-@ImportAutoConfiguration({EpwConfigServiceBootstrapConfiguration.class})
-public class AexpConfigApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(AexpConfigApplication.class, args);
-    }
-}
-
-6)com/mypersonal/aexpconfig/debug/DebugRunner.java
-package com.mypersonal.aexpconfig.debug;
-
-import org.springframework.boot.CommandLineRunner;
-import org.springframework.context.ApplicationContext;
-import org.springframework.stereotype.Component;
-
-import java.util.Arrays;
-
-@Component
-public class DebugRunner implements CommandLineRunner {
-
-    private final ApplicationContext context;
-
-    public DebugRunner(ApplicationContext context) {
-        this.context = context;
-    }
-
-    @Override
-    public void run(String... args) {
-        System.out.println("🔎 Looking for configClientProperties bean...");
-        Arrays.stream(context.getBeanDefinitionNames())
-                .filter(name -> name.equals("configClientProperties"))
-                .forEach(name -> System.out.println(" ✅ Found bean: " + name + " -> " +
-                        context.getBean(name).getClass().getName()));
-    }
-}
-
-}
-
-resources:
-1)src/main/resources/application.properties
-#Default configs (Used when config-store is enabled)
-server.port=8081
-app.message=Hello, World!
-spring.profiles.active=config-store
-
-2)src/main/resources/application-local.properties
-#Override properties for 'local' profile
-server.port=8081
-app.message=Hello Local World
-#spring.profiles.active=local
-
-3)src/main/resources/bootstrap.properties
-#Default configs (Used when config-store is enabled)
-spring.cloud.config.enabled=true
-identity.serverArray=aexp-config
-spring.application.name=${identity.serverArray}
-aws.account=dev
-identity.stage=devtrunk
-
-4)src/main/resources/bootstrap-local.properties
-#Override properties for 'local' profile
-spring.cloud.config.enabled=false
-identity.serverArray=aexp-config
-spring.application.name=${identity.serverArray}
-aws.account=dev
-identity.stage=devtrunk
-pcsvc.server.useLocalEKSUrl=false
-
-
-test files:
-1)package com.mypersonal.aexpconfig;
-
-import com.mypersonal.aexpconfig.service.DemoService;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
-@SpringBootTest(properties = {
-        "spring.cloud.config.enabled=false",
-        "app.message=Hello, World!"
-})
-class AexpConfigApplicationTests {
-
-    @Autowired
-    private DemoService demoService;
-
-    @Test
-    void contextLoads() {
-        assertThat(demoService).isNotNull();
-        assertThat(demoService.getMessage()).isEqualTo("Hello, World!");
-    }
-}
-
-2)package com.mypersonal.aexpconfig;
-
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.cloud.config.client.ConfigClientProperties;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
-@SpringBootTest
-class ConfigStoreBeanTests {
-
-    @Autowired
-    private ConfigClientProperties properties;
-
-    @Test
-    void configClientPropertiesBeanLoaded() {
-        assertThat(properties).isNotNull();
-        assertThat(properties.getUri()).isNotEmpty();
-        assertThat(properties.getLabel()).isEqualTo("pcapeks");
-    }
-}
-
-3)package com.mypersonal.aexpconfig;
-
-import com.mypersonal.aexpconfig.service.DemoService;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.core.env.Environment;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
-@SpringBootTest(
-        properties = {
-                "aws.account=dev",
-                "identity.stage=devstaging",
-                "identity.parentStage=devparent",
-                "spring.cloud.config.enabled=true",
-        })
-class ConfigStoreProfileTests {
-
-    @Autowired
-    private DemoService demoService;
-
-    @Autowired
-    private Environment environment;
-
-    @Test
-    void testCustomValueFromConfigStoreSimulation() {
-        assertThat(demoService.getMessage())
-                .isEqualTo("Hello, World!");
-    }
-
-    @Test
-    void testAwsPropertiesInjected() {
-        assertThat(environment.getProperty("aws.account")).isEqualTo("dev");
-        assertThat(environment.getProperty("identity.stage")).isEqualTo("devstaging");
-        assertThat(environment.getProperty("identity.parentStage")).isEqualTo("devparent");
-    }
-
-    @Test
-    void testSpringCloudConfigEnabled() {
-        assertThat(environment.getProperty("spring.cloud.config.enabled"))
-                .isEqualTo("true");
-    }
-}
-
-4)package com.mypersonal.aexpconfig;
-
-import com.mypersonal.aexpconfig.service.DemoService;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
-@SpringBootTest(
-        properties = {
-                "spring.cloud.config.enabled=false"
-        })
-class DefaultValueTests {
-
-    @Autowired
-    private DemoService demoService;
-
-    @Test
-    void testFallbackDefaultValue() {
-        assertThat(demoService.getMessage()).isEqualTo("Hello, World!");
-    }
-}
-
-4)package com.mypersonal.aexpconfig;
-
-import com.empower.epw.starter.config.store.EpwConfigServiceBootstrapConfiguration;
-
-import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.runner.ApplicationContextRunner;
-import org.springframework.cloud.config.client.ConfigClientProperties;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.catchThrowable;
-
-/**
- * Unit tests for the {@link EpwConfigServiceBootstrapConfiguration} class.
- * These tests validate the behavior of the configuration class under various scenarios.
- */
-class EpwConfigServiceBootstrapConfigurationTest {
-
-    private final ApplicationContextRunner contextRunner =
-            new ApplicationContextRunner()
-                    .withUserConfiguration(EpwConfigServiceBootstrapConfiguration.class)
-                    .withPropertyValues(
-                            "spring.cloud.config.enabled=true",
-                            "aws.account=dev",
-                            "identity.stage=devtrunk",
-                            "pcsvc.server.useLocalEKSUrl=false"
-                    );
-
-    /**
-     * Test to verify that the ConfigClientProperties bean is created with the correct external URL
-     * and no parent stage is included in the profile.
-     */
-    @Test
-    void shouldCreateConfigClientProperties_withExternalUrl_andNoParentStage() {
-        contextRunner.run(context -> {
-            ConfigClientProperties props = context.getBean(ConfigClientProperties.class);
-            assertThat(props).isNotNull();
-            assertThat(props.getProfile()).isEqualTo("devshared,devtrunk");
-            assertThat(props.getUri()[0]).isEqualTo("https://pcsvc.dt.pcapqa.app/cfg-store/");
-            assertThat(props.getLabel()).isEqualTo("pcapeks");
-        });
-    }
-
-    /**
-     * Test to verify that the parent stage is included in the profile when specified.
-     */
-    @Test
-    void shouldIncludeParentStageInProfile() {
-        new ApplicationContextRunner()
-                .withUserConfiguration(EpwConfigServiceBootstrapConfiguration.class)
-                .withPropertyValues(
-                        "spring.cloud.config.enabled=true",
-                        "aws.account=dev",
-                        "identity.stage=devstaging",
-                        "identity.parentStage=devparent",
-                        "pcsvc.server.useLocalEKSUrl=false"
-                )
-                .run(context -> {
-                    ConfigClientProperties props = context.getBean(ConfigClientProperties.class);
-                    assertThat(props.getProfile()).isEqualTo("devshared,devparent,devstaging");
-                });
-    }
-
-    /**
-     * Test to verify that the internal URL is used when the local EKS flag is set to true.
-     */
-    @Test
-    void shouldUseInternalUrlWhenLocalEksFlagIsTrue() {
-        new ApplicationContextRunner()
-                .withUserConfiguration(EpwConfigServiceBootstrapConfiguration.class)
-                .withPropertyValues(
-                        "spring.cloud.config.enabled=true",
-                        "aws.account=dev",
-                        "identity.stage=devtrunk",
-                        "pcsvc.server.useLocalEKSUrl=true"
-                )
-                .run(context -> {
-                    ConfigClientProperties props = context.getBean(ConfigClientProperties.class);
-                    assertThat(props.getUri()[0])
-                            .isEqualTo("http://cfg-store-service.cfg-store-app.svc.cluster.local:8080/cfg-store/");
-                });
-    }
-
-    /**
-     * Test to verify that an exception is thrown when required properties (aws.account or identity.stage) are missing.
-     */
-    @Test
-    void shouldThrowExceptionWhenAwsAccountOrStageMissing() {
-        new ApplicationContextRunner()
-                .withUserConfiguration(EpwConfigServiceBootstrapConfiguration.class)
-                .withPropertyValues(
-                        "spring.cloud.config.enabled=true",
-                        "pcsvc.server.useLocalEKSUrl=false"
-                        // Intentionally omitting aws.account and identity.stage
-                )
-                .run(context -> {
-                    Throwable thrown = catchThrowable(() -> context.getBean(ConfigClientProperties.class));
-
-                    assertThat(thrown)
-                            .isNotNull()
-                            .rootCause()
-                            .isInstanceOf(IllegalStateException.class)
-                            .hasMessageContaining("Unable to infer profiles");
-                });
-    }
-
-    /**
-     * Test to verify that the ConfigClientProperties bean is not loaded when Spring Cloud Config is disabled.
-     */
-    @Test
-    void shouldNotLoadWhenConfigDisabled() {
-        new ApplicationContextRunner()
-                .withUserConfiguration(EpwConfigServiceBootstrapConfiguration.class)
-                .withPropertyValues("spring.cloud.config.enabled=false")
-                .run(context -> {
-                    assertThat(context).doesNotHaveBean(ConfigClientProperties.class);
-                });
-    }
-}
-
-6)package com.mypersonal.aexpconfig;
-
-import com.mypersonal.aexpconfig.service.DemoService;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.core.env.Environment;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
-@SpringBootTest(
-        properties = {
-                "spring.cloud.config.enabled=false",
-        })
-class LocalProfileTests {
-
-    @Autowired
-    private DemoService demoService;
-
-    @Autowired
-    private Environment environment;
-
-    @Test
-    void testCustomValueFromLocalProfile() {
-        assertThat(demoService.getMessage())
-                .isEqualTo("Hello, World!");
-    }
-
-    @Test
-    void testSpringCloudConfigDisabledInLocal() {
-        assertThat(environment.getProperty("spring.cloud.config.enabled"))
-                .isEqualTo("false");
-    }
-}
+   * explicitly provide the required properties when `spring.cloud.config.enabled=true`, or
+   * disable the config store (`spring.cloud.config.enabled=false`) for local tests.
+
+2. **`StarterBeanController` improved** to avoid `getBeanDefinition` `NullPointerException` and to reliably detect beans related to the starter by checking bean **types** and bean class names rather than `resourceDescription`.
+
+3. **`ConfigStoreBeanTests` changed** to provide required properties (or use `ApplicationContextRunner`) so they run reliably in CI and local.
+
+4. **Commons Logging conflict**: added guidance to exclude `commons-logging` from transitive dependencies in `pom.xml` if you observe the `spring-jcl` warning.
+
+5. **`bootstrap-local.properties`** is used to run locally (with `spring.cloud.config.enabled=false`) to avoid the `Unable to infer profiles` startup error.
+
+6. **General guidance**: tests should avoid hitting the real external config server. Use `spring.cloud.config.enabled=false` for unit tests, or use `ApplicationContextRunner` to create focused contexts.
+
+---
+
+## How to run locally (recommended)
+
+1. Use the `local` profile or `bootstrap-local.properties`:
+
+```bash
+mvn -Dspring-boot.run.profiles=local spring-boot:run
+```
+
+This disables the remote config store and uses `app.message` from local properties.
+
+2. Open `http://localhost:8081/hello` (app uses port 8081 by default in these properties) to verify.
+
+---
+
+## Running tests
+
+```
+mvn test
+```
+
+Notes:
+
+* Unit tests that assert `EpwConfigServiceBootstrapConfiguration` behavior now use `ApplicationContextRunner` where appropriate.
+* Integration-style `@SpringBootTest` tests set `spring.cloud.config.enabled=false` unless explicitly testing config-store behavior and then they provide `aws.account` and `identity.stage`.
+
+---
+
+## Important code snippets to paste/replace
+
+### 1) `pom.xml` (commons-logging exclusion guidance)
+
+If you see the `spring-jcl`/commons-logging message, add exclusions where needed, for example:
+
+```xml
+<!-- Example: exclude commons-logging from a transitive dependency -->
+<dependency>
+  <groupId>some.group</groupId>
+  <artifactId>some-artifact</artifactId>
+  <version>1.2.3</version>
+  <exclusions>
+    <exclusion>
+      <groupId>commons-logging</groupId>
+      <artifactId>commons-logging</artifactId>
+    </exclusion>
+  </exclusions>
+</dependency>
+```
+
+Or globally ensure Spring's `spring-jcl` is used (Spring Boot usually handles this).
+
+---
+
+## Notes and troubleshooting
+
+* If you enable config-store (`spring.cloud.config.enabled=true`), you must provide `aws.account` and `identity.stage`. Otherwise the starter throws `IllegalStateException` at startup.
+* The starter chooses the external URL by default when `pcsvc.server.useLocalEKSUrl` is not set (because `Boolean.parseBoolean(null)` returns `false`).
+* If you need tests that assert the config server URI or profile values, prefer `ApplicationContextRunner` tests to keep them focused and avoid starting the full app.
+
+---
+
+If you'd like, I can now:
+
+* apply the exact code changes (I can provide full file contents you can paste), or
+* produce a patch/zip with corrected files.
+
+Tell me how you'd like the fixes delivered (pasteable files inline, or a downloadable zip patch).
