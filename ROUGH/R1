@@ -1,103 +1,137 @@
-# aexp-config-poc
+# Aexp Config POC
 
-This repository is a small POC showing how `epw-starter-config-store` (a Spring Cloud Config Client wrapper) is wired into a Spring Boot app.
-
-## What this project contains
-
-* `AexpConfigApplication` — main Spring Boot application. Imports the starter auto-configuration.
-* `DemoService` — reads `app.message` via `@Value`.
-* Controllers:
-
-  * `HelloController` — `/hello` returns value from `DemoService`.
-  * `ConfigStoreInfoController` — `/config-store/info` and `/config-store/debug` expose `ConfigClientProperties`.
-  * `StarterBeanController` — lists beans that reference the starter auto-configuration (helpful for debugging).
-* `DebugRunner` — small startup runner that prints whether `configClientProperties` is present.
-* Tests demonstrating various scenarios (local vs config-store) and unit tests for the starter's behavior.
+This is a small Spring Boot POC project demonstrating how to integrate the **epw-starter-config-store** module into a Spring Boot 3.3 application. The project verifies loading configuration properties from the config-store, profile inference, and local profile fallbacks.
 
 ---
 
-## Key fixes & recommendations applied
+## Features
 
-1. **Tests updated** so they don't fail when the config-store starter requires `aws.account` and `identity.stage`. Tests either:
+* Integration of **EpwConfigServiceBootstrapConfiguration** from the starter.
+* REST endpoints to:
 
-   * explicitly provide the required properties when `spring.cloud.config.enabled=true`, or
-   * disable the config store (`spring.cloud.config.enabled=false`) for local tests.
+  * Check resolved config store URI, label, and profile.
+  * Display values from injected properties.
+  * Debug and confirm starter beans loaded.
+* Profile-based configurations (`application.properties`, `application-local.properties`, `bootstrap.properties`, `bootstrap-local.properties`).
+* Unit and integration tests covering:
 
-2. **`StarterBeanController` improved** to avoid `getBeanDefinition` `NullPointerException` and to reliably detect beans related to the starter by checking bean **types** and bean class names rather than `resourceDescription`.
-
-3. **`ConfigStoreBeanTests` changed** to provide required properties (or use `ApplicationContextRunner`) so they run reliably in CI and local.
-
-4. **Commons Logging conflict**: added guidance to exclude `commons-logging` from transitive dependencies in `pom.xml` if you observe the `spring-jcl` warning.
-
-5. **`bootstrap-local.properties`** is used to run locally (with `spring.cloud.config.enabled=false`) to avoid the `Unable to infer profiles` startup error.
-
-6. **General guidance**: tests should avoid hitting the real external config server. Use `spring.cloud.config.enabled=false` for unit tests, or use `ApplicationContextRunner` to create focused contexts.
+  * Profile resolution
+  * Local overrides
+  * Config store bean loading
+  * Exception scenarios when required properties are missing.
 
 ---
 
-## How to run locally (recommended)
+## Endpoints
 
-1. Use the `local` profile or `bootstrap-local.properties`:
+* `GET /hello` → Returns value of `app.message`.
+* `GET /config-store/info` → Returns URI, label, and profile used by config store.
+* `GET /config-store/debug` → Returns the raw `ConfigClientProperties` object.
+* `GET /starter/beans` → Verifies that `EpwConfigServiceBootstrapConfiguration` is loaded.
+
+---
+
+## Profiles & Properties
+
+* **application.properties** → Default app configs.
+* **application-local.properties** → Overrides for local profile.
+* **bootstrap.properties** → Config store enabled by default, sets `aws.account` and `identity.stage`.
+* **bootstrap-local.properties** → Config store disabled locally with `spring.cloud.config.enabled=false`.
+
+`pcsvc.server.useLocalEKSUrl` controls whether the config client points to **internal** or **external** URLs:
+
+* `true` → internal Kubernetes service URL.
+* `false` → external URL.
+* not set → defaults to `false` (external URL).
+
+---
+
+## Why `@ImportAutoConfiguration(EpwConfigServiceBootstrapConfiguration.class)` is Required
+
+In the original **`epw-starter-config-store`** module, the auto-configuration class
+`EpwConfigServiceBootstrapConfiguration` was registered using the **Spring Boot 2.2 mechanism**:
+
+```
+META-INF/spring.factories
+```
+
+with an entry like:
+
+```properties
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+com.empower.epw.starter.config.store.EpwConfigServiceBootstrapConfiguration
+```
+
+This worked in Spring Boot ≤2.6, where `spring.factories` was the standard way of loading auto-configurations.
+
+### Change in Spring Boot 3.x
+
+Starting from **Spring Boot 3.0+** (in alignment with Spring Framework 6 and JDK 17),
+the `spring.factories` mechanism for auto-configuration is **deprecated and no longer used**.
+Instead, Spring Boot introduced a new file-based registration system:
+
+```
+META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports
+```
+
+If the `epw-starter-config-store` module hasn’t been upgraded to this new format,
+its auto-configuration class (`EpwConfigServiceBootstrapConfiguration`) will **not load automatically** in Boot 3.3.
+
+### Solution in the POC
+
+Because the `epw-starter-config-store` you’re using is still in the **old style (Spring Boot 2.2 era)**,
+the class must be explicitly imported in your application to ensure it is loaded:
+
+```java
+@SpringBootApplication
+@ImportAutoConfiguration({ EpwConfigServiceBootstrapConfiguration.class })
+public class AexpConfigApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(AexpConfigApplication.class, args);
+    }
+}
+```
+
+### Key Point
+
+* In production, once the starter is **migrated to Spring Boot 3.x conventions**
+  (by moving the auto-configuration class into `spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`),
+  this explicit import will **no longer be required**.
+* In this POC, we used `@ImportAutoConfiguration` to **bridge the gap** so the module works under Boot 3.3.
+
+---
+
+## Running the Application
 
 ```bash
-mvn -Dspring-boot.run.profiles=local spring-boot:run
+./mvnw spring-boot:run
 ```
 
-This disables the remote config store and uses `app.message` from local properties.
+To run with **local profile**:
 
-2. Open `http://localhost:8081/hello` (app uses port 8081 by default in these properties) to verify.
+```bash
+./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+```
 
 ---
 
-## Running tests
+## Running Tests
 
+```bash
+./mvnw test
 ```
-mvn test
-```
 
-Notes:
+Tests cover:
 
-* Unit tests that assert `EpwConfigServiceBootstrapConfiguration` behavior now use `ApplicationContextRunner` where appropriate.
-* Integration-style `@SpringBootTest` tests set `spring.cloud.config.enabled=false` unless explicitly testing config-store behavior and then they provide `aws.account` and `identity.stage`.
+* Default and local profile behaviors.
+* Config store integration.
+* Profile inference logic.
+* Validation of bean creation/exceptions.
 
 ---
 
-## Important code snippets to paste/replace
+## Notes
 
-### 1) `pom.xml` (commons-logging exclusion guidance)
-
-If you see the `spring-jcl`/commons-logging message, add exclusions where needed, for example:
-
-```xml
-<!-- Example: exclude commons-logging from a transitive dependency -->
-<dependency>
-  <groupId>some.group</groupId>
-  <artifactId>some-artifact</artifactId>
-  <version>1.2.3</version>
-  <exclusions>
-    <exclusion>
-      <groupId>commons-logging</groupId>
-      <artifactId>commons-logging</artifactId>
-    </exclusion>
-  </exclusions>
-</dependency>
-```
-
-Or globally ensure Spring's `spring-jcl` is used (Spring Boot usually handles this).
-
----
-
-## Notes and troubleshooting
-
-* If you enable config-store (`spring.cloud.config.enabled=true`), you must provide `aws.account` and `identity.stage`. Otherwise the starter throws `IllegalStateException` at startup.
-* The starter chooses the external URL by default when `pcsvc.server.useLocalEKSUrl` is not set (because `Boolean.parseBoolean(null)` returns `false`).
-* If you need tests that assert the config server URI or profile values, prefer `ApplicationContextRunner` tests to keep them focused and avoid starting the full app.
-
----
-
-If you'd like, I can now:
-
-* apply the exact code changes (I can provide full file contents you can paste), or
-* produce a patch/zip with corrected files.
-
-Tell me how you'd like the fixes delivered (pasteable files inline, or a downloadable zip patch).
+* This POC does **not** spin up a local config store server.
+* Instead, it simulates property resolution using `bootstrap*.properties` and test overrides.
+* The goal is to validate that `epw-starter-config-store` wiring works in Spring Boot 3.3.
