@@ -1,137 +1,105 @@
-# Aexp Config POC
+old client creation:
 
-This is a small Spring Boot POC project demonstrating how to integrate the **epw-starter-config-store** module into a Spring Boot 3.3 application. The project verifies loading configuration properties from the config-store, profile inference, and local profile fallbacks.
+private AWSKMS getKMSClient()
+	{
+		if (kmsClient == null)
+		{
+			AWSCredentialsManager awsCredentialsManager = new AWSCredentialsManager();
+			kmsClient = (AWSKMS) awsCredentialsManager
+					.getClientBuilderWithCredentials(AWSKMSClient.builder())
+					.build();
+		}
+		return kmsClient;
+	}
 
----
+old resource -
+package com.personalcapital.aws;
 
-## Features
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.client.builder.AwsClientBuilder;
+import com.empower.epw.plat.aws.AwsSdkUtils;
 
-* Integration of **EpwConfigServiceBootstrapConfiguration** from the starter.
-* REST endpoints to:
+import static com.empower.epw.plat.aws.AwsSdkUtils.AWS_CREDENTIALS_PROVIDER;
 
-  * Check resolved config store URI, label, and profile.
-  * Display values from injected properties.
-  * Debug and confirm starter beans loaded.
-* Profile-based configurations (`application.properties`, `application-local.properties`, `bootstrap.properties`, `bootstrap-local.properties`).
-* Unit and integration tests covering:
+/**
+ * How to manage credentials (access key id and secret access key), in the AWS SDKs in a secure way.
+ * <a href=
+ * "https://aws.amazon.com/blogs/security/a-new-and-standardized-way-to-manage-credentials-in-the-aws-sdks/">
+ *
+ * @author dizadi
+ */
+public class AWSCredentialsManager
+{
 
-  * Profile resolution
-  * Local overrides
-  * Config store bean loading
-  * Exception scenarios when required properties are missing.
+	@Deprecated(forRemoval = true, since = "2023.25")
+	public static final String DEFAULT_AWS_REGION = AwsSdkUtils.AWS_REGION;
+	@Deprecated(forRemoval = true, since = "2023.25")
+	public static final String AWS_REGION_KEY = AwsSdkUtils.AWS_REGION_KEY;
 
----
+	@Deprecated(forRemoval = true, since = "2023.26")
+	public AWSCredentialsProvider getCredentials()
+	{
+		return AWS_CREDENTIALS_PROVIDER;
+	}
 
-## Endpoints
+	@Deprecated(forRemoval = true, since = "2023.26")
+	public <T extends AwsClientBuilder<T, R>, R> AwsClientBuilder<T, R> getClientBuilderWithCredentials(
+			AwsClientBuilder<T, R> builder)
+	{
+		return AwsSdkUtils.builder(builder);
+	}
 
-* `GET /hello` → Returns value of `app.message`.
-* `GET /config-store/info` → Returns URI, label, and profile used by config store.
-* `GET /config-store/debug` → Returns the raw `ConfigClientProperties` object.
-* `GET /starter/beans` → Verifies that `EpwConfigServiceBootstrapConfiguration` is loaded.
-
----
-
-## Profiles & Properties
-
-* **application.properties** → Default app configs.
-* **application-local.properties** → Overrides for local profile.
-* **bootstrap.properties** → Config store enabled by default, sets `aws.account` and `identity.stage`.
-* **bootstrap-local.properties** → Config store disabled locally with `spring.cloud.config.enabled=false`.
-
-`pcsvc.server.useLocalEKSUrl` controls whether the config client points to **internal** or **external** URLs:
-
-* `true` → internal Kubernetes service URL.
-* `false` → external URL.
-* not set → defaults to `false` (external URL).
-
----
-
-## Why `@ImportAutoConfiguration(EpwConfigServiceBootstrapConfiguration.class)` is Required
-
-In the original **`epw-starter-config-store`** module, the auto-configuration class
-`EpwConfigServiceBootstrapConfiguration` was registered using the **Spring Boot 2.2 mechanism**:
-
-```
-META-INF/spring.factories
-```
-
-with an entry like:
-
-```properties
-org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
-com.empower.epw.starter.config.store.EpwConfigServiceBootstrapConfiguration
-```
-
-This worked in Spring Boot ≤2.6, where `spring.factories` was the standard way of loading auto-configurations.
-
-### Change in Spring Boot 3.x
-
-Starting from **Spring Boot 3.0+** (in alignment with Spring Framework 6 and JDK 17),
-the `spring.factories` mechanism for auto-configuration is **deprecated and no longer used**.
-Instead, Spring Boot introduced a new file-based registration system:
-
-```
-META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports
-```
-
-If the `epw-starter-config-store` module hasn’t been upgraded to this new format,
-its auto-configuration class (`EpwConfigServiceBootstrapConfiguration`) will **not load automatically** in Boot 3.3.
-
-### Solution in the POC
-
-Because the `epw-starter-config-store` you’re using is still in the **old style (Spring Boot 2.2 era)**,
-the class must be explicitly imported in your application to ensure it is loaded:
-
-```java
-@SpringBootApplication
-@ImportAutoConfiguration({ EpwConfigServiceBootstrapConfiguration.class })
-public class AexpConfigApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(AexpConfigApplication.class, args);
-    }
 }
-```
 
-### Key Point
 
-* In production, once the starter is **migrated to Spring Boot 3.x conventions**
-  (by moving the auto-configuration class into `spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`),
-  this explicit import will **no longer be required**.
-* In this POC, we used `@ImportAutoConfiguration` to **bridge the gap** so the module works under Boot 3.3.
+new client creation:
+@Configuration
+public class EpwKmsAutoConfig
+{
 
----
+	private static final Logger logger = LoggerFactory.getLogger(EpwKmsAutoConfig.class);
+	private static final String DEFAULT_AWS_REGION = "us-west-2";
+	public static final String AWS_REGION_KEY = "aws.region";
+	public static final String AWS_PROFILE = "aws.profile";
 
-## Running the Application
+@Bean(name = "epwAWSKMSClient")
+	@ConditionalOnProperty(name = "epw.aws.kms.sdk-version", havingValue = "v1", matchIfMissing = true)
+	public AWSKMS awsKmsClient()
+	{
+		String awsRegion = System.getProperty(AWS_REGION_KEY, DEFAULT_AWS_REGION);
+		String awsProfile = System.getProperty(AWS_PROFILE);
+		com.amazonaws.auth.AWSCredentialsProvider credentialsProvider;
+		if (StringUtils.hasText(awsProfile))
+		{
+			logger.info("Using AWS profile for AWS SDK v1: {}", awsProfile);
+			credentialsProvider = new com.amazonaws.auth.profile.ProfileCredentialsProvider(
+					awsProfile);
+		}
+		else
+		{
+			logger.info("Using default AWS credentials provider chain.");
+			credentialsProvider = com.amazonaws.auth.DefaultAWSCredentialsProviderChain
+					.getInstance();
+		}
+		logger.info("Creating AWSKMS client with region for AWS SDK v1: {}", awsRegion);
+		return AWSKMSClientBuilder.standard()
+				.withCredentials(credentialsProvider)
+				.withRegion(awsRegion)
+				.build();
+	}
 
-```bash
-./mvnw spring-boot:run
-```
+	@Bean(name = "epwAwsKmsService")
+	@ConditionalOnProperty(name = "epw.aws.kms.sdk-version", havingValue = "v1", matchIfMissing = true)
+	public EpwKmsService epwKmsServiceV1(@Qualifier("epwAWSKMSClient") AWSKMS awsKmsClient)
+	{
+		logger.info("Creating EpwKmsService bean for AWS SDK v1.");
+		return new com.empower.epw.aws.v1.kms.EpwKmsServiceImpl(awsKmsClient);
+	}
+}
 
-To run with **local profile**:
 
-```bash
-./mvnw spring-boot:run -Dspring-boot.run.profiles=local
-```
+error i am facing:
+2025-09-15 10:45:51 AM [sqsThread5] [trace_id: 231d1a13-e956-4567-8d9d-f4fe50880b78 / span_id: 0dc15962-043b-4f6a-9ad4-6ded3c72fc34] WARN   com.safepage.security.CryptEngine - Failed to decrypt because: com.empower.epw.aws.api.kms.exception.KMSOperationException: 'AWS SDK v1' KMS operation 'decryptUsingAWSKey' failed for keyId 'null': User: arn:aws:sts::179355710817:assumed-role/PCAP-PCAPEKS-QASTAGING-EKS-SERVER-ROLES-Fp/aws-sdk-java-1757952577626 is not authorized to perform: kms:Decrypt on the resource associated with this ciphertext because the resource does not exist in this Region, no resource-based policies allow access, or a resource-based policy explicitly denies access (Service: AWSKMS; Status Code: 400; Error Code: AccessDeniedException; Request ID: b6bb4a55-7646-4e2d-8172-908fedc395fc; Proxy: null)
 
----
 
-## Running Tests
-
-```bash
-./mvnw test
-```
-
-Tests cover:
-
-* Default and local profile behaviors.
-* Config store integration.
-* Profile inference logic.
-* Validation of bean creation/exceptions.
-
----
-
-## Notes
-
-* This POC does **not** spin up a local config store server.
-* Instead, it simulates property resolution using `bootstrap*.properties` and test overrides.
-* The goal is to validate that `epw-starter-config-store` wiring works in Spring Boot 3.3.
+what could be the reason?
