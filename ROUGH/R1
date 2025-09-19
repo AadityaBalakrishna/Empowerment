@@ -1,5 +1,14 @@
-spring.cloud.config.enabled=true
-spring.cloud.config.uri=https://pcsvc.dt.pcapqa.app/cfg-store/
-spring.cloud.config.name=batch-api
-spring.cloud.config.profile=devshared,devstaging
-spring.cloud.config.label=pcapeks
+FSC Object	
+SFC Field	
+Data Type	
+IHUB Object / Field	
+Redwood Object / Field	
+Derivation Logic (across entities)	
+Transformation Logic	
+Notes	Nimbus Object / Field
+
+
+In a data mapping project from Salesforce object with a redwood or ihub oject, what is Derivation logic (across entities) or Transformation logic?
+
+for example in the SFC object - Referral, there is a field called, industry of data type picklist
+but in redwood, under the sp_schema , person table, there is a column of data type varchar(500) with nature_of_business column name, which matches to what we need
