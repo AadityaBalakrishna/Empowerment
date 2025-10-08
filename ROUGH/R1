@@ -1,24 +1,67 @@
-pipeline {
-  agent any
-  stages {
-    stage('Test IAM Role') {
-      steps {
-        sh '''
-          echo "Assuming devtrunk test role..."
-          aws sts assume-role \
-            --role-arn arn:aws:iam::<account-id>:role/devtrunk-common-test-role \
-            --role-session-name jenkins-test \
-            --query 'Credentials' \
-            --output json > creds.json
+what you are doing is fetching the roles and matching to see if it's same, but actually what needs to be done is if some IT test is actually running right?
 
-          export AWS_ACCESS_KEY_ID=$(jq -r '.AccessKeyId' creds.json)
-          export AWS_SECRET_ACCESS_KEY=$(jq -r '.SecretAccessKey' creds.json)
-          export AWS_SESSION_TOKEN=$(jq -r '.SessionToken' creds.json)
 
-          echo "Testing role permissions..."
-          aws s3 ls
-        '''
-      }
+like for example this test in another application, which is not an application has tested this and verified, can i do something similar?
+package com.empower.epw.crm.rest.web.controller;
+
+import com.empower.epw.crm.rest.CrmRestApplication;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = CrmRestApplication.class)
+@ActiveProfiles("test")
+class SsmControllerTest {
+
+    @Value("${scaffold.test.secret}")
+    private String scaffoldTestSecret;
+
+    @Value("${ace.api.baseurl}")
+    private String scaffoldTestKey;
+
+    @Test
+    void testSsmAndConfigStoreConnectivity() {
+        assertThat(scaffoldTestSecret).isNotNull().isNotEmpty();
+        assertThat(scaffoldTestKey).isNotNull().isNotEmpty();
     }
-  }
+}
+
+package com.empower.epw.crm.rest.web.controller;
+
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+
+@RestController
+@RequestMapping(value = "/api/rest")
+class    SsmController
+{
+	private static final PcapLogger log = PcapLoggerFactory
+			.getPcapLogger(SsmController.class);
+
+	@Value("${scaffold.test.key}")
+	private String scaffoldTestKey;
+
+	@Value("${scaffold.test.secret}")
+	private    String scaffoldTestSecret;
+
+	@GetMapping(value = "/ssm")
+	String transform()
+	{
+		log.info("Transform 'scaffold.test.secret' ssm value: " + scaffoldTestSecret);
+		return scaffoldTestSecret;
+	}
+
+	@GetMapping(value = "/cfg")
+	String getScaffoldTestKey() {
+		log.info("Transform 'scaffold.test.key' cfg value: " + scaffoldTestKey);
+		return scaffoldTestKey;
+	}
 }
