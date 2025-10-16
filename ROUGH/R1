@@ -1,3 +1,26 @@
+Purpose:
+As a Backend Developer,
+I need to configure epw-starter-sqs for the crm-gateway-service and enable SQS message consumption
+so that the service can process event-driven updates and persist data in its database.
+
+Requirements / Development Notes
+Integrate epw-starter-sqs into the crm-gateway-service.
+Configure SQS queue connection (endpoint, region, IAM credentials).
+Implement message listener to read and process messages.
+Connect to the DB to update or insert processed data.
+Add retry for failed messages.
+
+Dependencies
+AWS SQS queue setup and access permissions.
+DB connectivity configuration. (epw-starter-jpa/jdbc needs to be another story for crm-gway-service)
+
+Acceptance Criteria
+Service connects to AWS SQS and reads messages successfully.
+Messages are processed and data is updated in the DB.
+Failed messages retry.
+Logs show message ID, status, and processing result.
+All parameters configurable per environment.
+
 1) epw-starter-sqs/src/main/java/com/empower/epw/sqs/config/EmpowerSQSConfig.java
 package com.empower.epw.sqs.config;
 import com.empower.epw.sqs.EmpowerSQSService;
