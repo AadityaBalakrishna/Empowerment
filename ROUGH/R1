@@ -1,8 +1,12 @@
-        <dependency>
-            <groupId>io.awspring.cloud</groupId>
-            <artifactId>spring-cloud-aws-starter</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.awspring.cloud</groupId>
-            <artifactId>spring-cloud-aws-starter-sqs</artifactId>
-        </dependency>
+Requirements / Development Notes
+Integrate epw-starter-sqs into the crm-gateway-service.
+Configure SQS queue connection (endpoint, region, IAM credentials).
+Implement message listener to read and process messages.
+Add retry for failed messages.
+
+
+Acceptance Criteria
+Service connects to AWS SQS and reads messages successfully.
+Failed messages retry.
+Logs show message ID, status, and processing result.
+All parameters configurable per environment.
