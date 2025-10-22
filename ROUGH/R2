@@ -1,36 +1,96 @@
-import org.springframework.boot.test.context.DynamicPropertyRegistry;
-import org.springframework.boot.test.context.DynamicPropertySource;
-import org.testcontainers.containers.localstack.LocalStackContainer;
-import org.testcontainers.utility.DockerImageName;
-import software.amazon.awssdk.services.sqs.SqsClient;
-import software.amazon.awssdk.services.sqs.model.CreateQueueRequest;
+package com.empower.crm.gateway.listener;
 
-@SpringBootTest
-@Testcontainers
-public class CrmGatewaySqsIT {
+import io.awspring.cloud.sqs.annotation.SqsListener;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
+import org.springframework.stereotype.Component;
 
-    static final LocalStackContainer localstack = new LocalStackContainer(DockerImageName.parse("localstack/localstack:latest"))
-        .withServices(LocalStackContainer.Service.SQS);
+@Slf4j
+@Component
+public class CrmGatewayMessageListener {
 
-    @DynamicPropertySource
-    static void registerProps(DynamicPropertyRegistry registry) {
-        localstack.start();
-        registry.add("spring.cloud.aws.sqs.endpoint", localstack::getEndpointOverride);
-        registry.add("spring.cloud.aws.region.static", localstack::getRegion);
-        registry.add("spring.cloud.aws.credentials.access-key", localstack::getAccessKey);
-        registry.add("spring.cloud.aws.credentials.secret-key", localstack::getSecretKey);
+    @SqsListener("${trs.sqs.queue.dry-run:}")
+    @Retryable(
+        value = { Exception.class },
+        maxAttemptsExpression = "#{${trs.sqs.retry.max-attempts:3}}",
+        backoff = @Backoff(delayExpression = "#{${trs.sqs.retry.backoff-delay:1000}}")
+    )
+    public void handleDryRunMessage(String message) {
+        processMessage("DRY_RUN", message);
     }
 
-    @BeforeAll
-    static void setupQueue() {
-        SqsClient sqsClient = SqsClient.builder()
-                .endpointOverride(localstack.getEndpointOverride(LocalStackContainer.Service.SQS))
-                .region(localstack.getRegion())
-                .credentialsProvider(localstack.getDefaultCredentialsProvider())
-                .build();
+    @SqsListener("${trs.sqs.queue.intermediate:}")
+    @Retryable(
+        value = { Exception.class },
+        maxAttemptsExpression = "#{${trs.sqs.retry.max-attempts:3}}",
+        backoff = @Backoff(delayExpression = "#{${trs.sqs.retry.backoff-delay:1000}}")
+    )
+    public void handleIntermediateMessage(String message) {
+        processMessage("INTERMEDIATE", message);
+    }
 
-        sqsClient.createQueue(CreateQueueRequest.builder()
-                .queueName("DEV_CRM_GATEWAY_NORMAL")
-                .build());
+    @SqsListener("${trs.sqs.queue.normal:}")
+    @Retryable(
+        value = { Exception.class },
+        maxAttemptsExpression = "#{${trs.sqs.retry.max-attempts:3}}",
+        backoff = @Backoff(delayExpression = "#{${trs.sqs.retry.backoff-delay:1000}}")
+    )
+    public void handleNormalMessage(String message) {
+        processMessage("NORMAL", message);
+    }
+
+    @SqsListener("${trs.sqs.queue.top:}")
+    @Retryable(
+        value = { Exception.class },
+        maxAttemptsExpression = "#{${trs.sqs.retry.max-attempts:3}}",
+        backoff = @Backoff(delayExpression = "#{${trs.sqs.retry.backoff-delay:1000}}")
+    )
+    public void handleTopMessage(String message) {
+        processMessage("TOP", message);
+    }
+
+    private void processMessage(String type, String message) {
+        log.info("Received [{}] message: {}", type, message);
+
+        try {
+            // TODO: Deserialize and handle your domain logic here
+            // Example: persist data into CRM DB
+            log.info("Message [{}] processed successfully.", type);
+        } catch (Exception ex) {
+            log.error("Error processing [{}] message: {}", type, ex.getMessage(), ex);
+            throw ex; // triggers @Retryable
+        }
+    }
+}
+
+package com.empower.crm.gateway;
+
+import com.empower.aws.sqs.service.EmpowerSQSService;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import static org.assertj.core.api.Assertions.assertThat;
+
+@SpringBootTest
+public class CrmGatewaySqsIntegrationTest {
+
+    @Autowired
+    private EmpowerSQSService empowerSQSService;
+
+    @Test
+    void shouldSendAndReceiveMessage() {
+        // Queue name must match what is configured in your application.properties
+        String queueName = "DEV_CRM_GATEWAY_NORMAL";
+        String expectedMessage = "Hello from CRM Gateway";
+
+        // Send message
+        empowerSQSService.sendMessage(queueName, expectedMessage);
+
+        // Receive message (blocking until one is available)
+        String actualMessage = empowerSQSService.reciveMessage(queueName, String.class);
+
+        // Verify the message content matches
+        assertThat(actualMessage).isEqualTo(expectedMessage);
     }
 }
