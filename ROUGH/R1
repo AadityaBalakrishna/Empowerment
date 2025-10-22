@@ -490,3 +490,174 @@ public class ProcessingTracker {
         }
     }
 }
+
+package com.yourorg.crmgateway.sqs;
+
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.retry.annotation.Retryable;
+import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Value;
+import io.awspring.cloud.sqs.annotation.SqsListener;
+import org.springframework.messaging.Message;
+
+@Component
+public class CrmGatewaySqsListener {
+    private static final Logger logger = LoggerFactory.getLogger(CrmGatewaySqsListener.class);
+
+    // optional tracker used by tests to assert processing
+    private final ProcessingTracker processingTracker;
+
+    public CrmGatewaySqsListener(ProcessingTracker processingTracker) {
+        this.processingTracker = processingTracker;
+    }
+
+    /*
+     The SqsListener is wired from a property so it is configurable per environment.
+     We define just the 'normal' queue here; you can create separate methods or wire multiple queues.
+    */
+    @SqsListener("${crm.gateway.queue.normal:}")
+    @Retryable(value = { Exception.class },
+               maxAttemptsExpression = "#{${crm.sqs.retry.max-attempts:3}}",
+               backoff = @Backoff(delayExpression = "#{${crm.sqs.retry.backoff-delay:1000}}"))
+    public void onMessage(Message<String> message) {
+        String messageId = Optional.ofNullable(message.getHeaders().getId()).map(Object::toString).orElse("N/A");
+        String payload = message.getPayload();
+        logger.info("Received messageId={} payload={}", messageId, payload);
+
+        try {
+            // business processing: keep it simple here. Replace with actual processing.
+            processPayload(payload);
+
+            logger.info("Processed messageId={} status=SUCCESS", messageId);
+            processingTracker.noteProcessed(messageId, payload, true, "OK");
+
+        } catch (Exception e) {
+            logger.error("Processing failed messageId={} error={}", messageId, e.toString(), e);
+            processingTracker.noteProcessed(messageId, payload, false, e.getMessage());
+            // rethrow to trigger retry
+            throw e;
+        }
+    }
+
+    private void processPayload(String payload) {
+        // simulate possible failure for testing; real logic would be here
+        if (payload.contains("fail")) {
+            throw new RuntimeException("Simulated processing failure for payload: " + payload);
+        }
+        // otherwise do lightweight processing
+        logger.debug("Business logic processed payload: {}", payload);
+    }
+
+    @Recover
+    public void recoverOnMessageRetryFailure(RuntimeException e, Message<String> message) {
+        String messageId = Optional.ofNullable(message.getHeaders().getId()).map(Object::toString).orElse("N/A");
+        String payload = message.getPayload();
+        logger.warn("Recover invoked for messageId={} payload={} error={}", messageId, payload, e.toString());
+        // here we could persist failure record to DB or move message to a dead-letter queue
+        processingTracker.noteRecovered(messageId, payload, e.getMessage());
+    }
+}
+
+package com.yourorg.crmgateway;
+
+import com.yourorg.crmgateway.sqs.ProcessingTracker;
+import com.yourorg.crmgateway.sqs.CrmGatewaySqsProducer;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.localstack.LocalStackContainer;
+import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.containers.wait.strategy.Wait;
+
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@Testcontainers
+@SpringBootTest
+public class CrmGatewaySqsIntegrationTest {
+
+    private static final String QUEUE_NAME = "DEV_CRM_GATEWAY_NORMAL"; // matches stage.prefix DEV in application.properties
+
+    @Container
+    static LocalStackContainer localStack = new LocalStackContainer(DockerImageName.parse("localstack/localstack:3.0"))
+            .withServices(LocalStackContainer.Service.SQS)
+            .withEnv("DEBUG", "1")
+            .waitingFor(Wait.forLogMessage(".*Ready.*", 1));
+
+    @DynamicPropertySource
+    static void overrideProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.cloud.aws.region.static", () -> localStack.getRegion());
+        registry.add("spring.cloud.aws.credentials.access-key", () -> localStack.getAccessKey());
+        registry.add("spring.cloud.aws.credentials.secret-key", () -> localStack.getSecretKey());
+        registry.add("spring.cloud.aws.sqs.endpoint", () -> localStack.getEndpointOverride(LocalStackContainer.Service.SQS).toString());
+        // ensure stage prefix
+        registry.add("STAGE_MAP_CAPNAME", () -> "DEV");
+    }
+
+    @Autowired
+    private CrmGatewaySqsProducer producer;
+
+    @Autowired
+    private ProcessingTracker processingTracker;
+
+    @BeforeAll
+    static void beforeAll() throws Exception {
+        // Create queue using awslocal inside LocalStack container
+        localStack.execInContainer("awslocal", "sqs", "create-queue", "--queue-name", QUEUE_NAME);
+    }
+
+    @Test
+    public void testMessageConsumedSuccessfully() throws Exception {
+        // set tracker for single message
+        processingTracker.resetLatch(1);
+
+        String payload = "hello-crm-" + System.currentTimeMillis();
+        // send to queue
+        producer.send(QUEUE_NAME, payload);
+
+        boolean processed = processingTracker.await(10); // wait up to 10 seconds
+        assertThat(processed).isTrue();
+
+        // assert results include our payload
+        boolean found = processingTracker.getResults().values().stream()
+                .anyMatch(r -> payload.equals(r.payload) && r.success);
+        assertThat(found).isTrue();
+    }
+
+    @Test
+    public void testRetriesAndRecoverOnFailure() throws Exception {
+        processingTracker.resetLatch(1);
+        // payload that triggers failure in processPayload (contains "fail")
+        String payload = "please-fail-this-message";
+        producer.send(QUEUE_NAME, payload);
+
+        boolean processed = processingTracker.await(20); // allow more time for retries
+        assertThat(processed).isTrue();
+
+        // find a result for our payload that must be "RECOVERED" with success == false
+        Map<String, ProcessingTracker.ProcessResult> results = processingTracker.getResults();
+        boolean recovered = results.values().stream()
+                .filter(r -> payload.equals(r.payload))
+                .anyMatch(r -> !r.success && r.info != null && r.info.startsWith("RECOVERED"));
+        assertThat(recovered).isTrue();
+    }
+
+    @AfterAll
+    static void cleanup() throws Exception {
+        // optionally delete created queues or let LocalStack be torn down by Testcontainers
+    }
+}
+
