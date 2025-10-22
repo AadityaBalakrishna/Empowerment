@@ -1,1 +1,1 @@
-Caused by: com.github.dockerjava.api.exception.BadRequestException: Status 400: {"message":"no such image: localstack/localstack:localstack/localstack:3.0: invalid reference format"}
+Caused by: org.springframework.beans.factory.NoSuchBeanDefinitionException: No qualifying bean of type 'com.empower.epw.sqs.EmpowerSQSService' available: expected at least 1 bean which qualifies as autowire candidate. Dependency annotations: {}
