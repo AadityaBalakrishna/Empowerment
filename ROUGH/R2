@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.empower.epw.sqs.EmpowerSQSService;
@@ -94,9 +93,10 @@ public class CrmGatewaySqsIntegrationTest extends CrmGatewaySqsContainerIT {
                 backoff = @Backoff(delayExpression = "#{500}")
         )
         public String processMessageWithRetry(String queueName, String expectedFailMessage) {
-            String msg = empowerSQSService.reciveMessage(queueName, String.class);
-
-            logger.info("Received message: {} for queue: {}", msg, queueName);
+            String msg = empowerSQSService.reciveMessage(queueName, String.class, 10);
+            if (msg == null) {
+                throw new RuntimeException("No message received");
+            }
 
             // Fail first 2 attempts, succeed on 3rd
             attempt++;
@@ -111,22 +111,4 @@ public class CrmGatewaySqsIntegrationTest extends CrmGatewaySqsContainerIT {
     }
 }
 
-2025-10-22 20:32:48 PM [main] trace_id:  span_id:  INFO  com.empower.epw.sqs.impl.EmpowerSQSServiceImpl - sendMessage :: Message ID bf7f2986-f296-46f7-9217-d07c868074c1  sent successfully  
-2025-10-22 20:32:49 PM [main] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewaySqsIntegrationTest - Received message: SIMULATE_FAIL_DEVTRUNK_CRM_GATEWAY_NORMAL for queue: DEVTRUNK_CRM_GATEWAY_NORMAL 
-2025-10-22 20:32:49 PM [main] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewaySqsIntegrationTest - Simulated failure attempt 1 for queue DEVTRUNK_CRM_GATEWAY_NORMAL 
-2025-10-22 20:32:59 PM [main] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewaySqsIntegrationTest - Received message: null for queue: DEVTRUNK_CRM_GATEWAY_NORMAL 
-2025-10-22 20:32:59 PM [main] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewaySqsIntegrationTest - Message processed successfully on attempt 2 for queue DEVTRUNK_CRM_GATEWAY_NORMAL 
-
-org.opentest4j.AssertionFailedError: [Retry verified for queue: DEVTRUNK_CRM_GATEWAY_NORMAL] 
-expected: "SIMULATE_FAIL_DEVTRUNK_CRM_GATEWAY_NORMAL"
- but was: null
-Expected :"SIMULATE_FAIL_DEVTRUNK_CRM_GATEWAY_NORMAL"
-Actual   :null
-<Click to see difference>
-
-
-	at com.empower.epw.crm.gateway.sqs.CrmGatewaySqsIntegrationTest.shouldRetryOnFailureForAllQueues(CrmGatewaySqsIntegrationTest.java:69)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-
+i am told that these is an issue with the sendmessage part , so is there any other solution for this test ? else we can just avoid the send message part
