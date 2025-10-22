@@ -1,7 +1,8 @@
-2025-10-22 14:43:53 PM [main] trace_id:  span_id:  INFO  org.springframework.boot.autoconfigure.logging.ConditionEvaluationReportLogger - 
-
-Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled. 
-2025-10-22 14:43:53 PM [main] trace_id:  span_id:  ERROR org.springframework.boot.SpringApplication - Application run failed org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'org.springframework.aop.config.internalAutoProxyCreator': org/aspectj/lang/annotation/Pointcut
-
-
-i am facing this issue while running the mvn clean install command
+Caused by: org.springframework.context.ApplicationContextException: Failed to start bean 'io.awspring.cloud.messaging.internalEndpointRegistryBeanName'
+Caused by: java.util.concurrent.CompletionException: 
+io.awspring.cloud.sqs.QueueAttributesResolvingException: Error resolving attributes for queue DEV_CRM_GATEWAY_NORMAL with strategy FAIL and queueAttributesNames []
+ This might be due to connectivity issues or incorrect configuration. Please verify your AWS credentials, network settings, and queue configuration.
+Caused by: io.awspring.cloud.sqs.QueueAttributesResolvingException: 
+Error resolving attributes for queue DEV_CRM_GATEWAY_NORMAL with strategy FAIL and queueAttributesNames []
+ This might be due to connectivity issues or incorrect configuration. Please verify your AWS credentials, network settings, and queue configuration.
+Caused by: software.amazon.awssdk.services.sqs.model.QueueDoesNotExistException: The specified queue does not exist. (Service: Sqs, Status Code: 400, Request ID: d3f152dd-53d1-53bd-b0ee-33affd5b752d)
