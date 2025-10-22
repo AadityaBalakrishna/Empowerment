@@ -439,3 +439,54 @@ public class TrsSqsConsumer
 		}
 	}
 }
+
+
+answer:
+package com.yourorg.crmgateway.sqs;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
+import org.springframework.stereotype.Component;
+
+@Component
+public class ProcessingTracker {
+    // store messageId -> result info
+    private final Map<String, ProcessResult> results = new ConcurrentHashMap<>();
+    private CountDownLatch latch = new CountDownLatch(0);
+
+    public void resetLatch(int count) {
+        latch = new CountDownLatch(count);
+    }
+
+    public void noteProcessed(String messageId, String payload, boolean success, String info) {
+        results.put(messageId == null ? String.valueOf(results.size()+1) : messageId, new ProcessResult(success, info, payload));
+        latch.countDown();
+    }
+
+    public void noteRecovered(String messageId, String payload, String reason) {
+        results.put(messageId == null ? String.valueOf(results.size()+1) : messageId, new ProcessResult(false, "RECOVERED:" + reason, payload));
+        latch.countDown();
+    }
+
+    public boolean await(long timeoutSeconds) throws InterruptedException {
+        return latch.await(timeoutSeconds, TimeUnit.SECONDS);
+    }
+
+    public Map<String, ProcessResult> getResults() {
+        return results;
+    }
+
+    public static class ProcessResult {
+        public final boolean success;
+        public final String info;
+        public final String payload;
+        public ProcessResult(boolean success, String info, String payload) {
+            this.success = success;
+            this.info = info;
+            this.payload = payload;
+        }
+    }
+}
