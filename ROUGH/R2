@@ -1,96 +1,12 @@
-package com.empower.crm.gateway.listener;
+docker run --rm -d -p 4566:4566 --name localstack localstack/localstack:3.0
 
-import io.awspring.cloud.sqs.annotation.SqsListener;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.retry.annotation.Backoff;
-import org.springframework.retry.annotation.Retryable;
-import org.springframework.stereotype.Component;
+# using awslocal
+awslocal sqs create-queue --queue-name DEV_CRM_GATEWAY_NORMAL
+awslocal sqs create-queue --queue-name DEV_CRM_GATEWAY_DRY_RUN
+awslocal sqs create-queue --queue-name DEV_CRM_GATEWAY_INTERMEDIATE
+awslocal sqs create-queue --queue-name DEV_CRM_GATEWAY_TOP
 
-@Slf4j
-@Component
-public class CrmGatewayMessageListener {
+# or with aws cli:
+aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name DEV_CRM_GATEWAY_NORMAL
 
-    @SqsListener("${trs.sqs.queue.dry-run:}")
-    @Retryable(
-        value = { Exception.class },
-        maxAttemptsExpression = "#{${trs.sqs.retry.max-attempts:3}}",
-        backoff = @Backoff(delayExpression = "#{${trs.sqs.retry.backoff-delay:1000}}")
-    )
-    public void handleDryRunMessage(String message) {
-        processMessage("DRY_RUN", message);
-    }
-
-    @SqsListener("${trs.sqs.queue.intermediate:}")
-    @Retryable(
-        value = { Exception.class },
-        maxAttemptsExpression = "#{${trs.sqs.retry.max-attempts:3}}",
-        backoff = @Backoff(delayExpression = "#{${trs.sqs.retry.backoff-delay:1000}}")
-    )
-    public void handleIntermediateMessage(String message) {
-        processMessage("INTERMEDIATE", message);
-    }
-
-    @SqsListener("${trs.sqs.queue.normal:}")
-    @Retryable(
-        value = { Exception.class },
-        maxAttemptsExpression = "#{${trs.sqs.retry.max-attempts:3}}",
-        backoff = @Backoff(delayExpression = "#{${trs.sqs.retry.backoff-delay:1000}}")
-    )
-    public void handleNormalMessage(String message) {
-        processMessage("NORMAL", message);
-    }
-
-    @SqsListener("${trs.sqs.queue.top:}")
-    @Retryable(
-        value = { Exception.class },
-        maxAttemptsExpression = "#{${trs.sqs.retry.max-attempts:3}}",
-        backoff = @Backoff(delayExpression = "#{${trs.sqs.retry.backoff-delay:1000}}")
-    )
-    public void handleTopMessage(String message) {
-        processMessage("TOP", message);
-    }
-
-    private void processMessage(String type, String message) {
-        log.info("Received [{}] message: {}", type, message);
-
-        try {
-            // TODO: Deserialize and handle your domain logic here
-            // Example: persist data into CRM DB
-            log.info("Message [{}] processed successfully.", type);
-        } catch (Exception ex) {
-            log.error("Error processing [{}] message: {}", type, ex.getMessage(), ex);
-            throw ex; // triggers @Retryable
-        }
-    }
-}
-
-package com.empower.crm.gateway;
-
-import com.empower.aws.sqs.service.EmpowerSQSService;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import static org.assertj.core.api.Assertions.assertThat;
-
-@SpringBootTest
-public class CrmGatewaySqsIntegrationTest {
-
-    @Autowired
-    private EmpowerSQSService empowerSQSService;
-
-    @Test
-    void shouldSendAndReceiveMessage() {
-        // Queue name must match what is configured in your application.properties
-        String queueName = "DEV_CRM_GATEWAY_NORMAL";
-        String expectedMessage = "Hello from CRM Gateway";
-
-        // Send message
-        empowerSQSService.sendMessage(queueName, expectedMessage);
-
-        // Receive message (blocking until one is available)
-        String actualMessage = empowerSQSService.reciveMessage(queueName, String.class);
-
-        // Verify the message content matches
-        assertThat(actualMessage).isEqualTo(expectedMessage);
-    }
-}
+aws --endpoint-url=http://localhost:4566 sqs list-queues
