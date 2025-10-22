@@ -1,1 +1,7 @@
-error
+2025-10-22 14:43:53 PM [main] trace_id:  span_id:  INFO  org.springframework.boot.autoconfigure.logging.ConditionEvaluationReportLogger - 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled. 
+2025-10-22 14:43:53 PM [main] trace_id:  span_id:  ERROR org.springframework.boot.SpringApplication - Application run failed org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'org.springframework.aop.config.internalAutoProxyCreator': org/aspectj/lang/annotation/Pointcut
+
+
+i am facing this issue while running the mvn clean install command
