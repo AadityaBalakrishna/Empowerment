@@ -1,18 +1,132 @@
-Mockito is currently self-attaching to enable the inline-mock-maker. This will no longer work in future releases of the JDK. Please add Mockito as an agent to your build what is described in Mockito's documentation: https://javadoc.io/doc/org.mockito/mockito-core/latest/org/mockito/Mockito.html#0.3
-WARNING: A Java agent has been loaded dynamically (/home/abalakrishna/.m2/repository/net/bytebuddy/byte-buddy-agent/1.15.11/byte-buddy-agent-1.15.11.jar)
-WARNING: If a serviceability tool is in use, please run with -XX:+EnableDynamicAgentLoading to hide this warning
-WARNING: If a serviceability tool is not in use, please run with -Djdk.instrument.traceUsage for more information
-WARNING: Dynamic loading of agents will be disallowed by default in a future release
-OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
-2025-10-22 20:13:03 PM [main] trace_id:  span_id:  INFO  com.empower.epw.sqs.impl.EmpowerSQSServiceImpl - sendMessage :: Message ID bfdf4e35-c248-4926-83bf-4eac59aae830  sent successfully  
-Simulated failure attempt 1 for queue DEVTRUNK_CRM_GATEWAY_NORMAL
+package com.empower.epw.crm.gateway.sqs;
 
-java.lang.RuntimeException: Simulated failure
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.EnableAspectJAutoProxy;
+import org.springframework.test.context.ActiveProfiles;
 
-	at com.empower.epw.crm.gateway.sqs.CrmGatewaySqsIntegrationTest$TestListener.processMessageWithRetry(CrmGatewaySqsIntegrationTest.java:90)
-	at com.empower.epw.crm.gateway.sqs.CrmGatewaySqsIntegrationTest.shouldRetryOnFailureForAllQueues(CrmGatewaySqsIntegrationTest.java:51)
+import com.empower.epw.sqs.EmpowerSQSService;
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.EnableRetry;
+import org.springframework.retry.annotation.Retryable;
+
+@SpringBootTest
+@EnableAutoConfiguration
+@ActiveProfiles("test")
+@EnableRetry
+public class CrmGatewaySqsIntegrationTest extends CrmGatewaySqsContainerIT {
+
+    private static final PcapLogger logger = PcapLoggerFactory.getPcapLogger(CrmGatewaySqsIntegrationTest.class);
+
+    @Autowired
+    private EmpowerSQSService empowerSQSService;
+
+    @Autowired
+    private TestListener listener;
+
+    @Test
+    void shouldSendAndReceiveMessageOnAllQueues() {
+        for (String queueName : QUEUE_NAMES) {
+            String expectedMessage = "Hello from CRM Gateway - " + queueName;
+
+            empowerSQSService.sendMessage(queueName, expectedMessage);
+            String actualMessage = empowerSQSService.reciveMessage(queueName, String.class);
+
+            assertThat(actualMessage)
+                    .as("Verify message for queue: " + queueName)
+                    .isEqualTo(expectedMessage);
+
+            logger.info("Message verified for queue: {}" + queueName);
+        }
+    }
+
+    @Test
+    void shouldRetryOnFailureForAllQueues() {
+        for (String queueName : QUEUE_NAMES) {
+            String failMessage = "SIMULATE_FAIL_" + queueName;
+            empowerSQSService.sendMessage(queueName, failMessage);
+
+            // Add a small delay to ensure the message is available in the queue
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+
+            String result = listener.processMessageWithRetry(queueName, failMessage);
+
+            assertThat(result)
+                    .as("Retry verified for queue: " + queueName)
+                    .isEqualTo(failMessage);
+
+            logger.info("Retry verified for queue: {}", queueName);
+        }
+    }
+
+    @Configuration
+    static class TestListenerConfig {
+        @Bean
+        TestListener testListener(EmpowerSQSService service) {
+            return new TestListener(service);
+        }
+    }
+
+    static class TestListener {
+        private final EmpowerSQSService empowerSQSService;
+        private int attempt = 0;
+
+        TestListener(EmpowerSQSService empowerSQSService) {
+            this.empowerSQSService = empowerSQSService;
+        }
+
+        @Retryable(
+                value = { RuntimeException.class },
+                maxAttemptsExpression = "#{3}",
+                backoff = @Backoff(delayExpression = "#{500}")
+        )
+        public String processMessageWithRetry(String queueName, String expectedFailMessage) {
+            String msg = empowerSQSService.reciveMessage(queueName, String.class);
+
+            logger.info("Received message: {} for queue: {}", msg, queueName);
+
+            // Fail first 2 attempts, succeed on 3rd
+            attempt++;
+            if (expectedFailMessage.equals(msg) && attempt < 3) {
+                logger.info("Simulated failure attempt {} for queue {}", attempt, queueName);
+                throw new RuntimeException("Simulated failure");
+            }
+
+            logger.info("Message processed successfully on attempt {} for queue {}", attempt, queueName);
+            return msg;
+        }
+    }
+}
+
+2025-10-22 20:32:48 PM [main] trace_id:  span_id:  INFO  com.empower.epw.sqs.impl.EmpowerSQSServiceImpl - sendMessage :: Message ID bf7f2986-f296-46f7-9217-d07c868074c1  sent successfully  
+2025-10-22 20:32:49 PM [main] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewaySqsIntegrationTest - Received message: SIMULATE_FAIL_DEVTRUNK_CRM_GATEWAY_NORMAL for queue: DEVTRUNK_CRM_GATEWAY_NORMAL 
+2025-10-22 20:32:49 PM [main] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewaySqsIntegrationTest - Simulated failure attempt 1 for queue DEVTRUNK_CRM_GATEWAY_NORMAL 
+2025-10-22 20:32:59 PM [main] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewaySqsIntegrationTest - Received message: null for queue: DEVTRUNK_CRM_GATEWAY_NORMAL 
+2025-10-22 20:32:59 PM [main] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewaySqsIntegrationTest - Message processed successfully on attempt 2 for queue DEVTRUNK_CRM_GATEWAY_NORMAL 
+
+org.opentest4j.AssertionFailedError: [Retry verified for queue: DEVTRUNK_CRM_GATEWAY_NORMAL] 
+expected: "SIMULATE_FAIL_DEVTRUNK_CRM_GATEWAY_NORMAL"
+ but was: null
+Expected :"SIMULATE_FAIL_DEVTRUNK_CRM_GATEWAY_NORMAL"
+Actual   :null
+<Click to see difference>
+
+
+	at com.empower.epw.crm.gateway.sqs.CrmGatewaySqsIntegrationTest.shouldRetryOnFailureForAllQueues(CrmGatewaySqsIntegrationTest.java:69)
 	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
 
-why is this failing?
