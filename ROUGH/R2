@@ -1,392 +1,142 @@
-package com.empower.epw.crm.gateway.sqs;
+2025-10-23 19:58:12 PM [main] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewaySqsContainerIT - Created SQS queue: DEVTRUNK_CRM_GATEWAY_NORMAL 
+2025-10-23 19:58:12 PM [main] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewaySqsContainerIT - Created SQS queue: DEVTRUNK_CRM_GATEWAY_DRY_RUN 
+2025-10-23 19:58:13 PM [main] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewaySqsContainerIT - Created SQS queue: DEVTRUNK_CRM_GATEWAY_INTERMEDIATE 
+2025-10-23 19:58:13 PM [main] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewaySqsContainerIT - Created SQS queue: DEVTRUNK_CRM_GATEWAY_TOP 
+2025-10-23 19:58:13 PM [main] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewaySqsIntegrationTest - The following 1 profile is active: "test" 
+2025-10-23 19:58:15 PM [main] trace_id:  span_id:  INFO  org.springframework.cloud.context.scope.GenericScope - BeanFactory id=f3fd73e0-365c-30f6-b9e9-929f623cfb90 
+2025-10-23 19:58:16 PM [main] trace_id:  span_id:  INFO  org.springframework.validation.beanvalidation.OptionalValidatorFactoryBean - Failed to set up a Bean Validation provider: jakarta.validation.NoProviderFoundException: Unable to create a Configuration, because no Jakarta Bean Validation provider could be found. Add a provider like Hibernate Validator (RI) to your classpath. 
+2025-10-23 19:58:16 PM [main] trace_id:  span_id:  WARN  io.awspring.cloud.autoconfigure.core.CredentialsProviderAutoConfiguration - Skipping creating `StsCredentialsProvider`. `software.amazon.awssdk:sts` is on the classpath, but neither `spring.cloud.aws.credentials.sts` properties are configured nor `AWS_WEB_IDENTITY_TOKEN_FILE` or the javaproperty `aws.webIdentityTokenFile` is set 
+2025-10-23 19:58:16 PM [main] trace_id:  span_id:  INFO  com.empower.epw.sqs.config.EmpowerSQSConfig - Default EmpowerSqsMessageIntercepter configured 
+2025-10-23 19:58:16 PM [main] trace_id:  span_id:  INFO  com.empower.epw.sqs.config.EmpowerSQSConfig - Default EmpowerSqsErrorHandler configured 
+2025-10-23 19:58:17 PM [main] trace_id:  span_id:  INFO  com.empower.epw.util.MaintenanceWindowResolver - Initializing MaintenanceWindowResolver with CronExpression: , durationInHrs: 0, maintenanceCommands: [] 
+2025-10-23 19:58:17 PM [main] trace_id:  span_id:  INFO  org.springframework.boot.actuate.endpoint.web.EndpointLinksResolver - Exposing 2 endpoints beneath base path '/actuator' 
+2025-10-23 19:58:18 PM [main] trace_id:  span_id:  WARN  org.springframework.web.context.support.GenericWebApplicationContext - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.context.ApplicationContextException: Failed to start bean 'io.awspring.cloud.messaging.internalEndpointRegistryBeanName' 
 
-import io.awspring.cloud.sqs.annotation.SqsListener;
-import org.springframework.retry.annotation.Backoff;
-import org.springframework.retry.annotation.Retryable;
-import org.springframework.stereotype.Component;
-import com.personalcapital.log.PcapLogger;
-import com.personalcapital.log.PcapLoggerFactory;
-
-@Component
-public class CrmGatewayMessageListener {
-
-    private static final PcapLogger logger = PcapLoggerFactory.getPcapLogger(CrmGatewayMessageListener.class);
-
-    @SqsListener("${crm.gateway.sqs.queue.dryrun:}")
-    @Retryable(
-            value = { Exception.class },
-            maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}",
-            backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}")
-    )
-    public void handleDryRunMessage(String message) {
-        processMessage("DRY_RUN", message);
-    }
-
-    @SqsListener("${crm.gateway.sqs.queue.intermediate:}")
-    @Retryable(
-            value = { Exception.class },
-            maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}",
-            backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}")
-    )
-    public void handleIntermediateMessage(String message) {
-        processMessage("INTERMEDIATE", message);
-    }
-
-    @SqsListener("${crm.gateway.sqs.queue.normal:}")
-    @Retryable(
-            value = { Exception.class },
-            maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}",
-            backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}")
-    )
-    public void handleNormalMessage(String message) {
-        processMessage("NORMAL", message);
-    }
-
-    @SqsListener("${crm.gateway.sqs.queue.top:}")
-    @Retryable(
-            value = { Exception.class },
-            maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}",
-            backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}")
-    )
-    public void handleTopMessage(String message) {
-        processMessage("TOP", message);
-    }
-
-    void processMessage(String type, String message) {
-        logger.info("Received [{}] message: {}", type, message);
-
-        try {
-            // TODO: handle domain logic here
-            logger.info("Message [{}] processed successfully.", type);
-        } catch (Exception ex) {
-            logger.error("Error processing [{}] message: {}", type, ex.getMessage(), ex);
-            throw ex; // triggers @Retryable
-        }
-    }
-}
-
-application.properties:
-# AWS SQS Configuration
-crm-gateway.sqs.retry.max-attempts=3
-crm-gateway.sqs.retry.backoff-delay=1000
-spring.cloud.aws.credentials.access-key=test
-spring.cloud.aws.credentials.secret-key=test
-spring.cloud.aws.sqs.endpoint=http://localhost:4566
-spring.cloud.aws.sqs.region=us-west-2
-
-#CRM Gateway SQS Queues
-StageMap.capName=DEVTRUNK
-crm.gateway.sqs.queue.dryrun=${StageMap.capName}_CRM_GATEWAY_DRY_RUN
-crm.gateway.sqs.queue.intermediate=${StageMap.capName}_CRM_GATEWAY_INTERMEDIATE
-crm.gateway.sqs.queue.normal=DEV_CRM_GATEWAY_NORMAL
-crm.gateway.sqs.queue.top=${StageMap.capName}_CRM_GATEWAY_TOP
-
-epw.aws.sqs.visibilityTimeout=60
-epw.aws.sqs.minPoolSize=10
-epw.aws.sqs.maxPoolSize=30
-epw.aws.sqs.queueCapacity=30
-epw.aws.sqs.queueMaxAwaitTermination=30
-
-package com.empower.epw.crm.gateway.sqs;
-
-import org.junit.jupiter.api.BeforeAll;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.localstack.LocalStackContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
-
-import com.personalcapital.log.PcapLogger;
-import com.personalcapital.log.PcapLoggerFactory;
-
-@Testcontainers
-public abstract class CrmGatewaySqsContainerIT {
-
-    private static final PcapLogger logger = PcapLoggerFactory.getPcapLogger(CrmGatewaySqsContainerIT.class);
-
-    // List of CRM Gateway queues
-    protected static final String[] QUEUE_NAMES = {
-            "DEVTRUNK_CRM_GATEWAY_NORMAL",
-            "DEVTRUNK_CRM_GATEWAY_DRY_RUN",
-            "DEVTRUNK_CRM_GATEWAY_INTERMEDIATE",
-            "DEVTRUNK_CRM_GATEWAY_TOP"
-    };
-
-    // Start LocalStack container automatically
-    @Container
-    static LocalStackContainer localStack = new LocalStackContainer(
-            DockerImageName.parse("localstack/localstack:3.0"));
-
-    @DynamicPropertySource
-    static void configureProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.cloud.aws.region.static", localStack::getRegion);
-        registry.add("spring.cloud.aws.credentials.access-key", localStack::getAccessKey);
-        registry.add("spring.cloud.aws.credentials.secret-key", localStack::getSecretKey);
-        registry.add("spring.cloud.aws.sqs.endpoint",
-                () -> localStack.getEndpointOverride(LocalStackContainer.Service.SQS)
-                        .toString());
-    }
-
-    // Create all queues before any tests run
-    @BeforeAll
-    static void beforeAll() throws Exception{
-        for (String queueName : QUEUE_NAMES) {
-            localStack.execInContainer("awslocal", "sqs", "create-queue", "--queue-name", queueName);
-            logger.info("Created SQS queue: " + queueName);
-        }
-    }
-}
-
-package com.empower.epw.crm.gateway.sqs;
-
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.test.context.ActiveProfiles;
-
-import com.empower.epw.sqs.EmpowerSQSService;
-import com.personalcapital.log.PcapLogger;
-import com.personalcapital.log.PcapLoggerFactory;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
-import org.springframework.retry.annotation.EnableRetry;
-
-@SpringBootTest(classes = {CrmGatewaySqsIntegrationTest.TestConfig.class})
-@EnableAutoConfiguration
-@ActiveProfiles("test")
-@EnableRetry
-public class CrmGatewaySqsIntegrationTest extends CrmGatewaySqsContainerIT {
-
-    private static final PcapLogger logger = PcapLoggerFactory.getPcapLogger(CrmGatewaySqsIntegrationTest.class);
-
-    @Autowired
-    private EmpowerSQSService empowerSQSService;
-
-    @Autowired
-    private CrmGatewayMessageListener listener;
-
-    @Test
-    void shouldSendAndReceiveMessageOnAllQueues() {
-        for (String queueName : QUEUE_NAMES) {
-            String expectedMessage = "Hello from CRM Gateway - " + queueName;
-
-            empowerSQSService.sendMessage(queueName, expectedMessage);
-            String actualMessage = empowerSQSService.reciveMessage(queueName, String.class);
-
-            assertThat(actualMessage)
-                    .as("Verify message for queue: " + queueName)
-                    .isEqualTo(expectedMessage);
-
-            logger.info("Message verified for queue: {}" + queueName);
-        }
-    }
-
-    @Test
-    void shouldRetryOnFailureForAllQueues() {
-        for (String queueName : QUEUE_NAMES) {
-            String failMessage = "SIMULATE_FAIL_" + queueName;
-
-            try {
-                listener.processMessage(queueName, failMessage);
-            }
-            catch (Exception ex) {
-                logger.info("Expected exception caught for queue {}: {}", queueName, ex.getMessage());
-            }
-        }
-    }
-
-    @Configuration
-    public static class TestConfig {
-        @Bean
-        public CrmGatewayMessageListener crmGatewayMessageListener() {
-            return new CrmGatewayMessageListener();
-        }
-    }
-}
-
-error:
-Caused by: org.springframework.context.ApplicationContextException: Failed to start bean 'io.awspring.cloud.messaging.internalEndpointRegistryBeanName'
-	at org.springframework.context.support.DefaultLifecycleProcessor.doStart(DefaultLifecycleProcessor.java:326)
-	at org.springframework.context.support.DefaultLifecycleProcessor$LifecycleGroup.start(DefaultLifecycleProcessor.java:510)
-	at java.base/java.lang.Iterable.forEach(Iterable.java:75)
-	at org.springframework.context.support.DefaultLifecycleProcessor.startBeans(DefaultLifecycleProcessor.java:295)
-	at org.springframework.context.support.DefaultLifecycleProcessor.onRefresh(DefaultLifecycleProcessor.java:240)
-	at org.springframework.context.support.AbstractApplicationContext.finishRefresh(AbstractApplicationContext.java:1006)
-	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:630)
-	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:752)
-	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:439)
-	at org.springframework.boot.SpringApplication.run(SpringApplication.java:318)
-	at org.springframework.boot.test.context.SpringBootContextLoader.lambda$loadContext$3(SpringBootContextLoader.java:144)
-	at org.springframework.util.function.ThrowingSupplier.get(ThrowingSupplier.java:58)
-	at org.springframework.util.function.ThrowingSupplier.get(ThrowingSupplier.java:46)
-	at org.springframework.boot.SpringApplication.withHook(SpringApplication.java:1461)
-	at org.springframework.boot.test.context.SpringBootContextLoader$ContextLoaderHook.run(SpringBootContextLoader.java:563)
-	at org.springframework.boot.test.context.SpringBootContextLoader.loadContext(SpringBootContextLoader.java:144)
-	at org.springframework.boot.test.context.SpringBootContextLoader.loadContext(SpringBootContextLoader.java:110)
-	at org.springframework.test.context.cache.DefaultCacheAwareContextLoaderDelegate.loadContextInternal(DefaultCacheAwareContextLoaderDelegate.java:225)
-	at org.springframework.test.context.cache.DefaultCacheAwareContextLoaderDelegate.loadContext(DefaultCacheAwareContextLoaderDelegate.java:152)
-	... 19 more
 Caused by: java.util.concurrent.CompletionException: io.awspring.cloud.sqs.QueueAttributesResolvingException: Error resolving attributes for queue DEVTRUNK_CRM_GATEWAY_TOP with strategy FAIL and queueAttributesNames []
  This might be due to connectivity issues or incorrect configuration. Please verify your AWS credentials, network settings, and queue configuration.
-	at java.base/java.util.concurrent.CompletableFuture.encodeRelay(CompletableFuture.java:368)
-	at java.base/java.util.concurrent.CompletableFuture.completeRelay(CompletableFuture.java:377)
-	at java.base/java.util.concurrent.CompletableFuture$UniCompose.tryFire(CompletableFuture.java:1152)
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510)
-	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194)
-	at software.amazon.awssdk.utils.CompletableFutureUtils.lambda$forwardExceptionTo$0(CompletableFutureUtils.java:78)
-	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863)
-	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841)
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510)
-	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194)
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncApiCallMetricCollectionStage.lambda$execute$0(AsyncApiCallMetricCollectionStage.java:56)
-	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863)
-	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841)
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510)
-	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194)
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncApiCallTimeoutTrackingStage.lambda$execute$2(AsyncApiCallTimeoutTrackingStage.java:67)
-	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863)
-	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841)
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510)
-	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194)
-	at software.amazon.awssdk.utils.CompletableFutureUtils.lambda$forwardExceptionTo$0(CompletableFutureUtils.java:78)
-	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863)
-	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841)
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510)
-	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194)
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncRetryableStage2$RetryingExecutor.maybeAttemptExecute(AsyncRetryableStage2.java:135)
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncRetryableStage2$RetryingExecutor.maybeRetryExecute(AsyncRetryableStage2.java:152)
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncRetryableStage2$RetryingExecutor.lambda$attemptExecute$1(AsyncRetryableStage2.java:123)
-	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863)
-	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841)
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510)
-	at java.base/java.util.concurrent.CompletableFuture.complete(CompletableFuture.java:2179)
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.MakeAsyncHttpRequestStage.lambda$execute$0(MakeAsyncHttpRequestStage.java:110)
-	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863)
-	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841)
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510)
-	at java.base/java.util.concurrent.CompletableFuture.complete(CompletableFuture.java:2179)
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.MakeAsyncHttpRequestStage.completeResponseFuture(MakeAsyncHttpRequestStage.java:253)
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.MakeAsyncHttpRequestStage.lambda$executeHttpRequest$3(MakeAsyncHttpRequestStage.java:167)
-	at java.base/java.util.concurrent.CompletableFuture.uniHandle(CompletableFuture.java:934)
-	at java.base/java.util.concurrent.CompletableFuture$UniHandle.tryFire(CompletableFuture.java:911)
-	at java.base/java.util.concurrent.CompletableFuture$Completion.run(CompletableFuture.java:482)
-	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
-	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
-	at java.base/java.lang.Thread.run(Thread.java:1583)
+	at java.base/java.util.concurrent.CompletableFuture.encodeRelay(CompletableFuture.java:368) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.completeRelay(CompletableFuture.java:377) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniCompose.tryFire(CompletableFuture.java:1152) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
+	at software.amazon.awssdk.utils.CompletableFutureUtils.lambda$forwardExceptionTo$0(CompletableFutureUtils.java:78) ~[utils-2.29.52.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncApiCallMetricCollectionStage.lambda$execute$0(AsyncApiCallMetricCollectionStage.java:56) ~[sdk-core-2.29.52.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncApiCallTimeoutTrackingStage.lambda$execute$2(AsyncApiCallTimeoutTrackingStage.java:67) ~[sdk-core-2.29.52.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
+	at software.amazon.awssdk.utils.CompletableFutureUtils.lambda$forwardExceptionTo$0(CompletableFutureUtils.java:78) ~[utils-2.29.52.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncRetryableStage2$RetryingExecutor.maybeAttemptExecute(AsyncRetryableStage2.java:135) ~[sdk-core-2.29.52.jar:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncRetryableStage2$RetryingExecutor.maybeRetryExecute(AsyncRetryableStage2.java:152) ~[sdk-core-2.29.52.jar:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncRetryableStage2$RetryingExecutor.lambda$attemptExecute$1(AsyncRetryableStage2.java:123) ~[sdk-core-2.29.52.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.complete(CompletableFuture.java:2179) ~[?:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.MakeAsyncHttpRequestStage.lambda$execute$0(MakeAsyncHttpRequestStage.java:110) ~[sdk-core-2.29.52.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.complete(CompletableFuture.java:2179) ~[?:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.MakeAsyncHttpRequestStage.completeResponseFuture(MakeAsyncHttpRequestStage.java:253) ~[sdk-core-2.29.52.jar:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.MakeAsyncHttpRequestStage.lambda$executeHttpRequest$3(MakeAsyncHttpRequestStage.java:167) ~[sdk-core-2.29.52.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniHandle(CompletableFuture.java:934) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniHandle.tryFire(CompletableFuture.java:911) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$Completion.run(CompletableFuture.java:482) ~[?:?]
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144) ~[?:?]
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642) ~[?:?]
+	at java.base/java.lang.Thread.run(Thread.java:1583) ~[?:?]
 Caused by: io.awspring.cloud.sqs.QueueAttributesResolvingException: Error resolving attributes for queue DEVTRUNK_CRM_GATEWAY_TOP with strategy FAIL and queueAttributesNames []
  This might be due to connectivity issues or incorrect configuration. Please verify your AWS credentials, network settings, and queue configuration.
-	at io.awspring.cloud.sqs.QueueAttributesResolver.wrapException(QueueAttributesResolver.java:98)
-	at java.base/java.util.concurrent.CompletableFuture.uniExceptionally(CompletableFuture.java:990)
-	at java.base/java.util.concurrent.CompletableFuture$UniExceptionally.tryFire(CompletableFuture.java:974)
-	... 42 more
-Caused by: software.amazon.awssdk.services.sqs.model.QueueDoesNotExistException: The specified queue does not exist. (Service: Sqs, Status Code: 400, Request ID: b2c91c5e-4200-465e-af23-cdca173c2ae1)
-	at software.amazon.awssdk.services.sqs.model.QueueDoesNotExistException$BuilderImpl.build(QueueDoesNotExistException.java:137)
-	at software.amazon.awssdk.services.sqs.model.QueueDoesNotExistException$BuilderImpl.build(QueueDoesNotExistException.java:91)
-	at software.amazon.awssdk.protocols.json.internal.unmarshall.AwsJsonProtocolErrorUnmarshaller.unmarshall(AwsJsonProtocolErrorUnmarshaller.java:95)
-	at software.amazon.awssdk.protocols.json.internal.unmarshall.AwsJsonProtocolErrorUnmarshaller.handle(AwsJsonProtocolErrorUnmarshaller.java:71)
-	at software.amazon.awssdk.protocols.json.internal.unmarshall.AwsJsonProtocolErrorUnmarshaller.handle(AwsJsonProtocolErrorUnmarshaller.java:42)
-	at software.amazon.awssdk.core.http.MetricCollectingHttpResponseHandler.lambda$handle$0(MetricCollectingHttpResponseHandler.java:52)
-	at software.amazon.awssdk.core.internal.util.MetricUtils.measureDurationUnsafe(MetricUtils.java:102)
-	at software.amazon.awssdk.core.internal.util.MetricUtils.measureDurationUnsafe(MetricUtils.java:95)
-	at software.amazon.awssdk.core.http.MetricCollectingHttpResponseHandler.handle(MetricCollectingHttpResponseHandler.java:52)
-	at software.amazon.awssdk.core.internal.http.async.AsyncResponseHandler.lambda$prepare$0(AsyncResponseHandler.java:92)
-	at java.base/java.util.concurrent.CompletableFuture$UniCompose.tryFire(CompletableFuture.java:1150)
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510)
-	at java.base/java.util.concurrent.CompletableFuture.complete(CompletableFuture.java:2179)
-	at software.amazon.awssdk.core.internal.http.async.AsyncResponseHandler$BaosSubscriber.onComplete(AsyncResponseHandler.java:135)
-	at software.amazon.awssdk.core.internal.metrics.BytesReadTrackingPublisher$BytesReadTracker.onComplete(BytesReadTrackingPublisher.java:74)
-	at software.amazon.awssdk.http.nio.netty.internal.ResponseHandler$DataCountingPublisher$1.onComplete(ResponseHandler.java:519)
-	at software.amazon.awssdk.http.nio.netty.internal.ResponseHandler.runAndLogError(ResponseHandler.java:254)
-	at software.amazon.awssdk.http.nio.netty.internal.ResponseHandler.access$600(ResponseHandler.java:77)
-	at software.amazon.awssdk.http.nio.netty.internal.ResponseHandler$PublisherAdapter$1.onComplete(ResponseHandler.java:375)
-	at software.amazon.awssdk.http.nio.netty.internal.nrs.HandlerPublisher.publishMessage(HandlerPublisher.java:402)
-	at software.amazon.awssdk.http.nio.netty.internal.nrs.HandlerPublisher.flushBuffer(HandlerPublisher.java:338)
-	at software.amazon.awssdk.http.nio.netty.internal.nrs.HandlerPublisher.receivedDemand(HandlerPublisher.java:291)
-	at software.amazon.awssdk.http.nio.netty.internal.nrs.HandlerPublisher.access$200(HandlerPublisher.java:61)
-	at software.amazon.awssdk.http.nio.netty.internal.nrs.HandlerPublisher$ChannelSubscription$1.run(HandlerPublisher.java:495)
-	at io.netty.util.concurrent.AbstractEventExecutor.runTask$$$capture(AbstractEventExecutor.java:173)
-	at io.netty.util.concurrent.AbstractEventExecutor.runTask(AbstractEventExecutor.java)
-	at --- Async.Stack.Trace --- (captured by IntelliJ IDEA debugger)
-	at io.netty.util.concurrent.SingleThreadEventExecutor.addTask(SingleThreadEventExecutor.java)
-	at io.netty.util.concurrent.SingleThreadEventExecutor.execute(SingleThreadEventExecutor.java:836)
-	at io.netty.util.concurrent.SingleThreadEventExecutor.execute0(SingleThreadEventExecutor.java:827)
-	at io.netty.util.concurrent.SingleThreadEventExecutor.execute(SingleThreadEventExecutor.java:817)
-	at software.amazon.awssdk.http.nio.netty.internal.nrs.HandlerPublisher$ChannelSubscription.request(HandlerPublisher.java:492)
-	at software.amazon.awssdk.utils.async.DelegatingSubscription.request(DelegatingSubscription.java:32)
-	at software.amazon.awssdk.core.internal.http.async.AsyncResponseHandler$BaosSubscriber.onSubscribe(AsyncResponseHandler.java:113)
-	at software.amazon.awssdk.core.internal.metrics.BytesReadTrackingPublisher$BytesReadTracker.onSubscribe(BytesReadTrackingPublisher.java:58)
-	at software.amazon.awssdk.http.nio.netty.internal.ResponseHandler$DataCountingPublisher$1.onSubscribe(ResponseHandler.java:498)
-	at software.amazon.awssdk.http.nio.netty.internal.ResponseHandler$PublisherAdapter$1.onSubscribe(ResponseHandler.java:297)
-	at software.amazon.awssdk.http.nio.netty.internal.nrs.HandlerPublisher.provideSubscriber(HandlerPublisher.java:223)
-	at software.amazon.awssdk.http.nio.netty.internal.nrs.HandlerPublisher.access$000(HandlerPublisher.java:61)
-	at software.amazon.awssdk.http.nio.netty.internal.nrs.HandlerPublisher$3.run(HandlerPublisher.java:202)
-	at io.netty.util.concurrent.AbstractEventExecutor.runTask$$$capture(AbstractEventExecutor.java:173)
-	at io.netty.util.concurrent.AbstractEventExecutor.runTask(AbstractEventExecutor.java)
-	at --- Async.Stack.Trace --- (captured by IntelliJ IDEA debugger)
-	at io.netty.util.concurrent.SingleThreadEventExecutor.addTask(SingleThreadEventExecutor.java)
-	at io.netty.util.concurrent.SingleThreadEventExecutor.execute(SingleThreadEventExecutor.java:836)
-	at io.netty.util.concurrent.SingleThreadEventExecutor.execute0(SingleThreadEventExecutor.java:827)
-	at io.netty.util.concurrent.SingleThreadEventExecutor.execute(SingleThreadEventExecutor.java:817)
-	at software.amazon.awssdk.http.nio.netty.internal.nrs.HandlerPublisher.subscribe(HandlerPublisher.java:199)
-	at software.amazon.awssdk.http.nio.netty.internal.nrs.DelegateStreamedHttpResponse.subscribe(DelegateStreamedHttpResponse.java:44)
-	at software.amazon.awssdk.http.nio.netty.internal.ResponseHandler$PublisherAdapter.subscribe(ResponseHandler.java:294)
-	at software.amazon.awssdk.http.nio.netty.internal.ResponseHandler$DataCountingPublisher.subscribe(ResponseHandler.java:495)
-	at software.amazon.awssdk.core.internal.metrics.BytesReadTrackingPublisher.subscribe(BytesReadTrackingPublisher.java:40)
-	at software.amazon.awssdk.core.internal.http.async.AsyncResponseHandler.onStream(AsyncResponseHandler.java:71)
-	at software.amazon.awssdk.core.internal.http.async.CombinedResponseAsyncHttpResponseHandler.onStream(CombinedResponseAsyncHttpResponseHandler.java:88)
-	at software.amazon.awssdk.core.internal.http.async.AsyncAfterTransmissionInterceptorCallingResponseHandler.onStream(AsyncAfterTransmissionInterceptorCallingResponseHandler.java:86)
-	at software.amazon.awssdk.core.internal.http.async.FilterTransformingAsyncHttpResponseHandler.onStream(FilterTransformingAsyncHttpResponseHandler.java:49)
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.MakeAsyncHttpRequestStage$ReadMetricsTrackingResponseHandler.onStream(MakeAsyncHttpRequestStage.java:313)
-	at software.amazon.awssdk.http.nio.netty.internal.ResponseHandler.channelRead0(ResponseHandler.java:107)
-	at software.amazon.awssdk.http.nio.netty.internal.ResponseHandler.channelRead0(ResponseHandler.java:75)
-	at io.netty.channel.SimpleChannelInboundHandler.channelRead(SimpleChannelInboundHandler.java:99)
-	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:444)
-	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:420)
-	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:412)
-	at software.amazon.awssdk.http.nio.netty.internal.nrs.HandlerPublisher.channelRead(HandlerPublisher.java:396)
-	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:442)
-	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:420)
-	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:412)
-	at software.amazon.awssdk.http.nio.netty.internal.nrs.HttpStreamsHandler.channelRead(HttpStreamsHandler.java:200)
-	at software.amazon.awssdk.http.nio.netty.internal.nrs.HttpStreamsClientHandler.channelRead(HttpStreamsClientHandler.java:173)
-	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:442)
-	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:420)
-	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:412)
-	at io.netty.handler.logging.LoggingHandler.channelRead(LoggingHandler.java:280)
-	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:442)
-	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:420)
-	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:412)
-	at io.netty.handler.timeout.IdleStateHandler.channelRead(IdleStateHandler.java:289)
-	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:442)
-	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:420)
-	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:412)
-	at io.netty.channel.CombinedChannelDuplexHandler$DelegatingChannelHandlerContext.fireChannelRead(CombinedChannelDuplexHandler.java:436)
-	at io.netty.handler.codec.ByteToMessageDecoder.fireChannelRead(ByteToMessageDecoder.java:346)
-	at io.netty.handler.codec.ByteToMessageDecoder.fireChannelRead(ByteToMessageDecoder.java:333)
-	at io.netty.handler.codec.ByteToMessageDecoder.callDecode(ByteToMessageDecoder.java:455)
-	at io.netty.handler.codec.ByteToMessageDecoder.channelRead(ByteToMessageDecoder.java:290)
-	at io.netty.channel.CombinedChannelDuplexHandler.channelRead(CombinedChannelDuplexHandler.java:251)
-	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:442)
-	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:420)
-	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:412)
-	at io.netty.handler.timeout.IdleStateHandler.channelRead(IdleStateHandler.java:289)
-	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:442)
-	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:420)
-	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:412)
-	at io.netty.channel.DefaultChannelPipeline$HeadContext.channelRead(DefaultChannelPipeline.java:1357)
-	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:440)
-	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:420)
-	at io.netty.channel.DefaultChannelPipeline.fireChannelRead(DefaultChannelPipeline.java:868)
-	at io.netty.channel.nio.AbstractNioByteChannel$NioByteUnsafe.read(AbstractNioByteChannel.java:166)
-	at io.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:796)
-	at io.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732)
-	at io.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658)
-	at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
-	at io.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
-	at io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
-	... 1 more
+	at io.awspring.cloud.sqs.QueueAttributesResolver.wrapException(QueueAttributesResolver.java:98) ~[spring-cloud-aws-sqs-3.3.0.jar:3.3.0]
+	at java.base/java.util.concurrent.CompletableFuture.uniExceptionally(CompletableFuture.java:990) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniExceptionally.tryFire(CompletableFuture.java:974) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
+	at software.amazon.awssdk.utils.CompletableFutureUtils.lambda$forwardExceptionTo$0(CompletableFutureUtils.java:78) ~[utils-2.29.52.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncApiCallMetricCollectionStage.lambda$execute$0(AsyncApiCallMetricCollectionStage.java:56) ~[sdk-core-2.29.52.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncApiCallTimeoutTrackingStage.lambda$execute$2(AsyncApiCallTimeoutTrackingStage.java:67) ~[sdk-core-2.29.52.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
+	at software.amazon.awssdk.utils.CompletableFutureUtils.lambda$forwardExceptionTo$0(CompletableFutureUtils.java:78) ~[utils-2.29.52.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncRetryableStage2$RetryingExecutor.maybeAttemptExecute(AsyncRetryableStage2.java:135) ~[sdk-core-2.29.52.jar:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncRetryableStage2$RetryingExecutor.maybeRetryExecute(AsyncRetryableStage2.java:152) ~[sdk-core-2.29.52.jar:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncRetryableStage2$RetryingExecutor.lambda$attemptExecute$1(AsyncRetryableStage2.java:123) ~[sdk-core-2.29.52.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.complete(CompletableFuture.java:2179) ~[?:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.MakeAsyncHttpRequestStage.lambda$execute$0(MakeAsyncHttpRequestStage.java:110) ~[sdk-core-2.29.52.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.complete(CompletableFuture.java:2179) ~[?:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.MakeAsyncHttpRequestStage.completeResponseFuture(MakeAsyncHttpRequestStage.java:253) ~[sdk-core-2.29.52.jar:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.MakeAsyncHttpRequestStage.lambda$executeHttpRequest$3(MakeAsyncHttpRequestStage.java:167) ~[sdk-core-2.29.52.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniHandle(CompletableFuture.java:934) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniHandle.tryFire(CompletableFuture.java:911) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$Completion.run(CompletableFuture.java:482) ~[?:?]
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144) ~[?:?]
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642) ~[?:?]
+	at java.base/java.lang.Thread.run(Thread.java:1583) ~[?:?]
+Caused by: software.amazon.awssdk.services.sqs.model.QueueDoesNotExistException: The specified queue does not exist. (Service: Sqs, Status Code: 400, Request ID: 6670c4d6-5179-4ece-861b-b331a4fcff81)
+	at software.amazon.awssdk.services.sqs.model.QueueDoesNotExistException$BuilderImpl.build(QueueDoesNotExistException.java:137) ~[sqs-2.29.52.jar:?]
+	at software.amazon.awssdk.services.sqs.model.QueueDoesNotExistException$BuilderImpl.build(QueueDoesNotExistException.java:91) ~[sqs-2.29.52.jar:?]
+	at software.amazon.awssdk.protocols.json.internal.unmarshall.AwsJsonProtocolErrorUnmarshaller.unmarshall(AwsJsonProtocolErrorUnmarshaller.java:95) ~[aws-json-protocol-2.29.52.jar:?]
+	at software.amazon.awssdk.protocols.json.internal.unmarshall.AwsJsonProtocolErrorUnmarshaller.handle(AwsJsonProtocolErrorUnmarshaller.java:71) ~[aws-json-protocol-2.29.52.jar:?]
+	at software.amazon.awssdk.protocols.json.internal.unmarshall.AwsJsonProtocolErrorUnmarshaller.handle(AwsJsonProtocolErrorUnmarshaller.java:42) ~[aws-json-protocol-2.29.52.jar:?]
+	at software.amazon.awssdk.core.http.MetricCollectingHttpResponseHandler.lambda$handle$0(MetricCollectingHttpResponseHandler.java:52) ~[sdk-core-2.29.52.jar:?]
+	at software.amazon.awssdk.core.internal.util.MetricUtils.measureDurationUnsafe(MetricUtils.java:102) ~[sdk-core-2.29.52.jar:?]
+	at software.amazon.awssdk.core.internal.util.MetricUtils.measureDurationUnsafe(MetricUtils.java:95) ~[sdk-core-2.29.52.jar:?]
+	at software.amazon.awssdk.core.http.MetricCollectingHttpResponseHandler.handle(MetricCollectingHttpResponseHandler.java:52) ~[sdk-core-2.29.52.jar:?]
+	at software.amazon.awssdk.core.internal.http.async.AsyncResponseHandler.lambda$prepare$0(AsyncResponseHandler.java:92) ~[sdk-core-2.29.52.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniCompose.tryFire(CompletableFuture.java:1150) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.complete(CompletableFuture.java:2179) ~[?:?]
+	at software.amazon.awssdk.core.internal.http.async.AsyncResponseHandler$BaosSubscriber.onComplete(AsyncResponseHandler.java:135) ~[sdk-core-2.29.52.jar:?]
+	at software.amazon.awssdk.core.internal.metrics.BytesReadTrackingPublisher$BytesReadTracker.onComplete(BytesReadTrackingPublisher.java:74) ~[sdk-core-2.29.52.jar:?]
+	at software.amazon.awssdk.http.nio.netty.internal.ResponseHandler$DataCountingPublisher$1.onComplete(ResponseHandler.java:519) ~[netty-nio-client-2.29.52.jar:?]
+	at software.amazon.awssdk.http.nio.netty.internal.ResponseHandler.runAndLogError(ResponseHandler.java:254) ~[netty-nio-client-2.29.52.jar:?]
+	at software.amazon.awssdk.http.nio.netty.internal.ResponseHandler.access$600(ResponseHandler.java:77) ~[netty-nio-client-2.29.52.jar:?]
+	at software.amazon.awssdk.http.nio.netty.internal.ResponseHandler$PublisherAdapter$1.onComplete(ResponseHandler.java:375) ~[netty-nio-client-2.29.52.jar:?]
+	at software.amazon.awssdk.http.nio.netty.internal.nrs.HandlerPublisher.publishMessage(HandlerPublisher.java:402) ~[netty-nio-client-2.29.52.jar:?]
+	at software.amazon.awssdk.http.nio.netty.internal.nrs.HandlerPublisher.flushBuffer(HandlerPublisher.java:338) ~[netty-nio-client-2.29.52.jar:?]
+	at software.amazon.awssdk.http.nio.netty.internal.nrs.HandlerPublisher.receivedDemand(HandlerPublisher.java:291) ~[netty-nio-client-2.29.52.jar:?]
+	at software.amazon.awssdk.http.nio.netty.internal.nrs.HandlerPublisher.access$200(HandlerPublisher.java:61) ~[netty-nio-client-2.29.52.jar:?]
+	at software.amazon.awssdk.http.nio.netty.internal.nrs.HandlerPublisher$ChannelSubscription$1.run(HandlerPublisher.java:495) ~[netty-nio-client-2.29.52.jar:?]
+	at io.netty.util.concurrent.AbstractEventExecutor.runTask$$$capture(AbstractEventExecutor.java:173) ~[netty-common-4.1.119.Final.jar:4.1.119.Final]
+	at io.netty.util.concurrent.AbstractEventExecutor.runTask(AbstractEventExecutor.java) ~[netty-common-4.1.119.Final.jar:4.1.119.Final]
+	at io.netty.util.concurrent.AbstractEventExecutor.safeExecute$$$capture(AbstractEventExecutor.java:166) ~[netty-common-4.1.119.Final.jar:4.1.119.Final]
+	at io.netty.util.concurrent.AbstractEventExecutor.safeExecute(AbstractEventExecutor.java) ~[netty-common-4.1.119.Final.jar:4.1.119.Final]
+	at io.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks(SingleThreadEventExecutor.java:472) ~[netty-common-4.1.119.Final.jar:4.1.119.Final]
+	at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:566) ~[netty-transport-4.1.119.Final.jar:4.1.119.Final]
+	at io.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998) ~[netty-common-4.1.119.Final.jar:4.1.119.Final]
+	at io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74) ~[netty-common-4.1.119.Final.jar:4.1.119.Final]
+	at java.base/java.lang.Thread.run(Thread.java:1583) ~[?:?]
