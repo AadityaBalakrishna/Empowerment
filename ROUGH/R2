@@ -1,33 +1,68 @@
-package com.empower.epw.crm.gateway.web.controller;
+package com.empower.epw.crm.gateway.sqs;
 
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
+import io.awspring.cloud.sqs.annotation.SqsListener;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
+import org.springframework.stereotype.Component;
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
 
-import com.empower.epw.crm.gateway.CrmGatewayApplication;
-import com.empower.epw.sqs.config.EmpowerSQSConfig;
+@Component
+public class CrmGatewayMessageListener {
 
-import static org.assertj.core.api.Assertions.assertThat;
+    private static final PcapLogger logger = PcapLoggerFactory.getPcapLogger(CrmGatewayMessageListener.class);
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = CrmGatewayApplication.class)
-@ActiveProfiles("test")
-class SsmControllerTest
-{
+    @SqsListener("${crm.gateway.sqs.queue.dryrun:}")
+    @Retryable(
+            value = { Exception.class },
+            maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}",
+            backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}")
+    )
+    public void handleDryRunMessage(String message) {
+        processMessage("DRY_RUN", message);
+    }
 
-	@Value("${scaffold.test.secret}")
-	private String scaffoldTestSecret;
+    @SqsListener("${crm.gateway.sqs.queue.intermediate:}")
+    @Retryable(
+            value = { Exception.class },
+            maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}",
+            backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}")
+    )
+    public void handleIntermediateMessage(String message) {
+        processMessage("INTERMEDIATE", message);
+    }
 
-	@Value("${ace.api.baseurl}")
-	private String scaffoldTestKey;
+    @SqsListener("${crm.gateway.sqs.queue.normal:}")
+    @Retryable(
+            value = { Exception.class },
+            maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}",
+            backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}")
+    )
+    public void handleNormalMessage(String message) {
+        processMessage("NORMAL", message);
+    }
 
-	@Test
-	void testSsmAndConfigStoreConnectivity()
-	{
-		assertThat(scaffoldTestSecret).isNotNull()
-				.isNotEmpty();
-		assertThat(scaffoldTestKey).isNotNull()
-				.isNotEmpty();
-	}
+    @SqsListener("${crm.gateway.sqs.queue.top:}")
+    @Retryable(
+            value = { Exception.class },
+            maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}",
+            backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}")
+    )
+    public void handleTopMessage(String message) {
+        processMessage("TOP", message);
+    }
+
+    private void processMessage(String type, String message) {
+        logger.info("Received [{}] message: {}", type, message);
+
+        try {
+            // TODO: handle domain logic here
+            logger.info("Message [{}] processed successfully.", type);
+        } catch (Exception ex) {
+            logger.error("Error processing [{}] message: {}", type, ex.getMessage(), ex);
+            throw ex; // triggers @Retryable
+        }
+    }
 }
+
+what is the point of the listener class?
