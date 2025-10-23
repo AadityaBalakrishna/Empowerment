@@ -1,75 +1,147 @@
 package com.empower.epw.crm.gateway.sqs;
 
-import io.awspring.cloud.sqs.annotation.SqsListener;
-import org.springframework.retry.annotation.Backoff;
-import org.springframework.retry.annotation.Retryable;
-import org.springframework.stereotype.Component;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+
+import com.empower.epw.sqs.EmpowerSQSService;
 import com.personalcapital.log.PcapLogger;
 import com.personalcapital.log.PcapLoggerFactory;
 
-@Component
-public class CrmGatewayMessageListener {
+import static org.assertj.core.api.Assertions.assertThat;
 
-    private static final PcapLogger logger = PcapLoggerFactory.getPcapLogger(CrmGatewayMessageListener.class);
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.EnableRetry;
+import org.springframework.retry.annotation.Retryable;
 
-    @SqsListener("${crm.gateway.sqs.queue.dryrun:}")
-    @Retryable(
-            value = { Exception.class },
-            maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}",
-            backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}")
-    )
-    public void handleDryRunMessage(String message) {
-        processMessage("DRY_RUN", message);
+@SpringBootTest(classes = {CrmGatewaySqsTestApplication.class})
+@EnableAutoConfiguration
+@ActiveProfiles("test")
+@EnableRetry
+public class CrmGatewaySqsIntegrationTest extends CrmGatewaySqsContainerIT {
+
+    private static final PcapLogger logger = PcapLoggerFactory.getPcapLogger(CrmGatewaySqsIntegrationTest.class);
+
+    @Autowired
+    private EmpowerSQSService empowerSQSService;
+
+    @Autowired
+    private TestListener listener;
+
+    @Test
+    void shouldSendAndReceiveMessageOnAllQueues() {
+        for (String queueName : QUEUE_NAMES) {
+            String expectedMessage = "Hello from CRM Gateway - " + queueName;
+
+            empowerSQSService.sendMessage(queueName, expectedMessage);
+            String actualMessage = empowerSQSService.reciveMessage(queueName, String.class);
+
+            assertThat(actualMessage)
+                    .as("Verify message for queue: " + queueName)
+                    .isEqualTo(expectedMessage);
+
+            logger.info("Message verified for queue: {}" + queueName);
+        }
     }
 
-    @SqsListener("${crm.gateway.sqs.queue.intermediate:}")
-    @Retryable(
-            value = { Exception.class },
-            maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}",
-            backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}")
-    )
-    public void handleIntermediateMessage(String message) {
-        processMessage("INTERMEDIATE", message);
+    @Test
+    void shouldRetryOnFailureForAllQueues() {
+        for (String queueName : QUEUE_NAMES) {
+            String failMessage = "SIMULATE_FAIL_" + queueName;
+
+            String result = listener.processMessageWithRetry(queueName, failMessage);
+
+            assertThat(result)
+                    .as("Retry verified for queue: " + queueName)
+                    .isEqualTo(failMessage);
+
+            logger.info("Retry verified for queue: {}", queueName);
+        }
     }
 
-    @SqsListener("${crm.gateway.sqs.queue.normal:}")
-    @Retryable(
-            value = { Exception.class },
-            maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}",
-            backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}")
-    )
-    public void handleNormalMessage(String message) {
-        processMessage("NORMAL", message);
+    @Configuration
+    static class TestListenerConfig {
+        @Bean
+        TestListener testListener() {
+            return new TestListener();
+        }
     }
 
-    @SqsListener("${crm.gateway.sqs.queue.top:}")
-    @Retryable(
-            value = { Exception.class },
-            maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}",
-            backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}")
-    )
-    public void handleTopMessage(String message) {
-        processMessage("TOP", message);
-    }
+    static class TestListener {
+        private int attempt = 0;
 
-    private void processMessage(String type, String message) {
-        logger.info("Received [{}] message: {}", type, message);
+        @Retryable(
+                value = { RuntimeException.class },
+                maxAttemptsExpression = "#{3}",
+                backoff = @Backoff(delayExpression = "#{500}")
+        )
+        public String processMessageWithRetry(String queueName, String expectedFailMessage) {
+            String msg = expectedFailMessage;
 
-        try {
-            // TODO: handle domain logic here
-            logger.info("Message [{}] processed successfully.", type);
-        } catch (Exception ex) {
-            logger.error("Error processing [{}] message: {}", type, ex.getMessage(), ex);
-            throw ex; // triggers @Retryable
+            // Fail first 2 attempts, succeed on 3rd
+            attempt++;
+            if (attempt < 3) {
+                logger.info("Simulated failure attempt {} for queue {}", attempt, queueName);
+                throw new RuntimeException("Simulated failure");
+            }
+
+            logger.info("Message processed successfully on attempt {} for queue {}", attempt, queueName);
+            return msg;
         }
     }
 }
 
-i have this listner class, but i need to test it with a local stack IT test which is able to create it's own queues and test this listener:
-#CRM Gateway SQS Queues
-StageMap.capName=DEVTRUNK
-crm.gateway.sqs.queue.dryrun=${StageMap.capName}_CRM_GATEWAY_DRY_RUN
-crm.gateway.sqs.queue.intermediate=${StageMap.capName}_CRM_GATEWAY_INTERMEDIATE
-crm.gateway.sqs.queue.normal=DEV_CRM_GATEWAY_NORMAL
-crm.gateway.sqs.queue.top=${StageMap.capName}_CRM_GATEWAY_TOP
+package com.empower.epw.crm.gateway.sqs;
 
+import org.junit.jupiter.api.BeforeAll;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.localstack.LocalStackContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
+
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+
+@Testcontainers
+public abstract class CrmGatewaySqsContainerIT {
+
+    private static final PcapLogger logger = PcapLoggerFactory.getPcapLogger(CrmGatewaySqsContainerIT.class);
+
+    // List of CRM Gateway queues
+    protected static final String[] QUEUE_NAMES = {
+            "DEVTRUNK_CRM_GATEWAY_NORMAL",
+            "DEVTRUNK_CRM_GATEWAY_DRY_RUN",
+            "DEVTRUNK_CRM_GATEWAY_INTERMEDIATE",
+            "DEVTRUNK_CRM_GATEWAY_TOP"
+    };
+
+    // Start LocalStack container automatically
+    @Container
+    static LocalStackContainer localStack = new LocalStackContainer(
+            DockerImageName.parse("localstack/localstack:3.0"));
+
+    @DynamicPropertySource
+    static void configureProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.cloud.aws.region.static", localStack::getRegion);
+        registry.add("spring.cloud.aws.credentials.access-key", localStack::getAccessKey);
+        registry.add("spring.cloud.aws.credentials.secret-key", localStack::getSecretKey);
+        registry.add("spring.cloud.aws.sqs.endpoint",
+                () -> localStack.getEndpointOverride(LocalStackContainer.Service.SQS)
+                        .toString());
+    }
+
+    // Create all queues before any tests run
+    @BeforeAll
+    static void beforeAll() throws Exception{
+        for (String queueName : QUEUE_NAMES) {
+            localStack.execInContainer("awslocal", "sqs", "create-queue", "--queue-name", queueName);
+            logger.info("Created SQS queue: " + queueName);
+        }
+    }
+}
