@@ -65,4 +65,11 @@ public class CrmGatewayMessageListener {
     }
 }
 
-what is the point of the listener class?
+i have this listner class, but i need to test it with a local stack IT test which is able to create it's own queues and test this listener:
+#CRM Gateway SQS Queues
+StageMap.capName=DEVTRUNK
+crm.gateway.sqs.queue.dryrun=${StageMap.capName}_CRM_GATEWAY_DRY_RUN
+crm.gateway.sqs.queue.intermediate=${StageMap.capName}_CRM_GATEWAY_INTERMEDIATE
+crm.gateway.sqs.queue.normal=DEV_CRM_GATEWAY_NORMAL
+crm.gateway.sqs.queue.top=${StageMap.capName}_CRM_GATEWAY_TOP
+
