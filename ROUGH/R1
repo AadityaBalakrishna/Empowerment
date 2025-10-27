@@ -1,92 +1,13 @@
-package com.empower.epw.crm.gateway.sqs;
+2025-10-27 20:40:22 PM [docker-java-stream-715714178] trace_id:  span_id:  INFO  LocalStackContainer - STDOUT: 2025-10-27T15:10:22.328  INFO --- [   asgi_gw_3] localstack.request.aws     : AWS sqs.CreateQueue => 200 
+2025-10-27 20:40:22 PM [docker-java-stream-715714178] trace_id:  span_id:  INFO  LocalStackContainer - STDOUT: 2025-10-27T15:10:22.334  INFO --- [   asgi_gw_3] localstack.request.aws     : AWS sqs.CreateQueue => 200 
+2025-10-27 20:40:22 PM [docker-java-stream-715714178] trace_id:  span_id:  INFO  LocalStackContainer - STDOUT: 2025-10-27T15:10:22.389  INFO --- [   asgi_gw_3] localstack.request.aws     : AWS sqs.CreateQueue => 200 
+2025-10-27 20:40:22 PM [docker-java-stream-715714178] trace_id:  span_id:  INFO  LocalStackContainer - STDOUT: 2025-10-27T15:10:22.442  INFO --- [   asgi_gw_3] localstack.request.aws     : AWS sqs.CreateQueue => 200 
+2025-10-27 20:40:22 PM [docker-java-stream-715714178] trace_id:  span_id:  INFO  LocalStackContainer - STDOUT: 2025-10-27T15:10:22.504  INFO --- [   asgi_gw_3] localstack.request.aws     : AWS sqs.GetQueueUrl => 200 
+2025-10-27 20:40:22 PM [docker-java-stream-715714178] trace_id:  span_id:  INFO  LocalStackContainer - STDOUT: 2025-10-27T15:10:22.526  INFO --- [   asgi_gw_3] localstack.request.aws     : AWS sqs.SendMessage => 200 
+2025-10-27 20:40:22 PM [docker-java-stream-715714178] trace_id:  span_id:  INFO  LocalStackContainer - STDOUT: 2025-10-27T15:10:22.527  INFO --- [   asgi_gw_2] localstack.request.aws     : AWS sqs.ReceiveMessage => 200 
+2025-10-27 20:40:22 PM [io.awspring.cloud.sqs.sqsListenerEndpointContainer#3-1] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewayMessageListener - Received [DRY_RUN] message: ++++++++++++++ 
+2025-10-27 20:40:22 PM [io.awspring.cloud.sqs.sqsListenerEndpointContainer#3-1] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewayMessageListener - Message [DRY_RUN] processed successfully. 
+2025-10-27 20:40:23 PM [docker-java-stream-715714178] trace_id:  span_id:  INFO  LocalStackContainer - STDOUT: 2025-10-27T15:10:23.307  INFO --- [   asgi_gw_3] localstack.request.aws     : AWS sqs.DeleteMessageBatch => 200 
 
-import io.awspring.cloud.sqs.config.SqsBootstrapConfiguration;
-import io.awspring.cloud.sqs.operations.SqsTemplate;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.localstack.LocalStackContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.sqs.SqsClient;
-import software.amazon.awssdk.services.sqs.model.CreateQueueRequest;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
-@SpringBootTest
-@Testcontainers
-@ActiveProfiles("test")
-@Import({ CrmGatewayMessageListener.class })
-@ImportAutoConfiguration(SqsBootstrapConfiguration.class)
-class CrmGatewayMessageListenerTest {
-
-	private static final String DRY_RUN_QUEUE = "DEVTRUNK_CRM_GATEWAY_DRY_RUN";
-	private static final String INTERMEDIATE_QUEUE = "DEVTRUNK_CRM_GATEWAY_INTERMEDIATE";
-	private static final String NORMAL_QUEUE = "DEV_CRM_GATEWAY_NORMAL";
-	private static final String TOP_QUEUE = "DEVTRUNK_CRM_GATEWAY_TOP";
-
-	@Container
-	static final LocalStackContainer localstack =
-			new LocalStackContainer(DockerImageName.parse("localstack/localstack:3.0"))
-					.withServices(LocalStackContainer.Service.SQS);
-
-	private static SqsClient sqsClient;
-
-	@DynamicPropertySource
-	static void registerProperties(DynamicPropertyRegistry registry) {
-		String sqsEndpoint = localstack.getEndpointOverride(LocalStackContainer.Service.SQS).toString();
-		registry.add("spring.cloud.aws.region.static", localstack::getRegion);
-		registry.add("spring.cloud.aws.credentials.access-key", localstack::getAccessKey);
-		registry.add("spring.cloud.aws.credentials.secret-key", localstack::getSecretKey);
-		registry.add("spring.cloud.aws.sqs.endpoint", () -> localstack.getEndpointOverride(LocalStackContainer.Service.SQS).toString());
-
-		// crm gateway queue names
-		registry.add("crm.gateway.sqs.queue.dryrun", () -> DRY_RUN_QUEUE);
-		registry.add("crm.gateway.sqs.queue.intermediate", () -> INTERMEDIATE_QUEUE);
-		registry.add("crm.gateway.sqs.queue.normal", () -> NORMAL_QUEUE);
-		registry.add("crm.gateway.sqs.queue.top", () -> TOP_QUEUE);
-
-		sqsClient = SqsClient.builder()
-				.credentialsProvider(StaticCredentialsProvider.create(
-						AwsBasicCredentials.create(localstack.getAccessKey(), localstack.getSecretKey())))
-				.endpointOverride(localstack.getEndpointOverride(LocalStackContainer.Service.SQS))
-				.region(Region.of(localstack.getRegion()))
-				.build();
-	}
-
-	@Autowired
-	private SqsTemplate sqsTemplate;
-
-	@Autowired
-	private CrmGatewayMessageListener listener;
-
-	@BeforeEach
-	void setupQueues() {
-		sqsClient.createQueue(CreateQueueRequest.builder().queueName(DRY_RUN_QUEUE).build());
-		sqsClient.createQueue(CreateQueueRequest.builder().queueName(INTERMEDIATE_QUEUE).build());
-		sqsClient.createQueue(CreateQueueRequest.builder().queueName(NORMAL_QUEUE).build());
-		sqsClient.createQueue(CreateQueueRequest.builder().queueName(TOP_QUEUE).build());
-	}
-
-	@Test
-	void testMessageIsConsumedSuccessfully() throws Exception {
-		String payload = "{\"event\":\"CustomerUpdated\",\"id\":123}";
-		sqsTemplate.send(DRY_RUN_QUEUE, payload);
-
-		// Give listener some time to consume (async)
-		Thread.sleep(2000);
-
-		// If no exception and logs show message handled, test passes
-		assertThat(true).isTrue();
-	}
-}
+i see these logs
