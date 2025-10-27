@@ -1,90 +1,88 @@
 package com.empower.epw.crm.gateway.sqs;
 
-import io.awspring.cloud.sqs.annotation.SqsListener;
-import org.springframework.retry.annotation.Backoff;
-import org.springframework.retry.annotation.Retryable;
-import org.springframework.stereotype.Component;
-import lombok.CustomLog;
+import static org.awaitility.Awaitility.await;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
-@CustomLog
-@Component
-public class CrmGatewayMessageListener
-{
-	@SqsListener("${crm.gateway.sqs.queue.dryrun:}")
-	@Retryable(value =
-	{
-			Exception.class
-	}, maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}"))
-	public void handleDryRunMessage(String message)
-	{
-		processMessage("DRY_RUN", message);
-	}
+import io.awspring.cloud.sqs.operations.SqsTemplate;
+import org.junit.jupiter.api.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.util.TestPropertyValues;
+import org.springframework.context.ApplicationContextInitializer;
+import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.test.context.ContextConfiguration;
+import org.testcontainers.containers.LocalStackContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 
-	@SqsListener("${crm.gateway.sqs.queue.intermediate:}")
-	@Retryable(value =
-	{
-			Exception.class
-	}, maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}"))
-	public void handleIntermediateMessage(String message)
-	{
-		processMessage("INTERMEDIATE", message);
-	}
+import java.util.concurrent.atomic.AtomicBoolean;
 
-	@SqsListener("${crm.gateway.sqs.queue.normal:}")
-	@Retryable(value =
-	{
-			Exception.class
-	}, maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}"))
-	public void handleNormalMessage(String message)
-	{
-		processMessage("NORMAL", message);
-	}
+@Testcontainers
+@SpringBootTest
+@ContextConfiguration(initializers = CrmGatewayMessageListenerIT.Initializer.class)
+class CrmGatewayMessageListenerIT {
 
-	@SqsListener("${crm.gateway.sqs.queue.top:}")
-	@Retryable(value =
-	{
-			Exception.class
-	}, maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}"))
-	public void handleTopMessage(String message)
-	{
-		processMessage("TOP", message);
-	}
+    private static final String QUEUE_NAME = "crm-gateway-dryrun-queue";
 
-	private void processMessage(String type, String message)
-	{
-		log.info("Received [{}] message: {}", type, message);
+    @Container
+    static LocalStackContainer localStack = new LocalStackContainer(DockerImageName.parse("localstack/localstack:3.5"))
+            .withServices(LocalStackContainer.Service.SQS);
 
-		try
-		{
-			// TODO: handle domain logic here
-			log.info("Message [{}] processed successfully.", type);
-		}
-		catch (Exception ex)
-		{
-			log.error("Error processing [{}] message: {}", type, ex.getMessage(), ex);
-			throw ex; // triggers @Retryable
-		}
-	}
+    @Autowired
+    private SqsTemplate sqsTemplate;
+
+    @Autowired
+    private CrmGatewayMessageListener listener;
+
+    private static final AtomicBoolean messageProcessed = new AtomicBoolean(false);
+
+    @BeforeAll
+    static void beforeAll() {
+        System.setProperty("aws.region", "us-east-1");
+        System.setProperty("spring.cloud.aws.region.static", "us-east-1");
+        System.setProperty("spring.cloud.aws.sqs.endpoint", localStack.getEndpointOverride(LocalStackContainer.Service.SQS).toString());
+    }
+
+    @BeforeEach
+    void setUp() {
+        // Create queue in LocalStack
+        localStack.execInContainer("awslocal", "sqs", "create-queue", "--queue-name", QUEUE_NAME);
+    }
+
+    @Test
+    void testDryRunQueueMessageConsumption() {
+        // Send a message
+        String messageBody = "{\"test\": \"hello world\"}";
+        sqsTemplate.send(QUEUE_NAME, messageBody);
+
+        // Wait and verify it got processed (logically, you can mock or capture via log appender)
+        await().atMost(10, SECONDS).untilTrue(messageProcessed);
+    }
+
+    // Mock a marker inside listener for test visibility
+    // In actual code, you can wire in a spy bean or use application events to confirm
+    static class TestListener extends CrmGatewayMessageListener {
+        @Override
+        protected void processMessage(String type, String message) {
+            super.processMessage(type, message);
+            messageProcessed.set(true);
+        }
+    }
+
+    static class Initializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
+        @Override
+        public void initialize(ConfigurableApplicationContext context) {
+            String sqsEndpoint = localStack.getEndpointOverride(LocalStackContainer.Service.SQS).toString();
+
+            TestPropertyValues.of(
+                    "aws.region=us-east-1",
+                    "spring.cloud.aws.region.static=us-east-1",
+                    "spring.cloud.aws.sqs.endpoint=" + sqsEndpoint,
+                    "crm.gateway.sqs.queue.dryrun=" + QUEUE_NAME,
+                    "crm-gateway.sqs.retry.max-attempts=3",
+                    "crm-gateway.sqs.retry.backoff-delay=1000"
+            ).applyTo(context.getEnvironment());
+        }
+    }
 }
-
-is this listener class correct? for this task:
-As a Backend Developer,
-I need to configure starter-sqs for the crm-gateway-service and enable SQS message consumption
-so that the service can process event-driven updates and persist data in its database.
-
-Requirements / Development Notes
-Integrate starter-sqs into the crm-gateway-service.
-Configure SQS queue connection (endpoint, region, IAM credentials).
-Implement message listener to read and process messages.
-Add retry for failed messages.
-
-Dependencies
-AWS SQS queue setup and access permissions.
-
-Acceptance Criteria
-Service connects to AWS SQS and reads messages successfully.
-Failed messages retry.
-Logs show message ID, status, and processing result.
-All parameters configurable per environment.
-
-i want an integration test class, where the queues are created in the test container and only that queue is tested using this listener class
