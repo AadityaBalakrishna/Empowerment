@@ -1,10 +1,9 @@
 package com.empower.epw.crm.gateway.sqs;
 
-import io.awspring.cloud.sqs.operations.SqsTemplate;
 import io.awspring.cloud.sqs.config.SqsBootstrapConfiguration;
+import io.awspring.cloud.sqs.operations.SqsTemplate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -14,12 +13,14 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.localstack.LocalStackContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.sqs.SqsClient;
+import software.amazon.awssdk.services.sqs.model.CreateQueueRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
-
-import com.amazonaws.services.sqs.AmazonSQS;
-import com.amazonaws.services.sqs.model.CreateQueueRequest;
-import org.testcontainers.utility.DockerImageName;
 
 @SpringBootTest
 @Testcontainers
@@ -37,18 +38,29 @@ class CrmGatewayMessageListenerIT {
             new LocalStackContainer(DockerImageName.parse("localstack/localstack:3.0"))
                     .withServices(LocalStackContainer.Service.SQS);
 
+    private static SqsClient sqsClient;
+
     @DynamicPropertySource
     static void registerProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.cloud.aws.sqs.endpoint", () -> localstack.getEndpointOverride(LocalStackContainer.Service.SQS).toString());
+        String sqsEndpoint = localstack.getEndpointOverride(LocalStackContainer.Service.SQS).toString();
         registry.add("spring.cloud.aws.region.static", localstack::getRegion);
         registry.add("spring.cloud.aws.credentials.access-key", localstack::getAccessKey);
         registry.add("spring.cloud.aws.credentials.secret-key", localstack::getSecretKey);
+        registry.add("spring.cloud.aws.sqs.endpoint", () -> sqsEndpoint);
 
         // crm gateway queue names
         registry.add("crm.gateway.sqs.queue.dryrun", () -> DRY_RUN_QUEUE);
         registry.add("crm.gateway.sqs.queue.intermediate", () -> INTERMEDIATE_QUEUE);
         registry.add("crm.gateway.sqs.queue.normal", () -> NORMAL_QUEUE);
         registry.add("crm.gateway.sqs.queue.top", () -> TOP_QUEUE);
+
+        // Initialize AWS SDK v2 SQS client
+        sqsClient = SqsClient.builder()
+                .credentialsProvider(StaticCredentialsProvider.create(
+                        AwsBasicCredentials.create(localstack.getAccessKey(), localstack.getSecretKey())))
+                .endpointOverride(localstack.getEndpointOverride(LocalStackContainer.Service.SQS))
+                .region(Region.of(localstack.getRegion()))
+                .build();
     }
 
     @Autowired
@@ -57,15 +69,12 @@ class CrmGatewayMessageListenerIT {
     @Autowired
     private CrmGatewayMessageListener listener;
 
-    @Autowired
-    private AmazonSQS amazonSQS;
-
     @BeforeEach
     void setupQueues() {
-        amazonSQS.createQueue(new CreateQueueRequest(DRY_RUN_QUEUE));
-        amazonSQS.createQueue(new CreateQueueRequest(INTERMEDIATE_QUEUE));
-        amazonSQS.createQueue(new CreateQueueRequest(NORMAL_QUEUE));
-        amazonSQS.createQueue(new CreateQueueRequest(TOP_QUEUE));
+        sqsClient.createQueue(CreateQueueRequest.builder().queueName(DRY_RUN_QUEUE).build());
+        sqsClient.createQueue(CreateQueueRequest.builder().queueName(INTERMEDIATE_QUEUE).build());
+        sqsClient.createQueue(CreateQueueRequest.builder().queueName(NORMAL_QUEUE).build());
+        sqsClient.createQueue(CreateQueueRequest.builder().queueName(TOP_QUEUE).build());
     }
 
     @Test
@@ -76,8 +85,7 @@ class CrmGatewayMessageListenerIT {
         // Give listener some time to consume (async)
         Thread.sleep(2000);
 
-        // Nothing to assert directly (listener logs message)
-        // But we can assume test passes if no exceptions
+        // If no exception and logs show message handled, test passes
         assertThat(true).isTrue();
     }
 }
