@@ -1,7 +1,1 @@
-
-Parameter 0 of method defaultSqsListenerContainerFactory in com.empower.epw.crm.gateway.sqs.config.CrmGatewaySqsConfig required a bean of type 'software.amazon.awssdk.services.sqs.SqsAsyncClient' that could not be found.
-
-
-Action:
-
-Consider defining a bean of type 'software.amazon.awssdk.services.sqs.SqsAsyncClient' in your configuration.
+Caused by: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target
