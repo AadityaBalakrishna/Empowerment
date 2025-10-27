@@ -1,91 +1,59 @@
-package com.empower.epw.crm.gateway.sqs;
+Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'configClientProperties' defined in class path resource [com/empower/epw/starter/config/store/EpwConfigServiceBootstrapConfiguration.class]: Failed to instantiate [org.springframework.cloud.config.client.ConfigClientProperties]: Factory method 'configClientProperties' threw exception with message: Unable to infer profiles but configs-store is enabled. Please fix properties
+	at org.springframework.beans.factory.support.ConstructorResolver.instantiate(ConstructorResolver.java:657)
+	at org.springframework.beans.factory.support.ConstructorResolver.instantiateUsingFactoryMethod(ConstructorResolver.java:489)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.instantiateUsingFactoryMethod(AbstractAutowireCapableBeanFactory.java:1361)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1191)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:563)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:523)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:339)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:347)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:337)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:202)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.instantiateSingleton(DefaultListableBeanFactory.java:1155)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingleton(DefaultListableBeanFactory.java:1121)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:1056)
+	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:987)
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:627)
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:752)
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:439)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:318)
+	at org.springframework.boot.builder.SpringApplicationBuilder.run(SpringApplicationBuilder.java:149)
+	at org.springframework.cloud.bootstrap.BootstrapApplicationListener.bootstrapServiceContext(BootstrapApplicationListener.java:198)
+	at org.springframework.cloud.bootstrap.BootstrapApplicationListener.onApplicationEvent(BootstrapApplicationListener.java:114)
+	at org.springframework.cloud.bootstrap.BootstrapApplicationListener.onApplicationEvent(BootstrapApplicationListener.java:77)
+	at org.springframework.context.event.SimpleApplicationEventMulticaster.doInvokeListener(SimpleApplicationEventMulticaster.java:185)
+	at org.springframework.context.event.SimpleApplicationEventMulticaster.invokeListener(SimpleApplicationEventMulticaster.java:178)
+	at org.springframework.context.event.SimpleApplicationEventMulticaster.multicastEvent(SimpleApplicationEventMulticaster.java:156)
+	at org.springframework.context.event.SimpleApplicationEventMulticaster.multicastEvent(SimpleApplicationEventMulticaster.java:138)
+	at org.springframework.boot.context.event.EventPublishingRunListener.multicastInitialEvent(EventPublishingRunListener.java:136)
+	at org.springframework.boot.context.event.EventPublishingRunListener.environmentPrepared(EventPublishingRunListener.java:81)
+	at org.springframework.boot.SpringApplicationRunListeners.lambda$environmentPrepared$2(SpringApplicationRunListeners.java:64)
+	at java.base/java.lang.Iterable.forEach(Iterable.java:75)
+	at org.springframework.boot.SpringApplicationRunListeners.doWithListeners(SpringApplicationRunListeners.java:118)
+	at org.springframework.boot.SpringApplicationRunListeners.doWithListeners(SpringApplicationRunListeners.java:112)
+	at org.springframework.boot.SpringApplicationRunListeners.environmentPrepared(SpringApplicationRunListeners.java:63)
+	at org.springframework.boot.SpringApplication.prepareEnvironment(SpringApplication.java:353)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:313)
+	at org.springframework.boot.test.context.SpringBootContextLoader.lambda$loadContext$3(SpringBootContextLoader.java:144)
+	at org.springframework.util.function.ThrowingSupplier.get(ThrowingSupplier.java:58)
+	at org.springframework.util.function.ThrowingSupplier.get(ThrowingSupplier.java:46)
+	at org.springframework.boot.SpringApplication.withHook(SpringApplication.java:1461)
+	at org.springframework.boot.test.context.SpringBootContextLoader$ContextLoaderHook.run(SpringBootContextLoader.java:563)
+	at org.springframework.boot.test.context.SpringBootContextLoader.loadContext(SpringBootContextLoader.java:144)
+	at org.springframework.boot.test.context.SpringBootContextLoader.loadContext(SpringBootContextLoader.java:110)
+	at org.springframework.test.context.cache.DefaultCacheAwareContextLoaderDelegate.loadContextInternal(DefaultCacheAwareContextLoaderDelegate.java:225)
+	at org.springframework.test.context.cache.DefaultCacheAwareContextLoaderDelegate.loadContext(DefaultCacheAwareContextLoaderDelegate.java:152)
+	... 19 more
+Caused by: org.springframework.beans.BeanInstantiationException: Failed to instantiate [org.springframework.cloud.config.client.ConfigClientProperties]: Factory method 'configClientProperties' threw exception with message: Unable to infer profiles but configs-store is enabled. Please fix properties
+	at org.springframework.beans.factory.support.SimpleInstantiationStrategy.lambda$instantiate$0(SimpleInstantiationStrategy.java:199)
+	at org.springframework.beans.factory.support.SimpleInstantiationStrategy.instantiateWithFactoryMethod(SimpleInstantiationStrategy.java:88)
+	at org.springframework.beans.factory.support.SimpleInstantiationStrategy.instantiate(SimpleInstantiationStrategy.java:168)
+	at org.springframework.beans.factory.support.ConstructorResolver.instantiate(ConstructorResolver.java:653)
+	... 62 more
+Caused by: java.lang.IllegalStateException: Unable to infer profiles but configs-store is enabled. Please fix properties
+	at com.empower.epw.starter.config.store.EpwConfigServiceBootstrapConfiguration.inferProfiles(EpwConfigServiceBootstrapConfiguration.java:79)
+	at com.empower.epw.starter.config.store.EpwConfigServiceBootstrapConfiguration.configClientProperties(EpwConfigServiceBootstrapConfiguration.java:50)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.beans.factory.support.SimpleInstantiationStrategy.lambda$instantiate$0(SimpleInstantiationStrategy.java:171)
+	... 65 more
 
-import io.awspring.cloud.sqs.config.SqsBootstrapConfiguration;
-import io.awspring.cloud.sqs.operations.SqsTemplate;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.localstack.LocalStackContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.sqs.SqsClient;
-import software.amazon.awssdk.services.sqs.model.CreateQueueRequest;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
-@SpringBootTest
-@Testcontainers
-@Import({ CrmGatewayMessageListener.class })
-@ImportAutoConfiguration(SqsBootstrapConfiguration.class)
-class CrmGatewayMessageListenerIT {
-
-    private static final String DRY_RUN_QUEUE = "DEVTRUNK_CRM_GATEWAY_DRY_RUN";
-    private static final String INTERMEDIATE_QUEUE = "DEVTRUNK_CRM_GATEWAY_INTERMEDIATE";
-    private static final String NORMAL_QUEUE = "DEV_CRM_GATEWAY_NORMAL";
-    private static final String TOP_QUEUE = "DEVTRUNK_CRM_GATEWAY_TOP";
-
-    @Container
-    static final LocalStackContainer localstack =
-            new LocalStackContainer(DockerImageName.parse("localstack/localstack:3.0"))
-                    .withServices(LocalStackContainer.Service.SQS);
-
-    private static SqsClient sqsClient;
-
-    @DynamicPropertySource
-    static void registerProperties(DynamicPropertyRegistry registry) {
-        String sqsEndpoint = localstack.getEndpointOverride(LocalStackContainer.Service.SQS).toString();
-        registry.add("spring.cloud.aws.region.static", localstack::getRegion);
-        registry.add("spring.cloud.aws.credentials.access-key", localstack::getAccessKey);
-        registry.add("spring.cloud.aws.credentials.secret-key", localstack::getSecretKey);
-        registry.add("spring.cloud.aws.sqs.endpoint", () -> sqsEndpoint);
-
-        // crm gateway queue names
-        registry.add("crm.gateway.sqs.queue.dryrun", () -> DRY_RUN_QUEUE);
-        registry.add("crm.gateway.sqs.queue.intermediate", () -> INTERMEDIATE_QUEUE);
-        registry.add("crm.gateway.sqs.queue.normal", () -> NORMAL_QUEUE);
-        registry.add("crm.gateway.sqs.queue.top", () -> TOP_QUEUE);
-
-        // Initialize AWS SDK v2 SQS client
-        sqsClient = SqsClient.builder()
-                .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(localstack.getAccessKey(), localstack.getSecretKey())))
-                .endpointOverride(localstack.getEndpointOverride(LocalStackContainer.Service.SQS))
-                .region(Region.of(localstack.getRegion()))
-                .build();
-    }
-
-    @Autowired
-    private SqsTemplate sqsTemplate;
-
-    @Autowired
-    private CrmGatewayMessageListener listener;
-
-    @BeforeEach
-    void setupQueues() {
-        sqsClient.createQueue(CreateQueueRequest.builder().queueName(DRY_RUN_QUEUE).build());
-        sqsClient.createQueue(CreateQueueRequest.builder().queueName(INTERMEDIATE_QUEUE).build());
-        sqsClient.createQueue(CreateQueueRequest.builder().queueName(NORMAL_QUEUE).build());
-        sqsClient.createQueue(CreateQueueRequest.builder().queueName(TOP_QUEUE).build());
-    }
-
-    @Test
-    void testMessageIsConsumedSuccessfully() throws Exception {
-        String payload = "{\"event\":\"CustomerUpdated\",\"id\":123}";
-        sqsTemplate.send(DRY_RUN_QUEUE, payload);
-
-        // Give listener some time to consume (async)
-        Thread.sleep(2000);
-
-        // If no exception and logs show message handled, test passes
-        assertThat(true).isTrue();
-    }
-}
