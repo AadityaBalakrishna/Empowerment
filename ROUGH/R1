@@ -1,70 +1,7 @@
-package com.empower.epw.crm.gateway.sqs.config;
 
-import java.time.Duration;
-import java.util.concurrent.ThreadPoolExecutor;
+Parameter 0 of method defaultSqsListenerContainerFactory in com.empower.epw.crm.gateway.sqs.config.CrmGatewaySqsConfig required a bean of type 'software.amazon.awssdk.services.sqs.SqsAsyncClient' that could not be found.
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
-import com.personalcapital.log.PcapLogger;
-import com.personalcapital.log.PcapLoggerFactory;
+Action:
 
-import io.awspring.cloud.sqs.MessageExecutionThreadFactory;
-import io.awspring.cloud.sqs.config.SqsMessageListenerContainerFactory;
-import io.awspring.cloud.sqs.listener.QueueNotFoundStrategy;
-import io.awspring.cloud.sqs.listener.acknowledgement.handler.AcknowledgementMode;
-import software.amazon.awssdk.services.sqs.SqsAsyncClient;
-
-@Configuration
-public class CrmGatewaySqsConfig {
-
-    private static final PcapLogger log = PcapLoggerFactory.getPcapLogger(CrmGatewaySqsConfig.class);
-
-    @Value("${crm.gateway.sqs.visibility-timeout:60}")
-    private Integer visibilityTimeout;
-
-    @Value("${crm.gateway.sqs.min-pool-size:5}")
-    private Integer minPoolSize;
-
-    @Value("${crm.gateway.sqs.max-pool-size:15}")
-    private Integer maxPoolSize;
-
-    @Value("${crm.gateway.sqs.queue-capacity:50}")
-    private Integer queueCapacity;
-
-    @Value("${crm.gateway.sqs.await-termination:30}")
-    private Integer awaitTermination;
-
-    @Bean("crmSqsTaskExecutor")
-    public ThreadPoolTaskExecutor crmSqsTaskExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(minPoolSize);
-        executor.setMaxPoolSize(maxPoolSize);
-        executor.setQueueCapacity(queueCapacity);
-        executor.setWaitForTasksToCompleteOnShutdown(true);
-        executor.setAwaitTerminationSeconds(awaitTermination);
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
-        executor.setThreadFactory(new MessageExecutionThreadFactory("crmSqsThread-"));
-        log.info("Initialized CRM SQS ThreadPoolTaskExecutor with pool size: {}-{}", minPoolSize, maxPoolSize);
-        return executor;
-    }
-
-    @Bean
-    public SqsMessageListenerContainerFactory<Object> defaultSqsListenerContainerFactory(SqsAsyncClient sqsAsyncClient) {
-        log.info("Creating CRM SQS Listener Factory (SDK v2) with visibility timeout: {}", visibilityTimeout);
-
-        return SqsMessageListenerContainerFactory.builder()
-                .sqsAsyncClient(sqsAsyncClient)
-                .configure(options -> options
-                        .messageVisibility(Duration.ofSeconds(visibilityTimeout))
-                        .pollTimeout(Duration.ofSeconds(10))
-                        .maxMessagesPerPoll(10)
-                        .queueNotFoundStrategy(QueueNotFoundStrategy.FAIL)
-                        .acknowledgementMode(AcknowledgementMode.ON_SUCCESS)
-                        .componentsTaskExecutor(crmSqsTaskExecutor())
-                )
-                .build();
-    }
-}
+Consider defining a bean of type 'software.amazon.awssdk.services.sqs.SqsAsyncClient' in your configuration.
