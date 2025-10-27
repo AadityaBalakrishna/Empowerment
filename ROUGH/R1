@@ -1,10 +1,79 @@
-Purpose:
+package com.empower.epw.crm.gateway.sqs;
+
+import io.awspring.cloud.sqs.annotation.SqsListener;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
+import org.springframework.stereotype.Component;
+import lombok.CustomLog;
+
+@CustomLog
+@Component
+public class CrmGatewayMessageListener
+{
+	@SqsListener("${crm.gateway.sqs.queue.dryrun:}")
+	@Retryable(value =
+	{
+			Exception.class
+	}, maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}"))
+	public void handleDryRunMessage(String message)
+	{
+		processMessage("DRY_RUN", message);
+	}
+
+	@SqsListener("${crm.gateway.sqs.queue.intermediate:}")
+	@Retryable(value =
+	{
+			Exception.class
+	}, maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}"))
+	public void handleIntermediateMessage(String message)
+	{
+		processMessage("INTERMEDIATE", message);
+	}
+
+	@SqsListener("${crm.gateway.sqs.queue.normal:}")
+	@Retryable(value =
+	{
+			Exception.class
+	}, maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}"))
+	public void handleNormalMessage(String message)
+	{
+		processMessage("NORMAL", message);
+	}
+
+	@SqsListener("${crm.gateway.sqs.queue.top:}")
+	@Retryable(value =
+	{
+			Exception.class
+	}, maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}"))
+	public void handleTopMessage(String message)
+	{
+		processMessage("TOP", message);
+	}
+
+	private void processMessage(String type, String message)
+	{
+		log.info("Received [{}] message: {}", type, message);
+
+		try
+		{
+			// TODO: handle domain logic here
+			log.info("Message [{}] processed successfully.", type);
+		}
+		catch (Exception ex)
+		{
+			log.error("Error processing [{}] message: {}", type, ex.getMessage(), ex);
+			throw ex; // triggers @Retryable
+		}
+	}
+}
+
+is this listener class correct? for this task:
 As a Backend Developer,
-I need to configure epw-starter-sqs for the crm-gateway-service and enable SQS message consumption
+I need to configure starter-sqs for the crm-gateway-service and enable SQS message consumption
 so that the service can process event-driven updates and persist data in its database.
 
 Requirements / Development Notes
-Integrate epw-starter-sqs into the crm-gateway-service.
+Integrate starter-sqs into the crm-gateway-service.
 Configure SQS queue connection (endpoint, region, IAM credentials).
 Implement message listener to read and process messages.
 Add retry for failed messages.
@@ -18,646 +87,4 @@ Failed messages retry.
 Logs show message ID, status, and processing result.
 All parameters configurable per environment.
 
-1) epw-starter-sqs/src/main/java/com/empower/epw/sqs/config/EmpowerSQSConfig.java
-package com.empower.epw.sqs.config;
-import com.empower.epw.sqs.EmpowerSQSService;
-import com.empower.epw.sqs.impl.EmpowerSQSServiceImpl;
-import io.awspring.cloud.sqs.MessageExecutionThreadFactory;
-import io.awspring.cloud.sqs.config.SqsMessageListenerContainerFactory;
-import io.awspring.cloud.sqs.listener.QueueNotFoundStrategy;
-import io.awspring.cloud.sqs.listener.errorhandler.ErrorHandler;
-import io.awspring.cloud.sqs.listener.interceptor.MessageInterceptor;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-import software.amazon.awssdk.services.sqs.SqsAsyncClient;
-import java.time.Duration;
-import java.util.concurrent.ThreadPoolExecutor;
-
-@Configuration
-@EnableConfigurationProperties(
-{
-		EmpowerSQSProperties.class
-})
-@Slf4j // TODO : Replace with PcapLogger
-@RequiredArgsConstructor
-public class EmpowerSQSConfig
-{
-	private final EmpowerSQSProperties empowerSQSProperties;
-
-	@Bean
-	@ConditionalOnMissingBean
-	SqsMessageListenerContainerFactory<Object> defaultSqsListenerContainerFactory(
-			SqsAsyncClient sqsAsyncClient, MessageInterceptor messageInterceptor, ErrorHandler errorHandler)
-	{
-		return SqsMessageListenerContainerFactory.builder().sqsAsyncClient(sqsAsyncClient)
-				.configure(sqsContainerOptionsBuilder -> sqsContainerOptionsBuilder.messageVisibility(Duration.ofSeconds(empowerSQSProperties.getVisibilityTimeout()))
-						.queueNotFoundStrategy(QueueNotFoundStrategy.FAIL)
-						.componentsTaskExecutor(awsTaskExecutor()))
-				.messageInterceptor(messageInterceptor)
-				.errorHandler(errorHandler)
-				.build();
-	}
-
-	@Bean
-	@ConditionalOnMissingBean
-	ErrorHandler empowerSqsErrorHandler()
-	{
-		log.info("Default EmpowerSqsErrorHandler configured");
-		return new EmpowerSqsErrorHandler();
-	}
-
-	@Bean
-	@ConditionalOnMissingBean
-	MessageInterceptor messageInterceptor()
-	{
-		log.info("Default EmpowerSqsMessageIntercepter configured");
-		return new EmpowerSqsMessageIntercepter();
-	}
-
-	@Bean
-	EmpowerSQSService empowerSQSService()
-	{
-		return new EmpowerSQSServiceImpl();
-	}
-
-	@Bean("awsTaskExecutor")
-	public ThreadPoolTaskExecutor awsTaskExecutor()
-	{
-		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-		executor.setCorePoolSize(empowerSQSProperties.getMinPoolSize());
-		executor.setMaxPoolSize(empowerSQSProperties.getMaxPoolSize());
-		executor.setQueueCapacity(empowerSQSProperties.getQueueCapacity());
-		executor.setWaitForTasksToCompleteOnShutdown(true);
-		executor.setAwaitTerminationSeconds(empowerSQSProperties.getQueueMaxAwaitTermination());
-		executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
-		executor.setThreadFactory(new MessageExecutionThreadFactory("empowerSqsThread-"));
-		return executor;
-	}
-}
-
-
-2) epw-starter-sqs/src/main/java/com/empower/epw/sqs/config/EmpowerSqsErrorHandler.java
-package com.empower.epw.sqs.config;
-import io.awspring.cloud.sqs.listener.errorhandler.ErrorHandler;
-import io.awspring.cloud.sqs.listener.interceptor.MessageInterceptor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.messaging.Message;
-import org.springframework.stereotype.Component;
-import java.util.Objects;
-
-@Slf4j // TODO : Replace with PcapLogger
-public class EmpowerSqsErrorHandler<T> implements ErrorHandler<T>
-{
-	@Override
-	public void handle(Message<T> message, Throwable t)
-	{
-		// Here we can write custom exception handler
-		throw new RuntimeException(t);
-	}
-}
-
-3) epw-starter-sqs/src/main/java/com/empower/epw/sqs/config/EmpowerSqsMessageIntercepter.java
-package com.empower.epw.sqs.config;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Configuration;
-import io.awspring.cloud.sqs.listener.interceptor.MessageInterceptor;
-import org.springframework.messaging.Message;
-import org.springframework.stereotype.Component;
-import java.util.Objects;
-
-@Slf4j // TODO : Replace with PcapLogger
-public class EmpowerSqsMessageIntercepter<T> implements MessageInterceptor<T>
-{
-	@Override
-	public Message<T> intercept(Message<T> message)
-	{
-		log.debug("Message before processing {} ", message);
-		return message;
-	}
-
-	@Override
-	public void afterProcessing(Message<T> message, Throwable t)
-	{
-		if (Objects.nonNull(t))
-		{
-			log.error("Failed to process the message with message ID {} ", message.getHeaders().getId());
-		}
-		else
-		{
-			log.info("Message process successfully with message ID {} ", message.getHeaders().getId());
-		}
-	}
-}
-
-4) epw-starter-sqs/src/main/java/com/empower/epw/sqs/config/EmpowerSQSProperties.java
-package com.empower.epw.sqs.config;
-import lombok.Data;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-@ConfigurationProperties(prefix = "epw.aws.sqs")
-@Data
-public class EmpowerSQSProperties
-{
-	private Integer visibilityTimeout;
-	private Integer minPoolSize;
-	private Integer maxPoolSize;
-	private Integer queueCapacity;
-	private Integer queueMaxAwaitTermination;
-}
-
-5) epw-starter-sqs/src/main/java/com/empower/epw/sqs/impl/EmpowerSQSServiceImpl.java
-package com.empower.epw.sqs.impl;
-import com.empower.epw.sqs.EmpowerSQSService;
-import io.awspring.cloud.sqs.operations.SendResult;
-import io.awspring.cloud.sqs.operations.SqsTemplate;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.messaging.Message;
-import java.time.Duration;
-import java.util.Optional;
-import java.util.function.Function;
-
-@Slf4j // TODO : Replace with PcapLogger
-public class EmpowerSQSServiceImpl implements EmpowerSQSService
-{
-	@Autowired
-	SqsTemplate sqsTemplate;
-
-	public <T> T sendMessage(String queueName, T message)
-	{
-		return sendMessage(queueName, message, 0);
-	}
-	public <T> T sendMessage(String queueName, T message, int delayInSeconds)
-	{
-		SendResult<Object> sendResult = sqsTemplate.send(to -> to.queue(queueName).payload(message).delaySeconds(delayInSeconds));
-		log.info("sendMessage :: Message ID {}  sent successfully ", sendResult.messageId());
-		return message;
-	}
-	public <T> T reciveMessage(String queueName, Class<T> targetClass)
-	{
-		Optional<Message<T>> message = sqsTemplate.receive(queueName, targetClass);
-		if (message.isPresent())
-		{
-			return message.get().getPayload();
-		}
-		else
-		{
-			return null;
-		}
-	}
-	public <T> T reciveMessage(String queueName, Class<T> targetClass,
-			long visibilityTimeOutInSeconds)
-	{
-		Optional<Message<T>> message = sqsTemplate.receive(from -> from.queue(queueName)
-				.visibilityTimeout(Duration.ofSeconds(visibilityTimeOutInSeconds)), targetClass);
-		if (message.isPresent())
-		{
-			return message.get()
-					.getPayload();
-		}
-		else
-		{
-			return null;
-		}
-	}
-	public <T> T reciveMessage(String queueName, Function<Message<?>, T> customConverter)
-	{
-		return reciveMessage(queueName, customConverter, 30);
-	}
-	public <T> T reciveMessage(String queueName, Function<Message<?>, T> customConverter, long visibilityTimeOutInSeconds)
-	{
-		Optional<Message<?>> message = sqsTemplate.receive(from -> from.queue(queueName).visibilityTimeout(Duration.ofSeconds(visibilityTimeOutInSeconds)));
-		if (message.isPresent())
-		{
-			return customConverter.apply(message.get());
-		}
-		else
-		{
-			return null;
-		}
-	}
-}
-
-6) epw-starter-sqs/src/main/java/com/empower/epw/sqs/EmpowerSQSService.java
-package com.empower.epw.sqs;
-import org.springframework.messaging.Message;
-import java.util.function.Function;
-
-public interface EmpowerSQSService
-{
-	public <T> T sendMessage(String queueName, T message);
-	public <T> T sendMessage(String queueName, T message, int delayInSeconds);
-	public <T> T reciveMessage(String queueName, Class<T> targetClass);
-	public <T> T reciveMessage(String queueName, Class<T> targetClass, long visibilityTimeOutInSeconds);
-	public <T> T reciveMessage(String queueName, Function<Message<?>, T> customConverter);
-	public <T> T reciveMessage(String queueName, Function<Message<?>, T> customConverter, long visibilityTimeOutInSeconds);
-}
-
-7) epw-starter-sqs/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports
-com.empower.epw.sqs.config.EmpowerSQSConfig
-
-8) epw-starter-sqs/src/main/resources/application.properties
-#spring.cloud.aws.sqs.endpoint=http://localhost:9325
-#spring.cloud.aws.sqs.region=us-west-2
-epw.aws.sqs.visibilityTimeout=60
-epw.aws.sqs.minPoolSize=10
-epw.aws.sqs.maxPoolSize=30
-epw.aws.sqs.queueCapacity=30
-epw.aws.sqs.queueMaxAwaitTermination=30
-
-9) epw-starter-sqs/src/test/java/com/empower/epw/sqs/EmpowerSQSContainerIT.java
-package com.empower.epw.sqs;
-import org.junit.jupiter.api.BeforeAll;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.localstack.LocalStackContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
-import java.io.IOException;
-
-@Testcontainers
-public class EmpowerSQSContainerIT
-{
-	protected static final String QUEUE_NAME = "TEST";
-	@Container
-	static LocalStackContainer localStack = new LocalStackContainer(DockerImageName.parse("localstack/localstack:3.0"));
-	@DynamicPropertySource
-	static void overrideProperties(DynamicPropertyRegistry registry)
-	{
-		// registry.add("app.bucket", () -> BUCKET_NAME);
-		// registry.add("app.queue", () -> QUEUE_NAME);
-		registry.add("spring.cloud.aws.region.static", () -> localStack.getRegion());
-		registry.add("spring.cloud.aws.credentials.access-key", () -> localStack.getAccessKey());
-		registry.add("spring.cloud.aws.credentials.secret-key", () -> localStack.getSecretKey());
-		registry.add("spring.cloud.aws.sqs.endpoint",
-				() -> localStack.getEndpointOverride(LocalStackContainer.Service.SQS).toString());
-	}
-
-	@BeforeAll
-	static void beforeAll() throws IOException, InterruptedException
-	{
-		localStack.execInContainer("awslocal", "sqs", "create-queue", "--queue-name", QUEUE_NAME);
-	}
-}
-
-10) epw-starter-sqs/src/test/java/com/empower/epw/sqs/EmpowerSqsServiceTest.java
-package com.empower.epw.sqs;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import java.util.concurrent.ExecutionException;
-import static org.assertj.core.api.Assertions.assertThat;
-
-@SpringBootTest(classes = EmpowerSQSTestApplication.class)
-public class EmpowerSqsServiceTest extends EmpowerSQSContainerIT
-{
-	@Autowired
-	EmpowerSQSService empowerSQSService;
-
-	@Test
-	public void sendAndReviveMessageTest() throws ExecutionException, InterruptedException
-	{
-		String expectedMessage = "Hello world";
-		empowerSQSService.sendMessage(QUEUE_NAME, "Hello world");
-		String actualMessage = empowerSQSService.reciveMessage(QUEUE_NAME, String.class);
-		assertThat(actualMessage).isEqualTo(expectedMessage);
-	}
-}
-
-11) epw-starter-sqs/src/test/java/com/empower/epw/sqs/EmpowerSQSTestApplication.java
-package com.empower.epw.sqs;
-
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-
-@SpringBootApplication
-public class EmpowerSQSTestApplication
-{
-	public static void main(String[] args)
-	{
-		SpringApplication.run(EmpowerSQSTestApplication.class, args);
-	}
-}
-
-
-These are the sqs queue names as per the code:
- 
-<StageMap.capName>_CRM_GATEWAY_DRY_RUN
-<StageMap.capName>_CRM_GATEWAY_INTERMEDIATE
-<StageMap.capName>_CRM_GATEWAY_NORMAL
-<StageMap.capName>_CRM_GATEWAY_TOP
-
-this is the reference code for sqs listener and retry mechanism,
-package com.empower.epw.trs.consumer;
-import java.util.List;
-import java.util.Optional;
-import org.springframework.retry.annotation.Backoff;
-import org.springframework.retry.annotation.Recover;
-import org.springframework.retry.annotation.Retryable;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
-import io.awspring.cloud.sqs.annotation.SqsListener;
-import com.empower.epw.trs.mapper.MetadataMapper;
-import com.empower.epw.trs.service.AccountRefreshService;
-import com.empower.epw.trs.service.MetadataService;
-import com.empower.epw.trs.stream.TrsPublishStream;
-import com.empower.epw.trs.util.JsonUtils;
-import com.empower.ihub.sps.common.Metadata;
-import com.empower.ihub.sps.refresh.RefreshEvent;
-import com.personalcapital.log.PcapLogger;
-import com.personalcapital.log.PcapLoggerFactory;
-import com.safepage.aggregation.data.PayLoad;
-import com.safepage.aggregation.data.impl.AggregationQueueImpl;
-import lombok.RequiredArgsConstructor;
-
-@Component
-@RequiredArgsConstructor
-@Transactional(value = "epwTrsTransactionManager", propagation = Propagation.REQUIRES_NEW)
-public class TrsSqsConsumer
-{
-	private static final PcapLogger logger = PcapLoggerFactory.getPcapLogger(TrsSqsConsumer.class);
-	private static final String METADATA = "metadata";
-	private final TrsPublishStream trsPublishStream;
-	private final MetadataService metadataService;
-	private final MetadataMapper metadataMapper;
-	private final AccountRefreshService accountRefreshService;
-
-	@SqsListener(value = "${trs.sqs.queue.normal:}")
-	@Retryable(value =
-	{
-			Exception.class
-	}, maxAttemptsExpression = "#{${trs.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${trs.sqs.retry.backoff-delay:1000}}"))
-	public void onMessage(final AggregationQueueImpl message)
-	{
-		logger.info("Consume SQS message for Confirming User, Message is:" + message.getPayload());
-		try
-		{
-			final Metadata spsMetadata = this.createSpsMetadata(message);
-			if (spsMetadata == null)
-			{
-				return;
-			}
-			this.metadataService.saveSuccess(this.metadataMapper.spsMetadataToMetadata(spsMetadata));
-			final List<RefreshEvent> refreshEvents = this.accountRefreshService.buildRefreshEventsForUser(message, spsMetadata);
-			refreshEvents.forEach(this.trsPublishStream::publishEvent);
-		}
-		catch (Exception e)
-		{
-			logger.error("Error on consuming trs sqs message: ", e);
-			throw e;
-		}
-	}
-
-	private Metadata createSpsMetadata(final AggregationQueueImpl message)
-	{
-		return JsonUtils.fromJsonSnakeCase(
-				Optional.of(this.accountRefreshService.getPayloadFromAggregationQueue(message))
-						.map(PayLoad::getJsonObject)
-						.filter(object -> object.has(METADATA))
-						.map(object -> object.getString(METADATA))
-						.orElse(null),
-				Metadata.class);
-	}
-
-	@Recover
-	public void recoverOnMessageRetryFailure(RuntimeException e, final AggregationQueueImpl message)
-	{
-		final Metadata spsMetadata = this.createSpsMetadata(message);
-		if (spsMetadata != null)
-		{
-			logger.info("The processing of SQS message failed on all retries for trace id :"
-					+ spsMetadata.getTraceId());
-			Optional.ofNullable(this.metadataMapper.spsMetadataToMetadata(spsMetadata))
-					.ifPresent(m -> metadataService.saveFailure(m, e.getMessage()));
-		}
-	}
-}
-
-
-answer:
-package com.yourorg.crmgateway.sqs;
-
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-
-import org.springframework.stereotype.Component;
-
-@Component
-public class ProcessingTracker {
-    // store messageId -> result info
-    private final Map<String, ProcessResult> results = new ConcurrentHashMap<>();
-    private CountDownLatch latch = new CountDownLatch(0);
-
-    public void resetLatch(int count) {
-        latch = new CountDownLatch(count);
-    }
-
-    public void noteProcessed(String messageId, String payload, boolean success, String info) {
-        results.put(messageId == null ? String.valueOf(results.size()+1) : messageId, new ProcessResult(success, info, payload));
-        latch.countDown();
-    }
-
-    public void noteRecovered(String messageId, String payload, String reason) {
-        results.put(messageId == null ? String.valueOf(results.size()+1) : messageId, new ProcessResult(false, "RECOVERED:" + reason, payload));
-        latch.countDown();
-    }
-
-    public boolean await(long timeoutSeconds) throws InterruptedException {
-        return latch.await(timeoutSeconds, TimeUnit.SECONDS);
-    }
-
-    public Map<String, ProcessResult> getResults() {
-        return results;
-    }
-
-    public static class ProcessResult {
-        public final boolean success;
-        public final String info;
-        public final String payload;
-        public ProcessResult(boolean success, String info, String payload) {
-            this.success = success;
-            this.info = info;
-            this.payload = payload;
-        }
-    }
-}
-
-package com.yourorg.crmgateway.sqs;
-
-import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.retry.annotation.Backoff;
-import org.springframework.retry.annotation.Recover;
-import org.springframework.retry.annotation.Retryable;
-import org.springframework.stereotype.Component;
-import org.springframework.beans.factory.annotation.Value;
-import io.awspring.cloud.sqs.annotation.SqsListener;
-import org.springframework.messaging.Message;
-
-@Component
-public class CrmGatewaySqsListener {
-    private static final Logger logger = LoggerFactory.getLogger(CrmGatewaySqsListener.class);
-
-    // optional tracker used by tests to assert processing
-    private final ProcessingTracker processingTracker;
-
-    public CrmGatewaySqsListener(ProcessingTracker processingTracker) {
-        this.processingTracker = processingTracker;
-    }
-
-    /*
-     The SqsListener is wired from a property so it is configurable per environment.
-     We define just the 'normal' queue here; you can create separate methods or wire multiple queues.
-    */
-    @SqsListener("${crm.gateway.queue.normal:}")
-    @Retryable(value = { Exception.class },
-               maxAttemptsExpression = "#{${crm.sqs.retry.max-attempts:3}}",
-               backoff = @Backoff(delayExpression = "#{${crm.sqs.retry.backoff-delay:1000}}"))
-    public void onMessage(Message<String> message) {
-        String messageId = Optional.ofNullable(message.getHeaders().getId()).map(Object::toString).orElse("N/A");
-        String payload = message.getPayload();
-        logger.info("Received messageId={} payload={}", messageId, payload);
-
-        try {
-            // business processing: keep it simple here. Replace with actual processing.
-            processPayload(payload);
-
-            logger.info("Processed messageId={} status=SUCCESS", messageId);
-            processingTracker.noteProcessed(messageId, payload, true, "OK");
-
-        } catch (Exception e) {
-            logger.error("Processing failed messageId={} error={}", messageId, e.toString(), e);
-            processingTracker.noteProcessed(messageId, payload, false, e.getMessage());
-            // rethrow to trigger retry
-            throw e;
-        }
-    }
-
-    private void processPayload(String payload) {
-        // simulate possible failure for testing; real logic would be here
-        if (payload.contains("fail")) {
-            throw new RuntimeException("Simulated processing failure for payload: " + payload);
-        }
-        // otherwise do lightweight processing
-        logger.debug("Business logic processed payload: {}", payload);
-    }
-
-    @Recover
-    public void recoverOnMessageRetryFailure(RuntimeException e, Message<String> message) {
-        String messageId = Optional.ofNullable(message.getHeaders().getId()).map(Object::toString).orElse("N/A");
-        String payload = message.getPayload();
-        logger.warn("Recover invoked for messageId={} payload={} error={}", messageId, payload, e.toString());
-        // here we could persist failure record to DB or move message to a dead-letter queue
-        processingTracker.noteRecovered(messageId, payload, e.getMessage());
-    }
-}
-
-package com.yourorg.crmgateway;
-
-import com.yourorg.crmgateway.sqs.ProcessingTracker;
-import com.yourorg.crmgateway.sqs.CrmGatewaySqsProducer;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.AfterAll;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.localstack.LocalStackContainer;
-import org.testcontainers.utility.DockerImageName;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.containers.wait.strategy.Wait;
-
-import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
-@Testcontainers
-@SpringBootTest
-public class CrmGatewaySqsIntegrationTest {
-
-    private static final String QUEUE_NAME = "DEV_CRM_GATEWAY_NORMAL"; // matches stage.prefix DEV in application.properties
-
-    @Container
-    static LocalStackContainer localStack = new LocalStackContainer(DockerImageName.parse("localstack/localstack:3.0"))
-            .withServices(LocalStackContainer.Service.SQS)
-            .withEnv("DEBUG", "1")
-            .waitingFor(Wait.forLogMessage(".*Ready.*", 1));
-
-    @DynamicPropertySource
-    static void overrideProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.cloud.aws.region.static", () -> localStack.getRegion());
-        registry.add("spring.cloud.aws.credentials.access-key", () -> localStack.getAccessKey());
-        registry.add("spring.cloud.aws.credentials.secret-key", () -> localStack.getSecretKey());
-        registry.add("spring.cloud.aws.sqs.endpoint", () -> localStack.getEndpointOverride(LocalStackContainer.Service.SQS).toString());
-        // ensure stage prefix
-        registry.add("STAGE_MAP_CAPNAME", () -> "DEV");
-    }
-
-    @Autowired
-    private CrmGatewaySqsProducer producer;
-
-    @Autowired
-    private ProcessingTracker processingTracker;
-
-    @BeforeAll
-    static void beforeAll() throws Exception {
-        // Create queue using awslocal inside LocalStack container
-        localStack.execInContainer("awslocal", "sqs", "create-queue", "--queue-name", QUEUE_NAME);
-    }
-
-    @Test
-    public void testMessageConsumedSuccessfully() throws Exception {
-        // set tracker for single message
-        processingTracker.resetLatch(1);
-
-        String payload = "hello-crm-" + System.currentTimeMillis();
-        // send to queue
-        producer.send(QUEUE_NAME, payload);
-
-        boolean processed = processingTracker.await(10); // wait up to 10 seconds
-        assertThat(processed).isTrue();
-
-        // assert results include our payload
-        boolean found = processingTracker.getResults().values().stream()
-                .anyMatch(r -> payload.equals(r.payload) && r.success);
-        assertThat(found).isTrue();
-    }
-
-    @Test
-    public void testRetriesAndRecoverOnFailure() throws Exception {
-        processingTracker.resetLatch(1);
-        // payload that triggers failure in processPayload (contains "fail")
-        String payload = "please-fail-this-message";
-        producer.send(QUEUE_NAME, payload);
-
-        boolean processed = processingTracker.await(20); // allow more time for retries
-        assertThat(processed).isTrue();
-
-        // find a result for our payload that must be "RECOVERED" with success == false
-        Map<String, ProcessingTracker.ProcessResult> results = processingTracker.getResults();
-        boolean recovered = results.values().stream()
-                .filter(r -> payload.equals(r.payload))
-                .anyMatch(r -> !r.success && r.info != null && r.info.startsWith("RECOVERED"));
-        assertThat(recovered).isTrue();
-    }
-
-    @AfterAll
-    static void cleanup() throws Exception {
-        // optionally delete created queues or let LocalStack be torn down by Testcontainers
-    }
-}
-
+i want an integration test class, where the queues are created in the test container and only that queue is tested using this listener class
