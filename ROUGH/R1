@@ -1,12 +1,12 @@
 @Bean
-	public SqsClient sqsClient()
-	{
-		return SqsClient.builder()
-				.endpointOverride(localstack.getEndpointOverride(LocalStackContainer.Service.SQS))
-				.region(Region.of(localstack.getRegion()))
-				.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials
-						.create(localstack.getAccessKey(), localstack.getSecretKey())))
-				.build();
-	}
-
-what if i do something like this? but sdk v2
+public SqsAsyncClient sqsAsyncClient(LocalStackContainer localstack) {
+    return SqsAsyncClient.builder()
+            .endpointOverride(localstack.getEndpointOverride(LocalStackContainer.Service.SQS))
+            .region(Region.of(localstack.getRegion()))
+            .credentialsProvider(
+                StaticCredentialsProvider.create(
+                    AwsBasicCredentials.create(localstack.getAccessKey(), localstack.getSecretKey())
+                )
+            )
+            .build();
+}
