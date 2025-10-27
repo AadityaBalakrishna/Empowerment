@@ -1,23 +1,79 @@
-Caused by: software.amazon.awssdk.services.sqs.model.SqsException: User: arn:aws:sts::179355710817:assumed-role/PCAP-PCAPEKS-DEVTRUNK-EKS-SERVER-ROLES-CrmGateway/aws-sdk-java-1761583232195 is not authorized to perform: sqs:createqueue on resource: arn:aws:sqs:us-west-2:179355710817:DEV_CRM_GATEWAY_NORMAL because no identity-based policy allows the sqs:createqueue action (Service: Sqs, Status Code: 403, Request ID: b37cdba4-3268-5f28-9181-badd90aba50c)
-	at software.amazon.awssdk.services.sqs.model.SqsException$BuilderImpl.build(SqsException.java:104) ~[sqs-2.29.52.jar:?]
-	at software.amazon.awssdk.services.sqs.model.SqsException$BuilderImpl.build(SqsException.java:58) ~[sqs-2.29.52.jar:?]
+package com.empower.ihub.trs.config;
 
-i am getting these errors, 
+import java.time.Duration;
+import java.util.concurrent.ThreadPoolExecutor;
 
-this service only has 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+import io.awspring.cloud.sqs.MessageExecutionThreadFactory;
+import io.awspring.cloud.sqs.config.SqsMessageListenerContainerFactory;
+import io.awspring.cloud.sqs.listener.QueueNotFoundStrategy;
+import io.awspring.cloud.sqs.listener.acknowledgement.handler.AcknowledgementMode;
+import software.amazon.awssdk.services.sqs.SqsAsyncClient;
+
+@Configuration
+@ComponentScan(basePackages = "com.empower.epw.security.service")
+public class IhubTrsSqsConfig
 {
-        "Action" : [
-          "sqs:ChangeMessageVisibility",
-          "sqs:GetQueueUrl",
-          "sqs:GetQueueAttributes",
-          "sqs:ListQueues",
-          "sqs:DeleteMessage",
-          "sqs:ReceiveMessage"
-        ],
-        "Resource" : "arn:aws:sqs:us-west-2:179355710817:DEVTRUNK_CRM_GATEWAY_*",
-        "Effect" : "Allow"
-      }
+
+	private final PcapLogger log = PcapLoggerFactory.getPcapLogger(IhubTrsSqsConfig.class);
+
+	@Value("${ihub.trs.sqs.visibilityTimeout:60}")
+	public Integer visibilityTimeout;
+
+	@Value("${ihub.trs.sqs.minPoolSize:10}")
+	public Integer minPoolSize;
+
+	@Value("${ihub.trs.sqs.maxPoolSize:30}")
+	public Integer maxPoolSize;
+
+	@Value("${ihub.trs.sqs.queueCapacity:30}")
+	public Integer queueCapacity;
+
+	@Value("${ihub.trs.sqs.queueMaxAwaitTermination:30}")
+	public Integer queueMaxAwaitTermination;
+
+	@Bean("awsTaskExecutor")
+	public ThreadPoolTaskExecutor awsTaskExecutor()
+	{
+		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+		executor.setCorePoolSize(minPoolSize);
+		executor.setMaxPoolSize(maxPoolSize);
+		executor.setQueueCapacity(queueCapacity);
+		executor.setWaitForTasksToCompleteOnShutdown(true);
+		executor.setAwaitTerminationSeconds(queueMaxAwaitTermination);
+		executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+		executor.setThreadFactory(new MessageExecutionThreadFactory("ihubTrsSqsThread-"));
+		return executor;
+	}
+
+	@Bean
+	SqsMessageListenerContainerFactory<Object> defaultSqsListenerContainerFactory(
+			SqsAsyncClient sqsAsyncClient)
+	{
+
+		log.info("Creating SQS Listener Container Factory with visibility timeout: {}",
+				visibilityTimeout);
+		return SqsMessageListenerContainerFactory.builder()
+				.sqsAsyncClient(sqsAsyncClient)
+				.configure(sqsContainerOptionsBuilder -> sqsContainerOptionsBuilder
+						.messageVisibility(Duration.ofSeconds(visibilityTimeout))
+						.queueNotFoundStrategy(QueueNotFoundStrategy.FAIL)
+						.pollTimeout(Duration.ofSeconds(20))
+						.maxMessagesPerPoll(10)
+						// .messageConverter(getmessageConverter()) - may be used in future
+						.componentsTaskExecutor(awsTaskExecutor())
+						.autoStartup(true)
+						.acknowledgementMode(AcknowledgementMode.ON_SUCCESS))
+				.build();
+	}
+}
 
 
-these actions, because that's all it is supposed to do, so i just need a listener right, a consumer, can you fix my work accordingly?
+reference of the config used in the company's working work
