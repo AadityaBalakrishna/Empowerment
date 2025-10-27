@@ -1,13 +1,23 @@
-2025-10-27 20:40:22 PM [docker-java-stream-715714178] trace_id:  span_id:  INFO  LocalStackContainer - STDOUT: 2025-10-27T15:10:22.328  INFO --- [   asgi_gw_3] localstack.request.aws     : AWS sqs.CreateQueue => 200 
-2025-10-27 20:40:22 PM [docker-java-stream-715714178] trace_id:  span_id:  INFO  LocalStackContainer - STDOUT: 2025-10-27T15:10:22.334  INFO --- [   asgi_gw_3] localstack.request.aws     : AWS sqs.CreateQueue => 200 
-2025-10-27 20:40:22 PM [docker-java-stream-715714178] trace_id:  span_id:  INFO  LocalStackContainer - STDOUT: 2025-10-27T15:10:22.389  INFO --- [   asgi_gw_3] localstack.request.aws     : AWS sqs.CreateQueue => 200 
-2025-10-27 20:40:22 PM [docker-java-stream-715714178] trace_id:  span_id:  INFO  LocalStackContainer - STDOUT: 2025-10-27T15:10:22.442  INFO --- [   asgi_gw_3] localstack.request.aws     : AWS sqs.CreateQueue => 200 
-2025-10-27 20:40:22 PM [docker-java-stream-715714178] trace_id:  span_id:  INFO  LocalStackContainer - STDOUT: 2025-10-27T15:10:22.504  INFO --- [   asgi_gw_3] localstack.request.aws     : AWS sqs.GetQueueUrl => 200 
-2025-10-27 20:40:22 PM [docker-java-stream-715714178] trace_id:  span_id:  INFO  LocalStackContainer - STDOUT: 2025-10-27T15:10:22.526  INFO --- [   asgi_gw_3] localstack.request.aws     : AWS sqs.SendMessage => 200 
-2025-10-27 20:40:22 PM [docker-java-stream-715714178] trace_id:  span_id:  INFO  LocalStackContainer - STDOUT: 2025-10-27T15:10:22.527  INFO --- [   asgi_gw_2] localstack.request.aws     : AWS sqs.ReceiveMessage => 200 
-2025-10-27 20:40:22 PM [io.awspring.cloud.sqs.sqsListenerEndpointContainer#3-1] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewayMessageListener - Received [DRY_RUN] message: ++++++++++++++ 
-2025-10-27 20:40:22 PM [io.awspring.cloud.sqs.sqsListenerEndpointContainer#3-1] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewayMessageListener - Message [DRY_RUN] processed successfully. 
-2025-10-27 20:40:23 PM [docker-java-stream-715714178] trace_id:  span_id:  INFO  LocalStackContainer - STDOUT: 2025-10-27T15:10:23.307  INFO --- [   asgi_gw_3] localstack.request.aws     : AWS sqs.DeleteMessageBatch => 200 
+Caused by: software.amazon.awssdk.services.sqs.model.SqsException: User: arn:aws:sts::179355710817:assumed-role/PCAP-PCAPEKS-DEVTRUNK-EKS-SERVER-ROLES-CrmGateway/aws-sdk-java-1761583232195 is not authorized to perform: sqs:createqueue on resource: arn:aws:sqs:us-west-2:179355710817:DEV_CRM_GATEWAY_NORMAL because no identity-based policy allows the sqs:createqueue action (Service: Sqs, Status Code: 403, Request ID: b37cdba4-3268-5f28-9181-badd90aba50c)
+	at software.amazon.awssdk.services.sqs.model.SqsException$BuilderImpl.build(SqsException.java:104) ~[sqs-2.29.52.jar:?]
+	at software.amazon.awssdk.services.sqs.model.SqsException$BuilderImpl.build(SqsException.java:58) ~[sqs-2.29.52.jar:?]
+
+i am getting these errors, 
+
+this service only has 
+
+{
+        "Action" : [
+          "sqs:ChangeMessageVisibility",
+          "sqs:GetQueueUrl",
+          "sqs:GetQueueAttributes",
+          "sqs:ListQueues",
+          "sqs:DeleteMessage",
+          "sqs:ReceiveMessage"
+        ],
+        "Resource" : "arn:aws:sqs:us-west-2:179355710817:DEVTRUNK_CRM_GATEWAY_*",
+        "Effect" : "Allow"
+      }
 
 
-i see these logs
+these actions, because that's all it is supposed to do, so i just need a listener right, a consumer, can you fix my work accordingly?
