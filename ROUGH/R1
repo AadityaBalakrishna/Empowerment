@@ -1,16 +1,16 @@
-package com.empower.ihub.trs.config;
+package com.empower.epw.crm.gateway.sqs.config;
 
 import java.time.Duration;
 import java.util.concurrent.ThreadPoolExecutor;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import com.personalcapital.log.PcapLogger;
 import com.personalcapital.log.PcapLoggerFactory;
+
 import io.awspring.cloud.sqs.MessageExecutionThreadFactory;
 import io.awspring.cloud.sqs.config.SqsMessageListenerContainerFactory;
 import io.awspring.cloud.sqs.listener.QueueNotFoundStrategy;
@@ -18,62 +18,53 @@ import io.awspring.cloud.sqs.listener.acknowledgement.handler.AcknowledgementMod
 import software.amazon.awssdk.services.sqs.SqsAsyncClient;
 
 @Configuration
-@ComponentScan(basePackages = "com.empower.epw.security.service")
-public class IhubTrsSqsConfig
-{
+public class CrmGatewaySqsConfig {
 
-	private final PcapLogger log = PcapLoggerFactory.getPcapLogger(IhubTrsSqsConfig.class);
+    private static final PcapLogger log = PcapLoggerFactory.getPcapLogger(CrmGatewaySqsConfig.class);
 
-	@Value("${ihub.trs.sqs.visibilityTimeout:60}")
-	public Integer visibilityTimeout;
+    @Value("${crm.gateway.sqs.visibility-timeout:60}")
+    private Integer visibilityTimeout;
 
-	@Value("${ihub.trs.sqs.minPoolSize:10}")
-	public Integer minPoolSize;
+    @Value("${crm.gateway.sqs.min-pool-size:5}")
+    private Integer minPoolSize;
 
-	@Value("${ihub.trs.sqs.maxPoolSize:30}")
-	public Integer maxPoolSize;
+    @Value("${crm.gateway.sqs.max-pool-size:15}")
+    private Integer maxPoolSize;
 
-	@Value("${ihub.trs.sqs.queueCapacity:30}")
-	public Integer queueCapacity;
+    @Value("${crm.gateway.sqs.queue-capacity:50}")
+    private Integer queueCapacity;
 
-	@Value("${ihub.trs.sqs.queueMaxAwaitTermination:30}")
-	public Integer queueMaxAwaitTermination;
+    @Value("${crm.gateway.sqs.await-termination:30}")
+    private Integer awaitTermination;
 
-	@Bean("awsTaskExecutor")
-	public ThreadPoolTaskExecutor awsTaskExecutor()
-	{
-		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-		executor.setCorePoolSize(minPoolSize);
-		executor.setMaxPoolSize(maxPoolSize);
-		executor.setQueueCapacity(queueCapacity);
-		executor.setWaitForTasksToCompleteOnShutdown(true);
-		executor.setAwaitTerminationSeconds(queueMaxAwaitTermination);
-		executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
-		executor.setThreadFactory(new MessageExecutionThreadFactory("ihubTrsSqsThread-"));
-		return executor;
-	}
+    @Bean("crmSqsTaskExecutor")
+    public ThreadPoolTaskExecutor crmSqsTaskExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(minPoolSize);
+        executor.setMaxPoolSize(maxPoolSize);
+        executor.setQueueCapacity(queueCapacity);
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(awaitTermination);
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.setThreadFactory(new MessageExecutionThreadFactory("crmSqsThread-"));
+        log.info("Initialized CRM SQS ThreadPoolTaskExecutor with pool size: {}-{}", minPoolSize, maxPoolSize);
+        return executor;
+    }
 
-	@Bean
-	SqsMessageListenerContainerFactory<Object> defaultSqsListenerContainerFactory(
-			SqsAsyncClient sqsAsyncClient)
-	{
+    @Bean
+    public SqsMessageListenerContainerFactory<Object> defaultSqsListenerContainerFactory(SqsAsyncClient sqsAsyncClient) {
+        log.info("Creating CRM SQS Listener Factory (SDK v2) with visibility timeout: {}", visibilityTimeout);
 
-		log.info("Creating SQS Listener Container Factory with visibility timeout: {}",
-				visibilityTimeout);
-		return SqsMessageListenerContainerFactory.builder()
-				.sqsAsyncClient(sqsAsyncClient)
-				.configure(sqsContainerOptionsBuilder -> sqsContainerOptionsBuilder
-						.messageVisibility(Duration.ofSeconds(visibilityTimeout))
-						.queueNotFoundStrategy(QueueNotFoundStrategy.FAIL)
-						.pollTimeout(Duration.ofSeconds(20))
-						.maxMessagesPerPoll(10)
-						// .messageConverter(getmessageConverter()) - may be used in future
-						.componentsTaskExecutor(awsTaskExecutor())
-						.autoStartup(true)
-						.acknowledgementMode(AcknowledgementMode.ON_SUCCESS))
-				.build();
-	}
+        return SqsMessageListenerContainerFactory.builder()
+                .sqsAsyncClient(sqsAsyncClient)
+                .configure(options -> options
+                        .messageVisibility(Duration.ofSeconds(visibilityTimeout))
+                        .pollTimeout(Duration.ofSeconds(10))
+                        .maxMessagesPerPoll(10)
+                        .queueNotFoundStrategy(QueueNotFoundStrategy.FAIL)
+                        .acknowledgementMode(AcknowledgementMode.ON_SUCCESS)
+                        .componentsTaskExecutor(crmSqsTaskExecutor())
+                )
+                .build();
+    }
 }
-
-
-reference of the config used in the company's working work
