@@ -1,5 +1,112 @@
-should not try to test AWS SQS , instead foucs on business logic test,
-what i mean :
-call conusmer method directly as
-consumerBean.listen
-and validate business logic
+task:
+Purpose:
+As a Backend Developer,
+I need to configure starter-sqs for the crm-gateway-service and enable SQS message consumption
+so that the service can process event-driven updates and persist data in its database.
+
+Requirements / Development Notes
+Integrate starter-sqs into the crm-gateway-service.
+Configure SQS queue connection (endpoint, region, IAM credentials).
+Implement message listener to read and process messages.
+Add retry for failed messages.
+
+Dependencies
+AWS SQS queue setup and access permissions.
+
+Acceptance Criteria
+Service connects to AWS SQS and reads messages successfully.
+Failed messages retry.
+Logs show message ID, status, and processing result.
+All parameters configurable per environment.
+
+
+Listener class i have written, is this right?
+package com.empower.epw.crm.gateway.sqs;
+
+import io.awspring.cloud.sqs.annotation.SqsListener;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
+import org.springframework.stereotype.Component;
+import lombok.CustomLog;
+
+@CustomLog
+@Component
+public class CrmGatewayMessageListener
+{
+	@SqsListener("${crm.gateway.sqs.queue.dryrun:}")
+	@Retryable(value =
+	{
+			Exception.class
+	}, maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}"))
+	public void handleDryRunMessage(String message)
+	{
+		processMessage("DRY_RUN", message);
+	}
+
+	@SqsListener("${crm.gateway.sqs.queue.intermediate:}")
+	@Retryable(value =
+	{
+			Exception.class
+	}, maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}"))
+	public void handleIntermediateMessage(String message)
+	{
+		processMessage("INTERMEDIATE", message);
+	}
+
+	@SqsListener("${crm.gateway.sqs.queue.normal:}")
+	@Retryable(value =
+	{
+			Exception.class
+	}, maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}"))
+	public void handleNormalMessage(String message)
+	{
+		processMessage("NORMAL", message);
+	}
+
+	@SqsListener("${crm.gateway.sqs.queue.top:}")
+	@Retryable(value =
+	{
+			Exception.class
+	}, maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}"))
+	public void handleTopMessage(String message)
+	{
+		processMessage("TOP", message);
+	}
+
+	private void processMessage(String type, String message)
+	{
+		log.info("Received [{}] message: {}", type, message);
+
+		try
+		{
+			// TODO: handle domain logic here
+			log.info("Message [{}] processed successfully.", type);
+		}
+		catch (Exception ex)
+		{
+			log.error("Error processing [{}] message: {}", type, ex.getMessage(), ex);
+			throw ex; // triggers @Retryable
+		}
+	}
+}
+
+i need to be able to test this listener with a local stack test container, to set this integration test, and make it work, provide me with the necessary properties, it should work in local and jenkins, 
+few properties :
+# AWS SQS Configuration
+crm-gateway.sqs.retry.max-attempts=3
+crm-gateway.sqs.retry.backoff-delay=1000
+
+#CRM Gateway SQS Queues
+StageMap.capName=DEVTRUNK
+crm.gateway.sqs.queue.dryrun=${StageMap.capName}_CRM_GATEWAY_DRY_RUN
+crm.gateway.sqs.queue.intermediate=${StageMap.capName}_CRM_GATEWAY_INTERMEDIATE
+crm.gateway.sqs.queue.normal=DEV_CRM_GATEWAY_NORMAL
+crm.gateway.sqs.queue.top=${StageMap.capName}_CRM_GATEWAY_TOP
+
+epw.aws.sqs.visibilityTimeout=60
+epw.aws.sqs.minPoolSize=10
+epw.aws.sqs.maxPoolSize=30
+epw.aws.sqs.queueCapacity=30
+epw.aws.sqs.queueMaxAwaitTermination=30
+
+the test should only test the class i wrote and not the AWS SQS, so if possible can you create the queues in the local stack test container and then, idk maybe just read the message as per the task requirements
