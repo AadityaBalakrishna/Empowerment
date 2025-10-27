@@ -1,142 +1,662 @@
-2025-10-23 19:58:12 PM [main] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewaySqsContainerIT - Created SQS queue: DEVTRUNK_CRM_GATEWAY_NORMAL 
-2025-10-23 19:58:12 PM [main] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewaySqsContainerIT - Created SQS queue: DEVTRUNK_CRM_GATEWAY_DRY_RUN 
-2025-10-23 19:58:13 PM [main] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewaySqsContainerIT - Created SQS queue: DEVTRUNK_CRM_GATEWAY_INTERMEDIATE 
-2025-10-23 19:58:13 PM [main] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewaySqsContainerIT - Created SQS queue: DEVTRUNK_CRM_GATEWAY_TOP 
-2025-10-23 19:58:13 PM [main] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewaySqsIntegrationTest - The following 1 profile is active: "test" 
-2025-10-23 19:58:15 PM [main] trace_id:  span_id:  INFO  org.springframework.cloud.context.scope.GenericScope - BeanFactory id=f3fd73e0-365c-30f6-b9e9-929f623cfb90 
-2025-10-23 19:58:16 PM [main] trace_id:  span_id:  INFO  org.springframework.validation.beanvalidation.OptionalValidatorFactoryBean - Failed to set up a Bean Validation provider: jakarta.validation.NoProviderFoundException: Unable to create a Configuration, because no Jakarta Bean Validation provider could be found. Add a provider like Hibernate Validator (RI) to your classpath. 
-2025-10-23 19:58:16 PM [main] trace_id:  span_id:  WARN  io.awspring.cloud.autoconfigure.core.CredentialsProviderAutoConfiguration - Skipping creating `StsCredentialsProvider`. `software.amazon.awssdk:sts` is on the classpath, but neither `spring.cloud.aws.credentials.sts` properties are configured nor `AWS_WEB_IDENTITY_TOKEN_FILE` or the javaproperty `aws.webIdentityTokenFile` is set 
-2025-10-23 19:58:16 PM [main] trace_id:  span_id:  INFO  com.empower.epw.sqs.config.EmpowerSQSConfig - Default EmpowerSqsMessageIntercepter configured 
-2025-10-23 19:58:16 PM [main] trace_id:  span_id:  INFO  com.empower.epw.sqs.config.EmpowerSQSConfig - Default EmpowerSqsErrorHandler configured 
-2025-10-23 19:58:17 PM [main] trace_id:  span_id:  INFO  com.empower.epw.util.MaintenanceWindowResolver - Initializing MaintenanceWindowResolver with CronExpression: , durationInHrs: 0, maintenanceCommands: [] 
-2025-10-23 19:58:17 PM [main] trace_id:  span_id:  INFO  org.springframework.boot.actuate.endpoint.web.EndpointLinksResolver - Exposing 2 endpoints beneath base path '/actuator' 
-2025-10-23 19:58:18 PM [main] trace_id:  span_id:  WARN  org.springframework.web.context.support.GenericWebApplicationContext - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.context.ApplicationContextException: Failed to start bean 'io.awspring.cloud.messaging.internalEndpointRegistryBeanName' 
+Purpose:
+As a Backend Developer,
+I need to configure epw-starter-sqs for the crm-gateway-service and enable SQS message consumption
+so that the service can process event-driven updates and persist data in its database.
 
-Caused by: java.util.concurrent.CompletionException: io.awspring.cloud.sqs.QueueAttributesResolvingException: Error resolving attributes for queue DEVTRUNK_CRM_GATEWAY_TOP with strategy FAIL and queueAttributesNames []
- This might be due to connectivity issues or incorrect configuration. Please verify your AWS credentials, network settings, and queue configuration.
-	at java.base/java.util.concurrent.CompletableFuture.encodeRelay(CompletableFuture.java:368) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.completeRelay(CompletableFuture.java:377) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture$UniCompose.tryFire(CompletableFuture.java:1152) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
-	at software.amazon.awssdk.utils.CompletableFutureUtils.lambda$forwardExceptionTo$0(CompletableFutureUtils.java:78) ~[utils-2.29.52.jar:?]
-	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncApiCallMetricCollectionStage.lambda$execute$0(AsyncApiCallMetricCollectionStage.java:56) ~[sdk-core-2.29.52.jar:?]
-	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncApiCallTimeoutTrackingStage.lambda$execute$2(AsyncApiCallTimeoutTrackingStage.java:67) ~[sdk-core-2.29.52.jar:?]
-	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
-	at software.amazon.awssdk.utils.CompletableFutureUtils.lambda$forwardExceptionTo$0(CompletableFutureUtils.java:78) ~[utils-2.29.52.jar:?]
-	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncRetryableStage2$RetryingExecutor.maybeAttemptExecute(AsyncRetryableStage2.java:135) ~[sdk-core-2.29.52.jar:?]
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncRetryableStage2$RetryingExecutor.maybeRetryExecute(AsyncRetryableStage2.java:152) ~[sdk-core-2.29.52.jar:?]
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncRetryableStage2$RetryingExecutor.lambda$attemptExecute$1(AsyncRetryableStage2.java:123) ~[sdk-core-2.29.52.jar:?]
-	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.complete(CompletableFuture.java:2179) ~[?:?]
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.MakeAsyncHttpRequestStage.lambda$execute$0(MakeAsyncHttpRequestStage.java:110) ~[sdk-core-2.29.52.jar:?]
-	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.complete(CompletableFuture.java:2179) ~[?:?]
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.MakeAsyncHttpRequestStage.completeResponseFuture(MakeAsyncHttpRequestStage.java:253) ~[sdk-core-2.29.52.jar:?]
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.MakeAsyncHttpRequestStage.lambda$executeHttpRequest$3(MakeAsyncHttpRequestStage.java:167) ~[sdk-core-2.29.52.jar:?]
-	at java.base/java.util.concurrent.CompletableFuture.uniHandle(CompletableFuture.java:934) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture$UniHandle.tryFire(CompletableFuture.java:911) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture$Completion.run(CompletableFuture.java:482) ~[?:?]
-	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144) ~[?:?]
-	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642) ~[?:?]
-	at java.base/java.lang.Thread.run(Thread.java:1583) ~[?:?]
-Caused by: io.awspring.cloud.sqs.QueueAttributesResolvingException: Error resolving attributes for queue DEVTRUNK_CRM_GATEWAY_TOP with strategy FAIL and queueAttributesNames []
- This might be due to connectivity issues or incorrect configuration. Please verify your AWS credentials, network settings, and queue configuration.
-	at io.awspring.cloud.sqs.QueueAttributesResolver.wrapException(QueueAttributesResolver.java:98) ~[spring-cloud-aws-sqs-3.3.0.jar:3.3.0]
-	at java.base/java.util.concurrent.CompletableFuture.uniExceptionally(CompletableFuture.java:990) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture$UniExceptionally.tryFire(CompletableFuture.java:974) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
-	at software.amazon.awssdk.utils.CompletableFutureUtils.lambda$forwardExceptionTo$0(CompletableFutureUtils.java:78) ~[utils-2.29.52.jar:?]
-	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncApiCallMetricCollectionStage.lambda$execute$0(AsyncApiCallMetricCollectionStage.java:56) ~[sdk-core-2.29.52.jar:?]
-	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncApiCallTimeoutTrackingStage.lambda$execute$2(AsyncApiCallTimeoutTrackingStage.java:67) ~[sdk-core-2.29.52.jar:?]
-	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
-	at software.amazon.awssdk.utils.CompletableFutureUtils.lambda$forwardExceptionTo$0(CompletableFutureUtils.java:78) ~[utils-2.29.52.jar:?]
-	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncRetryableStage2$RetryingExecutor.maybeAttemptExecute(AsyncRetryableStage2.java:135) ~[sdk-core-2.29.52.jar:?]
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncRetryableStage2$RetryingExecutor.maybeRetryExecute(AsyncRetryableStage2.java:152) ~[sdk-core-2.29.52.jar:?]
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncRetryableStage2$RetryingExecutor.lambda$attemptExecute$1(AsyncRetryableStage2.java:123) ~[sdk-core-2.29.52.jar:?]
-	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.complete(CompletableFuture.java:2179) ~[?:?]
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.MakeAsyncHttpRequestStage.lambda$execute$0(MakeAsyncHttpRequestStage.java:110) ~[sdk-core-2.29.52.jar:?]
-	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.complete(CompletableFuture.java:2179) ~[?:?]
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.MakeAsyncHttpRequestStage.completeResponseFuture(MakeAsyncHttpRequestStage.java:253) ~[sdk-core-2.29.52.jar:?]
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.MakeAsyncHttpRequestStage.lambda$executeHttpRequest$3(MakeAsyncHttpRequestStage.java:167) ~[sdk-core-2.29.52.jar:?]
-	at java.base/java.util.concurrent.CompletableFuture.uniHandle(CompletableFuture.java:934) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture$UniHandle.tryFire(CompletableFuture.java:911) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture$Completion.run(CompletableFuture.java:482) ~[?:?]
-	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144) ~[?:?]
-	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642) ~[?:?]
-	at java.base/java.lang.Thread.run(Thread.java:1583) ~[?:?]
-Caused by: software.amazon.awssdk.services.sqs.model.QueueDoesNotExistException: The specified queue does not exist. (Service: Sqs, Status Code: 400, Request ID: 6670c4d6-5179-4ece-861b-b331a4fcff81)
-	at software.amazon.awssdk.services.sqs.model.QueueDoesNotExistException$BuilderImpl.build(QueueDoesNotExistException.java:137) ~[sqs-2.29.52.jar:?]
-	at software.amazon.awssdk.services.sqs.model.QueueDoesNotExistException$BuilderImpl.build(QueueDoesNotExistException.java:91) ~[sqs-2.29.52.jar:?]
-	at software.amazon.awssdk.protocols.json.internal.unmarshall.AwsJsonProtocolErrorUnmarshaller.unmarshall(AwsJsonProtocolErrorUnmarshaller.java:95) ~[aws-json-protocol-2.29.52.jar:?]
-	at software.amazon.awssdk.protocols.json.internal.unmarshall.AwsJsonProtocolErrorUnmarshaller.handle(AwsJsonProtocolErrorUnmarshaller.java:71) ~[aws-json-protocol-2.29.52.jar:?]
-	at software.amazon.awssdk.protocols.json.internal.unmarshall.AwsJsonProtocolErrorUnmarshaller.handle(AwsJsonProtocolErrorUnmarshaller.java:42) ~[aws-json-protocol-2.29.52.jar:?]
-	at software.amazon.awssdk.core.http.MetricCollectingHttpResponseHandler.lambda$handle$0(MetricCollectingHttpResponseHandler.java:52) ~[sdk-core-2.29.52.jar:?]
-	at software.amazon.awssdk.core.internal.util.MetricUtils.measureDurationUnsafe(MetricUtils.java:102) ~[sdk-core-2.29.52.jar:?]
-	at software.amazon.awssdk.core.internal.util.MetricUtils.measureDurationUnsafe(MetricUtils.java:95) ~[sdk-core-2.29.52.jar:?]
-	at software.amazon.awssdk.core.http.MetricCollectingHttpResponseHandler.handle(MetricCollectingHttpResponseHandler.java:52) ~[sdk-core-2.29.52.jar:?]
-	at software.amazon.awssdk.core.internal.http.async.AsyncResponseHandler.lambda$prepare$0(AsyncResponseHandler.java:92) ~[sdk-core-2.29.52.jar:?]
-	at java.base/java.util.concurrent.CompletableFuture$UniCompose.tryFire(CompletableFuture.java:1150) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
-	at java.base/java.util.concurrent.CompletableFuture.complete(CompletableFuture.java:2179) ~[?:?]
-	at software.amazon.awssdk.core.internal.http.async.AsyncResponseHandler$BaosSubscriber.onComplete(AsyncResponseHandler.java:135) ~[sdk-core-2.29.52.jar:?]
-	at software.amazon.awssdk.core.internal.metrics.BytesReadTrackingPublisher$BytesReadTracker.onComplete(BytesReadTrackingPublisher.java:74) ~[sdk-core-2.29.52.jar:?]
-	at software.amazon.awssdk.http.nio.netty.internal.ResponseHandler$DataCountingPublisher$1.onComplete(ResponseHandler.java:519) ~[netty-nio-client-2.29.52.jar:?]
-	at software.amazon.awssdk.http.nio.netty.internal.ResponseHandler.runAndLogError(ResponseHandler.java:254) ~[netty-nio-client-2.29.52.jar:?]
-	at software.amazon.awssdk.http.nio.netty.internal.ResponseHandler.access$600(ResponseHandler.java:77) ~[netty-nio-client-2.29.52.jar:?]
-	at software.amazon.awssdk.http.nio.netty.internal.ResponseHandler$PublisherAdapter$1.onComplete(ResponseHandler.java:375) ~[netty-nio-client-2.29.52.jar:?]
-	at software.amazon.awssdk.http.nio.netty.internal.nrs.HandlerPublisher.publishMessage(HandlerPublisher.java:402) ~[netty-nio-client-2.29.52.jar:?]
-	at software.amazon.awssdk.http.nio.netty.internal.nrs.HandlerPublisher.flushBuffer(HandlerPublisher.java:338) ~[netty-nio-client-2.29.52.jar:?]
-	at software.amazon.awssdk.http.nio.netty.internal.nrs.HandlerPublisher.receivedDemand(HandlerPublisher.java:291) ~[netty-nio-client-2.29.52.jar:?]
-	at software.amazon.awssdk.http.nio.netty.internal.nrs.HandlerPublisher.access$200(HandlerPublisher.java:61) ~[netty-nio-client-2.29.52.jar:?]
-	at software.amazon.awssdk.http.nio.netty.internal.nrs.HandlerPublisher$ChannelSubscription$1.run(HandlerPublisher.java:495) ~[netty-nio-client-2.29.52.jar:?]
-	at io.netty.util.concurrent.AbstractEventExecutor.runTask$$$capture(AbstractEventExecutor.java:173) ~[netty-common-4.1.119.Final.jar:4.1.119.Final]
-	at io.netty.util.concurrent.AbstractEventExecutor.runTask(AbstractEventExecutor.java) ~[netty-common-4.1.119.Final.jar:4.1.119.Final]
-	at io.netty.util.concurrent.AbstractEventExecutor.safeExecute$$$capture(AbstractEventExecutor.java:166) ~[netty-common-4.1.119.Final.jar:4.1.119.Final]
-	at io.netty.util.concurrent.AbstractEventExecutor.safeExecute(AbstractEventExecutor.java) ~[netty-common-4.1.119.Final.jar:4.1.119.Final]
-	at io.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks(SingleThreadEventExecutor.java:472) ~[netty-common-4.1.119.Final.jar:4.1.119.Final]
-	at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:566) ~[netty-transport-4.1.119.Final.jar:4.1.119.Final]
-	at io.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998) ~[netty-common-4.1.119.Final.jar:4.1.119.Final]
-	at io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74) ~[netty-common-4.1.119.Final.jar:4.1.119.Final]
-	at java.base/java.lang.Thread.run(Thread.java:1583) ~[?:?]
+Requirements / Development Notes
+Integrate epw-starter-sqs into the crm-gateway-service.
+Configure SQS queue connection (endpoint, region, IAM credentials).
+Implement message listener to read and process messages.
+Add retry for failed messages.
+
+Dependencies
+AWS SQS queue setup and access permissions.
+
+Acceptance Criteria
+Service connects to AWS SQS and reads messages successfully.
+Failed messages retry.
+Logs show message ID, status, and processing result.
+All parameters configurable per environment.
+
+1) epw-starter-sqs/src/main/java/com/empower/epw/sqs/config/EmpowerSQSConfig.java
+package com.empower.epw.sqs.config;
+import com.empower.epw.sqs.EmpowerSQSService;
+import com.empower.epw.sqs.impl.EmpowerSQSServiceImpl;
+import io.awspring.cloud.sqs.MessageExecutionThreadFactory;
+import io.awspring.cloud.sqs.config.SqsMessageListenerContainerFactory;
+import io.awspring.cloud.sqs.listener.QueueNotFoundStrategy;
+import io.awspring.cloud.sqs.listener.errorhandler.ErrorHandler;
+import io.awspring.cloud.sqs.listener.interceptor.MessageInterceptor;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import software.amazon.awssdk.services.sqs.SqsAsyncClient;
+import java.time.Duration;
+import java.util.concurrent.ThreadPoolExecutor;
+
+@Configuration
+@EnableConfigurationProperties(
+{
+		EmpowerSQSProperties.class
+})
+@Slf4j // TODO : Replace with PcapLogger
+@RequiredArgsConstructor
+public class EmpowerSQSConfig
+{
+	private final EmpowerSQSProperties empowerSQSProperties;
+
+	@Bean
+	@ConditionalOnMissingBean
+	SqsMessageListenerContainerFactory<Object> defaultSqsListenerContainerFactory(
+			SqsAsyncClient sqsAsyncClient, MessageInterceptor messageInterceptor, ErrorHandler errorHandler)
+	{
+		return SqsMessageListenerContainerFactory.builder().sqsAsyncClient(sqsAsyncClient)
+				.configure(sqsContainerOptionsBuilder -> sqsContainerOptionsBuilder.messageVisibility(Duration.ofSeconds(empowerSQSProperties.getVisibilityTimeout()))
+						.queueNotFoundStrategy(QueueNotFoundStrategy.FAIL)
+						.componentsTaskExecutor(awsTaskExecutor()))
+				.messageInterceptor(messageInterceptor)
+				.errorHandler(errorHandler)
+				.build();
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	ErrorHandler empowerSqsErrorHandler()
+	{
+		log.info("Default EmpowerSqsErrorHandler configured");
+		return new EmpowerSqsErrorHandler();
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	MessageInterceptor messageInterceptor()
+	{
+		log.info("Default EmpowerSqsMessageIntercepter configured");
+		return new EmpowerSqsMessageIntercepter();
+	}
+
+	@Bean
+	EmpowerSQSService empowerSQSService()
+	{
+		return new EmpowerSQSServiceImpl();
+	}
+
+	@Bean("awsTaskExecutor")
+	public ThreadPoolTaskExecutor awsTaskExecutor()
+	{
+		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+		executor.setCorePoolSize(empowerSQSProperties.getMinPoolSize());
+		executor.setMaxPoolSize(empowerSQSProperties.getMaxPoolSize());
+		executor.setQueueCapacity(empowerSQSProperties.getQueueCapacity());
+		executor.setWaitForTasksToCompleteOnShutdown(true);
+		executor.setAwaitTerminationSeconds(empowerSQSProperties.getQueueMaxAwaitTermination());
+		executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+		executor.setThreadFactory(new MessageExecutionThreadFactory("empowerSqsThread-"));
+		return executor;
+	}
+}
+
+
+2) epw-starter-sqs/src/main/java/com/empower/epw/sqs/config/EmpowerSqsErrorHandler.java
+package com.empower.epw.sqs.config;
+import io.awspring.cloud.sqs.listener.errorhandler.ErrorHandler;
+import io.awspring.cloud.sqs.listener.interceptor.MessageInterceptor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.messaging.Message;
+import org.springframework.stereotype.Component;
+import java.util.Objects;
+
+@Slf4j // TODO : Replace with PcapLogger
+public class EmpowerSqsErrorHandler<T> implements ErrorHandler<T>
+{
+	@Override
+	public void handle(Message<T> message, Throwable t)
+	{
+		// Here we can write custom exception handler
+		throw new RuntimeException(t);
+	}
+}
+
+3) epw-starter-sqs/src/main/java/com/empower/epw/sqs/config/EmpowerSqsMessageIntercepter.java
+package com.empower.epw.sqs.config;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Configuration;
+import io.awspring.cloud.sqs.listener.interceptor.MessageInterceptor;
+import org.springframework.messaging.Message;
+import org.springframework.stereotype.Component;
+import java.util.Objects;
+
+@Slf4j // TODO : Replace with PcapLogger
+public class EmpowerSqsMessageIntercepter<T> implements MessageInterceptor<T>
+{
+	@Override
+	public Message<T> intercept(Message<T> message)
+	{
+		log.debug("Message before processing {} ", message);
+		return message;
+	}
+
+	@Override
+	public void afterProcessing(Message<T> message, Throwable t)
+	{
+		if (Objects.nonNull(t))
+		{
+			log.error("Failed to process the message with message ID {} ", message.getHeaders().getId());
+		}
+		else
+		{
+			log.info("Message process successfully with message ID {} ", message.getHeaders().getId());
+		}
+	}
+}
+
+4) epw-starter-sqs/src/main/java/com/empower/epw/sqs/config/EmpowerSQSProperties.java
+package com.empower.epw.sqs.config;
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+@ConfigurationProperties(prefix = "epw.aws.sqs")
+@Data
+public class EmpowerSQSProperties
+{
+	private Integer visibilityTimeout;
+	private Integer minPoolSize;
+	private Integer maxPoolSize;
+	private Integer queueCapacity;
+	private Integer queueMaxAwaitTermination;
+}
+
+5) epw-starter-sqs/src/main/java/com/empower/epw/sqs/impl/EmpowerSQSServiceImpl.java
+package com.empower.epw.sqs.impl;
+import com.empower.epw.sqs.EmpowerSQSService;
+import io.awspring.cloud.sqs.operations.SendResult;
+import io.awspring.cloud.sqs.operations.SqsTemplate;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.Message;
+import java.time.Duration;
+import java.util.Optional;
+import java.util.function.Function;
+
+@Slf4j // TODO : Replace with PcapLogger
+public class EmpowerSQSServiceImpl implements EmpowerSQSService
+{
+	@Autowired
+	SqsTemplate sqsTemplate;
+
+	public <T> T sendMessage(String queueName, T message)
+	{
+		return sendMessage(queueName, message, 0);
+	}
+	public <T> T sendMessage(String queueName, T message, int delayInSeconds)
+	{
+		SendResult<Object> sendResult = sqsTemplate.send(to -> to.queue(queueName).payload(message).delaySeconds(delayInSeconds));
+		log.info("sendMessage :: Message ID {}  sent successfully ", sendResult.messageId());
+		return message;
+	}
+	public <T> T reciveMessage(String queueName, Class<T> targetClass)
+	{
+		Optional<Message<T>> message = sqsTemplate.receive(queueName, targetClass);
+		if (message.isPresent())
+		{
+			return message.get().getPayload();
+		}
+		else
+		{
+			return null;
+		}
+	}
+	public <T> T reciveMessage(String queueName, Class<T> targetClass,
+			long visibilityTimeOutInSeconds)
+	{
+		Optional<Message<T>> message = sqsTemplate.receive(from -> from.queue(queueName)
+				.visibilityTimeout(Duration.ofSeconds(visibilityTimeOutInSeconds)), targetClass);
+		if (message.isPresent())
+		{
+			return message.get()
+					.getPayload();
+		}
+		else
+		{
+			return null;
+		}
+	}
+	public <T> T reciveMessage(String queueName, Function<Message<?>, T> customConverter)
+	{
+		return reciveMessage(queueName, customConverter, 30);
+	}
+	public <T> T reciveMessage(String queueName, Function<Message<?>, T> customConverter, long visibilityTimeOutInSeconds)
+	{
+		Optional<Message<?>> message = sqsTemplate.receive(from -> from.queue(queueName).visibilityTimeout(Duration.ofSeconds(visibilityTimeOutInSeconds)));
+		if (message.isPresent())
+		{
+			return customConverter.apply(message.get());
+		}
+		else
+		{
+			return null;
+		}
+	}
+}
+
+6) epw-starter-sqs/src/main/java/com/empower/epw/sqs/EmpowerSQSService.java
+package com.empower.epw.sqs;
+import org.springframework.messaging.Message;
+import java.util.function.Function;
+
+public interface EmpowerSQSService
+{
+	public <T> T sendMessage(String queueName, T message);
+	public <T> T sendMessage(String queueName, T message, int delayInSeconds);
+	public <T> T reciveMessage(String queueName, Class<T> targetClass);
+	public <T> T reciveMessage(String queueName, Class<T> targetClass, long visibilityTimeOutInSeconds);
+	public <T> T reciveMessage(String queueName, Function<Message<?>, T> customConverter);
+	public <T> T reciveMessage(String queueName, Function<Message<?>, T> customConverter, long visibilityTimeOutInSeconds);
+}
+
+7) epw-starter-sqs/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports
+com.empower.epw.sqs.config.EmpowerSQSConfig
+
+8) epw-starter-sqs/src/main/resources/application.properties
+#spring.cloud.aws.sqs.endpoint=http://localhost:9325
+#spring.cloud.aws.sqs.region=us-west-2
+epw.aws.sqs.visibilityTimeout=60
+epw.aws.sqs.minPoolSize=10
+epw.aws.sqs.maxPoolSize=30
+epw.aws.sqs.queueCapacity=30
+epw.aws.sqs.queueMaxAwaitTermination=30
+
+9) epw-starter-sqs/src/test/java/com/empower/epw/sqs/EmpowerSQSContainerIT.java
+package com.empower.epw.sqs;
+import org.junit.jupiter.api.BeforeAll;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.localstack.LocalStackContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
+import java.io.IOException;
+
+@Testcontainers
+public class EmpowerSQSContainerIT
+{
+	protected static final String QUEUE_NAME = "TEST";
+	@Container
+	static LocalStackContainer localStack = new LocalStackContainer(DockerImageName.parse("localstack/localstack:3.0"));
+	@DynamicPropertySource
+	static void overrideProperties(DynamicPropertyRegistry registry)
+	{
+		// registry.add("app.bucket", () -> BUCKET_NAME);
+		// registry.add("app.queue", () -> QUEUE_NAME);
+		registry.add("spring.cloud.aws.region.static", () -> localStack.getRegion());
+		registry.add("spring.cloud.aws.credentials.access-key", () -> localStack.getAccessKey());
+		registry.add("spring.cloud.aws.credentials.secret-key", () -> localStack.getSecretKey());
+		registry.add("spring.cloud.aws.sqs.endpoint",
+				() -> localStack.getEndpointOverride(LocalStackContainer.Service.SQS).toString());
+	}
+
+	@BeforeAll
+	static void beforeAll() throws IOException, InterruptedException
+	{
+		localStack.execInContainer("awslocal", "sqs", "create-queue", "--queue-name", QUEUE_NAME);
+	}
+}
+
+10) epw-starter-sqs/src/test/java/com/empower/epw/sqs/EmpowerSqsServiceTest.java
+package com.empower.epw.sqs;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import java.util.concurrent.ExecutionException;
+import static org.assertj.core.api.Assertions.assertThat;
+
+@SpringBootTest(classes = EmpowerSQSTestApplication.class)
+public class EmpowerSqsServiceTest extends EmpowerSQSContainerIT
+{
+	@Autowired
+	EmpowerSQSService empowerSQSService;
+
+	@Test
+	public void sendAndReviveMessageTest() throws ExecutionException, InterruptedException
+	{
+		String expectedMessage = "Hello world";
+		empowerSQSService.sendMessage(QUEUE_NAME, "Hello world");
+		String actualMessage = empowerSQSService.reciveMessage(QUEUE_NAME, String.class);
+		assertThat(actualMessage).isEqualTo(expectedMessage);
+	}
+}
+
+11) epw-starter-sqs/src/test/java/com/empower/epw/sqs/EmpowerSQSTestApplication.java
+package com.empower.epw.sqs;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class EmpowerSQSTestApplication
+{
+	public static void main(String[] args)
+	{
+		SpringApplication.run(EmpowerSQSTestApplication.class, args);
+	}
+}
+
+
+These are the sqs queue names as per the code:
+ 
+<StageMap.capName>_CRM_GATEWAY_DRY_RUN
+<StageMap.capName>_CRM_GATEWAY_INTERMEDIATE
+<StageMap.capName>_CRM_GATEWAY_NORMAL
+<StageMap.capName>_CRM_GATEWAY_TOP
+
+this is the reference code for sqs listener and retry mechanism,
+package com.empower.epw.trs.consumer;
+import java.util.List;
+import java.util.Optional;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.retry.annotation.Retryable;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import io.awspring.cloud.sqs.annotation.SqsListener;
+import com.empower.epw.trs.mapper.MetadataMapper;
+import com.empower.epw.trs.service.AccountRefreshService;
+import com.empower.epw.trs.service.MetadataService;
+import com.empower.epw.trs.stream.TrsPublishStream;
+import com.empower.epw.trs.util.JsonUtils;
+import com.empower.ihub.sps.common.Metadata;
+import com.empower.ihub.sps.refresh.RefreshEvent;
+import com.personalcapital.log.PcapLogger;
+import com.personalcapital.log.PcapLoggerFactory;
+import com.safepage.aggregation.data.PayLoad;
+import com.safepage.aggregation.data.impl.AggregationQueueImpl;
+import lombok.RequiredArgsConstructor;
+
+@Component
+@RequiredArgsConstructor
+@Transactional(value = "epwTrsTransactionManager", propagation = Propagation.REQUIRES_NEW)
+public class TrsSqsConsumer
+{
+	private static final PcapLogger logger = PcapLoggerFactory.getPcapLogger(TrsSqsConsumer.class);
+	private static final String METADATA = "metadata";
+	private final TrsPublishStream trsPublishStream;
+	private final MetadataService metadataService;
+	private final MetadataMapper metadataMapper;
+	private final AccountRefreshService accountRefreshService;
+
+	@SqsListener(value = "${trs.sqs.queue.normal:}")
+	@Retryable(value =
+	{
+			Exception.class
+	}, maxAttemptsExpression = "#{${trs.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${trs.sqs.retry.backoff-delay:1000}}"))
+	public void onMessage(final AggregationQueueImpl message)
+	{
+		logger.info("Consume SQS message for Confirming User, Message is:" + message.getPayload());
+		try
+		{
+			final Metadata spsMetadata = this.createSpsMetadata(message);
+			if (spsMetadata == null)
+			{
+				return;
+			}
+			this.metadataService.saveSuccess(this.metadataMapper.spsMetadataToMetadata(spsMetadata));
+			final List<RefreshEvent> refreshEvents = this.accountRefreshService.buildRefreshEventsForUser(message, spsMetadata);
+			refreshEvents.forEach(this.trsPublishStream::publishEvent);
+		}
+		catch (Exception e)
+		{
+			logger.error("Error on consuming trs sqs message: ", e);
+			throw e;
+		}
+	}
+
+	private Metadata createSpsMetadata(final AggregationQueueImpl message)
+	{
+		return JsonUtils.fromJsonSnakeCase(
+				Optional.of(this.accountRefreshService.getPayloadFromAggregationQueue(message))
+						.map(PayLoad::getJsonObject)
+						.filter(object -> object.has(METADATA))
+						.map(object -> object.getString(METADATA))
+						.orElse(null),
+				Metadata.class);
+	}
+
+	@Recover
+	public void recoverOnMessageRetryFailure(RuntimeException e, final AggregationQueueImpl message)
+	{
+		final Metadata spsMetadata = this.createSpsMetadata(message);
+		if (spsMetadata != null)
+		{
+			logger.info("The processing of SQS message failed on all retries for trace id :"
+					+ spsMetadata.getTraceId());
+			Optional.ofNullable(this.metadataMapper.spsMetadataToMetadata(spsMetadata))
+					.ifPresent(m -> metadataService.saveFailure(m, e.getMessage()));
+		}
+	}
+}
+
+
+answer:
+package com.yourorg.crmgateway.sqs;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
+import org.springframework.stereotype.Component;
+
+@Component
+public class ProcessingTracker {
+    // store messageId -> result info
+    private final Map<String, ProcessResult> results = new ConcurrentHashMap<>();
+    private CountDownLatch latch = new CountDownLatch(0);
+
+    public void resetLatch(int count) {
+        latch = new CountDownLatch(count);
+    }
+
+    public void noteProcessed(String messageId, String payload, boolean success, String info) {
+        results.put(messageId == null ? String.valueOf(results.size()+1) : messageId, new ProcessResult(success, info, payload));
+        latch.countDown();
+    }
+
+    public void noteRecovered(String messageId, String payload, String reason) {
+        results.put(messageId == null ? String.valueOf(results.size()+1) : messageId, new ProcessResult(false, "RECOVERED:" + reason, payload));
+        latch.countDown();
+    }
+
+    public boolean await(long timeoutSeconds) throws InterruptedException {
+        return latch.await(timeoutSeconds, TimeUnit.SECONDS);
+    }
+
+    public Map<String, ProcessResult> getResults() {
+        return results;
+    }
+
+    public static class ProcessResult {
+        public final boolean success;
+        public final String info;
+        public final String payload;
+        public ProcessResult(boolean success, String info, String payload) {
+            this.success = success;
+            this.info = info;
+            this.payload = payload;
+        }
+    }
+}
+
+package com.yourorg.crmgateway.sqs;
+
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.retry.annotation.Retryable;
+import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Value;
+import io.awspring.cloud.sqs.annotation.SqsListener;
+import org.springframework.messaging.Message;
+
+@Component
+public class CrmGatewaySqsListener {
+    private static final Logger logger = LoggerFactory.getLogger(CrmGatewaySqsListener.class);
+
+    // optional tracker used by tests to assert processing
+    private final ProcessingTracker processingTracker;
+
+    public CrmGatewaySqsListener(ProcessingTracker processingTracker) {
+        this.processingTracker = processingTracker;
+    }
+
+    /*
+     The SqsListener is wired from a property so it is configurable per environment.
+     We define just the 'normal' queue here; you can create separate methods or wire multiple queues.
+    */
+    @SqsListener("${crm.gateway.queue.normal:}")
+    @Retryable(value = { Exception.class },
+               maxAttemptsExpression = "#{${crm.sqs.retry.max-attempts:3}}",
+               backoff = @Backoff(delayExpression = "#{${crm.sqs.retry.backoff-delay:1000}}"))
+    public void onMessage(Message<String> message) {
+        String messageId = Optional.ofNullable(message.getHeaders().getId()).map(Object::toString).orElse("N/A");
+        String payload = message.getPayload();
+        logger.info("Received messageId={} payload={}", messageId, payload);
+
+        try {
+            // business processing: keep it simple here. Replace with actual processing.
+            processPayload(payload);
+
+            logger.info("Processed messageId={} status=SUCCESS", messageId);
+            processingTracker.noteProcessed(messageId, payload, true, "OK");
+
+        } catch (Exception e) {
+            logger.error("Processing failed messageId={} error={}", messageId, e.toString(), e);
+            processingTracker.noteProcessed(messageId, payload, false, e.getMessage());
+            // rethrow to trigger retry
+            throw e;
+        }
+    }
+
+    private void processPayload(String payload) {
+        // simulate possible failure for testing; real logic would be here
+        if (payload.contains("fail")) {
+            throw new RuntimeException("Simulated processing failure for payload: " + payload);
+        }
+        // otherwise do lightweight processing
+        logger.debug("Business logic processed payload: {}", payload);
+    }
+
+    @Recover
+    public void recoverOnMessageRetryFailure(RuntimeException e, Message<String> message) {
+        String messageId = Optional.ofNullable(message.getHeaders().getId()).map(Object::toString).orElse("N/A");
+        String payload = message.getPayload();
+        logger.warn("Recover invoked for messageId={} payload={} error={}", messageId, payload, e.toString());
+        // here we could persist failure record to DB or move message to a dead-letter queue
+        processingTracker.noteRecovered(messageId, payload, e.getMessage());
+    }
+}
+
+package com.yourorg.crmgateway;
+
+import com.yourorg.crmgateway.sqs.ProcessingTracker;
+import com.yourorg.crmgateway.sqs.CrmGatewaySqsProducer;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.localstack.LocalStackContainer;
+import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.containers.wait.strategy.Wait;
+
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@Testcontainers
+@SpringBootTest
+public class CrmGatewaySqsIntegrationTest {
+
+    private static final String QUEUE_NAME = "DEV_CRM_GATEWAY_NORMAL"; // matches stage.prefix DEV in application.properties
+
+    @Container
+    static LocalStackContainer localStack = new LocalStackContainer(DockerImageName.parse("localstack/localstack:3.0"))
+            .withServices(LocalStackContainer.Service.SQS)
+            .withEnv("DEBUG", "1")
+            .waitingFor(Wait.forLogMessage(".*Ready.*", 1));
+
+    @DynamicPropertySource
+    static void overrideProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.cloud.aws.region.static", () -> localStack.getRegion());
+        registry.add("spring.cloud.aws.credentials.access-key", () -> localStack.getAccessKey());
+        registry.add("spring.cloud.aws.credentials.secret-key", () -> localStack.getSecretKey());
+        registry.add("spring.cloud.aws.sqs.endpoint", () -> localStack.getEndpointOverride(LocalStackContainer.Service.SQS).toString());
+        // ensure stage prefix
+        registry.add("STAGE_MAP_CAPNAME", () -> "DEV");
+    }
+
+    @Autowired
+    private CrmGatewaySqsProducer producer;
+
+    @Autowired
+    private ProcessingTracker processingTracker;
+
+    @BeforeAll
+    static void beforeAll() throws Exception {
+        // Create queue using awslocal inside LocalStack container
+        localStack.execInContainer("awslocal", "sqs", "create-queue", "--queue-name", QUEUE_NAME);
+    }
+
+    @Test
+    public void testMessageConsumedSuccessfully() throws Exception {
+        // set tracker for single message
+        processingTracker.resetLatch(1);
+
+        String payload = "hello-crm-" + System.currentTimeMillis();
+        // send to queue
+        producer.send(QUEUE_NAME, payload);
+
+        boolean processed = processingTracker.await(10); // wait up to 10 seconds
+        assertThat(processed).isTrue();
+
+        // assert results include our payload
+        boolean found = processingTracker.getResults().values().stream()
+                .anyMatch(r -> payload.equals(r.payload) && r.success);
+        assertThat(found).isTrue();
+    }
+
+    @Test
+    public void testRetriesAndRecoverOnFailure() throws Exception {
+        processingTracker.resetLatch(1);
+        // payload that triggers failure in processPayload (contains "fail")
+        String payload = "please-fail-this-message";
+        producer.send(QUEUE_NAME, payload);
+
+        boolean processed = processingTracker.await(20); // allow more time for retries
+        assertThat(processed).isTrue();
+
+        // find a result for our payload that must be "RECOVERED" with success == false
+        Map<String, ProcessingTracker.ProcessResult> results = processingTracker.getResults();
+        boolean recovered = results.values().stream()
+                .filter(r -> payload.equals(r.payload))
+                .anyMatch(r -> !r.success && r.info != null && r.info.startsWith("RECOVERED"));
+        assertThat(recovered).isTrue();
+    }
+
+    @AfterAll
+    static void cleanup() throws Exception {
+        // optionally delete created queues or let LocalStack be torn down by Testcontainers
+    }
+}
