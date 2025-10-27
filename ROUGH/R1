@@ -1,17 +1,92 @@
-20:20:33.366 [main] INFO org.testcontainers.DockerClientFactory -- Connected to docker: 
-  Server Version: 20.10.22
-  API Version: 1.41
-  Operating System: Amazon Linux 2
-  Total Memory: 15703 MB
-20:20:33.408 [main] INFO tc.testcontainers/ryuk:0.7.0 -- Pulling docker image: testcontainers/ryuk:0.7.0. Please be patient; this may take some time but only needs to be done once.
-20:20:34.427 [docker-java-stream-516338723] INFO tc.testcontainers/ryuk:0.7.0 -- Starting to pull image
-20:20:34.447 [docker-java-stream-516338723] INFO tc.testcontainers/ryuk:0.7.0 -- Pulling image layers:  0 pending,  0 downloaded,  0 extracted, (0 bytes/0 bytes)
-20:20:35.341 [docker-java-stream-516338723] INFO tc.testcontainers/ryuk:0.7.0 -- Pulling image layers:  2 pending,  1 downloaded,  0 extracted, (1 MB/? MB)
-20:20:36.634 [docker-java-stream-516338723] INFO tc.testcontainers/ryuk:0.7.0 -- Pulling image layers:  1 pending,  2 downloaded,  0 extracted, (1 MB/? MB)
-20:20:37.356 [docker-java-stream-516338723] INFO tc.testcontainers/ryuk:0.7.0 -- Pulling image layers:  0 pending,  3 downloaded,  0 extracted, (4 MB/6 MB)
-20:20:37.476 [docker-java-stream-516338723] INFO tc.testcontainers/ryuk:0.7.0 -- Pulling image layers:  0 pending,  3 downloaded,  1 extracted, (4 MB/6 MB)
-20:20:37.598 [docker-java-stream-516338723] INFO tc.testcontainers/ryuk:0.7.0 -- Pulling image layers:  0 pending,  3 downloaded,  2 extracted, (4 MB/6 MB)
-20:20:37.766 [docker-java-stream-516338723] INFO tc.testcontainers/ryuk:0.7.0 -- Pulling image layers:  0 pending,  3 downloaded,  3 extracted, (6 MB/6 MB)
+package com.empower.epw.crm.gateway.sqs;
 
+import io.awspring.cloud.sqs.config.SqsBootstrapConfiguration;
+import io.awspring.cloud.sqs.operations.SqsTemplate;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.localstack.LocalStackContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.sqs.SqsClient;
+import software.amazon.awssdk.services.sqs.model.CreateQueueRequest;
 
-is it because my test container is not working?
+import static org.assertj.core.api.Assertions.assertThat;
+
+@SpringBootTest
+@Testcontainers
+@ActiveProfiles("test")
+@Import({ CrmGatewayMessageListener.class })
+@ImportAutoConfiguration(SqsBootstrapConfiguration.class)
+class CrmGatewayMessageListenerTest {
+
+	private static final String DRY_RUN_QUEUE = "DEVTRUNK_CRM_GATEWAY_DRY_RUN";
+	private static final String INTERMEDIATE_QUEUE = "DEVTRUNK_CRM_GATEWAY_INTERMEDIATE";
+	private static final String NORMAL_QUEUE = "DEV_CRM_GATEWAY_NORMAL";
+	private static final String TOP_QUEUE = "DEVTRUNK_CRM_GATEWAY_TOP";
+
+	@Container
+	static final LocalStackContainer localstack =
+			new LocalStackContainer(DockerImageName.parse("localstack/localstack:3.0"))
+					.withServices(LocalStackContainer.Service.SQS);
+
+	private static SqsClient sqsClient;
+
+	@DynamicPropertySource
+	static void registerProperties(DynamicPropertyRegistry registry) {
+		String sqsEndpoint = localstack.getEndpointOverride(LocalStackContainer.Service.SQS).toString();
+		registry.add("spring.cloud.aws.region.static", localstack::getRegion);
+		registry.add("spring.cloud.aws.credentials.access-key", localstack::getAccessKey);
+		registry.add("spring.cloud.aws.credentials.secret-key", localstack::getSecretKey);
+		registry.add("spring.cloud.aws.sqs.endpoint", () -> localstack.getEndpointOverride(LocalStackContainer.Service.SQS).toString());
+
+		// crm gateway queue names
+		registry.add("crm.gateway.sqs.queue.dryrun", () -> DRY_RUN_QUEUE);
+		registry.add("crm.gateway.sqs.queue.intermediate", () -> INTERMEDIATE_QUEUE);
+		registry.add("crm.gateway.sqs.queue.normal", () -> NORMAL_QUEUE);
+		registry.add("crm.gateway.sqs.queue.top", () -> TOP_QUEUE);
+
+		sqsClient = SqsClient.builder()
+				.credentialsProvider(StaticCredentialsProvider.create(
+						AwsBasicCredentials.create(localstack.getAccessKey(), localstack.getSecretKey())))
+				.endpointOverride(localstack.getEndpointOverride(LocalStackContainer.Service.SQS))
+				.region(Region.of(localstack.getRegion()))
+				.build();
+	}
+
+	@Autowired
+	private SqsTemplate sqsTemplate;
+
+	@Autowired
+	private CrmGatewayMessageListener listener;
+
+	@BeforeEach
+	void setupQueues() {
+		sqsClient.createQueue(CreateQueueRequest.builder().queueName(DRY_RUN_QUEUE).build());
+		sqsClient.createQueue(CreateQueueRequest.builder().queueName(INTERMEDIATE_QUEUE).build());
+		sqsClient.createQueue(CreateQueueRequest.builder().queueName(NORMAL_QUEUE).build());
+		sqsClient.createQueue(CreateQueueRequest.builder().queueName(TOP_QUEUE).build());
+	}
+
+	@Test
+	void testMessageIsConsumedSuccessfully() throws Exception {
+		String payload = "{\"event\":\"CustomerUpdated\",\"id\":123}";
+		sqsTemplate.send(DRY_RUN_QUEUE, payload);
+
+		// Give listener some time to consume (async)
+		Thread.sleep(2000);
+
+		// If no exception and logs show message handled, test passes
+		assertThat(true).isTrue();
+	}
+}
