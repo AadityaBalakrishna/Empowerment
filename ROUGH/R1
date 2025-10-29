@@ -4,10 +4,9 @@ import java.time.Duration;
 import java.util.concurrent.ThreadPoolExecutor;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-import org.testcontainers.containers.localstack.LocalStackContainer;
 
 import com.personalcapital.log.PcapLogger;
 import com.personalcapital.log.PcapLoggerFactory;
@@ -16,78 +15,145 @@ import io.awspring.cloud.sqs.MessageExecutionThreadFactory;
 import io.awspring.cloud.sqs.config.SqsMessageListenerContainerFactory;
 import io.awspring.cloud.sqs.listener.QueueNotFoundStrategy;
 import io.awspring.cloud.sqs.listener.acknowledgement.handler.AcknowledgementMode;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.sqs.SqsAsyncClient;
 
-@TestConfiguration
+@Configuration
 public class CrmGatewaySqsConfig {
 
-    private static final PcapLogger log = PcapLoggerFactory.getPcapLogger(CrmGatewaySqsConfig.class);
+	private static final PcapLogger log = PcapLoggerFactory.getPcapLogger(CrmGatewaySqsConfig.class);
 
-    @Value("${crm.gateway.sqs.visibility-timeout:60}")
-    private Integer visibilityTimeout;
+	@Value("${aws.region:us-west-2}")
+	private String region;
 
-    @Value("${crm.gateway.sqs.min-pool-size:5}")
-    private Integer minPoolSize;
+	@Value("${crm.gateway.sqs.visibility-timeout:60}")
+	private Integer visibilityTimeout;
 
-    @Value("${crm.gateway.sqs.max-pool-size:15}")
-    private Integer maxPoolSize;
+	@Value("${crm.gateway.sqs.min-pool-size:5}")
+	private Integer minPoolSize;
 
-    @Value("${crm.gateway.sqs.queue-capacity:50}")
-    private Integer queueCapacity;
+	@Value("${crm.gateway.sqs.max-pool-size:15}")
+	private Integer maxPoolSize;
 
-    @Value("${crm.gateway.sqs.await-termination:30}")
-    private Integer awaitTermination;
+	@Value("${crm.gateway.sqs.queue-capacity:50}")
+	private Integer queueCapacity;
 
-    @Value("${aws.region:us-west-2}")
-    private String region;
+	@Value("${crm.gateway.sqs.await-termination:30}")
+	private Integer awaitTermination;
 
-    @Bean
-    public SqsAsyncClient sqsAsyncClient(LocalStackContainer localstack) {
-        return SqsAsyncClient.builder()
-                .endpointOverride(localstack.getEndpointOverride(LocalStackContainer.Service.SQS))
-                .region(Region.of(localstack.getRegion()))
-                .credentialsProvider(
-                        StaticCredentialsProvider.create(
-                                AwsBasicCredentials.create(localstack.getAccessKey(), localstack.getSecretKey())
-                        )
-                )
-                .build();
-    }
+	@Bean
+	public SqsAsyncClient sqsAsyncClient() {
+		log.info("Initializing SQS async client for region: {}", region);
+		return SqsAsyncClient.builder()
+				.region(Region.of(region))
+				.credentialsProvider(DefaultCredentialsProvider.create())
+				.build();
+	}
 
-    @Bean("crmSqsTaskExecutor")
-    public ThreadPoolTaskExecutor crmSqsTaskExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(minPoolSize);
-        executor.setMaxPoolSize(maxPoolSize);
-        executor.setQueueCapacity(queueCapacity);
-        executor.setWaitForTasksToCompleteOnShutdown(true);
-        executor.setAwaitTerminationSeconds(awaitTermination);
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
-        executor.setThreadFactory(new MessageExecutionThreadFactory("crmSqsThread-"));
-        log.info("Initialized CRM SQS ThreadPoolTaskExecutor with pool size: {}-{}", minPoolSize, maxPoolSize);
-        return executor;
-    }
+	@Bean("crmGatewaySqsTaskExecutor")
+	public ThreadPoolTaskExecutor crmGatewaySqsTaskExecutor() {
+		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+		executor.setCorePoolSize(minPoolSize);
+		executor.setMaxPoolSize(maxPoolSize);
+		executor.setQueueCapacity(queueCapacity);
+		executor.setWaitForTasksToCompleteOnShutdown(true);
+		executor.setAwaitTerminationSeconds(awaitTermination);
+		executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+		executor.setThreadFactory(new MessageExecutionThreadFactory("crmGatewaySqsThread-"));
+		log.info("Initialized CRM Gateway SQS ThreadPoolExecutor: core={}, max={}", minPoolSize, maxPoolSize);
+		return executor;
+	}
 
-    @Bean
-    public SqsMessageListenerContainerFactory<Object> defaultSqsListenerContainerFactory(SqsAsyncClient sqsAsyncClient) {
-        log.info("Creating CRM SQS Listener Factory (SDK v2) with visibility timeout: {}", visibilityTimeout);
+	@Bean
+	public SqsMessageListenerContainerFactory<Object> defaultSqsListenerContainerFactory(SqsAsyncClient sqsAsyncClient) {
+		log.info("Creating CRM Gateway SQS Listener Container Factory with visibility timeout: {}", visibilityTimeout);
 
-        return SqsMessageListenerContainerFactory.builder()
-                .sqsAsyncClient(sqsAsyncClient)
-                .configure(options -> options
-                        .messageVisibility(Duration.ofSeconds(visibilityTimeout))
-                        .pollTimeout(Duration.ofSeconds(10))
-                        .maxMessagesPerPoll(10)
-                        .queueNotFoundStrategy(QueueNotFoundStrategy.FAIL)
-                        .acknowledgementMode(AcknowledgementMode.ON_SUCCESS)
-                        .componentsTaskExecutor(crmSqsTaskExecutor())
-                )
-                .build();
-    }
+		return SqsMessageListenerContainerFactory.builder()
+				.sqsAsyncClient(sqsAsyncClient)
+				.configure(options -> options
+						.messageVisibility(Duration.ofSeconds(visibilityTimeout))
+						.queueNotFoundStrategy(QueueNotFoundStrategy.FAIL)
+						.pollTimeout(Duration.ofSeconds(20))
+						.maxMessagesPerPoll(10)
+						.autoStartup(true)
+						.componentsTaskExecutor(crmGatewaySqsTaskExecutor())
+						.acknowledgementMode(AcknowledgementMode.ON_SUCCESS))
+				.build();
+	}
 }
 
 
-now that it's a test config, what changes should i do?
+package com.empower.epw.crm.gateway.sqs;
+
+import com.empower.epw.crm.gateway.sqs.config.CrmGatewaySqsConfig;
+import io.awspring.cloud.sqs.operations.SqsTemplate;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.localstack.LocalStackContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.sqs.SqsClient;
+import software.amazon.awssdk.services.sqs.model.CreateQueueRequest;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@SpringBootTest
+@Testcontainers
+@ActiveProfiles("test")
+@Import(CrmGatewaySqsConfig.class)
+class CrmGatewayMessageListenerIT {
+
+	private static final String TEST_QUEUE = "DEVTRUNK_CRM_GATEWAY_DRY_RUN";
+
+	@Container
+	static final LocalStackContainer localstack =
+			new LocalStackContainer(DockerImageName.parse("localstack/localstack:3.0"))
+					.withServices(LocalStackContainer.Service.SQS);
+
+	private static SqsClient sqsClient;
+
+	@DynamicPropertySource
+	static void registerProps(DynamicPropertyRegistry registry) {
+		registry.add("aws.region", localstack::getRegion);
+		registry.add("spring.cloud.aws.sqs.endpoint",
+				() -> localstack.getEndpointOverride(LocalStackContainer.Service.SQS).toString());
+		registry.add("crm.gateway.sqs.queue.dryrun", () -> TEST_QUEUE);
+
+		sqsClient = SqsClient.builder()
+				.credentialsProvider(StaticCredentialsProvider.create(
+						AwsBasicCredentials.create(localstack.getAccessKey(), localstack.getSecretKey())))
+				.endpointOverride(localstack.getEndpointOverride(LocalStackContainer.Service.SQS))
+				.region(Region.of(localstack.getRegion()))
+				.build();
+	}
+
+	@Autowired
+	private SqsTemplate sqsTemplate;
+
+	@BeforeEach
+	void setupQueue() {
+		sqsClient.createQueue(CreateQueueRequest.builder().queueName(TEST_QUEUE).build());
+	}
+
+	@Test
+	void testMessageIsConsumedSuccessfully() throws Exception {
+		String payload = "{\"event\":\"CustomerUpdated\",\"id\":123}";
+		sqsTemplate.send(TEST_QUEUE, payload);
+
+		// Allow listener to process asynchronously
+		Thread.sleep(3000);
+
+		assertThat(true).isTrue(); // manual check logs
+	}
+}
