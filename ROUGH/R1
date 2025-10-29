@@ -1,116 +1,261 @@
-Caused by: java.util.concurrent.CompletionException: io.awspring.cloud.sqs.QueueAttributesResolvingException: Error resolving attributes for queue DEVTRUNK_CRM_GATEWAY_DRY_RUN with strategy FAIL and queueAttributesNames []
-	at java.base/java.util.concurrent.CompletableFuture.encodeRelay(CompletableFuture.java:368)
-	at java.base/java.util.concurrent.CompletableFuture.completeRelay(CompletableFuture.java:377)
-	at java.base/java.util.concurrent.CompletableFuture$UniCompose.tryFire(CompletableFuture.java:1152)
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510)
-	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194)
-	at software.amazon.awssdk.utils.CompletableFutureUtils.lambda$forwardExceptionTo$0(CompletableFutureUtils.java:78)
-	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863)
-	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841)
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510)
-	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194)
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncApiCallMetricCollectionStage.lambda$execute$0(AsyncApiCallMetricCollectionStage.java:56)
-	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863)
-	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841)
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510)
-	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194)
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncApiCallTimeoutTrackingStage.lambda$execute$2(AsyncApiCallTimeoutTrackingStage.java:67)
-	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863)
-	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841)
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510)
-	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194)
-	at software.amazon.awssdk.utils.CompletableFutureUtils.lambda$forwardExceptionTo$0(CompletableFutureUtils.java:78)
-	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863)
-	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841)
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510)
-	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194)
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncRetryableStage2$RetryingExecutor.maybeAttemptExecute(AsyncRetryableStage2.java:135)
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncRetryableStage2$RetryingExecutor.maybeRetryExecute(AsyncRetryableStage2.java:152)
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncRetryableStage2$RetryingExecutor.lambda$attemptExecute$1(AsyncRetryableStage2.java:113)
-	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863)
-	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841)
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510)
-	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194)
-	at software.amazon.awssdk.utils.CompletableFutureUtils.lambda$forwardExceptionTo$0(CompletableFutureUtils.java:78)
-	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863)
-	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841)
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510)
-	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194)
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.MakeAsyncHttpRequestStage.lambda$execute$0(MakeAsyncHttpRequestStage.java:108)
-	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863)
-	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841)
-	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510)
-	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194)
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.MakeAsyncHttpRequestStage.completeResponseFuture(MakeAsyncHttpRequestStage.java:255)
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.MakeAsyncHttpRequestStage.lambda$executeHttpRequest$3(MakeAsyncHttpRequestStage.java:167)
-	at java.base/java.util.concurrent.CompletableFuture.uniHandle(CompletableFuture.java:934)
-	at java.base/java.util.concurrent.CompletableFuture$UniHandle.tryFire(CompletableFuture.java:911)
-	at java.base/java.util.concurrent.CompletableFuture$Completion.run(CompletableFuture.java:482)
-	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
-	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
-	at java.base/java.lang.Thread.run(Thread.java:1583)
-Caused by: io.awspring.cloud.sqs.QueueAttributesResolvingException: Error resolving attributes for queue DEVTRUNK_CRM_GATEWAY_DRY_RUN with strategy FAIL and queueAttributesNames []
-	at io.awspring.cloud.sqs.QueueAttributesResolver.wrapException(QueueAttributesResolver.java:98)
-	at java.base/java.util.concurrent.CompletableFuture.uniExceptionally(CompletableFuture.java:990)
-	at java.base/java.util.concurrent.CompletableFuture$UniExceptionally.tryFire(CompletableFuture.java:974)
-	... 47 more
-Caused by: software.amazon.awssdk.core.exception.SdkClientException: Unable to execute HTTP request: javax.net.ssl.SSLHandshakeException: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target
-	at software.amazon.awssdk.core.exception.SdkClientException$BuilderImpl.build(SdkClientException.java:111)
-	at software.amazon.awssdk.core.exception.SdkClientException.create(SdkClientException.java:47)
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.utils.RetryableStageHelper2.setLastException(RetryableStageHelper2.java:226)
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.utils.RetryableStageHelper2.setLastException(RetryableStageHelper2.java:221)
-	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncRetryableStage2$RetryingExecutor.maybeRetryExecute(AsyncRetryableStage2.java:151)
-	... 23 more
-Caused by: io.netty.handler.codec.DecoderException: javax.net.ssl.SSLHandshakeException: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target
-	at io.netty.handler.codec.ByteToMessageDecoder.callDecode(ByteToMessageDecoder.java:500)
-	at io.netty.handler.codec.ByteToMessageDecoder.channelRead(ByteToMessageDecoder.java:290)
-	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:444)
-	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:420)
-	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:412)
-	at io.netty.channel.DefaultChannelPipeline$HeadContext.channelRead(DefaultChannelPipeline.java:1357)
-	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:440)
-	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:420)
-	at io.netty.channel.DefaultChannelPipeline.fireChannelRead(DefaultChannelPipeline.java:868)
-	at io.netty.channel.nio.AbstractNioByteChannel$NioByteUnsafe.read(AbstractNioByteChannel.java:166)
-	at io.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:796)
-	at io.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732)
-	at io.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658)
-	at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
-	at io.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
-	at io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
-	... 1 more
-Caused by: javax.net.ssl.SSLHandshakeException: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target
-	at java.base/sun.security.ssl.Alert.createSSLException(Alert.java:130)
-	at java.base/sun.security.ssl.TransportContext.fatal(TransportContext.java:383)
-	at java.base/sun.security.ssl.TransportContext.fatal(TransportContext.java:326)
-	at java.base/sun.security.ssl.TransportContext.fatal(TransportContext.java:321)
-	at java.base/sun.security.ssl.CertificateMessage$T13CertificateConsumer.checkServerCerts(CertificateMessage.java:1318)
-	at java.base/sun.security.ssl.CertificateMessage$T13CertificateConsumer.onConsumeCertificate(CertificateMessage.java:1195)
-	at java.base/sun.security.ssl.CertificateMessage$T13CertificateConsumer.consume(CertificateMessage.java:1138)
-	at java.base/sun.security.ssl.SSLHandshake.consume(SSLHandshake.java:393)
-	at java.base/sun.security.ssl.HandshakeContext.dispatch(HandshakeContext.java:476)
-	at java.base/sun.security.ssl.SSLEngineImpl$DelegatedTask$DelegatedAction.run(SSLEngineImpl.java:1273)
-	at java.base/sun.security.ssl.SSLEngineImpl$DelegatedTask$DelegatedAction.run(SSLEngineImpl.java:1260)
-	at java.base/java.security.AccessController.doPrivileged(AccessController.java:714)
-	at java.base/sun.security.ssl.SSLEngineImpl$DelegatedTask.run(SSLEngineImpl.java:1205)
-	at io.netty.handler.ssl.SslHandler.runDelegatedTasks(SslHandler.java:1695)
-	at io.netty.handler.ssl.SslHandler.unwrap(SslHandler.java:1541)
-	at io.netty.handler.ssl.SslHandler.decodeJdkCompatible(SslHandler.java:1377)
-	at io.netty.handler.ssl.SslHandler.decode(SslHandler.java:1428)
-	at io.netty.handler.codec.ByteToMessageDecoder.decodeRemovalReentryProtection(ByteToMessageDecoder.java:530)
-	at io.netty.handler.codec.ByteToMessageDecoder.callDecode(ByteToMessageDecoder.java:469)
-	... 16 more
-Caused by: sun.security.validator.ValidatorException: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target
-	at java.base/sun.security.validator.PKIXValidator.doBuild(PKIXValidator.java:388)
-	at java.base/sun.security.validator.PKIXValidator.engineValidate(PKIXValidator.java:271)
-	at java.base/sun.security.validator.Validator.validate(Validator.java:256)
-	at java.base/sun.security.ssl.X509TrustManagerImpl.checkTrusted(X509TrustManagerImpl.java:284)
-	at java.base/sun.security.ssl.X509TrustManagerImpl.checkServerTrusted(X509TrustManagerImpl.java:144)
-	at java.base/sun.security.ssl.CertificateMessage$T13CertificateConsumer.checkServerCerts(CertificateMessage.java:1296)
-	... 30 more
-Caused by: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target
-	at java.base/sun.security.provider.certpath.SunCertPathBuilder.build(SunCertPathBuilder.java:148)
-	at java.base/sun.security.provider.certpath.SunCertPathBuilder.engineBuild(SunCertPathBuilder.java:129)
-	at java.base/java.security.cert.CertPathBuilder.build(CertPathBuilder.java:297)
-	at java.base/sun.security.validator.PKIXValidator.doBuild(PKIXValidator.java:383)
-	... 35 more
+task:
+As a Backend Developer,
+I need to configure starter-sqs for the crm-gateway-service and enable SQS message consumption
+so that the service can process event-driven updates and persist data in its database.
+
+Requirements / Development Notes
+Integrate starter-sqs into the crm-gateway-service.
+Configure SQS queue connection (endpoint, region, IAM credentials).
+Implement message listener to read and process messages.
+Add retry for failed messages.
+
+Dependencies
+AWS SQS queue setup and access permissions.
+
+Acceptance Criteria
+Service connects to AWS SQS and reads messages successfully.
+Failed messages retry.
+Logs show message ID, status, and processing result.
+All parameters configurable per environment.
+
+sqs permissions:
+CRM GATEWAY service permissions:
+      {
+        "Action" : [
+          "sqs:ChangeMessageVisibility",
+          "sqs:GetQueueUrl",
+          "sqs:GetQueueAttributes",
+          "sqs:ListQueues",
+          "sqs:DeleteMessage",
+          "sqs:ReceiveMessage"
+        ],
+        "Resource" : "arn:aws:sqs:us-west-2:179355710817:DEVTRUNK_CRM_GATEWAY_*",
+        "Effect" : "Allow"
+      }
+
+what i wrote - Listener class:
+
+package com.empower.epw.crm.gateway.sqs;
+
+import io.awspring.cloud.sqs.annotation.SqsListener;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
+import org.springframework.stereotype.Component;
+import lombok.CustomLog;
+
+@CustomLog
+@Component
+public class CrmGatewayMessageListener
+{
+	@SqsListener("${crm.gateway.sqs.queue.dryrun:}")
+	@Retryable(value =
+	{
+			Exception.class
+	}, maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}"))
+	public void handleDryRunMessage(String message)
+	{
+		processMessage("DRY_RUN", message);
+	}
+
+	@SqsListener("${crm.gateway.sqs.queue.intermediate:}")
+	@Retryable(value =
+	{
+			Exception.class
+	}, maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}"))
+	public void handleIntermediateMessage(String message)
+	{
+		processMessage("INTERMEDIATE", message);
+	}
+
+	@SqsListener("${crm.gateway.sqs.queue.normal:}")
+	@Retryable(value =
+	{
+			Exception.class
+	}, maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}"))
+	public void handleNormalMessage(String message)
+	{
+		processMessage("NORMAL", message);
+	}
+
+	@SqsListener("${crm.gateway.sqs.queue.top:}")
+	@Retryable(value =
+	{
+			Exception.class
+	}, maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}"))
+	public void handleTopMessage(String message)
+	{
+		processMessage("TOP", message);
+	}
+
+	void processMessage(String type, String message)
+	{
+		log.info("Received [{}] message: {}", type, message);
+
+		try
+		{
+			// TODO: handle domain logic here
+			log.info("Message [{}] processed successfully.", type);
+		}
+		catch (Exception ex)
+		{
+			log.error("Error processing [{}] message: {}", type, ex.getMessage(), ex);
+			throw ex; // triggers @Retryable
+		}
+	}
+}
+
+
+added enable retry here: is that right? if yes? what is the use?
+package com.empower.epw.crm.gateway;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.retry.annotation.EnableRetry;
+
+@EnableRetry
+@SpringBootApplication
+public class CrmGatewayApplication
+{
+	public static void main(String[] args)
+	{
+		SpringApplication.run(CrmGatewayApplication.class, args);
+	}
+}
+
+
+application.properties:
+# AWS SQS Configuration
+crm-gateway.sqs.retry.max-attempts=3
+crm-gateway.sqs.retry.backoff-delay=1000
+
+#CRM Gateway SQS Queues
+crm.gateway.sqs.queue.dryrun=DEVTRUNK_CRM_GATEWAY_DRY_RUN
+crm.gateway.sqs.queue.intermediate=DEVTRUNK_CRM_GATEWAY_INTERMEDIATE
+crm.gateway.sqs.queue.normal=DEVTRUNK_CRM_GATEWAY_NORMAL
+crm.gateway.sqs.queue.top=DEVTRUNK_CRM_GATEWAY_TOP
+
+epw.aws.sqs.visibilityTimeout=60
+epw.aws.sqs.minPoolSize=10
+epw.aws.sqs.maxPoolSize=30
+epw.aws.sqs.queueCapacity=30
+epw.aws.sqs.queueMaxAwaitTermination=30
+
+application-test.properties:
+# AWS SQS Configuration
+crm-gateway.sqs.retry.max-attempts=3
+crm-gateway.sqs.retry.backoff-delay=1000
+spring.cloud.aws.credentials.access-key=test
+spring.cloud.aws.credentials.secret-key=test
+#spring.cloud.aws.sqs.endpoint=http://localhost:4566
+spring.cloud.aws.sqs.region=us-west-2
+spring.cloud.aws.sqs.listener.auto-startup=true
+
+#CRM Gateway SQS Queues
+crm.gateway.sqs.queue.dryrun=DEVTRUNK_CRM_GATEWAY_DRY_RUN
+crm.gateway.sqs.queue.intermediate=DEVTRUNK_CRM_GATEWAY_INTERMEDIATE
+crm.gateway.sqs.queue.normal=DEVTRUNK_CRM_GATEWAY_NORMAL
+crm.gateway.sqs.queue.top=DEVTRUNK_CRM_GATEWAY_TOP
+
+epw.aws.sqs.visibilityTimeout=60
+epw.aws.sqs.minPoolSize=10
+epw.aws.sqs.maxPoolSize=30
+epw.aws.sqs.queueCapacity=30
+epw.aws.sqs.queueMaxAwaitTermination=30
+
+
+this is the test class:
+package com.empower.epw.crm.gateway.sqs;
+
+import io.awspring.cloud.sqs.config.SqsBootstrapConfiguration;
+import io.awspring.cloud.sqs.operations.SqsTemplate;
+
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.localstack.LocalStackContainer;
+import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
+
+import software.amazon.awssdk.services.sqs.SqsClient;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@SpringBootTest
+@Testcontainers
+@ActiveProfiles("test")
+@Import(
+{
+		CrmGatewayMessageListener.class
+})
+@ImportAutoConfiguration(SqsBootstrapConfiguration.class)
+class CrmGatewayMessageListenerTest
+{
+
+	private static final Logger LOG = LoggerFactory.getLogger("LocalStackContainer");
+
+	private static final String DRY_RUN_QUEUE = "DEVTRUNK_CRM_GATEWAY_DRY_RUN";
+	private static final String INTERMEDIATE_QUEUE = "DEVTRUNK_CRM_GATEWAY_INTERMEDIATE";
+	private static final String NORMAL_QUEUE = "DEV_CRM_GATEWAY_NORMAL";
+	private static final String TOP_QUEUE = "DEVTRUNK_CRM_GATEWAY_TOP";
+
+	@Container
+	static final LocalStackContainer localstack = new LocalStackContainer(
+			DockerImageName.parse("localstack/localstack:3.0"))
+					.withServices(LocalStackContainer.Service.SQS)
+					.withLogConsumer(new Slf4jLogConsumer(LOG));
+
+	private static SqsClient sqsClient;
+
+	@DynamicPropertySource
+	static void registerProperties(DynamicPropertyRegistry registry)
+	{
+		String sqsEndpoint = localstack.getEndpointOverride(LocalStackContainer.Service.SQS)
+				.toString();
+		registry.add("spring.cloud.aws.region.static", localstack::getRegion);
+		registry.add("spring.cloud.aws.credentials.access-key", localstack::getAccessKey);
+		registry.add("spring.cloud.aws.credentials.secret-key", localstack::getSecretKey);
+		registry.add("spring.cloud.aws.sqs.endpoint",
+				() -> localstack.getEndpointOverride(LocalStackContainer.Service.SQS)
+						.toString());
+
+		// crm gateway queue names
+		registry.add("crm.gateway.sqs.queue.dryrun", () -> DRY_RUN_QUEUE);
+		registry.add("crm.gateway.sqs.queue.intermediate", () -> INTERMEDIATE_QUEUE);
+		registry.add("crm.gateway.sqs.queue.normal", () -> NORMAL_QUEUE);
+		registry.add("crm.gateway.sqs.queue.top", () -> TOP_QUEUE);
+	}
+
+	@Autowired
+	private SqsTemplate sqsTemplate;
+
+	@Autowired
+	private CrmGatewayMessageListener listener;
+
+	@Test
+	void testMessageIsConsumedSuccessfully() throws Exception
+	{
+		String payload = "{\"event\":\"CustomerUpdated\",\"id\":123}";
+		sqsTemplate.send(DRY_RUN_QUEUE, payload);
+
+		// Give listener some time to consume (async)
+		Thread.sleep(2000);
+
+		// If no exception and logs show message handled, test passes
+		assertThat(true).isTrue();
+	}
+}
+
+i don't see that it is using the listener i built, and also seeing this issue in jenkins, although the test passed :
+19:18:56  2025-10-29 06:48:56 AM [sdk-async-response-3-6] trace_id:  span_id:  ERROR io.awspring.cloud.sqs.listener.source.AbstractPollingMessageSource - Error polling for messages in queue DEVTRUNK_CRM_GATEWAY_TOP. java.util.concurrent.CompletionException: software.amazon.awssdk.core.exception.SdkClientException: Unable to execute HTTP request: Connection refused: /127.0.0.1:49154
+Suppressed: software.amazon.awssdk.core.exception.SdkClientException: Request attempt 1 failure: Unable to execute HTTP request: The connection was closed during the request. The request will usually succeed on a retry, but if it does not: consider disabling any proxies you have configured, enabling debug logging, or performing a TCP dump to identify the root cause. If this is a streaming operation, validate that data is being read or written in a timely manner. Channel Information: ChannelDiagnostics(channel=[id: 0xb3e62d3e, L:/127.0.0.1:34730 ! R:/127.0.0.1:49154], channelAge=PT3.654636078S, requestCount=1, responseCount=0)
+19:18:56  	Suppressed: software.amazon.awssdk.core.exception.SdkClientException: Request attempt 2 failure: Unable to execute HTTP request: Connection refused: /127.0.0.1:49154
+for all the 4 queues
