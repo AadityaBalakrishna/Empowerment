@@ -105,7 +105,7 @@ public class CrmGatewayMessageListener
 }
 
 
-added enable retry here: is that right? if yes? what is the use?
+added enable retry here:
 package com.empower.epw.crm.gateway;
 
 import org.springframework.boot.SpringApplication;
@@ -166,9 +166,12 @@ epw.aws.sqs.queueMaxAwaitTermination=30
 this is the test class:
 package com.empower.epw.crm.gateway.sqs;
 
+import java.util.concurrent.TimeUnit;
+
 import io.awspring.cloud.sqs.config.SqsBootstrapConfiguration;
 import io.awspring.cloud.sqs.operations.SqsTemplate;
 
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -185,9 +188,13 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.sqs.SqsClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 @SpringBootTest
 @Testcontainers
@@ -204,7 +211,7 @@ class CrmGatewayMessageListenerTest
 
 	private static final String DRY_RUN_QUEUE = "DEVTRUNK_CRM_GATEWAY_DRY_RUN";
 	private static final String INTERMEDIATE_QUEUE = "DEVTRUNK_CRM_GATEWAY_INTERMEDIATE";
-	private static final String NORMAL_QUEUE = "DEV_CRM_GATEWAY_NORMAL";
+	private static final String NORMAL_QUEUE = "DEVTRUNK_CRM_GATEWAY_NORMAL";
 	private static final String TOP_QUEUE = "DEVTRUNK_CRM_GATEWAY_TOP";
 
 	@Container
@@ -214,6 +221,25 @@ class CrmGatewayMessageListenerTest
 					.withLogConsumer(new Slf4jLogConsumer(LOG));
 
 	private static SqsClient sqsClient;
+
+	@BeforeAll
+	static void setupQueues()
+	{
+		sqsClient = SqsClient.builder()
+				.endpointOverride(localstack.getEndpointOverride(LocalStackContainer.Service.SQS))
+				.region(Region.of(localstack.getRegion()))
+				.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials
+						.create(localstack.getAccessKey(), localstack.getSecretKey())))
+				.build();
+
+		for (String queueName : new String[]
+		{
+				DRY_RUN_QUEUE, INTERMEDIATE_QUEUE, NORMAL_QUEUE, TOP_QUEUE
+		})
+		{
+			sqsClient.createQueue(r -> r.queueName(queueName));
+		}
+	}
 
 	@DynamicPropertySource
 	static void registerProperties(DynamicPropertyRegistry registry)
@@ -246,19 +272,24 @@ class CrmGatewayMessageListenerTest
 		String payload = "{\"event\":\"CustomerUpdated\",\"id\":123}";
 		sqsTemplate.send(DRY_RUN_QUEUE, payload);
 
-		// Give listener some time to consume (async)
-		Thread.sleep(2000);
+		await().atMost(5, TimeUnit.SECONDS)
+				.untilAsserted(() -> assertThat(listener).isNotNull());
+	}
 
-		// If no exception and logs show message handled, test passes
-		assertThat(true).isTrue();
+	@Test
+	void testMessageRetriesOnFailure()
+	{
+		sqsTemplate.send(DRY_RUN_QUEUE, "FAIL_MESSAGE");
 	}
 }
 
-i don't see that it is using the listener i built, and also seeing this issue in jenkins, although the test passed :
+SO what's happening is, the springboottest is loading the listener before the queues is created in the container, and is't trying to poll for messages, seeing this issue in jenkins, although the test passed :
 19:18:56  2025-10-29 06:48:56 AM [sdk-async-response-3-6] trace_id:  span_id:  ERROR io.awspring.cloud.sqs.listener.source.AbstractPollingMessageSource - Error polling for messages in queue DEVTRUNK_CRM_GATEWAY_TOP. java.util.concurrent.CompletionException: software.amazon.awssdk.core.exception.SdkClientException: Unable to execute HTTP request: Connection refused: /127.0.0.1:49154
 Suppressed: software.amazon.awssdk.core.exception.SdkClientException: Request attempt 1 failure: Unable to execute HTTP request: The connection was closed during the request. The request will usually succeed on a retry, but if it does not: consider disabling any proxies you have configured, enabling debug logging, or performing a TCP dump to identify the root cause. If this is a streaming operation, validate that data is being read or written in a timely manner. Channel Information: ChannelDiagnostics(channel=[id: 0xb3e62d3e, L:/127.0.0.1:34730 ! R:/127.0.0.1:49154], channelAge=PT3.654636078S, requestCount=1, responseCount=0)
 19:18:56  	Suppressed: software.amazon.awssdk.core.exception.SdkClientException: Request attempt 2 failure: Unable to execute HTTP request: Connection refused: /127.0.0.1:49154
 for all the 4 queues
+
+can you, help me use context configuration to load the contexts properly? , maybe first, get the localstack testcontainer setup, and then that starts the queue and then the listener is loaded
 
 
 what if i use a config like this:
