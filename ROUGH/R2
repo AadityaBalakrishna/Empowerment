@@ -1,6 +1,75 @@
-	@Bean
-	public String sqsQueueUrl(SqsClient sqsClient)
+package com.empower.epw.crm.gateway.config;
+
+import java.time.Duration;
+import java.util.concurrent.ThreadPoolExecutor;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+
+import lombok.extern.slf4j.Slf4j;
+import io.awspring.cloud.sqs.MessageExecutionThreadFactory;
+import io.awspring.cloud.sqs.config.SqsMessageListenerContainerFactory;
+import io.awspring.cloud.sqs.listener.QueueNotFoundStrategy;
+import io.awspring.cloud.sqs.listener.acknowledgement.handler.AcknowledgementMode;
+import software.amazon.awssdk.services.sqs.SqsAsyncClient;
+
+@Slf4j
+@Configuration
+public class CrmGatewaySqsConfig
+{
+    // These @Value annotations match your application.properties
+	@Value("${epw.aws.sqs.visibilityTimeout:60}")
+	public Integer visibilityTimeout;
+
+	@Value("${epw.aws.sqs.minPoolSize:10}")
+	public Integer minPoolSize;
+
+	@Value("${epw.aws.sqs.maxPoolSize:30}")
+	public Integer maxPoolSize;
+
+	@Value("${epw.aws.sqs.queueCapacity:30}")
+	public Integer queueCapacity;
+
+	@Value("${epw.aws.sqs.queueMaxAwaitTermination:30}")
+	public Integer queueMaxAwaitTermination;
+
+	@Bean("awsTaskExecutor")
+	public ThreadPoolTaskExecutor awsTaskExecutor()
 	{
-		return sqsClient.createQueue(builder -> builder.queueName("DEVTRUNK_IHUB_TRS_NORMAL"))
-				.queueUrl();
+		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+		executor.setCorePoolSize(minPoolSize);
+		executor.setMaxPoolSize(maxPoolSize);
+		executor.setQueueCapacity(queueCapacity);
+		executor.setWaitForTasksToCompleteOnShutdown(true);
+		executor.setAwaitTerminationSeconds(queueMaxAwaitTermination);
+		executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        // Custom thread name prefix for easier debugging
+		executor.setThreadFactory(new MessageExecutionThreadFactory("crmGatewaySqsThread-"));
+		return executor;
 	}
+
+	@Bean
+	SqsMessageListenerContainerFactory<Object> defaultSqsListenerContainerFactory(
+			SqsAsyncClient sqsAsyncClient)
+	{
+
+		log.info("Creating SQS Listener Container Factory with visibility timeout: {}",
+				visibilityTimeout);
+		
+		return SqsMessageListenerContainerFactory.builder()
+				.sqsAsyncClient(sqsAsyncClient)
+				.configure(sqsContainerOptionsBuilder -> sqsContainerOptionsBuilder
+						.messageVisibility(Duration.ofSeconds(visibilityTimeout))
+						.queueNotFoundStrategy(QueueNotFoundStrategy.FAIL) // Fail fast if a queue is missing
+						.pollTimeout(Duration.ofSeconds(20))
+						.maxMessagesPerPoll(10)
+						.componentsTaskExecutor(awsTaskExecutor()) // Use our custom thread pool
+						.autoStartup(true) // Keep true for production
+                        // THIS IS VITAL for retries: 
+                        // Only delete the message if the listener returns successfully.
+						.acknowledgementMode(AcknowledgementMode.ON_SUCCESS)) 
+				.build();
+	}
+}
