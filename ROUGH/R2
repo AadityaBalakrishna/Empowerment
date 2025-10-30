@@ -1,99 +1,31 @@
-package com.empower.epw.crm.gateway.sqs;
+This is a new task and before jumping into the coding, i want to be able to understand each and every concept
 
-import io.awspring.cloud.sqs.annotation.SqsListener;
-import org.springframework.messaging.handler.annotation.Header; // Import this
-import org.springframework.retry.annotation.Backoff;
-import org.springframework.retry.annotation.Retryable;
-import org.springframework.stereotype.Component;
-import lombok.CustomLog;
+ I want to implement and test a proof-of-concept for AWS SQS/EventBridge integration so that the CRM Event Hub can publish and consume platform events through AWS-managed queues in a reliable and observable manner.
+Description:
 
-@CustomLog
-@Component
-public class CrmGatewayMessageListener
-{
-	@SqsListener("${crm.gateway.sqs.queue.dryrun:}")
-	@Retryable(value = { Exception.class }, 
-        maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}", 
-        backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}"))
-	public void handleDryRunMessage(String payload, @Header("Sqs_MessageId") String messageId) // Added messageId
-	{
-		processMessage("DRY_RUN", payload, messageId);
-	}
+Create AWS SQS queue and EventBridge rule to capture mock CRM platform events.
+Configure EKS service IAM roles and policies for send/receive permissions.
+Implement a simple SQS producer and consumer module within crm-ihub-app for event routing validation.
+Validate dead-letter queue (DLQ) behavior and message retention policies.
+Establish observability hooks (Datadog logs, metrics) for SQS operations.
+Update Helm values to include environment variables and AWS ARNs.
+Acceptance Criteria:
 
-	@SqsListener("${crm.gateway.sqs.queue.intermediate:}")
-	@Retryable(value = { Exception.class }, 
-        maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}", 
-        backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}"))
-	public void handleIntermediateMessage(String payload, @Header("Sqs_MessageId") String messageId)
-	{
-		processMessage("INTERMEDIATE", payload, messageId);
-	}
+crm-ihub-app successfully sends messages to AWS SQS queue using IAM permissions.
+EventBridge rule correctly routes mock platform events to SQS target.
+Consumer reads and acknowledges messages without duplication.
+DLQ behavior verified through intentional processing failure.
+Datadog/Splunk logs show successful message flow and error traces.
+Helm/Kustomize deployment includes tested config for all environments (dev/qa/stage).
+Dependencies:
 
-	@SqsListener("${crm.gateway.sqs.queue.normal:}")
-	@Retryable(value = { Exception.class }, 
-        maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}", 
-        backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}"))
-	public void handleNormalMessage(String payload, @Header("Sqs_MessageId") String messageId)
-	{
-		processMessage("NORMAL", payload, messageId);
-	}
+AWS SQS and EventBridge infrastructure readiness.
+DevOps support for IAM policy and role mapping.
+AWS Config Store entries for service.
+Shared epw-crm-core library for JSON schema mapping (if applicable).
+Validation Steps:
 
-	@SqsListener("${crm.gateway.sqs.queue.top:}")
-	@Retryable(value = { Exception.class }, 
-        maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}", 
-        backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}"))
-	public void handleTopMessage(String payload, @Header("Sqs_MessageId") String messageId)
-	{
-		processMessage("TOP", payload, messageId);
-	}
-
-    // Make package-private or public so @SpyBean can see it
-	void processMessage(String type, String payload, String messageId)
-	{
-		log.info("Received [{}] message. ID: {}. Status: PROCESSING. Payload: {}", type, messageId, payload);
-
-		// ** ADD THIS FOR THE RETRY TEST **
-		if ("FAIL_MESSAGE".equals(payload)) {
-			log.warn("Message [{}] ID: {}. Status: FAILED (Test). Triggering retry...", type, messageId);
-			throw new RuntimeException("Simulating a processing failure for retry test");
-		}
-		
-		try
-		{
-			// TODO: handle domain logic here
-			log.info("Message [{}] ID: {}. Status: SUCCESS.", type, messageId);
-		}
-		catch (Exception ex)
-		{
-			log.error("Message [{}] ID: {}. Status: FAILED. Error: {}", type, messageId, ex.getMessage(), ex);
-			throw ex; // triggers @Retryable
-		}
-	}
-}
-
-@Test
-	void testMessageIsConsumedSuccessfully()
-	{
-		String payload = "{\"event\":\"CustomerUpdated\",\"id\":123}";
-		sqsTemplate.send(DRY_RUN_QUEUE, payload);
-
-		// Awaitility to verify the listener's method was *actually called*
-		await().atMost(5, TimeUnit.SECONDS)
-				.untilAsserted(() -> verify(listener, times(1))
-						.handleDryRunMessage(eq(payload), any(String.class)));
-	}
-
-	@Test
-	void testMessageRetriesOnFailure()
-	{
-		String payload = "FAIL_MESSAGE";
-		
-		sqsTemplate.send(DRY_RUN_QUEUE, payload);
-
-		// Await for 10 seconds (e.g., 3 attempts * (1000ms backoff + processing time))
-		// We expect 1 initial attempt + 2 retries = 3 total calls
-        // Your retry settings are: maxAttempts=3, backoff=1000ms
-		await().atMost(10, TimeUnit.SECONDS)
-				.untilAsserted(() -> verify(listener, times(3))
-						.handleDryRunMessage(eq(payload), any(String.class)));
-	}
+Local simulation using AWS CLI and SDK mock testing for send/receive.
+Integration test in EKS (dev) with real EventBridge and SQS resources.
+Automated pipeline test verifying message publish, receive, and DLQ routing.
+Monitoring validation via Datadog dashboards and Splunk queries.
