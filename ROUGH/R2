@@ -1,17 +1,94 @@
+package com.empower.epw.crm.gateway.config;
+
+import java.time.Duration;
+import java.util.concurrent.ThreadPoolExecutor;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+
+import lombok.extern.slf4j.Slf4j;
+import io.awspring.cloud.sqs.MessageExecutionThreadFactory;
+import io.awspring.cloud.sqs.config.SqsMessageListenerContainerFactory;
+import io.awspring.cloud.sqs.listener.QueueNotFoundStrategy;
+import io.awspring.cloud.sqs.listener.acknowledgement.handler.AcknowledgementMode;
+import software.amazon.awssdk.services.sqs.SqsAsyncClient;
+
+@Slf4j
+@Configuration
+public class CrmGatewaySqsConfig
+{
+    @Value("${epw.aws.sqs.visibilityTimeout:60}")
+	public Integer visibilityTimeout;
+
+	@Value("${epw.aws.sqs.minPoolSize:10}")
+	public Integer minPoolSize;
+
+	@Value("${epw.aws.sqs.maxPoolSize:30}")
+	public Integer maxPoolSize;
+
+	@Value("${epw.aws.sqs.queueCapacity:30}")
+	public Integer queueCapacity;
+
+	@Value("${epw.aws.sqs.queueMaxAwaitTermination:30}")
+	public Integer queueMaxAwaitTermination;
+
+	@Bean("awsTaskExecutor")
+	public ThreadPoolTaskExecutor awsTaskExecutor()
+	{
+		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+		executor.setCorePoolSize(minPoolSize);
+		executor.setMaxPoolSize(maxPoolSize);
+		executor.setQueueCapacity(queueCapacity);
+		executor.setWaitForTasksToCompleteOnShutdown(true);
+		executor.setAwaitTerminationSeconds(queueMaxAwaitTermination);
+		executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+		executor.setThreadFactory(new MessageExecutionThreadFactory("crmGatewaySqsThread-"));
+		return executor;
+	}
+
+	@Bean
+	SqsMessageListenerContainerFactory<Object> defaultSqsListenerContainerFactory(
+			SqsAsyncClient sqsAsyncClient)
+	{
+
+		log.info("Creating SQS Listener Container Factory with visibility timeout: {}",
+				visibilityTimeout);
+		
+		return SqsMessageListenerContainerFactory.builder()
+				.sqsAsyncClient(sqsAsyncClient)
+				.configure(sqsContainerOptionsBuilder -> sqsContainerOptionsBuilder
+						.messageVisibility(Duration.ofSeconds(visibilityTimeout))
+						.queueNotFoundStrategy(QueueNotFoundStrategy.FAIL) 
+						.pollTimeout(Duration.ofSeconds(20))
+						.maxMessagesPerPoll(10)
+						.componentsTaskExecutor(awsTaskExecutor()) 
+						.autoStartup(true) // Keep true for production
+						.acknowledgementMode(AcknowledgementMode.ON_SUCCESS)) // Critical for retries
+				.build();
+	}
+}
+
+
 package com.empower.epw.crm.gateway.sqs;
 
 import java.util.concurrent.TimeUnit;
 
+import com.empower.epw.crm.gateway.config.CrmGatewaySqsConfig; // Import your config
 import io.awspring.cloud.sqs.config.SqsBootstrapConfiguration;
+import io.awspring.cloud.sqs.listener.SqsMessageListenerContainerRegistry; // Import registry
 import io.awspring.cloud.sqs.operations.SqsTemplate;
 
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach; // Import BeforeEach
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.SpyBean; // Import SpyBean
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -27,15 +104,19 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.sqs.SqsClient;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 @SpringBootTest
 @Testcontainers
 @ActiveProfiles("test")
 @Import(
 {
-		CrmGatewayMessageListener.class
+		CrmGatewayMessageListener.class,
+		CrmGatewaySqsConfig.class // <-- IMPORT YOUR CONFIG HERE
 })
 @ImportAutoConfiguration(SqsBootstrapConfiguration.class)
 class CrmGatewayMessageListenerTest
@@ -78,8 +159,6 @@ class CrmGatewayMessageListenerTest
 	@DynamicPropertySource
 	static void registerProperties(DynamicPropertyRegistry registry)
 	{
-		String sqsEndpoint = localstack.getEndpointOverride(LocalStackContainer.Service.SQS)
-				.toString();
 		registry.add("spring.cloud.aws.region.static", localstack::getRegion);
 		registry.add("spring.cloud.aws.credentials.access-key", localstack::getAccessKey);
 		registry.add("spring.cloud.aws.credentials.secret-key", localstack::getSecretKey);
@@ -92,27 +171,51 @@ class CrmGatewayMessageListenerTest
 		registry.add("crm.gateway.sqs.queue.intermediate", () -> INTERMEDIATE_QUEUE);
 		registry.add("crm.gateway.sqs.queue.normal", () -> NORMAL_QUEUE);
 		registry.add("crm.gateway.sqs.queue.top", () -> TOP_QUEUE);
+		
+		// !! THIS IS THE FIX !!
+		// Prevent listeners from starting until we manually trigger them
+		registry.add("spring.cloud.aws.sqs.listener.auto-startup", () -> "false");
 	}
 
 	@Autowired
 	private SqsTemplate sqsTemplate;
 
-	@Autowired
+	@SpyBean // <-- Use @SpyBean to verify method calls on the real listener
 	private CrmGatewayMessageListener listener;
 
+	@Autowired
+	private SqsMessageListenerContainerRegistry sqsMessageListenerContainerRegistry; // <-- Autowire the registry
+
+	@BeforeEach
+	void setupTest() {
+		// Manually start all @SqsListener containers
+		// This runs AFTER @BeforeAll and AFTER the context is up, so no race condition.
+		sqsMessageListenerContainerRegistry.start();
+	}
+
 	@Test
-	void testMessageIsConsumedSuccessfully() throws Exception
+	void testMessageIsConsumedSuccessfully()
 	{
 		String payload = "{\"event\":\"CustomerUpdated\",\"id\":123}";
 		sqsTemplate.send(DRY_RUN_QUEUE, payload);
 
+		// Awaitility to verify the listener's method was actually called
 		await().atMost(5, TimeUnit.SECONDS)
-				.untilAsserted(() -> assertThat(listener).isNotNull());
+				.untilAsserted(() -> verify(listener, times(1))
+						.handleDryRunMessage(eq(payload), any(String.class)));
 	}
 
 	@Test
 	void testMessageRetriesOnFailure()
 	{
-		sqsTemplate.send(DRY_RUN_QUEUE, "FAIL_MESSAGE");
+		String payload = "FAIL_MESSAGE";
+		
+		sqsTemplate.send(DRY_RUN_QUEUE, payload);
+
+		// Await for 10 seconds (e.g., 3 attempts * (1000ms backoff + processing time))
+		// We expect 1 initial attempt + 2 retries = 3 total calls
+		await().atMost(10, TimeUnit.SECONDS)
+				.untilAsserted(() -> verify(listener, times(3))
+						.handleDryRunMessage(eq(payload), any(String.class)));
 	}
 }
