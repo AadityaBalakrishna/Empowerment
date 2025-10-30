@@ -1,173 +1,66 @@
-package com.empower.epw.crm.gateway.sqs;
+2025-10-30 19:15:29 PM [lifecycle-thread-10] trace_id:  span_id:  INFO  io.awspring.cloud.sqs.listener.AbstractMessageListenerContainer - Container io.awspring.cloud.sqs.sqsListenerEndpointContainer#0 stopped 
+2025-10-30 19:15:29 PM [sdk-async-response-4-1] trace_id:  span_id:  ERROR io.awspring.cloud.sqs.listener.source.AbstractPollingMessageSource - Error polling for messages in queue DEVTRUNK_CRM_GATEWAY_TOP. java.util.concurrent.CompletionException: software.amazon.awssdk.core.exception.SdkClientException: Unable to execute HTTP request: Connection refused: /127.0.0.1:32839
+	at software.amazon.awssdk.utils.CompletableFutureUtils.errorAsCompletionException(CompletableFutureUtils.java:64) ~[utils-2.29.52.jar:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncExecutionFailureExceptionReportingStage.lambda$execute$0(AsyncExecutionFailureExceptionReportingStage.java:51) ~[sdk-core-2.29.52.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniHandle(CompletableFuture.java:934) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniHandle.tryFire(CompletableFuture.java:911) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
+	at software.amazon.awssdk.utils.CompletableFutureUtils.lambda$forwardExceptionTo$0(CompletableFutureUtils.java:78) ~[utils-2.29.52.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncRetryableStage2$RetryingExecutor.maybeAttemptExecute(AsyncRetryableStage2.java:135) ~[sdk-core-2.29.52.jar:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncRetryableStage2$RetryingExecutor.maybeRetryExecute(AsyncRetryableStage2.java:152) ~[sdk-core-2.29.52.jar:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncRetryableStage2$RetryingExecutor.lambda$attemptExecute$1(AsyncRetryableStage2.java:113) ~[sdk-core-2.29.52.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
+	at software.amazon.awssdk.utils.CompletableFutureUtils.lambda$forwardExceptionTo$0(CompletableFutureUtils.java:78) ~[utils-2.29.52.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.MakeAsyncHttpRequestStage.lambda$execute$0(MakeAsyncHttpRequestStage.java:108) ~[sdk-core-2.29.52.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.MakeAsyncHttpRequestStage.completeResponseFuture(MakeAsyncHttpRequestStage.java:255) ~[sdk-core-2.29.52.jar:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.MakeAsyncHttpRequestStage.lambda$executeHttpRequest$3(MakeAsyncHttpRequestStage.java:167) ~[sdk-core-2.29.52.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniHandle(CompletableFuture.java:934) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniHandle.tryFire(CompletableFuture.java:911) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$Completion.run(CompletableFuture.java:482) ~[?:?]
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144) ~[?:?]
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642) ~[?:?]
+	at java.base/java.lang.Thread.run(Thread.java:1583) [?:?]
+Caused by: software.amazon.awssdk.core.exception.SdkClientException: Unable to execute HTTP request: Connection refused: /127.0.0.1:32839
+	at software.amazon.awssdk.core.exception.SdkClientException$BuilderImpl.build(SdkClientException.java:111) ~[sdk-core-2.29.52.jar:?]
+	at software.amazon.awssdk.core.exception.SdkClientException.create(SdkClientException.java:47) ~[sdk-core-2.29.52.jar:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.utils.RetryableStageHelper2.setLastException(RetryableStageHelper2.java:226) ~[sdk-core-2.29.52.jar:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.utils.RetryableStageHelper2.setLastException(RetryableStageHelper2.java:221) ~[sdk-core-2.29.52.jar:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncRetryableStage2$RetryingExecutor.maybeRetryExecute(AsyncRetryableStage2.java:151) ~[sdk-core-2.29.52.jar:?]
+	... 23 more
+	Suppressed: software.amazon.awssdk.core.exception.SdkClientException: Request attempt 1 failure: Unable to execute HTTP request: The connection was closed during the request. The request will usually succeed on a retry, but if it does not: consider disabling any proxies you have configured, enabling debug logging, or performing a TCP dump to identify the root cause. If this is a streaming operation, validate that data is being read or written in a timely manner. Channel Information: ChannelDiagnostics(channel=[id: 0x0d875981, L:/127.0.0.1:40898 ! R:/127.0.0.1:32839], channelAge=PT1.163961654S, requestCount=1, responseCount=0)
+	Suppressed: software.amazon.awssdk.core.exception.SdkClientException: Request attempt 2 failure: Unable to execute HTTP request: Connection refused: /127.0.0.1:32839
+	Suppressed: software.amazon.awssdk.core.exception.SdkClientException: Request attempt 3 failure: Unable to execute HTTP request: Connection refused: /127.0.0.1:32839
+Caused by: io.netty.channel.AbstractChannel$AnnotatedConnectException: Connection refused: /127.0.0.1:32839
+Caused by: java.net.ConnectException: Connection refused
+	at java.base/sun.nio.ch.Net.pollConnect(Native Method) ~[?:?]
+	at java.base/sun.nio.ch.Net.pollConnectNow(Net.java:682) ~[?:?]
+	at java.base/sun.nio.ch.SocketChannelImpl.finishConnect(SocketChannelImpl.java:973) ~[?:?]
+	at io.netty.channel.socket.nio.NioSocketChannel.doFinishConnect(NioSocketChannel.java:336) ~[netty-transport-4.1.119.Final.jar:4.1.119.Final]
+	at io.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:339) ~[netty-transport-4.1.119.Final.jar:4.1.119.Final]
+	at io.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:784) ~[netty-transport-4.1.119.Final.jar:4.1.119.Final]
+	at io.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732) ~[netty-transport-4.1.119.Final.jar:4.1.119.Final]
+	at io.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658) ~[netty-transport-4.1.119.Final.jar:4.1.119.Final]
+	at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562) ~[netty-transport-4.1.119.Final.jar:4.1.119.Final]
+	at io.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998) ~[netty-common-4.1.119.Final.jar:4.1.119.Final]
+	at io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74) ~[netty-common-4.1.119.Final.jar:4.1.119.Final]
+	... 1 more
 
-import com.empower.epw.crm.gateway.config.CrmGatewaySqsConfig;
-import io.awspring.cloud.sqs.config.SqsBootstrapConfiguration;
-import io.awspring.cloud.sqs.operations.SqsTemplate;
-import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.util.TestPropertyValues;
-import org.springframework.context.ApplicationContextInitializer;
-import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.ContextConfiguration;
-import org.testcontainers.containers.localstack.LocalStackContainer;
-import org.testcontainers.utility.DockerImageName;
+2025-10-30 19:15:29 PM [lifecycle-thread-9] trace_id:  span_id:  INFO  io.awspring.cloud.sqs.listener.AbstractMessageListenerContainer - Container io.awspring.cloud.sqs.sqsListenerEndpointContainer#3 stopped 
 
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.sqs.SqsClient;
-import software.amazon.awssdk.services.sqs.model.GetQueueAttributesRequest;
-import software.amazon.awssdk.services.sqs.model.QueueAttributeName;
-
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-
-import static org.awaitility.Awaitility.await;
-import static org.assertj.core.api.Assertions.assertThat;
-
-@SpringBootTest
-@ActiveProfiles("test")
-@Import({
-    // Import the REAL listener and config
-    CrmGatewayMessageListener.class,
-    CrmGatewaySqsConfig.class
-})
-@ImportAutoConfiguration(SqsBootstrapConfiguration.class)
-// This points to our Initializer class below
-@ContextConfiguration(initializers = CrmGatewayMessageListenerTest.Initializer.class)
-class CrmGatewayMessageListenerTest {
-
-    private static final String DRY_RUN_QUEUE = "DEVTRUNK_CRM_GATEWAY_DRY_RUN";
-    private static final String INTERMEDIATE_QUEUE = "DEVTRUNK_CRM_GATEWAY_INTERMEDIATE";
-    private static final String NORMAL_QUEUE = "DEVTRUNK_CRM_GATEWAY_NORMAL";
-    private static final String TOP_QUEUE = "DEVTRUNK_CRM_GATEWAY_TOP";
-
-    // This SqsClient bean is created in the Initializer
-    @Autowired
-    private SqsClient sqsClient;
-    
-    @Autowired
-    private SqsTemplate sqsTemplate;
-
-    // This is the real listener bean
-    @Autowired
-    private CrmGatewayMessageListener listener;
-
-    // The Initializer class
-    public static class Initializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
-
-        // Make the container static so it's started only once
-        static final LocalStackContainer localstack = new LocalStackContainer(
-                DockerImageName.parse("localstack/localstack:3.0"))
-                .withServices(LocalStackContainer.Service.SQS);
-
-        @Override
-        public void initialize(ConfigurableApplicationContext applicationContext) {
-            // Start the container
-            if (!localstack.isRunning()) {
-                localstack.start();
-            }
-
-            // Create the SqsClient
-            SqsClient sqsClient = SqsClient.builder()
-                    .endpointOverride(localstack.getEndpointOverride(LocalStackContainer.Service.SQS))
-                    .region(Region.of(localstack.getRegion()))
-                    .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials
-                            .create(localstack.getAccessKey(), localstack.getSecretKey())))
-                    .build();
-
-            // Create the queues (this is the logic from your old @BeforeAll)
-            for (String queueName : new String[] {
-                    DRY_RUN_QUEUE, INTERMEDIATE_QUEUE, NORMAL_QUEUE, TOP_QUEUE
-            }) {
-                sqsClient.createQueue(r -> r.queueName(queueName));
-            }
-            
-            // This is a trick to make the SqsClient bean available for injection
-            // in the test class.
-            applicationContext.getBeanFactory().registerSingleton("sqsClientForTest", sqsClient);
-
-            // Set the properties for the Spring context (this replaces @DynamicPropertySource)
-            TestPropertyValues.of(
-                    "spring.cloud.aws.region.static=" + localstack.getRegion(),
-                    "spring.cloud.aws.credentials.access-key=" + localstack.getAccessKey(),
-                    "spring.cloud.aws.credentials.secret-key=" + localstack.getSecretKey(),
-                    "spring.cloud.aws.sqs.endpoint=" + localstack.getEndpointOverride(LocalStackContainer.Service.SQS).toString(),
-                    "crm.gateway.sqs.queue.dryrun=" + DRY_RUN_QUEUE,
-                    "crm.gateway.sqs.queue.intermediate=" + INTERMEDIATE_QUEUE,
-                    "crm.gateway.sqs.queue.normal=" + NORMAL_QUEUE,
-                    "crm.gateway.sqs.queue.top=" + TOP_QUEUE
-            ).applyTo(applicationContext.getEnvironment());
-        }
-    }
-
-
-    @Test
-    void testMessageIsConsumedSuccessfully() {
-        String payload = "{\"event\":\"CustomerUpdated\",\"id\":123}";
-        String queueUrl = getQueueUrl(DRY_RUN_QUEUE);
-        
-        // Ensure queue is empty before test
-        assertThat(getApproximateMessageCount(queueUrl)).isZero();
-
-        sqsTemplate.send(DRY_RUN_QUEUE, payload);
-
-        // Assert that the message is processed AND deleted
-        // (due to AcknowledgementMode.ON_SUCCESS)
-        await().atMost(10, TimeUnit.SECONDS)
-               .pollInterval(1, TimeUnit.SECONDS)
-               .untilAsserted(() -> 
-                   assertThat(getApproximateMessageCount(queueUrl)).isZero()
-               );
-    }
-
-    @Test
-    void testMessageRetriesOnFailure() {
-        String payload = "FAIL_MESSAGE";
-        String queueUrl = getQueueUrl(DRY_RUN_QUEUE);
-        
-        // Ensure queue is empty before test
-        assertThat(getApproximateMessageCount(queueUrl)).isZero();
-        
-        sqsTemplate.send(DRY_RUN_QUEUE, payload);
-
-        // Wait for 5 seconds to allow the @Retryable (3 attempts) to complete
-        // The listener will throw an exception, so AcknowledgementMode.ON_SUCCESS
-        // will NOT delete the message.
-        try {
-            TimeUnit.SECONDS.sleep(5);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-
-        // We assert that the message is STILL on the queue
-        // (or in-flight, which also counts as 1)
-        // This proves the listener failed and did not delete the message.
-        assertThat(getApproximateMessageCount(queueUrl)).isEqualTo(1);
-    }
-
-
-    // --- Helper Methods ---
-
-    private String getQueueUrl(String queueName) {
-        return sqsClient.getQueueUrl(r -> r.queueName(queueName)).queueUrl();
-    }
-
-    private int getApproximateMessageCount(String queueUrl) {
-        GetQueueAttributesRequest request = GetQueueAttributesRequest.builder()
-                .queueUrl(queueUrl)
-                .attributeNames(QueueAttributeName.APPROXIMATE_NUMBER_OF_MESSAGES)
-                .build();
-        
-        Map<QueueAttributeName, String> attrs = sqsClient.getQueueAttributes(request).attributes();
-        return Integer.parseInt(attrs.get(QueueAttributeName.APPROXIMATE_NUMBER_OF_MESSAGES));
-    }
-}
+what are these errors?
