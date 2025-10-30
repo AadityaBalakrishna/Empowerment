@@ -1,37 +1,5 @@
-package com.empower.epw.crm.gateway.web.controller;
-
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.TestPropertySource;
-
-import com.empower.epw.crm.gateway.CrmGatewayApplication;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = CrmGatewayApplication.class)
-@ActiveProfiles("test")
-@TestPropertySource(properties = "spring.cloud.aws.sqs.enabled=false")
-class SsmControllerTest
-{
-
-	@Value("${scaffold.test.secret}")
-	private String scaffoldTestSecret;
-
-	@Value("${ace.api.baseurl}")
-	private String scaffoldTestKey;
-
-	@Test
-	void testSsmAndConfigStoreConnectivity()
-	{
-		assertThat(scaffoldTestSecret).isNotNull()
-				.isNotEmpty();
-		assertThat(scaffoldTestKey).isNotNull()
-				.isNotEmpty();
-	}
-}
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.244 s - in com.empower.epw.crm.gateway.web.controller.SsmControllerTest
+2025-10-30 19:35:14 PM [sdk-async-response-3-6] trace_id:  span_id:  ERROR io.awspring.cloud.sqs.listener.source.AbstractPollingMessageSource - Error polling for messages in queue DEVTRUNK_CRM_GATEWAY_TOP. java.util.concurrent.CompletionException: software.amazon.awssdk.core.exception.SdkClientException: Unable to execute HTTP request: Connection refused: /127.0.0.1:32845
 
 
-Caused by: org.springframework.beans.factory.NoSuchBeanDefinitionException: No qualifying bean of type 'software.amazon.awssdk.services.sqs.SqsAsyncClient' available: expected at least 1 bean which qualifies as autowire candidate. Dependency annotations: {}
-
+i am seeing this even for ssm controller test, now my listener is a component, 
