@@ -1,75 +1,173 @@
-package com.empower.epw.crm.gateway.config;
+package com.empower.epw.crm.gateway.sqs;
 
-import java.time.Duration;
-import java.util.concurrent.ThreadPoolExecutor;
-
-import org.springframework.beans.factory.annotation.Value;
+import com.empower.epw.crm.gateway.config.CrmGatewaySqsConfig;
+import io.awspring.cloud.sqs.config.SqsBootstrapConfiguration;
+import io.awspring.cloud.sqs.operations.SqsTemplate;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.util.TestPropertyValues;
+import org.springframework.context.ApplicationContextInitializer;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.ContextConfiguration;
+import org.testcontainers.containers.localstack.LocalStackContainer;
+import org.testcontainers.utility.DockerImageName;
 
-import lombok.extern.slf4j.Slf4j;
-import io.awspring.cloud.sqs.MessageExecutionThreadFactory;
-import io.awspring.cloud.sqs.config.SqsMessageListenerContainerFactory;
-import io.awspring.cloud.sqs.listener.QueueNotFoundStrategy;
-import io.awspring.cloud.sqs.listener.acknowledgement.handler.AcknowledgementMode;
-import software.amazon.awssdk.services.sqs.SqsAsyncClient;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.sqs.SqsClient;
+import software.amazon.awssdk.services.sqs.model.GetQueueAttributesRequest;
+import software.amazon.awssdk.services.sqs.model.QueueAttributeName;
 
-@Slf4j
-@Configuration
-public class CrmGatewaySqsConfig
-{
-    // These @Value annotations match your application.properties
-	@Value("${epw.aws.sqs.visibilityTimeout:60}")
-	public Integer visibilityTimeout;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
-	@Value("${epw.aws.sqs.minPoolSize:10}")
-	public Integer minPoolSize;
+import static org.awaitility.Awaitility.await;
+import static org.assertj.core.api.Assertions.assertThat;
 
-	@Value("${epw.aws.sqs.maxPoolSize:30}")
-	public Integer maxPoolSize;
+@SpringBootTest
+@ActiveProfiles("test")
+@Import({
+    // Import the REAL listener and config
+    CrmGatewayMessageListener.class,
+    CrmGatewaySqsConfig.class
+})
+@ImportAutoConfiguration(SqsBootstrapConfiguration.class)
+// This points to our Initializer class below
+@ContextConfiguration(initializers = CrmGatewayMessageListenerTest.Initializer.class)
+class CrmGatewayMessageListenerTest {
 
-	@Value("${epw.aws.sqs.queueCapacity:30}")
-	public Integer queueCapacity;
+    private static final String DRY_RUN_QUEUE = "DEVTRUNK_CRM_GATEWAY_DRY_RUN";
+    private static final String INTERMEDIATE_QUEUE = "DEVTRUNK_CRM_GATEWAY_INTERMEDIATE";
+    private static final String NORMAL_QUEUE = "DEVTRUNK_CRM_GATEWAY_NORMAL";
+    private static final String TOP_QUEUE = "DEVTRUNK_CRM_GATEWAY_TOP";
 
-	@Value("${epw.aws.sqs.queueMaxAwaitTermination:30}")
-	public Integer queueMaxAwaitTermination;
+    // This SqsClient bean is created in the Initializer
+    @Autowired
+    private SqsClient sqsClient;
+    
+    @Autowired
+    private SqsTemplate sqsTemplate;
 
-	@Bean("awsTaskExecutor")
-	public ThreadPoolTaskExecutor awsTaskExecutor()
-	{
-		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-		executor.setCorePoolSize(minPoolSize);
-		executor.setMaxPoolSize(maxPoolSize);
-		executor.setQueueCapacity(queueCapacity);
-		executor.setWaitForTasksToCompleteOnShutdown(true);
-		executor.setAwaitTerminationSeconds(queueMaxAwaitTermination);
-		executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
-        // Custom thread name prefix for easier debugging
-		executor.setThreadFactory(new MessageExecutionThreadFactory("crmGatewaySqsThread-"));
-		return executor;
-	}
+    // This is the real listener bean
+    @Autowired
+    private CrmGatewayMessageListener listener;
 
-	@Bean
-	SqsMessageListenerContainerFactory<Object> defaultSqsListenerContainerFactory(
-			SqsAsyncClient sqsAsyncClient)
-	{
+    // The Initializer class
+    public static class Initializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
 
-		log.info("Creating SQS Listener Container Factory with visibility timeout: {}",
-				visibilityTimeout);
-		
-		return SqsMessageListenerContainerFactory.builder()
-				.sqsAsyncClient(sqsAsyncClient)
-				.configure(sqsContainerOptionsBuilder -> sqsContainerOptionsBuilder
-						.messageVisibility(Duration.ofSeconds(visibilityTimeout))
-						.queueNotFoundStrategy(QueueNotFoundStrategy.FAIL) // Fail fast if a queue is missing
-						.pollTimeout(Duration.ofSeconds(20))
-						.maxMessagesPerPoll(10)
-						.componentsTaskExecutor(awsTaskExecutor()) // Use our custom thread pool
-						.autoStartup(true) // Keep true for production
-                        // THIS IS VITAL for retries: 
-                        // Only delete the message if the listener returns successfully.
-						.acknowledgementMode(AcknowledgementMode.ON_SUCCESS)) 
-				.build();
-	}
+        // Make the container static so it's started only once
+        static final LocalStackContainer localstack = new LocalStackContainer(
+                DockerImageName.parse("localstack/localstack:3.0"))
+                .withServices(LocalStackContainer.Service.SQS);
+
+        @Override
+        public void initialize(ConfigurableApplicationContext applicationContext) {
+            // Start the container
+            if (!localstack.isRunning()) {
+                localstack.start();
+            }
+
+            // Create the SqsClient
+            SqsClient sqsClient = SqsClient.builder()
+                    .endpointOverride(localstack.getEndpointOverride(LocalStackContainer.Service.SQS))
+                    .region(Region.of(localstack.getRegion()))
+                    .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials
+                            .create(localstack.getAccessKey(), localstack.getSecretKey())))
+                    .build();
+
+            // Create the queues (this is the logic from your old @BeforeAll)
+            for (String queueName : new String[] {
+                    DRY_RUN_QUEUE, INTERMEDIATE_QUEUE, NORMAL_QUEUE, TOP_QUEUE
+            }) {
+                sqsClient.createQueue(r -> r.queueName(queueName));
+            }
+            
+            // This is a trick to make the SqsClient bean available for injection
+            // in the test class.
+            applicationContext.getBeanFactory().registerSingleton("sqsClientForTest", sqsClient);
+
+            // Set the properties for the Spring context (this replaces @DynamicPropertySource)
+            TestPropertyValues.of(
+                    "spring.cloud.aws.region.static=" + localstack.getRegion(),
+                    "spring.cloud.aws.credentials.access-key=" + localstack.getAccessKey(),
+                    "spring.cloud.aws.credentials.secret-key=" + localstack.getSecretKey(),
+                    "spring.cloud.aws.sqs.endpoint=" + localstack.getEndpointOverride(LocalStackContainer.Service.SQS).toString(),
+                    "crm.gateway.sqs.queue.dryrun=" + DRY_RUN_QUEUE,
+                    "crm.gateway.sqs.queue.intermediate=" + INTERMEDIATE_QUEUE,
+                    "crm.gateway.sqs.queue.normal=" + NORMAL_QUEUE,
+                    "crm.gateway.sqs.queue.top=" + TOP_QUEUE
+            ).applyTo(applicationContext.getEnvironment());
+        }
+    }
+
+
+    @Test
+    void testMessageIsConsumedSuccessfully() {
+        String payload = "{\"event\":\"CustomerUpdated\",\"id\":123}";
+        String queueUrl = getQueueUrl(DRY_RUN_QUEUE);
+        
+        // Ensure queue is empty before test
+        assertThat(getApproximateMessageCount(queueUrl)).isZero();
+
+        sqsTemplate.send(DRY_RUN_QUEUE, payload);
+
+        // Assert that the message is processed AND deleted
+        // (due to AcknowledgementMode.ON_SUCCESS)
+        await().atMost(10, TimeUnit.SECONDS)
+               .pollInterval(1, TimeUnit.SECONDS)
+               .untilAsserted(() -> 
+                   assertThat(getApproximateMessageCount(queueUrl)).isZero()
+               );
+    }
+
+    @Test
+    void testMessageRetriesOnFailure() {
+        String payload = "FAIL_MESSAGE";
+        String queueUrl = getQueueUrl(DRY_RUN_QUEUE);
+        
+        // Ensure queue is empty before test
+        assertThat(getApproximateMessageCount(queueUrl)).isZero();
+        
+        sqsTemplate.send(DRY_RUN_QUEUE, payload);
+
+        // Wait for 5 seconds to allow the @Retryable (3 attempts) to complete
+        // The listener will throw an exception, so AcknowledgementMode.ON_SUCCESS
+        // will NOT delete the message.
+        try {
+            TimeUnit.SECONDS.sleep(5);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        // We assert that the message is STILL on the queue
+        // (or in-flight, which also counts as 1)
+        // This proves the listener failed and did not delete the message.
+        assertThat(getApproximateMessageCount(queueUrl)).isEqualTo(1);
+    }
+
+
+    // --- Helper Methods ---
+
+    private String getQueueUrl(String queueName) {
+        return sqsClient.getQueueUrl(r -> r.queueName(queueName)).queueUrl();
+    }
+
+    private int getApproximateMessageCount(String queueUrl) {
+        GetQueueAttributesRequest request = GetQueueAttributesRequest.builder()
+                .queueUrl(queueUrl)
+                .attributeNames(QueueAttributeName.APPROXIMATE_NUMBER_OF_MESSAGES)
+                .build();
+        
+        Map<QueueAttributeName, String> attrs = sqsClient.getQueueAttributes(request).attributes();
+        return Integer.parseInt(attrs.get(QueueAttributeName.APPROXIMATE_NUMBER_OF_MESSAGES));
+    }
 }
