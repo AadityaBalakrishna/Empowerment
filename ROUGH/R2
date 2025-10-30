@@ -1,5 +1,99 @@
-[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.244 s - in com.empower.epw.crm.gateway.web.controller.SsmControllerTest
-2025-10-30 19:35:14 PM [sdk-async-response-3-6] trace_id:  span_id:  ERROR io.awspring.cloud.sqs.listener.source.AbstractPollingMessageSource - Error polling for messages in queue DEVTRUNK_CRM_GATEWAY_TOP. java.util.concurrent.CompletionException: software.amazon.awssdk.core.exception.SdkClientException: Unable to execute HTTP request: Connection refused: /127.0.0.1:32845
+package com.empower.epw.crm.gateway.sqs;
 
+import io.awspring.cloud.sqs.annotation.SqsListener;
+import org.springframework.messaging.handler.annotation.Header; // Import this
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
+import org.springframework.stereotype.Component;
+import lombok.CustomLog;
 
-i am seeing this even for ssm controller test, now my listener is a component, 
+@CustomLog
+@Component
+public class CrmGatewayMessageListener
+{
+	@SqsListener("${crm.gateway.sqs.queue.dryrun:}")
+	@Retryable(value = { Exception.class }, 
+        maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}", 
+        backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}"))
+	public void handleDryRunMessage(String payload, @Header("Sqs_MessageId") String messageId) // Added messageId
+	{
+		processMessage("DRY_RUN", payload, messageId);
+	}
+
+	@SqsListener("${crm.gateway.sqs.queue.intermediate:}")
+	@Retryable(value = { Exception.class }, 
+        maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}", 
+        backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}"))
+	public void handleIntermediateMessage(String payload, @Header("Sqs_MessageId") String messageId)
+	{
+		processMessage("INTERMEDIATE", payload, messageId);
+	}
+
+	@SqsListener("${crm.gateway.sqs.queue.normal:}")
+	@Retryable(value = { Exception.class }, 
+        maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}", 
+        backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}"))
+	public void handleNormalMessage(String payload, @Header("Sqs_MessageId") String messageId)
+	{
+		processMessage("NORMAL", payload, messageId);
+	}
+
+	@SqsListener("${crm.gateway.sqs.queue.top:}")
+	@Retryable(value = { Exception.class }, 
+        maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}", 
+        backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}"))
+	public void handleTopMessage(String payload, @Header("Sqs_MessageId") String messageId)
+	{
+		processMessage("TOP", payload, messageId);
+	}
+
+    // Make package-private or public so @SpyBean can see it
+	void processMessage(String type, String payload, String messageId)
+	{
+		log.info("Received [{}] message. ID: {}. Status: PROCESSING. Payload: {}", type, messageId, payload);
+
+		// ** ADD THIS FOR THE RETRY TEST **
+		if ("FAIL_MESSAGE".equals(payload)) {
+			log.warn("Message [{}] ID: {}. Status: FAILED (Test). Triggering retry...", type, messageId);
+			throw new RuntimeException("Simulating a processing failure for retry test");
+		}
+		
+		try
+		{
+			// TODO: handle domain logic here
+			log.info("Message [{}] ID: {}. Status: SUCCESS.", type, messageId);
+		}
+		catch (Exception ex)
+		{
+			log.error("Message [{}] ID: {}. Status: FAILED. Error: {}", type, messageId, ex.getMessage(), ex);
+			throw ex; // triggers @Retryable
+		}
+	}
+}
+
+@Test
+	void testMessageIsConsumedSuccessfully()
+	{
+		String payload = "{\"event\":\"CustomerUpdated\",\"id\":123}";
+		sqsTemplate.send(DRY_RUN_QUEUE, payload);
+
+		// Awaitility to verify the listener's method was *actually called*
+		await().atMost(5, TimeUnit.SECONDS)
+				.untilAsserted(() -> verify(listener, times(1))
+						.handleDryRunMessage(eq(payload), any(String.class)));
+	}
+
+	@Test
+	void testMessageRetriesOnFailure()
+	{
+		String payload = "FAIL_MESSAGE";
+		
+		sqsTemplate.send(DRY_RUN_QUEUE, payload);
+
+		// Await for 10 seconds (e.g., 3 attempts * (1000ms backoff + processing time))
+		// We expect 1 initial attempt + 2 retries = 3 total calls
+        // Your retry settings are: maxAttempts=3, backoff=1000ms
+		await().atMost(10, TimeUnit.SECONDS)
+				.untilAsserted(() -> verify(listener, times(3))
+						.handleDryRunMessage(eq(payload), any(String.class)));
+	}
