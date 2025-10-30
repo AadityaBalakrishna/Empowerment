@@ -1,11 +1,8 @@
 package com.empower.epw.crm.gateway.sqs;
 
-import java.util.List;
-
-import org.junit.jupiter.api.AutoClose;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -14,17 +11,17 @@ import org.testcontainers.containers.localstack.LocalStackContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.utility.DockerImageName;
-
-import jakarta.annotation.PostConstruct;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.sqs.SqsClient;
 import software.amazon.awssdk.services.sqs.model.CreateQueueRequest;
 
+import java.util.List;
+
 @TestConfiguration
-public class CrmGatewaySqsTestConfig
-{
+public class CrmGatewaySqsTestConfig {
+
 	private static final Logger LOG = LoggerFactory.getLogger(CrmGatewaySqsTestConfig.class);
 
 	static final String DRY_RUN_QUEUE = "DEVTRUNK_CRM_GATEWAY_DRY_RUN";
@@ -35,12 +32,11 @@ public class CrmGatewaySqsTestConfig
 	@Container
 	static final LocalStackContainer localstack = new LocalStackContainer(
 			DockerImageName.parse("localstack/localstack:3.0"))
-					.withServices(LocalStackContainer.Service.SQS)
-					.withLogConsumer(new Slf4jLogConsumer(LOG));
+			.withServices(LocalStackContainer.Service.SQS)
+			.withLogConsumer(new Slf4jLogConsumer(LOG));
 
 	@Bean
-	public SqsClient sqsClient()
-	{
+	public SqsClient sqsClient() {
 		return SqsClient.builder()
 				.endpointOverride(localstack.getEndpointOverride(LocalStackContainer.Service.SQS))
 				.region(Region.of(localstack.getRegion()))
@@ -50,96 +46,33 @@ public class CrmGatewaySqsTestConfig
 	}
 
 	@DynamicPropertySource
-	static void registerProperties(DynamicPropertyRegistry registry)
-	{
+	static void registerProperties(DynamicPropertyRegistry registry) {
 		registry.add("spring.cloud.aws.region.static", localstack::getRegion);
 		registry.add("spring.cloud.aws.credentials.access-key", localstack::getAccessKey);
 		registry.add("spring.cloud.aws.credentials.secret-key", localstack::getSecretKey);
 		registry.add("spring.cloud.aws.sqs.endpoint",
-				() -> localstack.getEndpointOverride(LocalStackContainer.Service.SQS)
-						.toString());
+				() -> localstack.getEndpointOverride(LocalStackContainer.Service.SQS).toString());
+
+		// CRM queue names
+		registry.add("crm.gateway.sqs.queue.dryrun", () -> DRY_RUN_QUEUE);
+		registry.add("crm.gateway.sqs.queue.intermediate", () -> INTERMEDIATE_QUEUE);
+		registry.add("crm.gateway.sqs.queue.normal", () -> NORMAL_QUEUE);
+		registry.add("crm.gateway.sqs.queue.top", () -> TOP_QUEUE);
+	}
+
+	// ✅ Inject the bean instead of calling sqsClient() directly
+	private final SqsClient sqsClient;
+
+	public CrmGatewaySqsTestConfig(SqsClient sqsClient) {
+		this.sqsClient = sqsClient;
 	}
 
 	@PostConstruct
-	public void createQueues(){
-		for (String name : List.of(DRY_RUN_QUEUE, INTERMEDIATE_QUEUE, NORMAL_QUEUE, TOP_QUEUE)){
-			sqsClient().createQueue(CreateQueueRequest.builder().queueName(name).build());
+	public void createQueues() {
+		LOG.info("Creating test queues in LocalStack...");
+		for (String name : List.of(DRY_RUN_QUEUE, INTERMEDIATE_QUEUE, NORMAL_QUEUE, TOP_QUEUE)) {
+			sqsClient.createQueue(CreateQueueRequest.builder().queueName(name).build());
+			LOG.info("Created SQS queue: {}", name);
 		}
 	}
 }
-
-
-package com.empower.epw.crm.gateway.sqs;
-
-import java.util.concurrent.TimeUnit;
-
-import io.awspring.cloud.sqs.operations.SqsTemplate;
-
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
-import org.springframework.test.context.ActiveProfiles;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
-
-@SpringBootTest
-@ActiveProfiles("test")
-@Import(CrmGatewaySqsTestConfig.class)
-class CrmGatewayMessageListenerTest
-{
-	@Autowired
-	private SqsTemplate sqsTemplate;
-
-	@Autowired
-	private CrmGatewayMessageListener listener;
-
-	@Test
-	void testMessageIsConsumedSuccessfully() throws Exception
-	{
-		String payload = "{\"event\":\"CustomerUpdated\",\"id\":123}";
-		sqsTemplate.send(CrmGatewaySqsTestConfig.DRY_RUN_QUEUE, payload);
-
-		await().atMost(5, TimeUnit.SECONDS)
-				.untilAsserted(() -> assertThat(listener).isNotNull());
-	}
-
-	@Test
-	void testMessageRetriesOnFailure()
-	{
-		sqsTemplate.send(CrmGatewaySqsTestConfig.DRY_RUN_QUEUE, "FAIL_MESSAGE");
-	}
-}
-
-
-the error i am seeing - 
-Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'com.empower.epw.crm.gateway.sqs.CrmGatewaySqsTestConfig': Invocation of init method failed
-	at org.springframework.beans.factory.annotation.InitDestroyAnnotationBeanPostProcessor.postProcessBeforeInitialization(InitDestroyAnnotationBeanPostProcessor.java:222)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.applyBeanPostProcessorsBeforeInitialization(AbstractAutowireCapableBeanFactory.java:423)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1804)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:601)
-	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:523)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:339)
-	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:347)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:337)
-	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:202)
-	at org.springframework.beans.factory.support.DefaultListableBeanFactory.instantiateSingleton(DefaultListableBeanFactory.java:1155)
-	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingleton(DefaultListableBeanFactory.java:1121)
-	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:1056)
-	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:987)
-	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:627)
-	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:752)
-	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:439)
-	at org.springframework.boot.SpringApplication.run(SpringApplication.java:318)
-	at org.springframework.boot.test.context.SpringBootContextLoader.lambda$loadContext$3(SpringBootContextLoader.java:144)
-	at org.springframework.util.function.ThrowingSupplier.get(ThrowingSupplier.java:58)
-	at org.springframework.util.function.ThrowingSupplier.get(ThrowingSupplier.java:46)
-	at org.springframework.boot.SpringApplication.withHook(SpringApplication.java:1461)
-	at org.springframework.boot.test.context.SpringBootContextLoader$ContextLoaderHook.run(SpringBootContextLoader.java:563)
-	at org.springframework.boot.test.context.SpringBootContextLoader.loadContext(SpringBootContextLoader.java:144)
-	at org.springframework.boot.test.context.SpringBootContextLoader.loadContext(SpringBootContextLoader.java:110)
-	at org.springframework.test.context.cache.DefaultCacheAwareContextLoaderDelegate.loadContextInternal(DefaultCacheAwareContextLoaderDelegate.java:225)
-	at org.springframework.test.context.cache.DefaultCacheAwareContextLoaderDelegate.loadContext(DefaultCacheAwareContextLoaderDelegate.java:152)
-	... 19 more
-Caused by: org.springframework.beans.factory.BeanCurrentlyInCreationException: Error creating bean with name 'com.empower.epw.crm.gateway.sqs.CrmGatewaySqsTestConfig': Requested bean is currently in creation: Is there an unresolvable circular reference or an asynchronous initialization dependency?
