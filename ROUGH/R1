@@ -1,5 +1,4 @@
-task:
-As a Backend Developer,
+according to this task:
 I need to configure starter-sqs for the crm-gateway-service and enable SQS message consumption
 so that the service can process event-driven updates and persist data in its database.
 
@@ -33,11 +32,13 @@ CRM GATEWAY service permissions:
         "Effect" : "Allow"
       }
 
-what i wrote - Listener class:
+i need you to review what i wrote - Listener class:
 
 package com.empower.epw.crm.gateway.sqs;
 
 import io.awspring.cloud.sqs.annotation.SqsListener;
+
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
@@ -45,6 +46,7 @@ import lombok.CustomLog;
 
 @CustomLog
 @Component
+@ConditionalOnProperty(name = "crm.gateway.listener.enabled", havingValue = "true", matchIfMissing = false)
 public class CrmGatewayMessageListener
 {
 	@SqsListener("${crm.gateway.sqs.queue.dryrun:}")
@@ -122,39 +124,85 @@ public class CrmGatewayApplication
 	}
 }
 
+config class:
+package com.empower.epw.crm.gateway.config;
+
+import java.time.Duration;
+import java.util.concurrent.ThreadPoolExecutor;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+
+import lombok.CustomLog;
+import io.awspring.cloud.sqs.MessageExecutionThreadFactory;
+import io.awspring.cloud.sqs.config.SqsMessageListenerContainerFactory;
+import io.awspring.cloud.sqs.listener.QueueNotFoundStrategy;
+import io.awspring.cloud.sqs.listener.acknowledgement.handler.AcknowledgementMode;
+import software.amazon.awssdk.services.sqs.SqsAsyncClient;
+
+@CustomLog
+@Configuration
+@ConditionalOnProperty(name = "crm.gateway.listener.enabled", havingValue = "true", matchIfMissing = false)
+public class CrmGatewaySqsConfig
+{
+	@Value("${epw.aws.sqs.visibilityTimeout:60}")
+	public Integer visibilityTimeout;
+
+	@Value("${epw.aws.sqs.minPoolSize:10}")
+	public Integer minPoolSize;
+
+	@Value("${epw.aws.sqs.maxPoolSize:30}")
+	public Integer maxPoolSize;
+
+	@Value("${epw.aws.sqs.queueCapacity:30}")
+	public Integer queueCapacity;
+
+	@Value("${epw.aws.sqs.queueMaxAwaitTermination:30}")
+	public Integer queueMaxAwaitTermination;
+
+	@Bean("awsTaskExecutor")
+	public ThreadPoolTaskExecutor awsTaskExecutor()
+	{
+		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+		executor.setCorePoolSize(minPoolSize);
+		executor.setMaxPoolSize(maxPoolSize);
+		executor.setQueueCapacity(queueCapacity);
+		executor.setWaitForTasksToCompleteOnShutdown(true);
+		executor.setAwaitTerminationSeconds(queueMaxAwaitTermination);
+		executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+		executor.setThreadFactory(new MessageExecutionThreadFactory("crmGatewaySqsThread-"));
+		return executor;
+	}
+
+	@Bean
+	SqsMessageListenerContainerFactory<Object> defaultSqsListenerContainerFactory(
+			SqsAsyncClient sqsAsyncClient)
+	{
+
+		log.info("Creating SQS Listener Container Factory with visibility timeout: {}",
+				visibilityTimeout);
+
+		return SqsMessageListenerContainerFactory.builder()
+				.sqsAsyncClient(sqsAsyncClient)
+				.configure(sqsContainerOptionsBuilder -> sqsContainerOptionsBuilder
+						.messageVisibility(Duration.ofSeconds(visibilityTimeout))
+						.queueNotFoundStrategy(QueueNotFoundStrategy.FAIL)
+						.pollTimeout(Duration.ofSeconds(20))
+						.maxMessagesPerPoll(10)
+						.componentsTaskExecutor(awsTaskExecutor())
+						.autoStartup(true)
+						.acknowledgementMode(AcknowledgementMode.ON_SUCCESS))
+				.build();
+	}
+}
 
 application.properties:
 # AWS SQS Configuration
 crm-gateway.sqs.retry.max-attempts=3
 crm-gateway.sqs.retry.backoff-delay=1000
-
-#CRM Gateway SQS Queues
-crm.gateway.sqs.queue.dryrun=DEVTRUNK_CRM_GATEWAY_DRY_RUN
-crm.gateway.sqs.queue.intermediate=DEVTRUNK_CRM_GATEWAY_INTERMEDIATE
-crm.gateway.sqs.queue.normal=DEVTRUNK_CRM_GATEWAY_NORMAL
-crm.gateway.sqs.queue.top=DEVTRUNK_CRM_GATEWAY_TOP
-
-epw.aws.sqs.visibilityTimeout=60
-epw.aws.sqs.minPoolSize=10
-epw.aws.sqs.maxPoolSize=30
-epw.aws.sqs.queueCapacity=30
-epw.aws.sqs.queueMaxAwaitTermination=30
-
-application-test.properties:
-# AWS SQS Configuration
-crm-gateway.sqs.retry.max-attempts=3
-crm-gateway.sqs.retry.backoff-delay=1000
-spring.cloud.aws.credentials.access-key=test
-spring.cloud.aws.credentials.secret-key=test
-#spring.cloud.aws.sqs.endpoint=http://localhost:4566
-spring.cloud.aws.sqs.region=us-west-2
-spring.cloud.aws.sqs.listener.auto-startup=true
-
-#CRM Gateway SQS Queues
-crm.gateway.sqs.queue.dryrun=DEVTRUNK_CRM_GATEWAY_DRY_RUN
-crm.gateway.sqs.queue.intermediate=DEVTRUNK_CRM_GATEWAY_INTERMEDIATE
-crm.gateway.sqs.queue.normal=DEVTRUNK_CRM_GATEWAY_NORMAL
-crm.gateway.sqs.queue.top=DEVTRUNK_CRM_GATEWAY_TOP
 
 epw.aws.sqs.visibilityTimeout=60
 epw.aws.sqs.minPoolSize=10
@@ -168,23 +216,23 @@ package com.empower.epw.crm.gateway.sqs;
 
 import java.util.concurrent.TimeUnit;
 
-import io.awspring.cloud.sqs.config.SqsBootstrapConfiguration;
+import com.empower.epw.crm.gateway.config.CrmGatewaySqsConfig;
 import io.awspring.cloud.sqs.operations.SqsTemplate;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.util.TestPropertyValues;
+import org.springframework.context.ApplicationContextInitializer;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.containers.localstack.LocalStackContainer;
-import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
@@ -201,9 +249,11 @@ import static org.awaitility.Awaitility.await;
 @ActiveProfiles("test")
 @Import(
 {
-		CrmGatewayMessageListener.class
+		CrmGatewayMessageListener.class, CrmGatewaySqsConfig.class
 })
-@ImportAutoConfiguration(SqsBootstrapConfiguration.class)
+@ContextConfiguration(initializers = CrmGatewayMessageListenerTest.Initializer.class)
+@TestPropertySource(properties = "crm.gateway.listener.enabled=true")
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class CrmGatewayMessageListenerTest
 {
 
@@ -214,57 +264,61 @@ class CrmGatewayMessageListenerTest
 	private static final String NORMAL_QUEUE = "DEVTRUNK_CRM_GATEWAY_NORMAL";
 	private static final String TOP_QUEUE = "DEVTRUNK_CRM_GATEWAY_TOP";
 
-	@Container
-	static final LocalStackContainer localstack = new LocalStackContainer(
-			DockerImageName.parse("localstack/localstack:3.0"))
-					.withServices(LocalStackContainer.Service.SQS)
-					.withLogConsumer(new Slf4jLogConsumer(LOG));
-
-	private static SqsClient sqsClient;
-
-	@BeforeAll
-	static void setupQueues()
-	{
-		sqsClient = SqsClient.builder()
-				.endpointOverride(localstack.getEndpointOverride(LocalStackContainer.Service.SQS))
-				.region(Region.of(localstack.getRegion()))
-				.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials
-						.create(localstack.getAccessKey(), localstack.getSecretKey())))
-				.build();
-
-		for (String queueName : new String[]
-		{
-				DRY_RUN_QUEUE, INTERMEDIATE_QUEUE, NORMAL_QUEUE, TOP_QUEUE
-		})
-		{
-			sqsClient.createQueue(r -> r.queueName(queueName));
-		}
-	}
-
-	@DynamicPropertySource
-	static void registerProperties(DynamicPropertyRegistry registry)
-	{
-		String sqsEndpoint = localstack.getEndpointOverride(LocalStackContainer.Service.SQS)
-				.toString();
-		registry.add("spring.cloud.aws.region.static", localstack::getRegion);
-		registry.add("spring.cloud.aws.credentials.access-key", localstack::getAccessKey);
-		registry.add("spring.cloud.aws.credentials.secret-key", localstack::getSecretKey);
-		registry.add("spring.cloud.aws.sqs.endpoint",
-				() -> localstack.getEndpointOverride(LocalStackContainer.Service.SQS)
-						.toString());
-
-		// crm gateway queue names
-		registry.add("crm.gateway.sqs.queue.dryrun", () -> DRY_RUN_QUEUE);
-		registry.add("crm.gateway.sqs.queue.intermediate", () -> INTERMEDIATE_QUEUE);
-		registry.add("crm.gateway.sqs.queue.normal", () -> NORMAL_QUEUE);
-		registry.add("crm.gateway.sqs.queue.top", () -> TOP_QUEUE);
-	}
-
 	@Autowired
 	private SqsTemplate sqsTemplate;
 
 	@Autowired
 	private CrmGatewayMessageListener listener;
+
+	public static class Initializer
+			implements ApplicationContextInitializer<ConfigurableApplicationContext>
+	{
+
+		static final LocalStackContainer localstack = new LocalStackContainer(
+				DockerImageName.parse("localstack/localstack:3.0"))
+						.withServices(LocalStackContainer.Service.SQS);
+
+		@Override
+		public void initialize(ConfigurableApplicationContext applicationContext)
+		{
+			if (!localstack.isRunning())
+			{
+				localstack.start();
+			}
+
+			SqsClient sqsClient = SqsClient.builder()
+					.endpointOverride(
+							localstack.getEndpointOverride(LocalStackContainer.Service.SQS))
+					.region(Region.of(localstack.getRegion()))
+					.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials
+							.create(localstack.getAccessKey(), localstack.getSecretKey())))
+					.build();
+
+			for (String queueName : new String[]
+			{
+					DRY_RUN_QUEUE, INTERMEDIATE_QUEUE, NORMAL_QUEUE, TOP_QUEUE
+			})
+			{
+				sqsClient.createQueue(r -> r.queueName(queueName));
+			}
+
+			applicationContext.getBeanFactory()
+					.registerSingleton("sqsClientForTest", sqsClient);
+
+			TestPropertyValues
+					.of("spring.cloud.aws.region.static=" + localstack.getRegion(),
+							"spring.cloud.aws.credentials.access-key=" + localstack.getAccessKey(),
+							"spring.cloud.aws.credentials.secret-key=" + localstack.getSecretKey(),
+							"spring.cloud.aws.sqs.endpoint=" + localstack
+									.getEndpointOverride(LocalStackContainer.Service.SQS)
+									.toString(),
+							"crm.gateway.sqs.queue.dryrun=" + DRY_RUN_QUEUE,
+							"crm.gateway.sqs.queue.intermediate=" + INTERMEDIATE_QUEUE,
+							"crm.gateway.sqs.queue.normal=" + NORMAL_QUEUE,
+							"crm.gateway.sqs.queue.top=" + TOP_QUEUE)
+					.applyTo(applicationContext.getEnvironment());
+		}
+	}
 
 	@Test
 	void testMessageIsConsumedSuccessfully() throws Exception
@@ -280,92 +334,5 @@ class CrmGatewayMessageListenerTest
 	void testMessageRetriesOnFailure()
 	{
 		sqsTemplate.send(DRY_RUN_QUEUE, "FAIL_MESSAGE");
-	}
-}
-
-SO what's happening is, the springboottest is loading the listener before the queues is created in the container, and is't trying to poll for messages, seeing this issue in jenkins, although the test passed :
-19:18:56  2025-10-29 06:48:56 AM [sdk-async-response-3-6] trace_id:  span_id:  ERROR io.awspring.cloud.sqs.listener.source.AbstractPollingMessageSource - Error polling for messages in queue DEVTRUNK_CRM_GATEWAY_TOP. java.util.concurrent.CompletionException: software.amazon.awssdk.core.exception.SdkClientException: Unable to execute HTTP request: Connection refused: /127.0.0.1:49154
-Suppressed: software.amazon.awssdk.core.exception.SdkClientException: Request attempt 1 failure: Unable to execute HTTP request: The connection was closed during the request. The request will usually succeed on a retry, but if it does not: consider disabling any proxies you have configured, enabling debug logging, or performing a TCP dump to identify the root cause. If this is a streaming operation, validate that data is being read or written in a timely manner. Channel Information: ChannelDiagnostics(channel=[id: 0xb3e62d3e, L:/127.0.0.1:34730 ! R:/127.0.0.1:49154], channelAge=PT3.654636078S, requestCount=1, responseCount=0)
-19:18:56  	Suppressed: software.amazon.awssdk.core.exception.SdkClientException: Request attempt 2 failure: Unable to execute HTTP request: Connection refused: /127.0.0.1:49154
-for all the 4 queues
-
-can you, help me use context configuration to load the contexts properly? , maybe first, get the localstack testcontainer setup, and then that starts the queue and then the listener is loaded
-
-
-what if i use a config like this:
-package com.empower.ihub.trs.config;
-
-import java.time.Duration;
-import java.util.concurrent.ThreadPoolExecutor;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-
-import com.personalcapital.log.PcapLogger;
-import com.personalcapital.log.PcapLoggerFactory;
-import io.awspring.cloud.sqs.MessageExecutionThreadFactory;
-import io.awspring.cloud.sqs.config.SqsMessageListenerContainerFactory;
-import io.awspring.cloud.sqs.listener.QueueNotFoundStrategy;
-import io.awspring.cloud.sqs.listener.acknowledgement.handler.AcknowledgementMode;
-import software.amazon.awssdk.services.sqs.SqsAsyncClient;
-
-@Configuration
-@ComponentScan(basePackages = "com.empower.epw.security.service")
-public class IhubTrsSqsConfig
-{
-
-	private final PcapLogger log = PcapLoggerFactory.getPcapLogger(IhubTrsSqsConfig.class);
-
-	@Value("${ihub.trs.sqs.visibilityTimeout:60}")
-	public Integer visibilityTimeout;
-
-	@Value("${ihub.trs.sqs.minPoolSize:10}")
-	public Integer minPoolSize;
-
-	@Value("${ihub.trs.sqs.maxPoolSize:30}")
-	public Integer maxPoolSize;
-
-	@Value("${ihub.trs.sqs.queueCapacity:30}")
-	public Integer queueCapacity;
-
-	@Value("${ihub.trs.sqs.queueMaxAwaitTermination:30}")
-	public Integer queueMaxAwaitTermination;
-
-	@Bean("awsTaskExecutor")
-	public ThreadPoolTaskExecutor awsTaskExecutor()
-	{
-		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-		executor.setCorePoolSize(minPoolSize);
-		executor.setMaxPoolSize(maxPoolSize);
-		executor.setQueueCapacity(queueCapacity);
-		executor.setWaitForTasksToCompleteOnShutdown(true);
-		executor.setAwaitTerminationSeconds(queueMaxAwaitTermination);
-		executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
-		executor.setThreadFactory(new MessageExecutionThreadFactory("ihubTrsSqsThread-"));
-		return executor;
-	}
-
-	@Bean
-	SqsMessageListenerContainerFactory<Object> defaultSqsListenerContainerFactory(
-			SqsAsyncClient sqsAsyncClient)
-	{
-
-		log.info("Creating SQS Listener Container Factory with visibility timeout: {}",
-				visibilityTimeout);
-		return SqsMessageListenerContainerFactory.builder()
-				.sqsAsyncClient(sqsAsyncClient)
-				.configure(sqsContainerOptionsBuilder -> sqsContainerOptionsBuilder
-						.messageVisibility(Duration.ofSeconds(visibilityTimeout))
-						.queueNotFoundStrategy(QueueNotFoundStrategy.FAIL)
-						.pollTimeout(Duration.ofSeconds(20))
-						.maxMessagesPerPoll(10)
-						// .messageConverter(getmessageConverter()) - may be used in future
-						.componentsTaskExecutor(awsTaskExecutor())
-						.autoStartup(true)
-						.acknowledgementMode(AcknowledgementMode.ON_SUCCESS))
-				.build();
 	}
 }
