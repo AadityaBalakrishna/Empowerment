@@ -1,3 +1,82 @@
+error:
+org.awaitility.core.ConditionTimeoutException: Assertion condition defined as a Lambda expression in com.empower.epw.crm.gateway.sqs.CrmGatewayMessageListenerTest 
+Wanted but not invoked:
+crmGatewayMessageListener.processMessage(
+    "DRY_RUN",
+    "FAIL_MESSAGE",
+    <any string>
+);
+-> at com.empower.epw.crm.gateway.sqs.CrmGatewayMessageListener.processMessage(CrmGatewayMessageListener.java:60)
+Actually, there were zero interactions with this mock.
+ within 10 seconds.
+
+	at org.awaitility.core.ConditionAwaiter.await(ConditionAwaiter.java:167)
+	at org.awaitility.core.AssertionCondition.await(AssertionCondition.java:119)
+	at org.awaitility.core.AssertionCondition.await(AssertionCondition.java:31)
+	at org.awaitility.core.ConditionFactory.until(ConditionFactory.java:1006)
+	at org.awaitility.core.ConditionFactory.untilAsserted(ConditionFactory.java:790)
+	at com.empower.epw.crm.gateway.sqs.CrmGatewayMessageListenerTest.testMessageRetriesAndRecoversOnFailure(CrmGatewayMessageListenerTest.java:153)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+Caused by: Wanted but not invoked:
+crmGatewayMessageListener.processMessage(
+    "DRY_RUN",
+    "FAIL_MESSAGE",
+    <any string>
+);
+-> at com.empower.epw.crm.gateway.sqs.CrmGatewayMessageListener.processMessage(CrmGatewayMessageListener.java:60)
+Actually, there were zero interactions with this mock.
+
+org.awaitility.core.ConditionTimeoutException: Assertion condition defined as a Lambda expression in com.empower.epw.crm.gateway.sqs.CrmGatewayMessageListenerTest 
+Wanted but not invoked:
+crmGatewayMessageListener.processMessage(
+    "DRY_RUN",
+    "{"event":"TestConsumer","id":123}",
+    <any string>
+);
+-> at com.empower.epw.crm.gateway.sqs.CrmGatewayMessageListener.processMessage(CrmGatewayMessageListener.java:60)
+Actually, there were zero interactions with this mock.
+ within 5 seconds.
+
+	at org.awaitility.core.ConditionAwaiter.await(ConditionAwaiter.java:167)
+	at org.awaitility.core.AssertionCondition.await(AssertionCondition.java:119)
+	at org.awaitility.core.AssertionCondition.await(AssertionCondition.java:31)
+	at org.awaitility.core.ConditionFactory.until(ConditionFactory.java:1006)
+	at org.awaitility.core.ConditionFactory.untilAsserted(ConditionFactory.java:790)
+	at com.empower.epw.crm.gateway.sqs.CrmGatewayMessageListenerTest.testMessageIsConsumedSuccessfully(CrmGatewayMessageListenerTest.java:142)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+Caused by: Wanted but not invoked:
+crmGatewayMessageListener.processMessage(
+    "DRY_RUN",
+    "{"event":"TestConsumer","id":123}",
+    <any string>
+);
+-> at com.empower.epw.crm.gateway.sqs.CrmGatewayMessageListener.processMessage(CrmGatewayMessageListener.java:60)
+Actually, there were zero interactions with this mock.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 according to this task:
 I need to configure starter-sqs for the crm-gateway-service and enable SQS message consumption
 so that the service can process event-driven updates and persist data in its database.
