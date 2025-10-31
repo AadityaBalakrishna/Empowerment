@@ -1,63 +1,129 @@
-error:
-org.awaitility.core.ConditionTimeoutException: Assertion condition defined as a Lambda expression in com.empower.epw.crm.gateway.sqs.CrmGatewayMessageListenerTest 
-Wanted but not invoked:
-crmGatewayMessageListener.processMessage(
-    "DRY_RUN",
-    "FAIL_MESSAGE",
-    <any string>
-);
--> at com.empower.epw.crm.gateway.sqs.CrmGatewayMessageListener.processMessage(CrmGatewayMessageListener.java:60)
-Actually, there were zero interactions with this mock.
- within 10 seconds.
+Caused by: io.awspring.cloud.sqs.listener.AsyncAdapterBlockingExecutionFailedException: Error executing action in BlockingMessageListenerAdapter
+	at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.wrapWithBlockingException(AsyncComponentAdapters.java:178) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+	at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.runInSameThread(AsyncComponentAdapters.java:140) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+	at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.execute(AsyncComponentAdapters.java:127) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+	at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$BlockingMessageListenerAdapter.onMessage(AsyncComponentAdapters.java:262) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+	... 15 more
+Caused by: io.awspring.cloud.sqs.listener.ListenerExecutionFailedException: Listener failed to process messages a053630f-88a6-4bdd-8cd3-b8fee45466d6
+	at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$MicrometerObservationThreadLocalWrapper$ObservationAwareCloseableScope.onExecutionError(AsyncComponentAdapters.java:390) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+	at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.lambda$withConsumerThreadLocalScope$3(AsyncComponentAdapters.java:210) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+	at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.runInSameThread(AsyncComponentAdapters.java:136) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+	at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.execute(AsyncComponentAdapters.java:127) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+	at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$BlockingMessageListenerAdapter.onMessage(AsyncComponentAdapters.java:262) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+	... 15 more
+Caused by: org.springframework.messaging.MessageHandlingException: Missing header 'MessageId' for method parameter type [class java.lang.String]
+	at org.springframework.messaging.handler.annotation.support.HeaderMethodArgumentResolver.handleMissingValue(HeaderMethodArgumentResolver.java:111) ~[spring-messaging-6.2.11.jar:6.2.11]
+	at org.springframework.messaging.handler.annotation.support.AbstractNamedValueMethodArgumentResolver.resolveArgument(AbstractNamedValueMethodArgumentResolver.java:109) ~[spring-messaging-6.2.11.jar:6.2.11]
+	at org.springframework.messaging.handler.invocation.HandlerMethodArgumentResolverComposite.resolveArgument(HandlerMethodArgumentResolverComposite.java:118) ~[spring-messaging-6.2.11.jar:6.2.11]
+	at org.springframework.messaging.handler.invocation.InvocableHandlerMethod.getMethodArgumentValues(InvocableHandlerMethod.java:147) ~[spring-messaging-6.2.11.jar:6.2.11]
+	at org.springframework.messaging.handler.invocation.InvocableHandlerMethod.invoke(InvocableHandlerMethod.java:115) ~[spring-messaging-6.2.11.jar:6.2.11]
+	at io.awspring.cloud.sqs.listener.adapter.AbstractMethodInvokingListenerAdapter.invokeHandler(AbstractMethodInvokingListenerAdapter.java:56) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+	at io.awspring.cloud.sqs.listener.adapter.MessagingMessageListenerAdapter.onMessage(MessagingMessageListenerAdapter.java:41) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+	at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.lambda$withConsumerThreadLocalScope$3(AsyncComponentAdapters.java:206) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+	at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.runInSameThread(AsyncComponentAdapters.java:136) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+	at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.execute(AsyncComponentAdapters.java:127) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+	at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$BlockingMessageListenerAdapter.onMessage(AsyncComponentAdapters.java:262) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+	... 15 more
 
-	at org.awaitility.core.ConditionAwaiter.await(ConditionAwaiter.java:167)
+
+org.mockito.exceptions.misusing.NotAMockException: 
+Argument passed to verify() is of type CrmProcessingService and is not a mock!
+Make sure you place the parenthesis correctly!
+See the examples of correct verifications:
+    verify(mock).someMethod();
+    verify(mock, times(10)).someMethod();
+    verify(mock, atLeastOnce()).someMethod();
+
+	at com.empower.epw.crm.gateway.sqs.CrmGatewayMessageListenerTest.lambda$testMessageIsConsumedSuccessfully$0(CrmGatewayMessageListenerTest.java:136)
+	at org.awaitility.core.AssertionCondition.lambda$new$0(AssertionCondition.java:53)
+	at org.awaitility.core.ConditionAwaiter$ConditionPoller.call(ConditionAwaiter.java:248)
+	at org.awaitility.core.ConditionAwaiter$ConditionPoller.call(ConditionAwaiter.java:235)
+	at java.base/java.util.concurrent.FutureTask.run$$$capture(FutureTask.java:317)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java)
+	at --- Async.Stack.Trace --- (captured by IntelliJ IDEA debugger)
+	at java.base/java.util.concurrent.FutureTask.<init>(FutureTask.java:132)
+	at java.base/java.util.concurrent.AbstractExecutorService.newTaskFor(AbstractExecutorService.java:113)
+	at java.base/java.util.concurrent.AbstractExecutorService.submit(AbstractExecutorService.java:144)
+	at java.base/java.util.concurrent.Executors$DelegatedExecutorService.submit(Executors.java:790)
+	at org.awaitility.core.ConditionAwaiter.await(ConditionAwaiter.java:101)
 	at org.awaitility.core.AssertionCondition.await(AssertionCondition.java:119)
 	at org.awaitility.core.AssertionCondition.await(AssertionCondition.java:31)
 	at org.awaitility.core.ConditionFactory.until(ConditionFactory.java:1006)
 	at org.awaitility.core.ConditionFactory.untilAsserted(ConditionFactory.java:790)
-	at com.empower.epw.crm.gateway.sqs.CrmGatewayMessageListenerTest.testMessageRetriesAndRecoversOnFailure(CrmGatewayMessageListenerTest.java:153)
+	at com.empower.epw.crm.gateway.sqs.CrmGatewayMessageListenerTest.testMessageIsConsumedSuccessfully(CrmGatewayMessageListenerTest.java:135)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
 	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.junit.platform.commons.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:775)
+	at org.junit.platform.commons.support.ReflectionSupport.invokeMethod(ReflectionSupport.java:479)
+	at org.junit.jupiter.engine.execution.MethodInvocation.proceed(MethodInvocation.java:60)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$ValidatingInvocation.proceed(InvocationInterceptorChain.java:131)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.intercept(TimeoutExtension.java:161)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestableMethod(TimeoutExtension.java:152)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestMethod(TimeoutExtension.java:91)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker$ReflectiveInterceptorCall.lambda$ofVoidMethod$0(InterceptingExecutableInvoker.java:112)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.lambda$invoke$0(InterceptingExecutableInvoker.java:94)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$InterceptedInvocation.proceed(InvocationInterceptorChain.java:106)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.proceed(InvocationInterceptorChain.java:64)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.chainAndInvoke(InvocationInterceptorChain.java:45)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.invoke(InvocationInterceptorChain.java:37)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:93)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:87)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.lambda$invokeTestMethod$7(TestMethodTestDescriptor.java:216)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.invokeTestMethod(TestMethodTestDescriptor.java:212)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:137)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:69)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:156)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:160)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-Caused by: Wanted but not invoked:
-crmGatewayMessageListener.processMessage(
-    "DRY_RUN",
-    "FAIL_MESSAGE",
-    <any string>
-);
--> at com.empower.epw.crm.gateway.sqs.CrmGatewayMessageListener.processMessage(CrmGatewayMessageListener.java:60)
-Actually, there were zero interactions with this mock.
-
-org.awaitility.core.ConditionTimeoutException: Assertion condition defined as a Lambda expression in com.empower.epw.crm.gateway.sqs.CrmGatewayMessageListenerTest 
-Wanted but not invoked:
-crmGatewayMessageListener.processMessage(
-    "DRY_RUN",
-    "{"event":"TestConsumer","id":123}",
-    <any string>
-);
--> at com.empower.epw.crm.gateway.sqs.CrmGatewayMessageListener.processMessage(CrmGatewayMessageListener.java:60)
-Actually, there were zero interactions with this mock.
- within 5 seconds.
-
-	at org.awaitility.core.ConditionAwaiter.await(ConditionAwaiter.java:167)
-	at org.awaitility.core.AssertionCondition.await(AssertionCondition.java:119)
-	at org.awaitility.core.AssertionCondition.await(AssertionCondition.java:31)
-	at org.awaitility.core.ConditionFactory.until(ConditionFactory.java:1006)
-	at org.awaitility.core.ConditionFactory.untilAsserted(ConditionFactory.java:790)
-	at com.empower.epw.crm.gateway.sqs.CrmGatewayMessageListenerTest.testMessageIsConsumedSuccessfully(CrmGatewayMessageListenerTest.java:142)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-Caused by: Wanted but not invoked:
-crmGatewayMessageListener.processMessage(
-    "DRY_RUN",
-    "{"event":"TestConsumer","id":123}",
-    <any string>
-);
--> at com.empower.epw.crm.gateway.sqs.CrmGatewayMessageListener.processMessage(CrmGatewayMessageListener.java:60)
-Actually, there were zero interactions with this mock.
-
-
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:160)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:146)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:144)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:143)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:100)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.submit(SameThreadHierarchicalTestExecutorService.java:35)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestExecutor.execute(HierarchicalTestExecutor.java:57)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestEngine.execute(HierarchicalTestEngine.java:54)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:201)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:170)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:94)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.lambda$execute$0(EngineExecutionOrchestrator.java:59)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.withInterceptedStreams(EngineExecutionOrchestrator.java:142)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:58)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:103)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:85)
+	at org.junit.platform.launcher.core.DelegatingLauncher.execute(DelegatingLauncher.java:47)
+	at org.junit.platform.launcher.core.InterceptingLauncher.lambda$execute$1(InterceptingLauncher.java:39)
+	at org.junit.platform.launcher.core.ClasspathAlignmentCheckingLauncherInterceptor.intercept(ClasspathAlignmentCheckingLauncherInterceptor.java:25)
+	at org.junit.platform.launcher.core.InterceptingLauncher.execute(InterceptingLauncher.java:38)
+	at org.junit.platform.launcher.core.DelegatingLauncher.execute(DelegatingLauncher.java:47)
+	at org.junit.platform.launcher.core.SessionPerRequestLauncher.execute(SessionPerRequestLauncher.java:63)
+	at com.intellij.junit5.JUnit5IdeaTestRunner.startRunnerWithArgs(JUnit5IdeaTestRunner.java:57)
+	at com.intellij.rt.junit.IdeaTestRunner$Repeater$1.execute(IdeaTestRunner.java:38)
+	at com.intellij.rt.execution.junit.TestsRepeater.repeat(TestsRepeater.java:11)
+	at com.intellij.rt.junit.IdeaTestRunner$Repeater.startRunnerWithArgs(IdeaTestRunner.java:35)
+	at com.intellij.rt.junit.JUnitStarter.prepareStreamsAndStart(JUnitStarter.java:231)
+	at com.intellij.rt.junit.JUnitStarter.main(JUnitStarter.java:55)
 
 
 
