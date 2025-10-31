@@ -336,3 +336,27 @@ class CrmGatewayMessageListenerTest
 		sqsTemplate.send(DRY_RUN_QUEUE, "FAIL_MESSAGE");
 	}
 }
+
+
+
+
+
+
+can i use this block in my listener?
+it is from another project - 
+
+	@Recover
+	public void recoverOnMessageRetryFailure(RuntimeException e, final AggregationQueueImpl message)
+	{
+
+		final Metadata spsMetadata = this.createSpsMetadata(message);
+
+		if (spsMetadata != null)
+		{
+			logger.info("The processing of SQS message failed on all retries for trace id :"
+					+ spsMetadata.getTraceId());
+			Optional.ofNullable(this.metadataMapper.spsMetadataToMetadata(spsMetadata))
+					.ifPresent(m -> metadataService.saveFailure(m, e.getMessage()));
+		}
+
+	}
