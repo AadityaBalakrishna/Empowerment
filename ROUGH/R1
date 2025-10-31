@@ -1,17 +1,37 @@
+2025-10-31 17:38:30 PM [crmGatewaySqsThread-5] trace_id:  span_id:  ERROR io.awspring.cloud.sqs.listener.sink.AbstractMessageProcessingPipelineSink - Error processing message e4a36cdf-19f9-4864-9f54-79c9a064baf0. java.util.concurrent.CompletionException: io.awspring.cloud.sqs.listener.AsyncAdapterBlockingExecutionFailedException: Error executing action in BlockingMessageListenerAdapter
+	at java.base/java.util.concurrent.CompletableFuture.encodeThrowable(CompletableFuture.java:332) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniApplyNow(CompletableFuture.java:674) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniApplyStage(CompletableFuture.java:662) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.thenApply(CompletableFuture.java:2200) ~[?:?]
+	at io.awspring.cloud.sqs.listener.pipeline.MessageListenerExecutionStage.process(MessageListenerExecutionStage.java:49) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+	at io.awspring.cloud.sqs.listener.pipeline.MessageProcessingPipelineBuilder$ComposingMessagePipelineStage.lambda$process$0(MessageProcessingPipelineBuilder.java:80) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+	at java.base/java.util.concurrent.CompletableFuture.uniComposeStage(CompletableFuture.java:1187) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.thenCompose(CompletableFuture.java:2341) ~[?:?]
+	at io.awspring.cloud.sqs.listener.pipeline.MessageProcessingPipelineBuilder$ComposingMessagePipelineStage.process(MessageProcessingPipelineBuilder.java:80) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+	at io.awspring.cloud.sqs.listener.pipeline.MessageProcessingPipelineBuilder$FutureComposingMessagePipelineStage.process(MessageProcessingPipelineBuilder.java:104) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+	at io.awspring.cloud.sqs.listener.pipeline.MessageProcessingPipelineBuilder$FutureComposingMessagePipelineStage.process(MessageProcessingPipelineBuilder.java:104) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+	at io.awspring.cloud.sqs.listener.pipeline.MessageProcessingPipelineBuilder$FutureComposingMessagePipelineStage.process(MessageProcessingPipelineBuilder.java:104) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+	at io.awspring.cloud.sqs.listener.pipeline.MessageProcessingPipelineBuilder$FutureComposingMessagePipelineStage.process(MessageProcessingPipelineBuilder.java:104) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+	at io.awspring.cloud.sqs.listener.sink.AbstractMessageProcessingPipelineSink.lambda$execute$0(AbstractMessageProcessingPipelineSink.java:135) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run$$$capture(CompletableFuture.java:1768) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java) ~[?:?]
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144) ~[?:?]
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642) ~[?:?]
+	at java.base/java.lang.Thread.run(Thread.java:1583) [?:?]
 Caused by: io.awspring.cloud.sqs.listener.AsyncAdapterBlockingExecutionFailedException: Error executing action in BlockingMessageListenerAdapter
 	at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.wrapWithBlockingException(AsyncComponentAdapters.java:178) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
 	at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.runInSameThread(AsyncComponentAdapters.java:140) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
 	at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.execute(AsyncComponentAdapters.java:127) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
 	at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$BlockingMessageListenerAdapter.onMessage(AsyncComponentAdapters.java:262) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
 	... 15 more
-Caused by: io.awspring.cloud.sqs.listener.ListenerExecutionFailedException: Listener failed to process messages a053630f-88a6-4bdd-8cd3-b8fee45466d6
+Caused by: io.awspring.cloud.sqs.listener.ListenerExecutionFailedException: Listener failed to process messages e4a36cdf-19f9-4864-9f54-79c9a064baf0
 	at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$MicrometerObservationThreadLocalWrapper$ObservationAwareCloseableScope.onExecutionError(AsyncComponentAdapters.java:390) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
 	at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.lambda$withConsumerThreadLocalScope$3(AsyncComponentAdapters.java:210) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
 	at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.runInSameThread(AsyncComponentAdapters.java:136) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
 	at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.execute(AsyncComponentAdapters.java:127) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
 	at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$BlockingMessageListenerAdapter.onMessage(AsyncComponentAdapters.java:262) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
 	... 15 more
-Caused by: org.springframework.messaging.MessageHandlingException: Missing header 'MessageId' for method parameter type [class java.lang.String]
+Caused by: org.springframework.messaging.MessageHandlingException: Missing header 'SqsMessageId' for method parameter type [class java.lang.String]
 	at org.springframework.messaging.handler.annotation.support.HeaderMethodArgumentResolver.handleMissingValue(HeaderMethodArgumentResolver.java:111) ~[spring-messaging-6.2.11.jar:6.2.11]
 	at org.springframework.messaging.handler.annotation.support.AbstractNamedValueMethodArgumentResolver.resolveArgument(AbstractNamedValueMethodArgumentResolver.java:109) ~[spring-messaging-6.2.11.jar:6.2.11]
 	at org.springframework.messaging.handler.invocation.HandlerMethodArgumentResolverComposite.resolveArgument(HandlerMethodArgumentResolverComposite.java:118) ~[spring-messaging-6.2.11.jar:6.2.11]
@@ -26,15 +46,37 @@ Caused by: org.springframework.messaging.MessageHandlingException: Missing heade
 	... 15 more
 
 
-org.mockito.exceptions.misusing.NotAMockException: 
-Argument passed to verify() is of type CrmProcessingService and is not a mock!
-Make sure you place the parenthesis correctly!
-See the examples of correct verifications:
-    verify(mock).someMethod();
-    verify(mock, times(10)).someMethod();
-    verify(mock, atLeastOnce()).someMethod();
+org.awaitility.core.ConditionTimeoutException: Assertion condition defined as a Lambda expression in com.empower.epw.crm.gateway.sqs.CrmGatewayMessageListenerTest 
+Wanted but not invoked:
+crmProcessingService.processMessage(
+    "DRY_RUN",
+    "{"event":"TestConsumer","id":123}",
+    <any string>
+);
+-> at com.empower.epw.crm.gateway.sqs.CrmProcessingService.processMessage(CrmProcessingService.java:15)
+Actually, there were zero interactions with this mock.
+ within 5 seconds.
 
-	at com.empower.epw.crm.gateway.sqs.CrmGatewayMessageListenerTest.lambda$testMessageIsConsumedSuccessfully$0(CrmGatewayMessageListenerTest.java:136)
+	at org.awaitility.core.ConditionAwaiter.await(ConditionAwaiter.java:167)
+	at org.awaitility.core.AssertionCondition.await(AssertionCondition.java:119)
+	at org.awaitility.core.AssertionCondition.await(AssertionCondition.java:31)
+	at org.awaitility.core.ConditionFactory.until(ConditionFactory.java:1006)
+	at org.awaitility.core.ConditionFactory.untilAsserted(ConditionFactory.java:790)
+	at com.empower.epw.crm.gateway.sqs.CrmGatewayMessageListenerTest.testMessageIsConsumedSuccessfully(CrmGatewayMessageListenerTest.java:131)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+Caused by: Wanted but not invoked:
+crmProcessingService.processMessage(
+    "DRY_RUN",
+    "{"event":"TestConsumer","id":123}",
+    <any string>
+);
+-> at com.empower.epw.crm.gateway.sqs.CrmProcessingService.processMessage(CrmProcessingService.java:15)
+Actually, there were zero interactions with this mock.
+
+	at com.empower.epw.crm.gateway.sqs.CrmProcessingService.processMessage(CrmProcessingService.java:15)
+	at com.empower.epw.crm.gateway.sqs.CrmGatewayMessageListenerTest.lambda$testMessageIsConsumedSuccessfully$0(CrmGatewayMessageListenerTest.java:132)
 	at org.awaitility.core.AssertionCondition.lambda$new$0(AssertionCondition.java:53)
 	at org.awaitility.core.ConditionAwaiter$ConditionPoller.call(ConditionAwaiter.java:248)
 	at org.awaitility.core.ConditionAwaiter$ConditionPoller.call(ConditionAwaiter.java:235)
@@ -50,7 +92,7 @@ See the examples of correct verifications:
 	at org.awaitility.core.AssertionCondition.await(AssertionCondition.java:31)
 	at org.awaitility.core.ConditionFactory.until(ConditionFactory.java:1006)
 	at org.awaitility.core.ConditionFactory.untilAsserted(ConditionFactory.java:790)
-	at com.empower.epw.crm.gateway.sqs.CrmGatewayMessageListenerTest.testMessageIsConsumedSuccessfully(CrmGatewayMessageListenerTest.java:135)
+	at com.empower.epw.crm.gateway.sqs.CrmGatewayMessageListenerTest.testMessageIsConsumedSuccessfully(CrmGatewayMessageListenerTest.java:131)
 	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
 	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
 	at org.junit.platform.commons.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:775)
@@ -124,22 +166,6 @@ See the examples of correct verifications:
 	at com.intellij.rt.junit.IdeaTestRunner$Repeater.startRunnerWithArgs(IdeaTestRunner.java:35)
 	at com.intellij.rt.junit.JUnitStarter.prepareStreamsAndStart(JUnitStarter.java:231)
 	at com.intellij.rt.junit.JUnitStarter.main(JUnitStarter.java:55)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
