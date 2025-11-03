@@ -1,3 +1,67 @@
+package com.empower.epw.crm.gateway.sqs;
+
+import io.awspring.cloud.sqs.operations.SqsTemplate;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+
+/**
+ * This is a "manual" E2E test.
+ * When you run it with the 'e2e' profile, it sends messages
+ * to the REAL AWS queues.
+ *
+ * YOU MUST MANUALLY WATCH your application's logs to see
+ * if the messages are consumed.
+ */
+@SpringBootTest
+@ActiveProfiles("e2e") // <-- Activates your new application-e2e.yml
+class E2eMessageProducerTest {
+
+    private static final Logger log = LoggerFactory.getLogger(E2eMessageProducerTest.class);
+
+    @Autowired
+    private SqsTemplate sqsTemplate;
+
+    // These must be the full URLs of your REAL queues
+    private static final String DRY_RUN_QUEUE_URL = "https://sqs.us-west-2.amazonaws.com/179355710817/DEVTRUNK_CRM_GATEWAY_DRY_RUN";
+    private static final String INTERMEDIATE_QUEUE_URL = "https://sqs.us-west-2.amazonaws.com/179355710817/DEVTRUNK_CRM_GATEWAY_INTERMEDIATE";
+    private static final String NORMAL_QUEUE_URL = "https://sqs.us-west-2.amazonaws.com/179355710817/DEVTRUNK_CRM_GATEWAY_NORMAL";
+    private static final String TOP_QUEUE_URL = "https://sqs.us-west-2.amazonaws.com/179355710817/DEVTRUNK_CRM_GATEWAY_TOP";
+
+    @Test
+    void sendMessagesToLiveQueues() {
+        String successPayload = "{\"event\":\"E2E_SUCCESS_TEST\"}";
+        String failurePayload = "FAIL_MESSAGE"; // Assumes your app has the fail logic
+
+        log.info("--- Sending E2E messages to REAL queues ---");
+
+        // 1. Send success messages to all queues
+        log.info("Sending 'success' message to DRY_RUN...");
+        sqsTemplate.send(DRY_RUN_QUEUE_URL, successPayload);
+        
+        log.info("Sending 'success' message to INTERMEDIATE...");
+        sqsTemplate.send(INTERMEDIATE_QUEUE_URL, successPayload);
+
+        log.info("Sending 'success' message to NORMAL...");
+        sqsTemplate.send(NORMAL_QUEUE_URL, successPayload);
+
+        log.info("Sending 'success' message to TOP...");
+        sqsTemplate.send(TOP_QUEUE_URL, successPayload);
+
+        // 2. Send failure message to one queue
+        log.info("Sending 'failure' message to DRY_RUN...");
+        sqsTemplate.send(DRY_RUN_QUEUE_URL, failurePayload);
+
+        log.info("--- All E2E messages sent. ---");
+        log.info("--- NOW, GO CHECK YOUR APPLICATION LOGS! ---");
+    }
+}
+
+
+
 you can do one thing - write a new small IT using testrole, connect to real queue and post some messages to each queue
 then the same message will consume by app from MR container 
  
