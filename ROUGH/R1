@@ -1,199 +1,11 @@
 package com.empower.epw.crm.gateway.sqs;
 
-import io.awspring.cloud.sqs.operations.SqsTemplate;
-import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
-
-/**
- * This is a "manual" E2E test.
- * When you run it with the 'e2e' profile, it sends messages
- * to the REAL AWS queues.
- *
- * YOU MUST MANUALLY WATCH your application's logs to see
- * if the messages are consumed.
- */
-@SpringBootTest
-@ActiveProfiles("e2e") // <-- Activates your new application-e2e.yml
-class E2eMessageProducerTest {
-
-    private static final Logger log = LoggerFactory.getLogger(E2eMessageProducerTest.class);
-
-    @Autowired
-    private SqsTemplate sqsTemplate;
-
-    // These must be the full URLs of your REAL queues
-    private static final String DRY_RUN_QUEUE_URL = "https://sqs.us-west-2.amazonaws.com/179355710817/DEVTRUNK_CRM_GATEWAY_DRY_RUN";
-    private static final String INTERMEDIATE_QUEUE_URL = "https://sqs.us-west-2.amazonaws.com/179355710817/DEVTRUNK_CRM_GATEWAY_INTERMEDIATE";
-    private static final String NORMAL_QUEUE_URL = "https://sqs.us-west-2.amazonaws.com/179355710817/DEVTRUNK_CRM_GATEWAY_NORMAL";
-    private static final String TOP_QUEUE_URL = "https://sqs.us-west-2.amazonaws.com/179355710817/DEVTRUNK_CRM_GATEWAY_TOP";
-
-    @Test
-    void sendMessagesToLiveQueues() {
-        String successPayload = "{\"event\":\"E2E_SUCCESS_TEST\"}";
-        String failurePayload = "FAIL_MESSAGE"; // Assumes your app has the fail logic
-
-        log.info("--- Sending E2E messages to REAL queues ---");
-
-        // 1. Send success messages to all queues
-        log.info("Sending 'success' message to DRY_RUN...");
-        sqsTemplate.send(DRY_RUN_QUEUE_URL, successPayload);
-        
-        log.info("Sending 'success' message to INTERMEDIATE...");
-        sqsTemplate.send(INTERMEDIATE_QUEUE_URL, successPayload);
-
-        log.info("Sending 'success' message to NORMAL...");
-        sqsTemplate.send(NORMAL_QUEUE_URL, successPayload);
-
-        log.info("Sending 'success' message to TOP...");
-        sqsTemplate.send(TOP_QUEUE_URL, successPayload);
-
-        // 2. Send failure message to one queue
-        log.info("Sending 'failure' message to DRY_RUN...");
-        sqsTemplate.send(DRY_RUN_QUEUE_URL, failurePayload);
-
-        log.info("--- All E2E messages sent. ---");
-        log.info("--- NOW, GO CHECK YOUR APPLICATION LOGS! ---");
-    }
-}
-
-
-
-you can do one thing - write a new small IT using testrole, connect to real queue and post some messages to each queue
-then the same message will consume by app from MR container 
- 
-i was given this suggestion for validation, can you help me with this?
-
-package com.empower.epw.crm.gateway.sqs;
-
-import io.awspring.cloud.sqs.operations.SqsTemplate;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith; // 1. Import
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.system.OutputCapture; // 2. Import
-import org.springframework.boot.test.system.OutputCaptureExtension; // 3. Import
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.TestPropertySource;
-import org.testcontainers.junit.jupiter.Testcontainers;
-
-import java.util.concurrent.TimeUnit;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
-
-/**
- * This is a full E2E test that does NOT use mocks.
- * It loads the REAL service and verifies the REAL log output.
- */
-@SpringBootTest
-@Testcontainers
-@ActiveProfiles("test")
-@ContextConfiguration(initializers = CrmGatewayMessageListenerTest.Initializer.class) // Reuse initializer
-@TestPropertySource(properties = {
-    "crm.gateway.listener.enabled=true",
-    "crm-gateway.sqs.retry.max-attempts=3",
-    "crm-gateway.sqs.retry.backoff-delay=100" // Speed up the retry test
-})
-// 4. Add the extension to capture logs
-@ExtendWith(OutputCaptureExtension.class) 
-class CrmGatewayLogIntegrationTest {
-
-    @Autowired
-    private SqsTemplate sqsTemplate;
-
-    // We DO NOT use @MockitoBean here.
-    // Spring will load the REAL listener AND the REAL service.
-
-    private static final String DRY_RUN_QUEUE = "DEVTRUNK_CRM_GATEWAY_DRY_RUN";
-
-    @Test
-    void testSuccessLogsArePrinted(OutputCapture output) { // 5. Inject 'output'
-        String payload = "{\"event\":\"E2E_SUCCESS\"}";
-        sqsTemplate.send(DRY_RUN_QUEUE, payload);
-
-        await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
-            // 6. Assert the REAL logs are in the console output
-            assertThat(output.getOut())
-                .contains("Processing [DRY_RUN] message: {\"event\":\"E2E_SUCCESS\"}")
-                .contains("Message type [DRY_RUN] processed successfully.");
-        });
-    }
-
-    @Test
-    void testFailureAndRecoverLogsArePrinted(OutputCapture output) {
-        String payload = "FAIL_MESSAGE";
-        
-        // WHEN
-        sqsTemplate.send(DRY_RUN_QUEUE, payload);
-
-        // THEN
-        await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
-            String logs = output.getOut();
-
-            // 6. Verify all log lines appeared
-            assertThat(logs)
-                .contains("Processing [DRY_RUN] message: FAIL_MESSAGE")
-                .contains("Simulating REAL processing failure")
-                .contains("All retries failed for message [FAIL_MESSAGE]. Message will be discarded.");
-            
-            // Optional: You can even count the occurrences
-            long processingAttempts = logs.lines()
-                .filter(line -> line.contains("Processing [DRY_RUN] message: FAIL_MESSAGE"))
-                .count();
-
-            assertThat(processingAttempts).isEqualTo(3);
-        });
-    }
-}
-
-
-according to this task:
-I need to configure starter-sqs for the crm-gateway-service and enable SQS message consumption
-so that the service can process event-driven updates and persist data in its database.
-
-Requirements / Development Notes
-Integrate starter-sqs into the crm-gateway-service.
-Configure SQS queue connection (endpoint, region, IAM credentials).
-Implement message listener to read and process messages.
-Add retry for failed messages.
-
-Dependencies
-AWS SQS queue setup and access permissions.
-
-Acceptance Criteria
-Service connects to AWS SQS and reads messages successfully.
-Failed messages retry.
-Logs show message ID, status, and processing result.
-All parameters configurable per environment.
-
-sqs permissions:
-CRM GATEWAY service permissions:
-      {
-        "Action" : [
-          "sqs:ChangeMessageVisibility",
-          "sqs:GetQueueUrl",
-          "sqs:GetQueueAttributes",
-          "sqs:ListQueues",
-          "sqs:DeleteMessage",
-          "sqs:ReceiveMessage"
-        ],
-        "Resource" : "arn:aws:sqs:us-west-2:179355710817:DEVTRUNK_CRM_GATEWAY_*",
-        "Effect" : "Allow"
-      }
-
-i need you to review what i wrote - Listener class:
-
-package com.empower.epw.crm.gateway.sqs;
-
 import io.awspring.cloud.sqs.annotation.SqsListener;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
 import lombok.CustomLog;
@@ -203,54 +15,80 @@ import lombok.CustomLog;
 @ConditionalOnProperty(name = "crm.gateway.listener.enabled", havingValue = "true", matchIfMissing = false)
 public class CrmGatewayMessageListener
 {
+	private final CrmProcessingService processingService;
+
+	@Autowired
+	public CrmGatewayMessageListener(CrmProcessingService processingService)
+	{
+		this.processingService = processingService;
+	}
+
 	@SqsListener("${crm.gateway.sqs.queue.dryrun:}")
 	@Retryable(value =
 	{
 			Exception.class
-	}, maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}"))
+	}, maxAttemptsExpression = "#{${crm.gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm.gateway.sqs.retry.backoff-delay:1000}}"))
 	public void handleDryRunMessage(String message)
 	{
-		processMessage("DRY_RUN", message);
+		processingService.processMessage("DRY_RUN", message);
 	}
 
 	@SqsListener("${crm.gateway.sqs.queue.intermediate:}")
 	@Retryable(value =
 	{
 			Exception.class
-	}, maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}"))
+	}, maxAttemptsExpression = "#{${crm.gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm.gateway.sqs.retry.backoff-delay:1000}}"))
 	public void handleIntermediateMessage(String message)
 	{
-		processMessage("INTERMEDIATE", message);
+		processingService.processMessage("INTERMEDIATE", message);
 	}
 
 	@SqsListener("${crm.gateway.sqs.queue.normal:}")
 	@Retryable(value =
 	{
 			Exception.class
-	}, maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}"))
+	}, maxAttemptsExpression = "#{${crm.gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm.gateway.sqs.retry.backoff-delay:1000}}"))
 	public void handleNormalMessage(String message)
 	{
-		processMessage("NORMAL", message);
+		processingService.processMessage("NORMAL", message);
 	}
 
 	@SqsListener("${crm.gateway.sqs.queue.top:}")
 	@Retryable(value =
 	{
 			Exception.class
-	}, maxAttemptsExpression = "#{${crm-gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm-gateway.sqs.retry.backoff-delay:1000}}"))
+	}, maxAttemptsExpression = "#{${crm.gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm.gateway.sqs.retry.backoff-delay:1000}}"))
 	public void handleTopMessage(String message)
 	{
-		processMessage("TOP", message);
+		processingService.processMessage("TOP", message);
 	}
 
-	void processMessage(String type, String message)
+	@Recover
+	public void recoverFailedMessages(Exception e, String message)
 	{
-		log.info("Received [{}] message: {}", type, message);
+		processingService.recoverFailedMessages(e, message);
+	}
+}
+
+package com.empower.epw.crm.gateway.sqs;
+
+import org.springframework.stereotype.Service;
+
+import lombok.CustomLog;
+
+@CustomLog
+@Service
+public class CrmProcessingService
+{
+
+	public void processMessage(String type, String message)
+	{
+		log.info("Received [{}] , message: {}", type, message);
 
 		try
 		{
 			// TODO: handle domain logic here
-			log.info("Message [{}] processed successfully.", type);
+			log.info("Message[{}] processed successfully.", type);
 		}
 		catch (Exception ex)
 		{
@@ -258,134 +96,31 @@ public class CrmGatewayMessageListener
 			throw ex; // triggers @Retryable
 		}
 	}
-}
 
-
-added enable retry here:
-package com.empower.epw.crm.gateway;
-
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.retry.annotation.EnableRetry;
-
-@EnableRetry
-@SpringBootApplication
-public class CrmGatewayApplication
-{
-	public static void main(String[] args)
+	public void recoverFailedMessages(Exception e, String message)
 	{
-		SpringApplication.run(CrmGatewayApplication.class, args);
+		log.info("All retries failed for message: {}", message, e.getMessage());
+		// TODO: save failure
 	}
 }
 
-config class:
-package com.empower.epw.crm.gateway.config;
-
-import java.time.Duration;
-import java.util.concurrent.ThreadPoolExecutor;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-
-import lombok.CustomLog;
-import io.awspring.cloud.sqs.MessageExecutionThreadFactory;
-import io.awspring.cloud.sqs.config.SqsMessageListenerContainerFactory;
-import io.awspring.cloud.sqs.listener.QueueNotFoundStrategy;
-import io.awspring.cloud.sqs.listener.acknowledgement.handler.AcknowledgementMode;
-import software.amazon.awssdk.services.sqs.SqsAsyncClient;
-
-@CustomLog
-@Configuration
-@ConditionalOnProperty(name = "crm.gateway.listener.enabled", havingValue = "true", matchIfMissing = false)
-public class CrmGatewaySqsConfig
-{
-	@Value("${epw.aws.sqs.visibilityTimeout:60}")
-	public Integer visibilityTimeout;
-
-	@Value("${epw.aws.sqs.minPoolSize:10}")
-	public Integer minPoolSize;
-
-	@Value("${epw.aws.sqs.maxPoolSize:30}")
-	public Integer maxPoolSize;
-
-	@Value("${epw.aws.sqs.queueCapacity:30}")
-	public Integer queueCapacity;
-
-	@Value("${epw.aws.sqs.queueMaxAwaitTermination:30}")
-	public Integer queueMaxAwaitTermination;
-
-	@Bean("awsTaskExecutor")
-	public ThreadPoolTaskExecutor awsTaskExecutor()
-	{
-		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-		executor.setCorePoolSize(minPoolSize);
-		executor.setMaxPoolSize(maxPoolSize);
-		executor.setQueueCapacity(queueCapacity);
-		executor.setWaitForTasksToCompleteOnShutdown(true);
-		executor.setAwaitTerminationSeconds(queueMaxAwaitTermination);
-		executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
-		executor.setThreadFactory(new MessageExecutionThreadFactory("crmGatewaySqsThread-"));
-		return executor;
-	}
-
-	@Bean
-	SqsMessageListenerContainerFactory<Object> defaultSqsListenerContainerFactory(
-			SqsAsyncClient sqsAsyncClient)
-	{
-
-		log.info("Creating SQS Listener Container Factory with visibility timeout: {}",
-				visibilityTimeout);
-
-		return SqsMessageListenerContainerFactory.builder()
-				.sqsAsyncClient(sqsAsyncClient)
-				.configure(sqsContainerOptionsBuilder -> sqsContainerOptionsBuilder
-						.messageVisibility(Duration.ofSeconds(visibilityTimeout))
-						.queueNotFoundStrategy(QueueNotFoundStrategy.FAIL)
-						.pollTimeout(Duration.ofSeconds(20))
-						.maxMessagesPerPoll(10)
-						.componentsTaskExecutor(awsTaskExecutor())
-						.autoStartup(true)
-						.acknowledgementMode(AcknowledgementMode.ON_SUCCESS))
-				.build();
-	}
-}
-
-application.properties:
-# AWS SQS Configuration
-crm-gateway.sqs.retry.max-attempts=3
-crm-gateway.sqs.retry.backoff-delay=1000
-
-epw.aws.sqs.visibilityTimeout=60
-epw.aws.sqs.minPoolSize=10
-epw.aws.sqs.maxPoolSize=30
-epw.aws.sqs.queueCapacity=30
-epw.aws.sqs.queueMaxAwaitTermination=30
-
-
-this is the test class:
 package com.empower.epw.crm.gateway.sqs;
 
 import java.util.concurrent.TimeUnit;
 
-import com.empower.epw.crm.gateway.config.CrmGatewaySqsConfig;
 import io.awspring.cloud.sqs.operations.SqsTemplate;
 
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.util.TestPropertyValues;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.context.annotation.Import;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.containers.localstack.LocalStackContainer;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
@@ -395,23 +130,21 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.sqs.SqsClient;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 @SpringBootTest
 @Testcontainers
 @ActiveProfiles("test")
-@Import(
-{
-		CrmGatewayMessageListener.class, CrmGatewaySqsConfig.class
-})
 @ContextConfiguration(initializers = CrmGatewayMessageListenerTest.Initializer.class)
 @TestPropertySource(properties = "crm.gateway.listener.enabled=true")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class CrmGatewayMessageListenerTest
 {
-
-	private static final Logger LOG = LoggerFactory.getLogger("LocalStackContainer");
 
 	private static final String DRY_RUN_QUEUE = "DEVTRUNK_CRM_GATEWAY_DRY_RUN";
 	private static final String INTERMEDIATE_QUEUE = "DEVTRUNK_CRM_GATEWAY_INTERMEDIATE";
@@ -421,8 +154,8 @@ class CrmGatewayMessageListenerTest
 	@Autowired
 	private SqsTemplate sqsTemplate;
 
-	@Autowired
-	private CrmGatewayMessageListener listener;
+	@MockitoBean
+	private CrmProcessingService processingService;
 
 	public static class Initializer
 			implements ApplicationContextInitializer<ConfigurableApplicationContext>
@@ -477,40 +210,51 @@ class CrmGatewayMessageListenerTest
 	@Test
 	void testMessageIsConsumedSuccessfully() throws Exception
 	{
-		String payload = "{\"event\":\"CustomerUpdated\",\"id\":123}";
+		String payload = "{\"event\":\"TestConsumer\",\"id\":123}";
 		sqsTemplate.send(DRY_RUN_QUEUE, payload);
 
 		await().atMost(5, TimeUnit.SECONDS)
-				.untilAsserted(() -> assertThat(listener).isNotNull());
+				.untilAsserted(() ->
+				{
+					verify(processingService, times(1)).processMessage(eq("DRY_RUN"), eq(payload));
+					verify(processingService, times(0)).recoverFailedMessages(any(), any());
+				});
 	}
 
 	@Test
-	void testMessageRetriesOnFailure()
+	void testMessageRetriesAndRecoversOnFailure()
 	{
-		sqsTemplate.send(DRY_RUN_QUEUE, "FAIL_MESSAGE");
+		String payload = "FAIL_MESSAGE";
+
+		doThrow(new RuntimeException("Processing Failure")).when(processingService)
+				.processMessage(eq("DRY_RUN"), eq(payload));
+
+		sqsTemplate.send(DRY_RUN_QUEUE, payload);
+		await().atMost(10, TimeUnit.SECONDS)
+				.untilAsserted(() ->
+				{
+					verify(processingService, times(3)).processMessage(eq("DRY_RUN"), eq(payload));
+					verify(processingService, times(1))
+							.recoverFailedMessages(any(RuntimeException.class), eq(payload));
+				});
+	}
+
+	@Test
+	void testMessageSucceedsOnRetry()
+	{
+		String payload = "SUCCEEDS_ON_RETRY";
+
+		doThrow(new RuntimeException("Processing message after one retry")).doNothing()
+				.when(processingService)
+				.processMessage(eq("DRY_RUN"), eq(payload));
+
+		sqsTemplate.send(DRY_RUN_QUEUE, payload);
+
+		await().atMost(5, TimeUnit.SECONDS)
+				.untilAsserted(() ->
+				{
+					verify(processingService, times(2)).processMessage(eq("DRY_RUN"), eq(payload));
+					verify(processingService, times(0)).recoverFailedMessages(any(), any());
+				});
 	}
 }
-
-
-
-
-
-
-can i use this block in my listener?
-it is from another project - 
-
-	@Recover
-	public void recoverOnMessageRetryFailure(RuntimeException e, final AggregationQueueImpl message)
-	{
-
-		final Metadata spsMetadata = this.createSpsMetadata(message);
-
-		if (spsMetadata != null)
-		{
-			logger.info("The processing of SQS message failed on all retries for trace id :"
-					+ spsMetadata.getTraceId());
-			Optional.ofNullable(this.metadataMapper.spsMetadataToMetadata(spsMetadata))
-					.ifPresent(m -> metadataService.saveFailure(m, e.getMessage()));
-		}
-
-	}
