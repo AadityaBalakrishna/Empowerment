@@ -1,3 +1,8 @@
+you can do one thing - write a new small IT using testrole, connect to real queue and post some messages to each queue
+then the same message will consume by app from MR container 
+ 
+i was given this suggestion for validation, can you help me with this?
+
 package com.empower.epw.crm.gateway.sqs;
 
 import io.awspring.cloud.sqs.operations.SqsTemplate;
