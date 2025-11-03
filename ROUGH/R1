@@ -10,3 +10,4 @@
 2025-11-03 09:16:21 AM [crmGatewaySqsThread-9] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmProcessingService - Message[TOP] processed successfully.
 
 i can see these logs
+what about the fail and retry? why can't i see those logs? and can we try implementing the message ID?
