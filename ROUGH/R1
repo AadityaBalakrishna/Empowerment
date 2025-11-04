@@ -1,5 +1,35 @@
-these are the inputs from the manager:
+package com.empower.epw.crm.gateway.sqs;
 
-it is for readiness , that means, we are getting things ready needed for all sort of SQS scenarios, read, write, retry., deadletter,...
-next, I asked to write publish it in Test Case. and verify in Test case
-i prefer producer, consumer, error retry, dead letter all these learnt, implemented, so other developers who wud like to implement it can refer here than doing another R&D. you can disable the producer wth  a flag same way we did for listener. that is the requriement for readiness
+import io.awspring.cloud.sqs.operations.SqsTemplate;
+import lombok.CustomLog;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Service;
+
+/**
+ * A "Producer" service for sending messages to SQS.
+ * This component is only created if 'crm.gateway.producer.enabled=true'.
+ */
+@CustomLog
+@Service
+@ConditionalOnProperty(name = "crm.gateway.producer.enabled", havingValue = "true")
+public class CrmMessageProducerService {
+
+    private final SqsTemplate sqsTemplate;
+
+    @Autowired
+    public CrmMessageProducerService(SqsTemplate sqsTemplate) {
+        this.sqsTemplate = sqsTemplate;
+    }
+
+    /**
+     * Sends a message to a specific queue.
+     * @param queueName The name of the queue (e.g., "DEVTRUNK_CRM_GATEWAY_DRY_RUN")
+     * @param payload The string message payload
+     */
+    public void sendMessage(String queueName, String payload) {
+        log.info("Sending message to queue [{}]: {}", queueName, payload);
+        sqsTemplate.send(queueName, payload);
+        log.info("Message sent successfully to queue [{}].", queueName);
+    }
+}
