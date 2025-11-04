@@ -1,32 +1,66 @@
-private static final String DRY_RUN_QUEUE_URL = "https://sqs.us-west-2.amazonaws.com/179355710817/DEVTRUNK_CRM_GATEWAY_DRY_RUN";
-    private static final String INTERMEDIATE_QUEUE_URL = "https://sqs.us-west-2.amazonaws.com/179355710817/DEVTRUNK_CRM_GATEWAY_INTERMEDIATE";
-    private static final String NORMAL_QUEUE_URL = "https://sqs.us-west-2.amazonaws.com/179355710817/DEVTRUNK_CRM_GATEWAY_NORMAL";
-    private static final String TOP_QUEUE_URL = "https://sqs.us-west-2.amazonaws.com/179355710817/DEVTRUNK_CRM_GATEWAY_TOP";
+package com.empower.epw.crm.gateway.sqs;
 
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value; // <-- Import @Value
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+
+/**
+ * This test validates the application's REAL producer service
+ * by connecting to the REAL AWS environment.
+ *
+ * It uses the 'e2e' profile and injects the queue names
+ * from the Spring environment (Config Store).
+ */
+@SpringBootTest
+@ActiveProfiles("e2e")
+class AwsLiveIntegrationProducerTest {
+
+    private static final Logger log = LoggerFactory.getLogger(AwsLiveIntegrationProducerTest.class);
+
+    @Autowired
+    private CrmMessageProducerService producerService;
+
+    // --- THE CHANGE ---
+    // Inject the queue names from the config store, just like the app
+    @Value("${crm.gateway.sqs.queue.dryrun}")
+    private String dryRunQueue;
+
+    @Value("${crm.gateway.sqs.queue.intermediate}")
+    private String intermediateQueue;
+
+    @Value("${crm.gateway.sqs.queue.normal}")
+    private String normalQueue;
+
+    @Value("${crm.gateway.sqs.queue.top}")
+    private String topQueue;
 
     @Test
     void sendMessagesToLiveAwsQueues() {
-        String successPayload = "{\"event\":\"LIVE_AWS_URL_TEST\"}";
+        String successPayload = "{\"event\":\"LIVE_CONFIG_STORE_TEST\"}";
         String failurePayload = "FAIL_MESSAGE";
 
-        log.info("--- Sending messages to REAL AWS SQS queues using hardcoded URLs ---");
+        log.info("--- Sending messages to REAL AWS SQS queues using injected config ---");
 
-        // --- THE CHANGE ---
-        // Use sqsTemplate directly with the full URL
+        // 1. Send success messages (using the injected queue names)
         log.info("Sending 'success' message to DRY_RUN...");
-        sqsTemplate.send(DRY_RUN_QUEUE_URL, successPayload);
+        producerService.sendMessage(dryRunQueue, successPayload);
 
         log.info("Sending 'success' message to INTERMEDIATE...");
-        sqsTemplate.send(INTERMEDIATE_QUEUE_URL, successPayload);
+        producerService.sendMessage(intermediateQueue, successPayload);
         
         log.info("Sending 'success' message to NORMAL...");
-        sqsTemplate.send(NORMAL_QUEUE_URL, successPayload);
+        producerService.sendMessage(normalQueue, successPayload);
 
         log.info("Sending 'success' message to TOP...");
-        sqsTemplate.send(TOP_QUEUE_URL, successPayload);
+        producerService.sendMessage(topQueue, successPayload);
 
+        // 2. Send failure message
         log.info("Sending 'failure' (FAIL_MESSAGE) message to DRY_RUN...");
-        sqsTemplate.send(DRY_RUN_QUEUE_URL, failurePayload);
+        producerService.sendMessage(dryRunQueue, failurePayload);
 
         log.info("--- All messages sent to AWS. ---");
         log.info("--- GO CHECK YOUR 'MR CONTAINER' LOGS NOW! ---");
