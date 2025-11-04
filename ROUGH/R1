@@ -1,35 +1,62 @@
-package com.empower.epw.crm.gateway.sqs;
-
-import io.awspring.cloud.sqs.operations.SqsTemplate;
-import lombok.CustomLog;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Service;
-
-/**
- * A "Producer" service for sending messages to SQS.
- * This component is only created if 'crm.gateway.producer.enabled=true'.
- */
-@CustomLog
-@Service
-@ConditionalOnProperty(name = "crm.gateway.producer.enabled", havingValue = "true")
-public class CrmMessageProducerService {
-
-    private final SqsTemplate sqsTemplate;
-
-    @Autowired
-    public CrmMessageProducerService(SqsTemplate sqsTemplate) {
-        this.sqsTemplate = sqsTemplate;
-    }
-
-    /**
-     * Sends a message to a specific queue.
-     * @param queueName The name of the queue (e.g., "DEVTRUNK_CRM_GATEWAY_DRY_RUN")
-     * @param payload The string message payload
-     */
-    public void sendMessage(String queueName, String payload) {
-        log.info("Sending message to queue [{}]: {}", queueName, payload);
-        sqsTemplate.send(queueName, payload);
-        log.info("Message sent successfully to queue [{}].", queueName);
-    }
-}
+2025-11-04 20:07:40 PM [main] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducerTest - Sending 'success' message to DRY_RUN ... 
+2025-11-04 20:07:40 PM [main] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducer - Sending message to queue [DEVTRUNK_CRM_GATEWAY_DRY_RUN]: ++++++++++++++ 
+2025-11-04 20:07:40 PM [sdk-async-response-3-0] trace_id:  span_id:  ERROR io.awspring.cloud.sqs.operations.AbstractMessagingTemplate - Error sending message 22e45a1f-8238-d403-857e-203ea10e7244 to endpoint DEVTRUNK_CRM_GATEWAY_DRY_RUN io.awspring.cloud.sqs.operations.MessagingOperationFailedException: Message send operation failed for message 22e45a1f-8238-d403-857e-203ea10e7244 to endpoint DEVTRUNK_CRM_GATEWAY_DRY_RUN
+	at io.awspring.cloud.sqs.operations.AbstractMessagingTemplate.lambda$sendAsync$11(AbstractMessagingTemplate.java:309) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+	at java.base/java.util.concurrent.CompletableFuture$UniComposeExceptionally.tryFire(CompletableFuture.java:1040) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
+	at software.amazon.awssdk.utils.CompletableFutureUtils.lambda$forwardExceptionTo$0(CompletableFutureUtils.java:78) ~[utils-2.31.54.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncApiCallMetricCollectionStage.lambda$execute$0(AsyncApiCallMetricCollectionStage.java:56) ~[sdk-core-2.31.54.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncApiCallTimeoutTrackingStage.lambda$execute$2(AsyncApiCallTimeoutTrackingStage.java:67) ~[sdk-core-2.31.54.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
+	at software.amazon.awssdk.utils.CompletableFutureUtils.lambda$forwardExceptionTo$0(CompletableFutureUtils.java:78) ~[utils-2.31.54.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncRetryableStage$RetryingExecutor.maybeAttemptExecute(AsyncRetryableStage.java:139) ~[sdk-core-2.31.54.jar:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncRetryableStage$RetryingExecutor.maybeRetryExecute(AsyncRetryableStage.java:157) ~[sdk-core-2.31.54.jar:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncRetryableStage$RetryingExecutor.lambda$attemptExecute$1(AsyncRetryableStage.java:117) ~[sdk-core-2.31.54.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
+	at software.amazon.awssdk.utils.CompletableFutureUtils.lambda$forwardExceptionTo$0(CompletableFutureUtils.java:78) ~[utils-2.31.54.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.MakeAsyncHttpRequestStage.lambda$execute$0(MakeAsyncHttpRequestStage.java:108) ~[sdk-core-2.31.54.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniWhenComplete(CompletableFuture.java:863) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:841) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2194) ~[?:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.MakeAsyncHttpRequestStage.completeResponseFuture(MakeAsyncHttpRequestStage.java:255) ~[sdk-core-2.31.54.jar:?]
+	at software.amazon.awssdk.core.internal.http.pipeline.stages.MakeAsyncHttpRequestStage.lambda$executeHttpRequest$3(MakeAsyncHttpRequestStage.java:167) ~[sdk-core-2.31.54.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture.uniHandle(CompletableFuture.java:934) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniHandle.tryFire(CompletableFuture.java:911) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$Completion.run(CompletableFuture.java:482) ~[?:?]
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144) ~[?:?]
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642) ~[?:?]
+	at java.base/java.lang.Thread.run(Thread.java:1583) [?:?]
+Caused by: java.util.concurrent.CompletionException: io.awspring.cloud.sqs.QueueAttributesResolvingException: Error resolving attributes for queue DEVTRUNK_CRM_GATEWAY_DRY_RUN with strategy CREATE and queueAttributesNames []
+	at java.base/java.util.concurrent.CompletableFuture.encodeRelay(CompletableFuture.java:368) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture.completeRelay(CompletableFuture.java:377) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniCompose.tryFire(CompletableFuture.java:1152) ~[?:?]
+	... 47 more
+Caused by: io.awspring.cloud.sqs.QueueAttributesResolvingException: Error resolving attributes for queue DEVTRUNK_CRM_GATEWAY_DRY_RUN with strategy CREATE and queueAttributesNames []
+	at io.awspring.cloud.sqs.QueueAttributesResolver.wrapException(QueueAttributesResolver.java:98) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+	at java.base/java.util.concurrent.CompletableFuture.uniExceptionally(CompletableFuture.java:990) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniExceptionally.tryFire(CompletableFuture.java:974) ~[?:?]
+	... 47 more
