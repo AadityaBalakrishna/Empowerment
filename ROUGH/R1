@@ -1,68 +1,102 @@
 package com.empower.epw.crm.gateway.sqs;
 
-import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import io.awspring.cloud.sqs.operations.SqsTemplate;
+import lombok.CustomLog;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value; // <-- Import @Value
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Service;
 
 /**
- * This test validates the application's REAL producer service
- * by connecting to the REAL AWS environment.
- *
- * It uses the 'e2e' profile and injects the queue names
- * from the Spring environment (Config Store).
+ * A "Producer" service for sending messages to SQS. This component is only created if
+ * 'crm.gateway.producer.enabled=true'.
  */
-@SpringBootTest
-@ActiveProfiles("e2e")
-class AwsLiveIntegrationProducerTest {
+@CustomLog
+@Service
+@ConditionalOnProperty(name = "crm.gateway.producer.enabled", havingValue = "true")
+public class CrmGatewayMessageProducer
+{
 
-    private static final Logger log = LoggerFactory.getLogger(AwsLiveIntegrationProducerTest.class);
+	private final SqsTemplate sqsTemplate;
 
-    @Autowired
-    private CrmMessageProducerService producerService;
+	@Autowired
+	public CrmGatewayMessageProducer(SqsTemplate sqsTemplate)
+	{
+		this.sqsTemplate = sqsTemplate;
+	}
 
-    // --- THE CHANGE ---
-    // Inject the queue names from the config store, just like the app
-    @Value("${crm.gateway.sqs.queue.dryrun}")
-    private String dryRunQueue;
-
-    @Value("${crm.gateway.sqs.queue.intermediate}")
-    private String intermediateQueue;
-
-    @Value("${crm.gateway.sqs.queue.normal}")
-    private String normalQueue;
-
-    @Value("${crm.gateway.sqs.queue.top}")
-    private String topQueue;
-
-    @Test
-    void sendMessagesToLiveAwsQueues() {
-        String successPayload = "{\"event\":\"LIVE_CONFIG_STORE_TEST\"}";
-        String failurePayload = "FAIL_MESSAGE";
-
-        log.info("--- Sending messages to REAL AWS SQS queues using injected config ---");
-
-        // 1. Send success messages (using the injected queue names)
-        log.info("Sending 'success' message to DRY_RUN...");
-        producerService.sendMessage(dryRunQueue, successPayload);
-
-        log.info("Sending 'success' message to INTERMEDIATE...");
-        producerService.sendMessage(intermediateQueue, successPayload);
-        
-        log.info("Sending 'success' message to NORMAL...");
-        producerService.sendMessage(normalQueue, successPayload);
-
-        log.info("Sending 'success' message to TOP...");
-        producerService.sendMessage(topQueue, successPayload);
-
-        // 2. Send failure message
-        log.info("Sending 'failure' (FAIL_MESSAGE) message to DRY_RUN...");
-        producerService.sendMessage(dryRunQueue, failurePayload);
-
-        log.info("--- All messages sent to AWS. ---");
-        log.info("--- GO CHECK YOUR 'MR CONTAINER' LOGS NOW! ---");
-    }
+	/**
+	 * Sends a message to a specific queue.
+	 * 
+	 * @param queueName
+	 *            The name of the queue (e.g., "DEVTRUNK_CRM_GATEWAY_DRY_RUN")
+	 * @param payload
+	 *            The string message payload
+	 */
+	public void sendMessage(String queueName, String payload)
+	{
+		log.info("Sending message to queue [{}]: {}", queueName, payload);
+		sqsTemplate.send(queueName, payload);
+		log.info("Message sent successfully to queue [{}].", queueName);
+	}
 }
+
+package com.empower.epw.crm.gateway.sqs;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
+
+import lombok.CustomLog;
+
+@CustomLog
+@SpringBootTest
+@ActiveProfiles("test")
+@TestPropertySource(properties =
+{
+		"crm.gateway.listener.enabled=false", "crm.gateway.producer.enabled=true"
+})
+public class CrmGatewayMessageProducerTest
+{
+
+	@Autowired
+	private CrmGatewayMessageProducer producer;
+
+	@Value("${crm.gateway.sqs.queue.dryrun}")
+	private String dryRunQueue;
+
+	@Value("${crm.gateway.sqs.queue.intermediate}")
+	private String intermediateQueue;
+
+	@Value("${crm.gateway.sqs.queue.normal}")
+	private String normalQueue;
+
+	@Value("${crm.gateway.sqs.queue.top}")
+	private String topQueue;
+
+	@Test
+	void sendMessagesToLiveAwsQueues()
+	{
+		String successPayload = "{\"event\":\"LIVE_CONFIG_STORE_TEST\"}";
+
+		log.info("Sending 'success' message to DRY_RUN...");
+		producer.sendMessage(dryRunQueue, successPayload);
+
+		log.info("Sending 'success' message to INTERMEDIATE...");
+		producer.sendMessage(intermediateQueue, successPayload);
+
+		log.info("Sending 'success' message to NORMAL...");
+		producer.sendMessage(normalQueue, successPayload);
+
+		log.info("Sending 'success' message to TOP...");
+		producer.sendMessage(topQueue, successPayload);
+	}
+}
+
+
+Error:
+21:52:43 Error resolving attributes for queue DEVTRUNK_CRM_GATEWAY_DRY_RUN with strategy CREATE and queueAttributesNames []21:52:43   This might be due to connectivity issues or incorrect configuration. Please verify your AWS credentials, network settings, and queue configuration.21:52:43 Caused by: software.amazon.awssdk.services.sqs.model.SqsException: User: arn:aws:sts::794441398587:assumed-role/DEVOPS-DOEKS-SYSOPMASTER-EKS-SERVER-ROLES-Jks-Agent/aws-sdk-java-1762273362575 is not authorized to perform: sqs:createqueue on resource: arn:aws:sqs:us-west-2:794441398587:DEVTRUNK_CRM_GATEWAY_DRY_RUN because no identity-based policy allows the sqs:createqueue action (Service: Sqs, Status Code: 403, Request ID: f14c54e7-63df-59e5-881f-3563494c14d7) (SDK Attempt Count: 1)
+
+why is it trying to create the Q? it should just send messages
