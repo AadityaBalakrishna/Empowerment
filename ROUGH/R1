@@ -1,46 +1,8 @@
-just before the test runs in jenkins:
-
-i see that the role with send message permission is taken up:
-[Pipeline] withAWS
-21:57:04  Requesting assume role
-21:57:04  Assuming role ARN is arn:aws:iam::179355710817:role/PCAP-PCAPEKS-DEVTRUNK-EKS-SERVER-ROLES-CrmGatewayTestAssumed role arn:aws:sts::179355710817:assumed-role/PCAP-PCAPEKS-DEVTRUNK-EKS-SERVER-ROLES-CrmGatewayTest/Jenkins-server-build-aexp-epw-crm-gateway-MR-11-5 with id AROASTQTO6VQZJLKWSZNI:Jenkins-server-build-aexp-epw-crm-gateway-MR-11-5 
-
-but after one localstack test container runs and passes, these are the logs for the producer test: 
-21:59:48  [INFO] Running com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducerTest
-21:59:48  2025-11-05 08:29:48 AM [main] trace_id:  span_id:  INFO  org.springframework.test.context.support.AnnotationConfigContextLoaderUtils - Could not detect default configuration classes for test class [com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducerTest]: CrmGatewayMessageProducerTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration. 
-21:59:48  2025-11-05 08:29:48 AM [main] trace_id:  span_id:  INFO  org.springframework.boot.test.context.SpringBootTestContextBootstrapper - Found @SpringBootConfiguration com.empower.epw.crm.gateway.CrmGatewayApplication for test class com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducerTest 
-
-21:59:48   :: Spring Boot ::                (v3.5.6)
-21:59:48  
-21:59:48  2025-11-05 08:29:48 AM [main] trace_id:  span_id:  INFO  org.springframework.cloud.config.client.ConfigServicePropertySourceLocator - Fetching config from server at : https://pcsvc.dt.pcapqa.app/cfg-store/ 
-21:59:48  2025-11-05 08:29:48 AM [main] trace_id:  span_id:  INFO  org.springframework.cloud.config.client.ConfigServicePropertySourceLocator - Located environment: name=crm-gateway, profiles=[devshared,devtrunk], label=pcapeks, version=null, state=null 
-21:59:48  2025-11-05 08:29:48 AM [main] trace_id:  span_id:  INFO  org.springframework.cloud.bootstrap.config.PropertySourceBootstrapConfiguration - Located property source: [BootstrapPropertySource {name='bootstrapProperties-configClient'}, BootstrapPropertySource {name='bootstrapProperties-file:/cfg-store/pcap/pcapeks/devtrunk/crm-gateway/application.properties'}, BootstrapPropertySource {name='bootstrapProperties-file:/cfg-store/pcap/pcapeks/devtrunk/application.properties'}, BootstrapPropertySource {name='bootstrapProperties-file:/cfg-store/pcap/pcapeks/devshared/application.properties'}] 
-21:59:48  2025-11-05 08:29:48 AM [main] trace_id:  span_id:  INFO  com.empower.epw.starter.config.ssm.EpwAwsParamStorePropertySourceLocator - identity.serverArray name is:crm-gateway 
-21:59:48  2025-11-05 08:29:48 AM [main] trace_id:  span_id:  INFO  com.empower.epw.starter.config.ssm.EpwAwsParamStorePropertySourceLocator - identity.stage name is:devtrunk 
-21:59:48  2025-11-05 08:29:48 AM [main] trace_id:  span_id:  INFO  com.empower.epw.starter.config.ssm.EpwAwsParamStorePropertySourceLocator - identity.parentStage name is:null 
-21:59:48  2025-11-05 08:29:48 AM [main] trace_id:  span_id:  INFO  com.empower.epw.starter.config.ssm.EpwAwsParamStorePropertySourceLocator - Loading property from AWS Parameter Store with name: /pcap/pcapeks/devtrunk/crm-gateway/ 
-21:59:48  2025-11-05 08:29:48 AM [main] trace_id:  span_id:  INFO  com.empower.epw.starter.config.ssm.EpwAwsParamStorePropertySourceLocator - Loading property from AWS Parameter Store with name: /pcap/pcapeks/devtrunk/ 
-21:59:48  2025-11-05 08:29:48 AM [main] trace_id:  span_id:  INFO  com.empower.epw.starter.config.ssm.EpwAwsParamStorePropertySourceLocator - Loading property from AWS Parameter Store with name: /pcap/pcapeks/shared/ 
-21:59:49  2025-11-05 08:29:49 AM [main] trace_id:  span_id:  INFO  com.empower.epw.starter.config.ssm.EpwAwsParamStorePropertySourceLocator - Properties loaded from SSM:...
-
-21:59:49  2025-11-05 08:29:49 AM [main] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducerTest - The following 1 profile is active: "test" 
-21:59:49  2025-11-05 08:29:49 AM [main] trace_id:  span_id:  INFO  org.springframework.cloud.context.scope.GenericScope - BeanFactory id=e72d4cef-b20c-3019-a026-0b9d9653c2ae 
-21:59:49  2025-11-05 08:29:49 AM [main] trace_id:  span_id:  INFO  org.springframework.validation.beanvalidation.OptionalValidatorFactoryBean - Failed to set up a Bean Validation provider: jakarta.validation.NoProviderFoundException: Unable to create a Configuration, because no Jakarta Bean Validation provider could be found. Add a provider like Hibernate Validator (RI) to your classpath. 
-21:59:49  2025-11-05 08:29:49 AM [main] trace_id:  span_id:  INFO  com.empower.epw.util.MaintenanceWindowResolver - Initializing MaintenanceWindowResolver with CronExpression: , durationInHrs: 0, maintenanceCommands: [] 
-21:59:49  2025-11-05 08:29:49 AM [main] trace_id:  span_id:  INFO  org.springframework.boot.actuate.endpoint.web.EndpointLinksResolver - Exposing 2 endpoints beneath base path '/actuator' 
-21:59:49  2025-11-05 08:29:49 AM [main] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducerTest - Started CrmGatewayMessageProducerTest in 1.589 seconds (process running for 102.567) 
-21:59:49  2025-11-05 08:29:49 AM [main] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducerTest - Sending 'success' message to DRY_RUN... 
-21:59:50  2025-11-05 08:29:49 AM [sdk-async-response-11-0] trace_id:  span_id:  ERROR io.awspring.cloud.sqs.operations.AbstractMessagingTemplate - Error sending message 7c012f36-9d3e-4ecd-1881-86419c3d7be0 to endpoint https://sqs.us-west-2.amazonaws.com/179355710817/DEVTRUNK_CRM_GATEWAY_DRY_RUN io.awspring.cloud.sqs.operations.MessagingOperationFailedException: Message send operation failed for message 7c012f36-9d3e-4ecd-1881-86419c3d7be0 to endpoint https://sqs.us-west-2.amazonaws.com/179355710817/DEVTRUNK_CRM_GATEWAY_DRY_RUN
-
-21:59:50  Caused by: java.util.concurrent.CompletionException: software.amazon.awssdk.services.sqs.model.SqsException: User: arn:aws:sts::794441398587:assumed-role/DEVOPS-DOEKS-SYSOPMASTER-EKS-SERVER-ROLES-Jks-Agent/aws-sdk-java-1762360189536 is not authorized to perform: sqs:sendmessage on resource: arn:aws:sqs:us-west-2:179355710817:DEVTRUNK_CRM_GATEWAY_DRY_RUN because no resource-based policy allows the sqs:sendmessage action (Service: Sqs, Status Code: 403, Request ID: 6a4de4e0-0bdf-5ff4-9e5e-856576628c86) (SDK Attempt Count: 1)
-
-21:59:50  Caused by: software.amazon.awssdk.services.sqs.model.SqsException: User: arn:aws:sts::794441398587:assumed-role/DEVOPS-DOEKS-SYSOPMASTER-EKS-SERVER-ROLES-Jks-Agent/aws-sdk-java-1762360189536 is not authorized to perform: sqs:sendmessage on resource: arn:aws:sqs:us-west-2:179355710817:DEVTRUNK_CRM_GATEWAY_DRY_RUN because no resource-based policy allows the sqs:sendmessage action (Service: Sqs, Status Code: 403, Request ID: 6a4de4e0-0bdf-5ff4-9e5e-856576628c86) (SDK Attempt Count: 1)
-
-21:59:50  [ERROR] Tests run: 1, Failures: 0, Errors: 1, Skipped: 0, Time elapsed: 1.937 s <<< FAILURE! - in com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducerTest
-21:59:50  [ERROR] com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducerTest.sendMessagesToLiveAwsQueues  Time elapsed: 0.328 s  <<< ERROR!
-21:59:50  io.awspring.cloud.sqs.operations.MessagingOperationFailedException: Message send operation failed for message 7c012f36-9d3e-4ecd-1881-86419c3d7be0 to endpoint https://sqs.us-west-2.amazonaws.com/179355710817/DEVTRUNK_CRM_GATEWAY_DRY_RUN
-21:59:50  Caused by: java.util.concurrent.CompletionException: software.amazon.awssdk.services.sqs.model.SqsException: User: arn:aws:sts::794441398587:assumed-role/DEVOPS-DOEKS-SYSOPMASTER-EKS-SERVER-ROLES-Jks-Agent/aws-sdk-java-1762360189536 is not authorized to perform: sqs:sendmessage on resource: arn:aws:sqs:us-west-2:179355710817:DEVTRUNK_CRM_GATEWAY_DRY_RUN because no resource-based policy allows the sqs:sendmessage action (Service: Sqs, Status Code: 403, Request ID: 6a4de4e0-0bdf-5ff4-9e5e-856576628c86) (SDK Attempt Count: 1)
-21:59:50  Caused by: software.amazon.awssdk.services.sqs.model.SqsException: User: arn:aws:sts::794441398587:assumed-role/DEVOPS-DOEKS-SYSOPMASTER-EKS-SERVER-ROLES-Jks-Agent/aws-sdk-java-1762360189536 is not authorized to perform: sqs:sendmessage on resource: arn:aws:sqs:us-west-2:179355710817:DEVTRUNK_CRM_GATEWAY_DRY_RUN because no resource-based policy allows the sqs:sendmessage action (Service: Sqs, Status Code: 403, Request ID: 6a4de4e0-0bdf-5ff4-9e5e-856576628c86) (SDK Attempt Count: 1)
-
-
-what could be the issue?
+23:32:21  [ERROR] Tests run: 1, Failures: 0, Errors: 1, Skipped: 0, Time elapsed: 1.897 s <<< FAILURE! - in com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducerTest
+23:32:21  [ERROR] com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducerTest.sendMessagesToLiveAwsQueues  Time elapsed: 0.169 s  <<< ERROR!
+23:32:21  io.awspring.cloud.sqs.operations.MessagingOperationFailedException: Message send operation failed for message 7a39c89e-445b-3e3d-7739-544eb18592d0 to endpoint https://sqs.us-west-2.amazonaws.com/179355710817/DEVTRUNK_CRM_GATEWAY_DRY_RUN
+23:32:21  	at com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducerTest.sendMessagesToLiveAwsQueues(CrmGatewayMessageProducerTest.java:37)
+23:32:21  Caused by: java.util.concurrent.CompletionException: software.amazon.awssdk.services.sts.model.StsException: Not authorized to perform sts:AssumeRoleWithWebIdentity (Service: Sts, Status Code: 403, Request ID: d052f015-68c8-499a-986a-9a3c28af4fa1) (SDK Attempt Count: 1)
+23:32:21  	at com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducerTest.sendMessagesToLiveAwsQueues(CrmGatewayMessageProducerTest.java:37)
+23:32:21  Caused by: software.amazon.awssdk.services.sts.model.StsException: Not authorized to perform sts:AssumeRoleWithWebIdentity (Service: Sts, Status Code: 403, Request ID: d052f015-68c8-499a-986a-9a3c28af4fa1) (SDK Attempt Count: 1)
+23:32:21  	at com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducerTest.sendMessagesToLiveAwsQueues(CrmGatewayMessageProducerTest.java:37)
