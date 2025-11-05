@@ -1,5 +1,26 @@
-15:35:38  [ERROR] Tests run: 1, Failures: 0, Errors: 1, Skipped: 0, Time elapsed: 1.934 s <<< FAILURE! - in com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducerTest
-15:35:38  [ERROR] com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducerTest.sendMessagesToLiveAwsQueues  Time elapsed: 0.392 s  <<< ERROR!
-15:35:38  io.awspring.cloud.sqs.operations.MessagingOperationFailedException: Message send operation failed for message bb30d0ff-67e0-5a54-a9e0-d5db07f32d80 to endpoint https://sqs.us-west-2.amazonaws.com/179355710817/DEVTRUNK_CRM_GATEWAY_DRY_RUN
-15:35:38  Caused by: java.util.concurrent.CompletionException: software.amazon.awssdk.services.sqs.model.SqsException: User: arn:aws:sts::794441398587:assumed-role/DEVOPS-DOEKS-SYSOPMASTER-EKS-SERVER-ROLES-Jks-Agent/aws-sdk-java-1762337137364 is not authorized to perform: sqs:sendmessage on resource: arn:aws:sqs:us-west-2:179355710817:DEVTRUNK_CRM_GATEWAY_DRY_RUN because no resource-based policy allows the sqs:sendmessage action (Service: Sqs, Status Code: 403, Request ID: 75b70999-76b2-5e28-b4da-681c5503ffec) (SDK Attempt Count: 1)
-15:35:38  Caused by: software.amazon.awssdk.services.sqs.model.SqsException: User: arn:aws:sts::794441398587:assumed-role/DEVOPS-DOEKS-SYSOPMASTER-EKS-SERVER-ROLES-Jks-Agent/aws-sdk-java-1762337137364 is not authorized to perform: sqs:sendmessage on resource: arn:aws:sqs:us-west-2:179355710817:DEVTRUNK_CRM_GATEWAY_DRY_RUN because no resource-based policy allows the sqs:sendmessage action (Service: Sqs, Status Code: 403, Request ID: 75b70999-76b2-5e28-b4da-681c5503ffec) (SDK Attempt Count: 1)
+14:41:18.897 INFO Switched Terraform to version "1.11.2"  
+$ terraform fmt -check -diff -recursive
+There are some problems with the CLI configuration:
+╷
+│ Error: The specified plugin cache dir /builds/devops/infrastructure/terraform/devops-eks-iam/.terraform/plugins cannot be opened: stat /builds/devops/infrastructure/terraform/devops-eks-iam/.terraform/plugins: no such file or directory
+│
+╵
+As a result of the above problems, Terraform may not behave as intended.
+services/AEXP/Crm-Gateway-Role.tf
+--- old/services/AEXP/Crm-Gateway-Role.tf
++++ new/services/AEXP/Crm-Gateway-Role.tf
+@@ -334,7 +334,7 @@
+     "CrmGatewayPolicy",
+     "PcapLegacyPolicy-N3M4JFYP6DYN",
+     "PcapCommonPolicy-T4OM8864ZTMH",
+-    ]
++  ]
+   # GENERIC
+   acct_id    = var.acct_id
+   stage      = var.stage
+Cleaning up project directory and file based variables
+00:01
+ERROR: Job failed: command terminated with exit code 1
+
+
+what could this error be?
