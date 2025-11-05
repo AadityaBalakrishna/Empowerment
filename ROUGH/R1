@@ -1,26 +1,114 @@
-14:41:18.897 INFO Switched Terraform to version "1.11.2"  
-$ terraform fmt -check -diff -recursive
-There are some problems with the CLI configuration:
-╷
-│ Error: The specified plugin cache dir /builds/devops/infrastructure/terraform/devops-eks-iam/.terraform/plugins cannot be opened: stat /builds/devops/infrastructure/terraform/devops-eks-iam/.terraform/plugins: no such file or directory
-│
-╵
-As a result of the above problems, Terraform may not behave as intended.
-services/AEXP/Crm-Gateway-Role.tf
---- old/services/AEXP/Crm-Gateway-Role.tf
-+++ new/services/AEXP/Crm-Gateway-Role.tf
-@@ -334,7 +334,7 @@
-     "CrmGatewayPolicy",
-     "PcapLegacyPolicy-N3M4JFYP6DYN",
-     "PcapCommonPolicy-T4OM8864ZTMH",
--    ]
-+  ]
-   # GENERIC
-   acct_id    = var.acct_id
-   stage      = var.stage
-Cleaning up project directory and file based variables
-00:01
-ERROR: Job failed: command terminated with exit code 1
+package com.empower.epw.crm.gateway.sqs;
+
+import io.awspring.cloud.sqs.annotation.SqsListener;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.messaging.handler.annotation.Header;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.retry.annotation.Retryable;
+import org.springframework.stereotype.Component;
+import lombok.CustomLog;
+
+@CustomLog
+@Component
+@ConditionalOnProperty(name = "crm.gateway.listener.enabled", havingValue = "true", matchIfMissing = false)
+public class CrmGatewayMessageListener
+{
+	private final CrmProcessingService processingService;
+
+	@Autowired
+	public CrmGatewayMessageListener(CrmProcessingService processingService)
+	{
+		this.processingService = processingService;
+	}
+
+	@SqsListener("${crm.gateway.sqs.queue.dryrun:}")
+	@Retryable(value =
+	{
+			Exception.class
+	}, maxAttemptsExpression = "#{${crm.gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm.gateway.sqs.retry.backoff-delay:1000}}"))
+	public void handleDryRunMessage(String message,
+			@Header(name = "id", required = false) String messageId)
+	{
+		processingService.processMessage("DRY_RUN", message, messageId);
+	}
+
+	@SqsListener("${crm.gateway.sqs.queue.intermediate:}")
+	@Retryable(value =
+	{
+			Exception.class
+	}, maxAttemptsExpression = "#{${crm.gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm.gateway.sqs.retry.backoff-delay:1000}}"))
+	public void handleIntermediateMessage(String message,
+			@Header(name = "id", required = false) String messageId)
+	{
+		processingService.processMessage("INTERMEDIATE", message, messageId);
+	}
+
+	@SqsListener("${crm.gateway.sqs.queue.normal:}")
+	@Retryable(value =
+	{
+			Exception.class
+	}, maxAttemptsExpression = "#{${crm.gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm.gateway.sqs.retry.backoff-delay:1000}}"))
+	public void handleNormalMessage(String message,
+			@Header(name = "id", required = false) String messageId)
+	{
+		processingService.processMessage("NORMAL", message, messageId);
+	}
+
+	@SqsListener("${crm.gateway.sqs.queue.top:}")
+	@Retryable(value =
+	{
+			Exception.class
+	}, maxAttemptsExpression = "#{${crm.gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm.gateway.sqs.retry.backoff-delay:1000}}"))
+	public void handleTopMessage(String message,
+			@Header(name = "id", required = false) String messageId)
+	{
+		processingService.processMessage("TOP", message, messageId);
+	}
+
+	@Recover
+	public void recoverFailedMessages(Exception e, String message, String messageId)
+	{
+		processingService.recoverFailedMessages(e, message, messageId);
+	}
+}
 
 
-what could this error be?
+package com.empower.epw.crm.gateway.sqs;
+
+import org.springframework.stereotype.Service;
+
+import lombok.CustomLog;
+
+@CustomLog
+@Service
+public class CrmProcessingService
+{
+
+	public void processMessage(String type, String message, String messageId)
+	{
+		log.info("Received from [{}] queue type, message [ID: {}]: {}", type,
+				messageId != null ? messageId : "NA", message);
+
+		try
+		{
+			// TODO: handle domain logic here
+			log.info("Message from queue type [{}] processed successfully.", type);
+		}
+		catch (Exception ex)
+		{
+			log.error("Error processing [{}] message: {}", type, ex.getMessage(), ex);
+			throw ex; // triggers @Retryable
+		}
+	}
+
+	public void recoverFailedMessages(Exception e, String message, String messageId)
+	{
+		log.info("All retries failed for message [ID: {}]: {}",
+				messageId != null ? messageId : "NA", message, e.getMessage());
+		// TODO: save failure
+	}
+}
+
