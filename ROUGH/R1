@@ -1,96 +1,51 @@
-roles file :
+package com.empower.epw.crm.gateway.sqs;
 
-module "crmgateway_role_devtrunk" {
-  source = "../../modules"
-  # TARGET STAGE
-  target_stage = "DEVTRUNK"
-  # ROLE
-  role_name        = "CrmGateway"
-  role_description = "IAM Role for Crm Gateway Service in DEVTRUNK"
-  trust_relationship = jsonencode({
-    "Version" : "2012-10-17",
-    "Statement" : [
-      {
-        "Effect" : "Allow",
-        "Principal" : {
-          "Federated" : "arn:aws:iam::179355710817:oidc-provider/oidc.eks.us-west-2.amazonaws.com/id/D1908C0CA819BC0664EDFBA541931462"
-        },
-        "Action" : "sts:AssumeRoleWithWebIdentity",
-        "Condition" : {
-          "StringLike" : {
-            "oidc.eks.us-west-2.amazonaws.com/id/D1908C0CA819BC0664EDFBA541931462:sub" : "system:serviceaccount:crm-gateway-app:crm-gateway-service*"
-          }
-        }
-      },
-      {
-        "Effect" : "Allow",
-        "Principal" : {
-          "Federated" : "arn:aws:iam::179355710817:oidc-provider/none"
-        },
-        "Action" : "sts:AssumeRoleWithWebIdentity",
-        "Condition" : {
-          "StringLike" : {
-            "none:sub" : "system:serviceaccount:crm-gateway-app:crm-gateway-service*"
-          }
-        }
-      }
-    ]
-  })
-  attached_policies = [
-    "PcapCommonPolicy-8AUX3WAH1JF",
-    "CrmGatewayPolicy",
-    "PcapLegacyPolicy-5J1FAU6WL50N",
-  ]
-  # GENERIC
-  acct_id    = var.acct_id
-  stage      = var.stage
-  silo       = var.silo
-  service    = var.service
-  type       = var.type
-  depends_on = [module.crmgateway_policy_devtrunk]
+import io.awspring.cloud.sqs.operations.SqsTemplate;
+import lombok.CustomLog;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Service;
+
+/**
+ * A "Producer" service for sending messages to SQS. This component is only created if
+ * 'crm.gateway.producer.enabled=true'.
+ */
+@CustomLog
+@Service
+@ConditionalOnProperty(name = "crm.gateway.producer.enabled", havingValue = "true")
+public class CrmGatewayMessageProducer
+{
+
+	private final SqsTemplate sqsTemplate;
+
+	@Autowired
+	public CrmGatewayMessageProducer(SqsTemplate sqsTemplate)
+	{
+		this.sqsTemplate = sqsTemplate;
+	}
+
+	/**
+	 * Sends a message to a specific queue.
+	 * 
+	 * @param queueName
+	 *            The name of the queue
+	 * @param payload
+	 *            The string message payload
+	 */
+	public void sendMessage(String queueName, String payload)
+	{
+		log.info("Sending message to queue [{}]: {}", queueName, payload);
+		sqsTemplate.send(queueName, payload);
+		log.info("Message sent successfully to queue [{}].", queueName);
+	}
 }
 
 
-policy:
-module "crmgateway_policy_devtrunk" {
-  source = "../../modules"
-  # TARGET STAGE
-  target_stage = "DEVTRUNK"
-  # POLICY
-  policy_name        = "CrmGatewayPolicy"
-  policy_description = "Policy for CrmGateway to allow putting metrics to CloudWatch"
-  policy_document = jsonencode({
-    "Version" : "2012-10-17",
-    "Statement" : [
-      {
-        "Action" : "cloudwatch:PutMetricData",
-        "Resource" : "*",
-        "Effect" : "Allow"
-      },
-      {
-        "Action" : [
-          "sqs:ChangeMessageVisibility",
-          "sqs:GetQueueUrl",
-          "sqs:GetQueueAttributes",
-          "sqs:ListQueues",
-          "sqs:SendMessage",
-          "sqs:DeleteMessage",
-          "sqs:ReceiveMessage"
-        ],
-        "Resource" : "arn:aws:sqs:us-west-2:179355710817:DEVTRUNK_CRM_GATEWAY_*",
-        "Effect" : "Allow"
-      }
-    ]
-  })
-  # GENERIC
-  acct_id = var.acct_id
-  stage   = var.stage
-  silo    = var.silo
-  service = var.service
-  type    = var.type
+make this producer work for queue names, 
 
-}
-
-error:
-Caused by: software.amazon.awssdk.services.sqs.model.SqsException: User: arn:aws:sts::179355710817:assumed-role/PCAP-PCAPEKS-DEVTRUNK-EKS-SERVER-ROLES-CrmGateway/aws-sdk-java-1762431010653 is not authorized to perform: sqs:sendmessage on resource: arn:aws:sqs:us-west-2:179355710817:DEVTRUNK_CRM_GATEWAY_DRY_RUN because no identity-based policy allows the sqs:sendmessage action (Service: Sqs, Status Code: 403, Request ID: 57d02e08-f182-5599-9c41-4f8e6308050d) (SDK Attempt Count: 1)
+the queue names are declared in the config store for each env like this, this ex is from devtrunk env:
+crm.gateway.sqs.queue.dryrun=DEVTRUNK_CRM_GATEWAY_DRY_RUN
+crm.gateway.sqs.queue.intermediate=DEVTRUNK_CRM_GATEWAY_INTERMEDIATE
+crm.gateway.sqs.queue.normal=DEVTRUNK_CRM_GATEWAY_NORMAL
+crm.gateway.sqs.queue.top=DEVTRUNK_CRM_GATEWAY_TOP
 
