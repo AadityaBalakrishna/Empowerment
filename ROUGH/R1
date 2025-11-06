@@ -3,49 +3,95 @@ package com.empower.epw.crm.gateway.sqs;
 import io.awspring.cloud.sqs.operations.SqsTemplate;
 import lombok.CustomLog;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 /**
  * A "Producer" service for sending messages to SQS. This component is only created if
  * 'crm.gateway.producer.enabled=true'.
+ *
+ * This producer abstracts away the *actual* AWS queue names, which are injected
+ * from configuration.
  */
 @CustomLog
 @Service
 @ConditionalOnProperty(name = "crm.gateway.producer.enabled", havingValue = "true")
-public class CrmGatewayMessageProducer
-{
+public class CrmGatewayMessageProducer {
 
-	private final SqsTemplate sqsTemplate;
+    private final SqsTemplate sqsTemplate;
 
-	@Autowired
-	public CrmGatewayMessageProducer(SqsTemplate sqsTemplate)
-	{
-		this.sqsTemplate = sqsTemplate;
-	}
+    // --- Injected Queue Names ---
+    // These values (e.g., "DEVTRUNK_CRM_GATEWAY_DRY_RUN")
+    // are pulled from your config store.
+    private final String dryRunQueue;
+    private final String intermediateQueue;
+    private final String normalQueue;
+    private final String topQueue;
 
-	/**
-	 * Sends a message to a specific queue.
-	 * 
-	 * @param queueName
-	 *            The name of the queue
-	 * @param payload
-	 *            The string message payload
-	 */
-	public void sendMessage(String queueName, String payload)
-	{
-		log.info("Sending message to queue [{}]: {}", queueName, payload);
-		sqsTemplate.send(queueName, payload);
-		log.info("Message sent successfully to queue [{}].", queueName);
-	}
+    @Autowired
+    public CrmGatewayMessageProducer(
+            SqsTemplate sqsTemplate,
+            @Value("${crm.gateway.sqs.queue.dryrun}") String dryRunQueue,
+            @Value("${crm.gateway.sqs.queue.intermediate}") String intermediateQueue,
+            @Value("${crm.gateway.sqs.queue.normal}") String normalQueue,
+            @Value("${crm.gateway.sqs.queue.top}") String topQueue
+    ) {
+        this.sqsTemplate = sqsTemplate;
+        this.dryRunQueue = dryRunQueue;
+        this.intermediateQueue = intermediateQueue;
+        this.normalQueue = normalQueue;
+        this.topQueue = topQueue;
+    }
+
+    /**
+     * Sends a message to the DryRun queue.
+     * @param payload The string message payload
+     */
+    public void sendToDryRunQueue(String payload) {
+        sendMessageInternal(dryRunQueue, payload);
+    }
+
+    /**
+     * Sends a message to the Intermediate queue.
+     * @param payload The string message payload
+     */
+    public void sendToIntermediateQueue(String payload) {
+        sendMessageInternal(intermediateQueue, payload);
+    }
+
+    /**
+     * Sends a message to the Normal queue.
+     * @param payload The string message payload
+     */
+    public void sendToNormalQueue(String payload) {
+        sendMessageInternal(normalQueue, payload);
+    }
+
+    /**
+     * Sends a message to the Top priority queue.
+     * @param payload The string message payload
+     */
+    public void sendToTopQueue(String payload) {
+        sendMessageInternal(topQueue, payload);
+    }
+
+    /**
+     * Private helper to handle the actual sending logic and logging.
+     *
+     * @param queueName The *actual* AWS queue name (e.g., "DEVTRUNK_CRM_GATEWAY_DRY_RUN")
+     * @param payload   The string message payload
+     */
+    private void sendMessageInternal(String queueName, String payload) {
+        log.info("Sending message to queue [{}]: {}", queueName, payload);
+        try {
+            // SqsTemplate will resolve the queue name to a URL automatically.
+            sqsTemplate.send(queueName, payload);
+            log.info("Message sent successfully to queue [{}].", queueName);
+        } catch (Exception e) {
+            // Add error handling so the application knows if sending failed
+            log.error("Failed to send message to queue [{}]: {}", queueName, e.getMessage(), e);
+            throw new RuntimeException("Failed to send SQS message to " + queueName, e);
+        }
+    }
 }
-
-
-make this producer work for queue names, 
-
-the queue names are declared in the config store for each env like this, this ex is from devtrunk env:
-crm.gateway.sqs.queue.dryrun=DEVTRUNK_CRM_GATEWAY_DRY_RUN
-crm.gateway.sqs.queue.intermediate=DEVTRUNK_CRM_GATEWAY_INTERMEDIATE
-crm.gateway.sqs.queue.normal=DEVTRUNK_CRM_GATEWAY_NORMAL
-crm.gateway.sqs.queue.top=DEVTRUNK_CRM_GATEWAY_TOP
-
