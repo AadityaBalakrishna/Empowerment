@@ -1,8 +1,44 @@
-23:32:21  [ERROR] Tests run: 1, Failures: 0, Errors: 1, Skipped: 0, Time elapsed: 1.897 s <<< FAILURE! - in com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducerTest
-23:32:21  [ERROR] com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducerTest.sendMessagesToLiveAwsQueues  Time elapsed: 0.169 s  <<< ERROR!
-23:32:21  io.awspring.cloud.sqs.operations.MessagingOperationFailedException: Message send operation failed for message 7a39c89e-445b-3e3d-7739-544eb18592d0 to endpoint https://sqs.us-west-2.amazonaws.com/179355710817/DEVTRUNK_CRM_GATEWAY_DRY_RUN
-23:32:21  	at com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducerTest.sendMessagesToLiveAwsQueues(CrmGatewayMessageProducerTest.java:37)
-23:32:21  Caused by: java.util.concurrent.CompletionException: software.amazon.awssdk.services.sts.model.StsException: Not authorized to perform sts:AssumeRoleWithWebIdentity (Service: Sts, Status Code: 403, Request ID: d052f015-68c8-499a-986a-9a3c28af4fa1) (SDK Attempt Count: 1)
-23:32:21  	at com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducerTest.sendMessagesToLiveAwsQueues(CrmGatewayMessageProducerTest.java:37)
-23:32:21  Caused by: software.amazon.awssdk.services.sts.model.StsException: Not authorized to perform sts:AssumeRoleWithWebIdentity (Service: Sts, Status Code: 403, Request ID: d052f015-68c8-499a-986a-9a3c28af4fa1) (SDK Attempt Count: 1)
-23:32:21  	at com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducerTest.sendMessagesToLiveAwsQueues(CrmGatewayMessageProducerTest.java:37)
+package com.empower.epw.crm.gateway.controller;
+
+import io.awspring.cloud.sqs.operations.SqsTemplate;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/sqs-debug")
+// Optional: Use @Profile("!prod") to ensure this never deploys to production
+public class SqsDebugController {
+
+    private final SqsTemplate sqsTemplate;
+
+    // Inject your queue URL from application.properties if you want a default
+    // value="${your.queue.property.name}"
+    private String defaultQueueUrl = "https://sqs.us-west-2.amazonaws.com/179355710817/DEVTRUNK_CRM_GATEWAY_DRY_RUN";
+
+    public SqsDebugController(SqsTemplate sqsTemplate) {
+        this.sqsTemplate = sqsTemplate;
+    }
+
+    @PostMapping("/send")
+    public ResponseEntity<String> sendMessage(
+            @RequestBody String messagePayload,
+            @RequestParam(required = false) String queueUrl) {
+
+        String targetQueue = (queueUrl != null && !queueUrl.isEmpty()) ? queueUrl : defaultQueueUrl;
+
+        try {
+            sqsTemplate.send(to -> to
+                    .queue(targetQueue)
+                    .payload(messagePayload)
+            );
+            return ResponseEntity.ok("Successfully sent message to: " + targetQueue);
+        } catch (Exception e) {
+             return ResponseEntity.internalServerError().body("Failed to send message: " + e.getMessage());
+        }
+    }
+}
