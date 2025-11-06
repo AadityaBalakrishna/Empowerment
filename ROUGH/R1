@@ -1,97 +1,59 @@
-package com.empower.epw.crm.gateway.sqs;
+#!/bin/bash
 
-import io.awspring.cloud.sqs.operations.SqsTemplate;
-import lombok.CustomLog;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Service;
+# A simple script to send a message to the SqsDebugController
+#
+# Usage:
+# ./send-sqs.sh <host_url> <queue_type> <payload>
+#
+# Example:
+# ./send-sqs.sh "https.pcsvc.dt.pcapqa.app/crm-gateway-mr-11" "normal" '{"id": 123, "test": "hello"}'
+#
 
-/**
- * A "Producer" service for sending messages to SQS. This component is only created if
- * 'crm.gateway.producer.enabled=true'.
- *
- * This producer abstracts away the *actual* AWS queue names, which are injected
- * from configuration.
- */
-@CustomLog
-@Service
-@ConditionalOnProperty(name = "crm.gateway.producer.enabled", havingValue = "true")
-public class CrmGatewayMessageProducer {
+# --- Input Validation ---
+if [ "$#" -ne 3 ]; then
+    echo "Usage: $0 <host_url> <queue_type> <payload>"
+    echo "  <host_url>   - The full base URL (e.g., https://pcsvc.dt.pcapqa.app/crm-gateway-mr-11)"
+    echo "  <queue_type> - One of: dryrun, intermediate, normal, top"
+    echo "  <payload>    - The JSON payload as a string (e.g., '{\"id\": 123}')"
+    exit 1
+fi
 
-    private final SqsTemplate sqsTemplate;
+HOST_URL=$1
+QUEUE_TYPE=$2
+PAYLOAD=$3
 
-    // --- Injected Queue Names ---
-    // These values (e.g., "DEVTRUNK_CRM_GATEWAY_DRY_RUN")
-    // are pulled from your config store.
-    private final String dryRunQueue;
-    private final String intermediateQueue;
-    private final String normalQueue;
-    private final String topQueue;
+# --- Determine Endpoint ---
+ENDPOINT=""
+case $QUEUE_TYPE in
+  dryrun)
+    ENDPOINT="/api/debug/send-dryrun"
+    ;;
+  intermediate)
+    ENDPOINT="/api/debug/send-intermediate"
+    ;;
+  normal)
+    ENDPOINT="/api/debug/send-normal"
+    ;;
+  top)
+    ENDPOINT="/api/debug/send-top"
+    ;;
+  *)
+    echo "Error: Invalid queue_type '$QUEUE_TYPE'. Must be one of: dryrun, intermediate, normal, top"
+    exit 1
+    ;;
+esac
 
-    @Autowired
-    public CrmGatewayMessageProducer(
-            SqsTemplate sqsTemplate,
-            @Value("${crm.gateway.sqs.queue.dryrun}") String dryRunQueue,
-            @Value("${crm.gateway.sqs.queue.intermediate}") String intermediateQueue,
-            @Value("${crm.gateway.sqs.queue.normal}") String normalQueue,
-            @Value("${crm.gateway.sqs.queue.top}") String topQueue
-    ) {
-        this.sqsTemplate = sqsTemplate;
-        this.dryRunQueue = dryRunQueue;
-        this.intermediateQueue = intermediateQueue;
-        this.normalQueue = normalQueue;
-        this.topQueue = topQueue;
-    }
+FULL_URL="${HOST_URL}${ENDPOINT}"
 
-    /**
-     * Sends a message to the DryRun queue.
-     * @param payload The string message payload
-     */
-    public void sendToDryRunQueue(String payload) {
-        sendMessageInternal(dryRunQueue, payload);
-    }
+# --- Execute Command ---
+echo "Sending payload to: $FULL_URL"
+echo "Payload: $PAYLOAD"
+echo "---"
 
-    /**
-     * Sends a message to the Intermediate queue.
-     * @param payload The string message payload
-     */
-    public void sendToIntermediateQueue(String payload) {
-        sendMessageInternal(intermediateQueue, payload);
-    }
+curl -X POST -H "Content-Type: text/plain" \
+     -d "$PAYLOAD" \
+     "$FULL_URL"
 
-    /**
-     * Sends a message to the Normal queue.
-     * @param payload The string message payload
-     */
-    public void sendToNormalQueue(String payload) {
-        sendMessageInternal(normalQueue, payload);
-    }
-
-    /**
-     * Sends a message to the Top priority queue.
-     * @param payload The string message payload
-     */
-    public void sendToTopQueue(String payload) {
-        sendMessageInternal(topQueue, payload);
-    }
-
-    /**
-     * Private helper to handle the actual sending logic and logging.
-     *
-     * @param queueName The *actual* AWS queue name (e.g., "DEVTRUNK_CRM_GATEWAY_DRY_RUN")
-     * @param payload   The string message payload
-     */
-    private void sendMessageInternal(String queueName, String payload) {
-        log.info("Sending message to queue [{}]: {}", queueName, payload);
-        try {
-            // SqsTemplate will resolve the queue name to a URL automatically.
-            sqsTemplate.send(queueName, payload);
-            log.info("Message sent successfully to queue [{}].", queueName);
-        } catch (Exception e) {
-            // Add error handling so the application knows if sending failed
-            log.error("Failed to send message to queue [{}]: {}", queueName, e.getMessage(), e);
-            throw new RuntimeException("Failed to send SQS message to " + queueName, e);
-        }
-    }
-}
+echo
+echo "---"
+echo "Done."
