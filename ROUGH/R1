@@ -1,59 +1,60 @@
-#!/bin/bash
+Fail message sent from local, the logs looks like this:
+2025-11-07 02:52:41 AM [http-nio-8080-exec-1] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducer - Sending message to queue [DEVTRUNK_CRM_GATEWAY_DRY_RUN]: FAIL_MESSAGE
+2025-11-07 02:52:41 AM [http-nio-8080-exec-1] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducer - Message sent successfully to queue [DEVTRUNK_CRM_GATEWAY_DRY_RUN].
 
-# A simple script to send a message to the SqsDebugController
-#
-# Usage:
-# ./send-sqs.sh <host_url> <queue_type> <payload>
-#
-# Example:
-# ./send-sqs.sh "https.pcsvc.dt.pcapqa.app/crm-gateway-mr-11" "normal" '{"id": 123, "test": "hello"}'
-#
+if sent from aws console:
+2025-11-07 03:02:08 AM [crmGatewaySqsThread-7] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmProcessingService - Received from [DRY_RUN] queue type, message [ID: 890aa6bc-da11-4023-ac81-86d751c3e8de]: FAIL_MESSAGE
+2025-11-07T11:02:08.510267406Z crmGatewaySqsThread-7 WARN found 2 argument placeholders, but provided 3 for pattern `Error processing [{}] message: {}`
+2025-11-07 03:02:08 AM [crmGatewaySqsThread-7] trace_id:  span_id:  ERROR com.empower.epw.crm.gateway.sqs.CrmProcessingService - Error processing [DRY_RUN] message: Test failure message to trigger retry
+2025-11-07 03:02:09 AM [crmGatewaySqsThread-7] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmProcessingService - Received from [DRY_RUN] queue type, message [ID: 890aa6bc-da11-4023-ac81-86d751c3e8de]: FAIL_MESSAGE
+2025-11-07T11:02:09.511378181Z crmGatewaySqsThread-7 WARN found 2 argument placeholders, but provided 3 for pattern `Error processing [{}] message: {}`
+2025-11-07 03:02:09 AM [crmGatewaySqsThread-7] trace_id:  span_id:  ERROR com.empower.epw.crm.gateway.sqs.CrmProcessingService - Error processing [DRY_RUN] message: Test failure message to trigger retry
+2025-11-07 03:02:10 AM [crmGatewaySqsThread-7] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmProcessingService - Received from [DRY_RUN] queue type, message [ID: 890aa6bc-da11-4023-ac81-86d751c3e8de]: FAIL_MESSAGE
+2025-11-07T11:02:10.512448874Z crmGatewaySqsThread-7 WARN found 2 argument placeholders, but provided 3 for pattern `Error processing [{}] message: {}`
+2025-11-07 03:02:10 AM [crmGatewaySqsThread-7] trace_id:  span_id:  ERROR com.empower.epw.crm.gateway.sqs.CrmProcessingService - Error processing [DRY_RUN] message: Test failure message to trigger retry
+2025-11-07T11:02:10.512896119Z crmGatewaySqsThread-7 WARN found 2 argument placeholders, but provided 3 for pattern `All retries failed for message [ID: {}]: {}`
+2025-11-07 03:02:10 AM [crmGatewaySqsThread-7] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmProcessingService - All retries failed for message [ID: 890aa6bc-da11-4023-ac81-86d751c3e8de]: FAIL_MESSAGE
 
-# --- Input Validation ---
-if [ "$#" -ne 3 ]; then
-    echo "Usage: $0 <host_url> <queue_type> <payload>"
-    echo "  <host_url>   - The full base URL (e.g., https://pcsvc.dt.pcapqa.app/crm-gateway-mr-11)"
-    echo "  <queue_type> - One of: dryrun, intermediate, normal, top"
-    echo "  <payload>    - The JSON payload as a string (e.g., '{\"id\": 123}')"
-    exit 1
-fi
+similarly, for other messages:
+2025-11-07 03:04:21 AM [crmGatewaySqsThread-8] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmProcessingService - Received from [DRY_RUN] queue type, message [ID: 69642f4d-7824-48df-90c8-5618b0388559]: message from aws
+2025-11-07 03:04:21 AM [crmGatewaySqsThread-8] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmProcessingService - Message from queue type [DRY_RUN] processed successfully.
 
-HOST_URL=$1
-QUEUE_TYPE=$2
-PAYLOAD=$3
 
-# --- Determine Endpoint ---
-ENDPOINT=""
-case $QUEUE_TYPE in
-  dryrun)
-    ENDPOINT="/api/debug/send-dryrun"
-    ;;
-  intermediate)
-    ENDPOINT="/api/debug/send-intermediate"
-    ;;
-  normal)
-    ENDPOINT="/api/debug/send-normal"
-    ;;
-  top)
-    ENDPOINT="/api/debug/send-top"
-    ;;
-  *)
-    echo "Error: Invalid queue_type '$QUEUE_TYPE'. Must be one of: dryrun, intermediate, normal, top"
-    exit 1
-    ;;
-esac
+seems like i need to run the curl command 2 times to process it once
+2025-11-07 03:04:47 AM [http-nio-8080-exec-6] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducer - Message sent successfully to queue [DEVTRUNK_CRM_GATEWAY_NORMAL].
+2025-11-07 03:05:46 AM [http-nio-8080-exec-1] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducer - Sending message to queue [DEVTRUNK_CRM_GATEWAY_NORMAL]: {"test_message": "hello from local"}
+2025-11-07 03:05:46 AM [http-nio-8080-exec-1] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducer - Message sent successfully to queue [DEVTRUNK_CRM_GATEWAY_NORMAL].
+2025-11-07 03:05:46 AM [crmGatewaySqsThread-9] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmProcessingService - Received from [NORMAL] queue type, message [ID: a60d8369-497a-42b2-a819-7d834796acd3]: {"test_message": "hello from local"}
+2025-11-07 03:05:46 AM [crmGatewaySqsThread-9] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmProcessingService - Message from queue type [NORMAL] processed successfully.
+2025-11-07 03:05:47 AM [http-nio-8080-exec-2] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducer - Sending message to queue [DEVTRUNK_CRM_GATEWAY_NORMAL]: {"test_message": "hello from local"}
+2025-11-07 03:05:47 AM [http-nio-8080-exec-2] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducer - Message sent successfully to queue [DEVTRUNK_CRM_GATEWAY_NORMAL].
+2025-11-07 03:05:48 AM [http-nio-8080-exec-5] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducer - Sending message to queue [DEVTRUNK_CRM_GATEWAY_NORMAL]: {"test_message": "hello from local"}
+2025-11-07 03:05:48 AM [http-nio-8080-exec-5] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducer - Message sent successfully to queue [DEVTRUNK_CRM_GATEWAY_NORMAL].
+2025-11-07 03:05:48 AM [crmGatewaySqsThread-10] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmProcessingService - Received from [NORMAL] queue type, message [ID: 1a16a721-cc56-4490-b2d4-e6cc242f4c00]: {"test_message": "hello from local"}
+2025-11-07 03:05:48 AM [crmGatewaySqsThread-10] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmProcessingService - Message from queue type [NORMAL] processed successfully.
+2025-11-07 03:05:49 AM [http-nio-8080-exec-6] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducer - Sending message to queue [DEVTRUNK_CRM_GATEWAY_NORMAL]: {"test_message": "hello from local"}
+2025-11-07 03:05:49 AM [http-nio-8080-exec-6] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducer - Message sent successfully to queue [DEVTRUNK_CRM_GATEWAY_NORMAL].
+2025-11-07 03:06:16 AM [http-nio-8080-exec-8] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducer - Sending message to queue [DEVTRUNK_CRM_GATEWAY_NORMAL]: {"test_message": "hello from local"}
+2025-11-07 03:06:16 AM [http-nio-8080-exec-8] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducer - Message sent successfully to queue [DEVTRUNK_CRM_GATEWAY_NORMAL].
+2025-11-07 03:06:16 AM [crmGatewaySqsThread-3] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmProcessingService - Received from [NORMAL] queue type, message [ID: 532c1086-4e08-4664-a856-345e99188696]: {"test_message": "hello from local"}
+2025-11-07 03:06:16 AM [crmGatewaySqsThread-3] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmProcessingService - Message from queue type [NORMAL] processed successfully.
 
-FULL_URL="${HOST_URL}${ENDPOINT}"
+and see how messy is the logs for failure message:
+2025-11-07 03:06:43 AM [http-nio-8080-exec-1] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducer - Sending message to queue [DEVTRUNK_CRM_GATEWAY_DRY_RUN]: FAIL_MESSAGE
+2025-11-07 03:06:43 AM [http-nio-8080-exec-1] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducer - Message sent successfully to queue [DEVTRUNK_CRM_GATEWAY_DRY_RUN].
+2025-11-07 03:06:43 AM [crmGatewaySqsThread-1] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmProcessingService - Received from [DRY_RUN] queue type, message [ID: fa1724dc-f335-4fb2-81c6-90d3732d2518]: FAIL_MESSAGE
+2025-11-07T11:06:43.785489205Z crmGatewaySqsThread-1 WARN found 2 argument placeholders, but provided 3 for pattern `Error processing [{}] message: {}`
+2025-11-07 03:06:43 AM [crmGatewaySqsThread-1] trace_id:  span_id:  ERROR com.empower.epw.crm.gateway.sqs.CrmProcessingService - Error processing [DRY_RUN] message: Test failure message to trigger retry
+2025-11-07 03:06:44 AM [crmGatewaySqsThread-1] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmProcessingService - Received from [DRY_RUN] queue type, message [ID: fa1724dc-f335-4fb2-81c6-90d3732d2518]: FAIL_MESSAGE
+2025-11-07T11:06:44.786571157Z crmGatewaySqsThread-1 WARN found 2 argument placeholders, but provided 3 for pattern `Error processing [{}] message: {}`
+2025-11-07 03:06:44 AM [crmGatewaySqsThread-1] trace_id:  span_id:  ERROR com.empower.epw.crm.gateway.sqs.CrmProcessingService - Error processing [DRY_RUN] message: Test failure message to trigger retry
+2025-11-07 03:06:45 AM [http-nio-8080-exec-2] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducer - Sending message to queue [DEVTRUNK_CRM_GATEWAY_DRY_RUN]: FAIL_MESSAGE
+2025-11-07 03:06:45 AM [http-nio-8080-exec-2] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducer - Message sent successfully to queue [DEVTRUNK_CRM_GATEWAY_DRY_RUN].
+2025-11-07 03:06:45 AM [crmGatewaySqsThread-1] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmProcessingService - Received from [DRY_RUN] queue type, message [ID: fa1724dc-f335-4fb2-81c6-90d3732d2518]: FAIL_MESSAGE
+2025-11-07T11:06:45.787644451Z crmGatewaySqsThread-1 WARN found 2 argument placeholders, but provided 3 for pattern `Error processing [{}] message: {}`
+2025-11-07 03:06:45 AM [crmGatewaySqsThread-1] trace_id:  span_id:  ERROR com.empower.epw.crm.gateway.sqs.CrmProcessingService - Error processing [DRY_RUN] message: Test failure message to trigger retry
+2025-11-07T11:06:45.788047445Z crmGatewaySqsThread-1 WARN found 2 argument placeholders, but provided 3 for pattern `All retries failed for message [ID: {}]: {}`
+2025-11-07 03:06:45 AM [crmGatewaySqsThread-1] trace_id:  span_id:  INFO  com.empower.epw.crm.gateway.sqs.CrmProcessingService - All retries failed for message [ID: fa1724dc-f335-4fb2-81c6-90d3732d2518]: FAIL_MESSAGE
 
-# --- Execute Command ---
-echo "Sending payload to: $FULL_URL"
-echo "Payload: $PAYLOAD"
-echo "---"
 
-curl -X POST -H "Content-Type: text/plain" \
-     -d "$PAYLOAD" \
-     "$FULL_URL"
-
-echo
-echo "---"
-echo "Done."
+can you look into this and let me what you can make out of this and if there is a way to correct it?
