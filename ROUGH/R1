@@ -1,131 +1,160 @@
-package com.empower.epw.crm.gateway.sqs.config;
+since we updated a lot of other files, i think we need to update this test file too:
 
-import java.time.Duration;
-import java.util.UUID;
-import java.util.concurrent.ThreadPoolExecutor;
+package com.empower.epw.crm.gateway.sqs;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.messaging.Message; // <-- IMPORT ADDED
-import org.springframework.messaging.MessageHeaders; // <-- IMPORT ADDED
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import java.util.concurrent.TimeUnit;
 
-// We no longer need CrmProcessingService in this class
-import com.empower.epw.crm.gateway.sqs.MessageException; // <-- YOUR EXCEPTION
-import io.awspring.cloud.sqs.listener.errorhandler.ErrorHandler;
-import lombok.CustomLog;
-import io.awspring.cloud.sqs.MessageExecutionThreadFactory;
-import io.awspring.cloud.sqs.config.SqsMessageListenerContainerFactory;
-import io.awspring.cloud.sqs.listener.QueueNotFoundStrategy;
-import io.awspring.cloud.sqs.listener.acknowledgement.handler.AcknowledgementMode;
-import software.amazon.awssdk.services.sqs.SqsAsyncClient;
+import io.awspring.cloud.sqs.operations.SqsTemplate;
 
-@CustomLog
-@Configuration
-@ConditionalOnProperty(name = "crm.gateway.listener.enabled", havingValue = "true", matchIfMissing = false)
-public class CrmGatewaySqsConfig
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.util.TestPropertyValues;
+import org.springframework.context.ApplicationContextInitializer;
+import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.testcontainers.containers.localstack.LocalStackContainer;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
+
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.sqs.SqsClient;
+
+import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+
+@SpringBootTest
+@Testcontainers
+@ActiveProfiles("test")
+@ContextConfiguration(initializers = CrmGatewayMessageListenerTest.Initializer.class)
+@TestPropertySource(properties = "crm.gateway.listener.enabled=true")
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+class CrmGatewayMessageListenerTest
 {
-	@Value("${crm.gateway.sqs.visibilityTimeout:60}")
-	public Integer visibilityTimeout;
 
-	@Value("${crm.gateway.sqs.minPoolSize:10}")
-	public Integer minPoolSize;
+	private static final String DRY_RUN_QUEUE = "DEVTRUNK_CRM_GATEWAY_DRY_RUN";
+	private static final String INTERMEDIATE_QUEUE = "DEVTRUNK_CRM_GATEWAY_INTERMEDIATE";
+	private static final String NORMAL_QUEUE = "DEVTRUNK_CRM_GATEWAY_NORMAL";
+	private static final String TOP_QUEUE = "DEVTRUNK_CRM_GATEWAY_TOP";
 
-	@Value("${crm.gateway.sqs.maxPoolSize:30}")
-	public Integer maxPoolSize;
+	@Autowired
+	private SqsTemplate sqsTemplate;
 
-	@Value("${crm.gateway.sqs.queueCapacity:30}")
-	public Integer queueCapacity;
+	@MockitoBean
+	private CrmProcessingService processingService;
 
-	@Value("${crm.gateway.sqs.queueMaxAwaitTermination:30}")
-	public Integer queueMaxAwaitTermination;
-
-	@Value("{crm.gateway.sqs.retry.backoff.delay:60000}")
-	public Long backoffDelay;
-
-	@Value("{crm.gateway.sqs.retry.max.attempts:3}")
-	public Integer maxAttempts;
-
-	@Bean("awsTaskExecutor")
-	public ThreadPoolTaskExecutor awsTaskExecutor()
+	public static class Initializer
+			implements ApplicationContextInitializer<ConfigurableApplicationContext>
 	{
-		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-		executor.setCorePoolSize(minPoolSize);
-		executor.setMaxPoolSize(maxPoolSize);
-		executor.setQueueCapacity(queueCapacity);
-		executor.setWaitForTasksToCompleteOnShutdown(true);
-		executor.setAwaitTerminationSeconds(queueMaxAwaitTermination);
-		executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
-		executor.setThreadFactory(new MessageExecutionThreadFactory("crmGatewaySqsThread-"));
-		return executor;
-	}
 
-	/**
-	 * This error handler now inspects the EXCEPTION TYPE to decide what to do.
-	 * - MessageException: Re-throws the error. This signals failure to SQS,
-	 * which will eventually move the message to the DLQ.
-	 * - Other Exceptions: Swallows the error. This signals success to SQS,
-	 * which will DELETE the message (preventing it from going to the DLQ).
-	 */
-	@Bean
-	public ErrorHandler<Object> customErrorHandler() { // <-- No CrmProcessingService
-		return new ErrorHandler<Object>() {
-			@Override
-			public void handle(Message<Object> msg, Throwable t) {
-				MessageHeaders headers = msg.getHeaders();
-				UUID messageId = headers.getId();
-				String messageIdString = (messageId != null) ? messageId.toString() : "unknown";
+		static final LocalStackContainer localstack = new LocalStackContainer(
+				DockerImageName.parse("localstack/localstack:3.0"))
+						.withServices(LocalStackContainer.Service.SQS);
 
-				// Check the cause of the exception
-				Throwable cause = t.getCause();
-
-				// Task: Identify MessageException and send ONLY that to DLQ
-				if (cause instanceof MessageException) {
-					log.error("Poison pill detected via exception. ID: {}. Re-throwing to send to DLQ.",
-							messageIdString, cause.getMessage());
-
-					// Re-throw the exception to signal failure (sends to DLQ)
-					if (t instanceof RuntimeException) {
-						throw (RuntimeException) t;
-					}
-					throw new RuntimeException("SQS processing failed for poison pill", t);
-
-				} else {
-					// This is a different, unexpected error (e.g., NullPointerException).
-					// We log it but DO NOT re-throw. This "handles" the error
-					// and the message will be deleted (NOT sent to the DLQ).
-					log.warn("Unexpected SQS processing error (not poison pill). ID: {}. Payload: {}. Swallowing error, message will be deleted.",
-							messageIdString, msg.getPayload(), t);
-					// By not re-throwing, we are "handling" the error.
-				}
+		@Override
+		public void initialize(ConfigurableApplicationContext applicationContext)
+		{
+			if (!localstack.isRunning())
+			{
+				localstack.start();
 			}
-		};
+
+			SqsClient sqsClient = SqsClient.builder()
+					.endpointOverride(
+							localstack.getEndpointOverride(LocalStackContainer.Service.SQS))
+					.region(Region.of(localstack.getRegion()))
+					.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials
+							.create(localstack.getAccessKey(), localstack.getSecretKey())))
+					.build();
+
+			for (String queueName : new String[]
+			{
+					DRY_RUN_QUEUE, INTERMEDIATE_QUEUE, NORMAL_QUEUE, TOP_QUEUE
+			})
+			{
+				sqsClient.createQueue(r -> r.queueName(queueName));
+			}
+
+			applicationContext.getBeanFactory()
+					.registerSingleton("sqsClientForTest", sqsClient);
+
+			TestPropertyValues
+					.of("spring.cloud.aws.region.static=" + localstack.getRegion(),
+							"spring.cloud.aws.credentials.access-key=" + localstack.getAccessKey(),
+							"spring.cloud.aws.credentials.secret-key=" + localstack.getSecretKey(),
+							"spring.cloud.aws.sqs.endpoint=" + localstack
+									.getEndpointOverride(LocalStackContainer.Service.SQS)
+									.toString(),
+							"crm.gateway.sqs.queue.dryrun=" + DRY_RUN_QUEUE,
+							"crm.gateway.sqs.queue.intermediate=" + INTERMEDIATE_QUEUE,
+							"crm.gateway.sqs.queue.normal=" + NORMAL_QUEUE,
+							"crm.gateway.sqs.queue.top=" + TOP_QUEUE)
+					.applyTo(applicationContext.getEnvironment());
+		}
 	}
 
-	@Bean
-	SqsMessageListenerContainerFactory<Object> defaultSqsListenerContainerFactory(
-			SqsAsyncClient sqsAsyncClient, ErrorHandler<Object> customErrorHandler) // <-- MODIFIED: Inject handler
+	@Test
+	void testMessageIsConsumedSuccessfully() throws Exception
 	{
+		String payload = "{\"event\":\"TestConsumer\",\"id\":123}";
+		sqsTemplate.send(DRY_RUN_QUEUE, payload);
 
-		log.info("Creating SQS Listener Container Factory with visibility timeout: {}",
-				visibilityTimeout);
+		await().atMost(5, TimeUnit.SECONDS)
+				.untilAsserted(() ->
+				{
+					verify(processingService, times(1)).processMessage(eq("DRY_RUN"), eq(payload),
+							anyString());
+					verify(processingService, times(0)).recoverFailedMessages(any(), any(), any());
+				});
+	}
 
-		return SqsMessageListenerContainerFactory.builder()
-				.sqsAsyncClient(sqsAsyncClient)
-				// Tell the factory to use our new error handler
-				.errorHandler(customErrorHandler) // <-- ADDED
-				.configure(sqsContainerOptionsBuilder -> sqsContainerOptionsBuilder
-						.messageVisibility(Duration.ofSeconds(visibilityTimeout))
-						.queueNotFoundStrategy(QueueNotFoundStrategy.FAIL)
-						.pollTimeout(Duration.ofSeconds(20))
-						.maxMessagesPerPoll(10)
-						.componentsTaskExecutor(awsTaskExecutor())
-						.autoStartup(true)
-						// This is key: we only acknowledge on success.
-						// By re-throwing, we are not successful.
-						.acknowledgementMode(AcknowledgementMode.ON_SUCCESS))
-				.build();
+	@Test
+	void testMessageRetriesAndRecoversOnFailure()
+	{
+		String payload = "FAIL_MESSAGE";
+
+		doThrow(new RuntimeException("Processing Failure")).when(processingService)
+				.processMessage(eq("DRY_RUN"), eq(payload), anyString());
+
+		sqsTemplate.send(DRY_RUN_QUEUE, payload);
+		await().atMost(10, TimeUnit.SECONDS)
+				.untilAsserted(() ->
+				{
+					verify(processingService, times(3)).processMessage(eq("DRY_RUN"), eq(payload),
+							anyString());
+					verify(processingService, times(1))
+							.recoverFailedMessages(any(RuntimeException.class), eq(payload), any());
+				});
+	}
+
+	@Test
+	void testMessageSucceedsOnRetry()
+	{
+		String payload = "SUCCEEDS_ON_RETRY";
+
+		doThrow(new RuntimeException("Processing message after one retry")).doNothing()
+				.when(processingService)
+				.processMessage(eq("DRY_RUN"), eq(payload), anyString());
+
+		sqsTemplate.send(DRY_RUN_QUEUE, payload);
+
+		await().atMost(5, TimeUnit.SECONDS)
+				.untilAsserted(() ->
+				{
+					verify(processingService, times(2)).processMessage(eq("DRY_RUN"), eq(payload),
+							anyString());
+					verify(processingService, times(0)).recoverFailedMessages(any(), any(), any());
+				});
 	}
 }
