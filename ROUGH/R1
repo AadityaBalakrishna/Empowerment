@@ -1,88 +1,43 @@
-package com.empower.epw.crm.gateway.sqs.config;
+package com.empower.epw.crm.gateway.sqs;
 
-import java.time.Duration;
-import java.util.concurrent.ThreadPoolExecutor;
+import org.springframework.stereotype.Service;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-
-import com.empower.epw.crm.gateway.sqs.CrmProcessingService;
-import io.awspring.cloud.sqs.listener.errorhandler.ErrorHandler;
 import lombok.CustomLog;
-import io.awspring.cloud.sqs.MessageExecutionThreadFactory;
-import io.awspring.cloud.sqs.config.SqsMessageListenerContainerFactory;
-import io.awspring.cloud.sqs.listener.QueueNotFoundStrategy;
-import io.awspring.cloud.sqs.listener.acknowledgement.handler.AcknowledgementMode;
-import software.amazon.awssdk.services.sqs.SqsAsyncClient;
 
 @CustomLog
-@Configuration
-@ConditionalOnProperty(name = "crm.gateway.listener.enabled", havingValue = "true", matchIfMissing = false)
-public class CrmGatewaySqsConfig
+@Service
+public class CrmProcessingService
 {
-	@Value("${crm.gateway.sqs.visibilityTimeout:60}")
-	public Integer visibilityTimeout;
 
-	@Value("${crm.gateway.sqs.minPoolSize:10}")
-	public Integer minPoolSize;
-
-	@Value("${crm.gateway.sqs.maxPoolSize:30}")
-	public Integer maxPoolSize;
-
-	@Value("${crm.gateway.sqs.queueCapacity:30}")
-	public Integer queueCapacity;
-
-	@Value("${crm.gateway.sqs.queueMaxAwaitTermination:30}")
-	public Integer queueMaxAwaitTermination;
-	
-	@Value("{crm.gateway.sqs.retry.backoff.delay:60000}")
-	public Long backoffDelay;
-
-	@Value("{crm.gateway.sqs.retry.max.attempts:3}")
-	public Integer maxAttempts;
-
-	@Bean("awsTaskExecutor")
-	public ThreadPoolTaskExecutor awsTaskExecutor()
+	public void processMessage(String type, String message, String messageId)
 	{
-		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-		executor.setCorePoolSize(minPoolSize);
-		executor.setMaxPoolSize(maxPoolSize);
-		executor.setQueueCapacity(queueCapacity);
-		executor.setWaitForTasksToCompleteOnShutdown(true);
-		executor.setAwaitTerminationSeconds(queueMaxAwaitTermination);
-		executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
-		executor.setThreadFactory(new MessageExecutionThreadFactory("crmGatewaySqsThread-"));
-		return executor;
-	}
-	
-	@Bean
-	public ErrorHandler<Object> customErrorHandler(CrmProcessingService processingService) {
-		return (message, throwable) -> {
-		String messageId = message.getHeaders().getId() != null ? message.get	
-		};
+		log.info("Received from [{}] queue type, message [ID: {}]: {}", type,
+				messageId != null ? messageId : "NA", message);
+
+		try
+		{
+			// TODO: handle domain logic here
+			if ("FAIL_MESSAGE".equals(message))
+			{
+				throw new RuntimeException("Test failure message to trigger retry");
+			}
+			log.info("Message from queue type [{}] processed successfully.", type);
+		}
+		catch (Exception ex)
+		{
+			log.error("Error processing [{}] message: {}, {}", type, ex.getMessage(), ex);
+			throw ex; // triggers @Retryable
+		}
 	}
 
-	@Bean
-	SqsMessageListenerContainerFactory<Object> defaultSqsListenerContainerFactory(
-			SqsAsyncClient sqsAsyncClient)
+	public void recoverFailedMessages(Exception e, String message, String messageId)
 	{
-
-		log.info("Creating SQS Listener Container Factory with visibility timeout: {}",
-				visibilityTimeout);
-
-		return SqsMessageListenerContainerFactory.builder()
-				.sqsAsyncClient(sqsAsyncClient)
-				.configure(sqsContainerOptionsBuilder -> sqsContainerOptionsBuilder
-						.messageVisibility(Duration.ofSeconds(visibilityTimeout))
-						.queueNotFoundStrategy(QueueNotFoundStrategy.FAIL)
-						.pollTimeout(Duration.ofSeconds(20))
-						.maxMessagesPerPoll(10)
-						.componentsTaskExecutor(awsTaskExecutor())
-						.autoStartup(true)
-						.acknowledgementMode(AcknowledgementMode.ON_SUCCESS))
-				.build();
+		log.info("All retries failed for message [ID: {}]: {}, error: {}",
+				messageId != null ? messageId : "NA", message, e.getMessage());
+		// TODO: save failure
 	}
 }
+
+then what happens to this code?
+
+can tou go through all the files of this project that you have stored in the chat and see to it that, everything is algned to what is happeing?
