@@ -8,9 +8,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.messaging.Message; // <-- IMPORT ADDED
+import org.springframework.messaging.MessageHeaders; // <-- IMPORT ADDED
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
-import com.empower.epw.crm.gateway.sqs.CrmProcessingService;
+// We no longer need CrmProcessingService in this class
+import com.empower.epw.crm.gateway.sqs.MessageException; // <-- YOUR EXCEPTION
 import io.awspring.cloud.sqs.listener.errorhandler.ErrorHandler;
 import lombok.CustomLog;
 import io.awspring.cloud.sqs.MessageExecutionThreadFactory;
@@ -59,24 +62,51 @@ public class CrmGatewaySqsConfig
 		return executor;
 	}
 
+	/**
+	 * This error handler now inspects the EXCEPTION TYPE to decide what to do.
+	 * - MessageException: Re-throws the error. This signals failure to SQS,
+	 * which will eventually move the message to the DLQ.
+	 * - Other Exceptions: Swallows the error. This signals success to SQS,
+	 * which will DELETE the message (preventing it from going to the DLQ).
+	 */
 	@Bean
-	public ErrorHandler<Object> customErrorHandler(CrmProcessingService processingService) {
-		return (org.springframework.messaging.Message<Object> message, Throwable throwable) -> {
-		UUID messageId = message.getHeaders().getId();
-		String messageIdString = (messageId != null) ? messageId.toString() : "unknown";
+	public ErrorHandler<Object> customErrorHandler() { // <-- No CrmProcessingService
+		return new ErrorHandler<Object>() {
+			@Override
+			public void handle(Message<Object> msg, Throwable t) {
+				MessageHeaders headers = msg.getHeaders();
+				UUID messageId = headers.getId();
+				String messageIdString = (messageId != null) ? messageId.toString() : "unknown";
 
-		log.error("SQS message processing failed. ID: {}, Payload: {}. Re-throwing to allow SQS retry/DLQ.", messageIdString, message.getPayload(), throwable);
+				// Check the cause of the exception
+				Throwable cause = t.getCause();
 
-		if (throwable instanceof RuntimeException){
-			throw (RuntimeException) throwable;
-		}
-		throw new RuntimeException("SQS processing failed", throwable);
+				// Task: Identify MessageException and send ONLY that to DLQ
+				if (cause instanceof MessageException) {
+					log.error("Poison pill detected via exception. ID: {}. Re-throwing to send to DLQ.",
+							messageIdString, cause.getMessage());
+
+					// Re-throw the exception to signal failure (sends to DLQ)
+					if (t instanceof RuntimeException) {
+						throw (RuntimeException) t;
+					}
+					throw new RuntimeException("SQS processing failed for poison pill", t);
+
+				} else {
+					// This is a different, unexpected error (e.g., NullPointerException).
+					// We log it but DO NOT re-throw. This "handles" the error
+					// and the message will be deleted (NOT sent to the DLQ).
+					log.warn("Unexpected SQS processing error (not poison pill). ID: {}. Payload: {}. Swallowing error, message will be deleted.",
+							messageIdString, msg.getPayload(), t);
+					// By not re-throwing, we are "handling" the error.
+				}
+			}
 		};
 	}
 
 	@Bean
 	SqsMessageListenerContainerFactory<Object> defaultSqsListenerContainerFactory(
-			SqsAsyncClient sqsAsyncClient)
+			SqsAsyncClient sqsAsyncClient, ErrorHandler<Object> customErrorHandler) // <-- MODIFIED: Inject handler
 	{
 
 		log.info("Creating SQS Listener Container Factory with visibility timeout: {}",
@@ -84,6 +114,8 @@ public class CrmGatewaySqsConfig
 
 		return SqsMessageListenerContainerFactory.builder()
 				.sqsAsyncClient(sqsAsyncClient)
+				// Tell the factory to use our new error handler
+				.errorHandler(customErrorHandler) // <-- ADDED
 				.configure(sqsContainerOptionsBuilder -> sqsContainerOptionsBuilder
 						.messageVisibility(Duration.ofSeconds(visibilityTimeout))
 						.queueNotFoundStrategy(QueueNotFoundStrategy.FAIL)
@@ -91,9 +123,9 @@ public class CrmGatewaySqsConfig
 						.maxMessagesPerPoll(10)
 						.componentsTaskExecutor(awsTaskExecutor())
 						.autoStartup(true)
+						// This is key: we only acknowledge on success.
+						// By re-throwing, we are not successful.
 						.acknowledgementMode(AcknowledgementMode.ON_SUCCESS))
 				.build();
 	}
 }
-
-now that the listener and the processing service is updated, how to update the config class?
