@@ -77,4 +77,4 @@
 
 
 so, the AWS method didn't work, i might have to raise an MR to create a DLQ for my queues, let's go back to the previous approach of creating a DLQ for a queue and work on this, for that, looking at the above, code can you tell me how to create a DLQ
-this above code is froma cloudformation repo using which new queues for my service was created in the first place.
+this above code is froma cloudformation repo using which new queues for my service was created in the first place. should i create one DLQ for each queues or one DLQ for all 4 queues, for saftey let's do one DLQ for DRY_RUN for nwo
