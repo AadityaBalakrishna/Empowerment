@@ -9,6 +9,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
+import com.empower.epw.crm.gateway.sqs.CrmProcessingService;
+import io.awspring.cloud.sqs.listener.errorhandler.ErrorHandler;
 import lombok.CustomLog;
 import io.awspring.cloud.sqs.MessageExecutionThreadFactory;
 import io.awspring.cloud.sqs.config.SqsMessageListenerContainerFactory;
@@ -35,6 +37,12 @@ public class CrmGatewaySqsConfig
 
 	@Value("${crm.gateway.sqs.queueMaxAwaitTermination:30}")
 	public Integer queueMaxAwaitTermination;
+	
+	@Value("{crm.gateway.sqs.retry.backoff.delay:60000}")
+	public Long backoffDelay;
+
+	@Value("{crm.gateway.sqs.retry.max.attempts:3}")
+	public Integer maxAttempts;
 
 	@Bean("awsTaskExecutor")
 	public ThreadPoolTaskExecutor awsTaskExecutor()
@@ -48,6 +56,13 @@ public class CrmGatewaySqsConfig
 		executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
 		executor.setThreadFactory(new MessageExecutionThreadFactory("crmGatewaySqsThread-"));
 		return executor;
+	}
+	
+	@Bean
+	public ErrorHandler<Object> customErrorHandler(CrmProcessingService processingService) {
+		return (message, throwable) -> {
+		String messageId = message.getHeaders().getId() != null ? message.get	
+		};
 	}
 
 	@Bean
