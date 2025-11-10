@@ -1,43 +1,84 @@
 package com.empower.epw.crm.gateway.sqs;
 
-import org.springframework.stereotype.Service;
+import io.awspring.cloud.sqs.annotation.SqsListener;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.messaging.handler.annotation.Header;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.retry.annotation.Retryable;
+import org.springframework.stereotype.Component;
 import lombok.CustomLog;
 
 @CustomLog
-@Service
-public class CrmProcessingService
+@Component
+@ConditionalOnProperty(name = "crm.gateway.listener.enabled", havingValue = "true", matchIfMissing = false)
+public class CrmGatewayMessageListener
 {
+	private final CrmProcessingService processingService;
 
-	public void processMessage(String type, String message, String messageId)
+	@Autowired
+	public CrmGatewayMessageListener(CrmProcessingService processingService)
 	{
-		log.info("Received from [{}] queue type, message [ID: {}]: {}", type,
-				messageId != null ? messageId : "NA", message);
-
-		try
-		{
-			// TODO: handle domain logic here
-			if ("FAIL_MESSAGE".equals(message))
-			{
-				throw new RuntimeException("Test failure message to trigger retry");
-			}
-			log.info("Message from queue type [{}] processed successfully.", type);
-		}
-		catch (Exception ex)
-		{
-			log.error("Error processing [{}] message: {}, {}", type, ex.getMessage(), ex);
-			throw ex; // triggers @Retryable
-		}
+		this.processingService = processingService;
 	}
 
+	@SqsListener("${crm.gateway.sqs.queue.dryrun:}")
+	@Retryable(value =
+	{
+			Exception.class
+	}, maxAttemptsExpression = "#{${crm.gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm.gateway.sqs.retry.backoff-delay:1000}}"))
+	public void handleDryRunMessage(String message,
+			@Header(name = "id", required = false) String messageId)
+	{
+		processingService.processMessage("DRY_RUN", message, messageId);
+	}
+
+	/*
+	 * TEMPORARILY DISABLED FOR DLQ PoC This queue is now acting as DLQ for other queues Hence the
+	 * listener for this queue is disabled
+	 */
+	/*
+	 * @SqsListener("${crm.gateway.sqs.queue.intermediate:}")
+	 * 
+	 * @Retryable(value = { Exception.class }, maxAttemptsExpression =
+	 * "#{${crm.gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression =
+	 * "#{${crm.gateway.sqs.retry.backoff-delay:1000}}")) public void
+	 * handleIntermediateMessage(String message,
+	 * 
+	 * @Header(name = "id", required = false) String messageId) {
+	 * processingService.processMessage("INTERMEDIATE", message, messageId); }
+	 */
+
+	@SqsListener("${crm.gateway.sqs.queue.normal:}")
+	@Retryable(value =
+	{
+			Exception.class
+	}, maxAttemptsExpression = "#{${crm.gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm.gateway.sqs.retry.backoff-delay:1000}}"))
+	public void handleNormalMessage(String message,
+			@Header(name = "id", required = false) String messageId)
+	{
+		processingService.processMessage("NORMAL", message, messageId);
+	}
+
+	@SqsListener("${crm.gateway.sqs.queue.top:}")
+	@Retryable(value =
+	{
+			Exception.class
+	}, maxAttemptsExpression = "#{${crm.gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm.gateway.sqs.retry.backoff-delay:1000}}"))
+	public void handleTopMessage(String message,
+			@Header(name = "id", required = false) String messageId)
+	{
+		processingService.processMessage("TOP", message, messageId);
+	}
+
+	@Recover
 	public void recoverFailedMessages(Exception e, String message, String messageId)
 	{
-		log.info("All retries failed for message [ID: {}]: {}, error: {}",
-				messageId != null ? messageId : "NA", message, e.getMessage());
-		// TODO: save failure
+		processingService.recoverFailedMessages(e, message, messageId);
 	}
 }
 
-then what happens to this code?
 
-can tou go through all the files of this project that you have stored in the chat and see to it that, everything is algned to what is happeing?
+this is the current existing listener class
