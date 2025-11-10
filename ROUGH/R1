@@ -1,520 +1,80 @@
-package com.empower.epw.crm.gateway.sqs.config;
-
-import java.time.Duration;
-import java.util.concurrent.ThreadPoolExecutor;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-
-import lombok.CustomLog;
-import io.awspring.cloud.sqs.MessageExecutionThreadFactory;
-import io.awspring.cloud.sqs.config.SqsMessageListenerContainerFactory;
-import io.awspring.cloud.sqs.listener.QueueNotFoundStrategy;
-import io.awspring.cloud.sqs.listener.acknowledgement.handler.AcknowledgementMode;
-import software.amazon.awssdk.services.sqs.SqsAsyncClient;
-
-@CustomLog
-@Configuration
-@ConditionalOnProperty(name = "crm.gateway.listener.enabled", havingValue = "true", matchIfMissing = false)
-public class CrmGatewaySqsConfig
-{
-	@Value("${crm.gateway.sqs.visibilityTimeout:60}")
-	public Integer visibilityTimeout;
-
-	@Value("${crm.gateway.sqs.minPoolSize:10}")
-	public Integer minPoolSize;
-
-	@Value("${crm.gateway.sqs.maxPoolSize:30}")
-	public Integer maxPoolSize;
-
-	@Value("${crm.gateway.sqs.queueCapacity:30}")
-	public Integer queueCapacity;
-
-	@Value("${crm.gateway.sqs.queueMaxAwaitTermination:30}")
-	public Integer queueMaxAwaitTermination;
-
-	@Bean("awsTaskExecutor")
-	public ThreadPoolTaskExecutor awsTaskExecutor()
-	{
-		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-		executor.setCorePoolSize(minPoolSize);
-		executor.setMaxPoolSize(maxPoolSize);
-		executor.setQueueCapacity(queueCapacity);
-		executor.setWaitForTasksToCompleteOnShutdown(true);
-		executor.setAwaitTerminationSeconds(queueMaxAwaitTermination);
-		executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
-		executor.setThreadFactory(new MessageExecutionThreadFactory("crmGatewaySqsThread-"));
-		return executor;
-	}
-
-	@Bean
-	SqsMessageListenerContainerFactory<Object> defaultSqsListenerContainerFactory(
-			SqsAsyncClient sqsAsyncClient)
-	{
-
-		log.info("Creating SQS Listener Container Factory with visibility timeout: {}",
-				visibilityTimeout);
-
-		return SqsMessageListenerContainerFactory.builder()
-				.sqsAsyncClient(sqsAsyncClient)
-				.configure(sqsContainerOptionsBuilder -> sqsContainerOptionsBuilder
-						.messageVisibility(Duration.ofSeconds(visibilityTimeout))
-						.queueNotFoundStrategy(QueueNotFoundStrategy.FAIL)
-						.pollTimeout(Duration.ofSeconds(20))
-						.maxMessagesPerPoll(10)
-						.componentsTaskExecutor(awsTaskExecutor())
-						.autoStartup(true)
-						.acknowledgementMode(AcknowledgementMode.ON_SUCCESS))
-				.build();
-	}
-}
-
-package com.empower.epw.crm.gateway.sqs.controller;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
-import com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducer;
-
-@RestController
-@RequestMapping("/api/sqs")
-// @ConditionalOnProperty(name = "crm.gateway.producer.enabled", havingValue = "true")
-public class SqsMessageController
-{
-
-	private final CrmGatewayMessageProducer producer;
-
-	@Autowired
-	public SqsMessageController(CrmGatewayMessageProducer producer)
-	{
-		this.producer = producer;
-	}
-
-	@PostMapping("/send-dryrun")
-	public ResponseEntity<String> sendDryrun(@RequestBody String payload)
-	{
-		producer.sendToDryRunQueue(payload);
-		return ResponseEntity.ok("Sent to DryRun queue: " + payload);
-	}
-
-	/*
-	 * TEMPORARILY DISABLED FOR DLQ PoC This queue is now acting as DLQ for other queues Hence the
-	 * producer for this queue is disabled
-	 *
-	 * @PostMapping("/send-intermediate") public ResponseEntity<String>
-	 * sendIntermediate(@RequestBody String payload) { producer.sendToIntermediateQueue(payload);
-	 * return ResponseEntity.ok("Sent to Intermediate queue: " + payload); }
-	 */
-
-	@PostMapping("/send-normal")
-	public ResponseEntity<String> sendNormal(@RequestBody String payload)
-	{
-		producer.sendToNormalQueue(payload);
-		return ResponseEntity.ok("Sent to Normal queue: " + payload);
-	}
-
-	@PostMapping("/send-top")
-	public ResponseEntity<String> sendTop(@RequestBody String payload)
-	{
-		producer.sendToTopQueue(payload);
-		return ResponseEntity.ok("Sent to Top queue: " + payload);
-	}
-}
-
-
-package com.empower.epw.crm.gateway.sqs;
-
-import io.awspring.cloud.sqs.annotation.SqsListener;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.messaging.handler.annotation.Header;
-import org.springframework.retry.annotation.Backoff;
-import org.springframework.retry.annotation.Recover;
-import org.springframework.retry.annotation.Retryable;
-import org.springframework.stereotype.Component;
-import lombok.CustomLog;
-
-@CustomLog
-@Component
-@ConditionalOnProperty(name = "crm.gateway.listener.enabled", havingValue = "true", matchIfMissing = false)
-public class CrmGatewayMessageListener
-{
-	private final CrmProcessingService processingService;
-
-	@Autowired
-	public CrmGatewayMessageListener(CrmProcessingService processingService)
-	{
-		this.processingService = processingService;
-	}
-
-	@SqsListener("${crm.gateway.sqs.queue.dryrun:}")
-	@Retryable(value =
-	{
-			Exception.class
-	}, maxAttemptsExpression = "#{${crm.gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm.gateway.sqs.retry.backoff-delay:1000}}"))
-	public void handleDryRunMessage(String message,
-			@Header(name = "id", required = false) String messageId)
-	{
-		processingService.processMessage("DRY_RUN", message, messageId);
-	}
-
-	/*
-	 * TEMPORARILY DISABLED FOR DLQ PoC This queue is now acting as DLQ for other queues Hence the
-	 * listener for this queue is disabled
-	 */
-	/*
-	 * @SqsListener("${crm.gateway.sqs.queue.intermediate:}")
-	 * 
-	 * @Retryable(value = { Exception.class }, maxAttemptsExpression =
-	 * "#{${crm.gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression =
-	 * "#{${crm.gateway.sqs.retry.backoff-delay:1000}}")) public void
-	 * handleIntermediateMessage(String message,
-	 * 
-	 * @Header(name = "id", required = false) String messageId) {
-	 * processingService.processMessage("INTERMEDIATE", message, messageId); }
-	 */
-
-	@SqsListener("${crm.gateway.sqs.queue.normal:}")
-	@Retryable(value =
-	{
-			Exception.class
-	}, maxAttemptsExpression = "#{${crm.gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm.gateway.sqs.retry.backoff-delay:1000}}"))
-	public void handleNormalMessage(String message,
-			@Header(name = "id", required = false) String messageId)
-	{
-		processingService.processMessage("NORMAL", message, messageId);
-	}
-
-	@SqsListener("${crm.gateway.sqs.queue.top:}")
-	@Retryable(value =
-	{
-			Exception.class
-	}, maxAttemptsExpression = "#{${crm.gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm.gateway.sqs.retry.backoff-delay:1000}}"))
-	public void handleTopMessage(String message,
-			@Header(name = "id", required = false) String messageId)
-	{
-		processingService.processMessage("TOP", message, messageId);
-	}
-
-	@Recover
-	public void recoverFailedMessages(Exception e, String message, String messageId)
-	{
-		processingService.recoverFailedMessages(e, message, messageId);
-	}
-}
-
-package com.empower.epw.crm.gateway.sqs;
-
-import io.awspring.cloud.sqs.operations.SqsTemplate;
-import lombok.CustomLog;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-
-/**
- * A "Producer" service for sending messages to SQS. This component is only created if
- * 'crm.gateway.producer.enabled=true'. This producer abstracts away the *actual* AWS queue names,
- * which are injected from configuration.
- */
-@CustomLog
-@Service
-// @ConditionalOnProperty(name = "crm.gateway.producer.enabled", havingValue = "true")
-public class CrmGatewayMessageProducer
-{
-
-	private final SqsTemplate sqsTemplate;
-
-	private final String dryRunQueue;
-	private final String intermediateQueue;
-	private final String normalQueue;
-	private final String topQueue;
-
-	@Autowired
-	public CrmGatewayMessageProducer(SqsTemplate sqsTemplate,
-			@Value("${crm.gateway.sqs.queue.dryrun}") String dryRunQueue,
-			@Value("${crm.gateway.sqs.queue.intermediate}") String intermediateQueue,
-			@Value("${crm.gateway.sqs.queue.normal}") String normalQueue,
-			@Value("${crm.gateway.sqs.queue.top}") String topQueue)
-	{
-		this.sqsTemplate = sqsTemplate;
-		this.dryRunQueue = dryRunQueue;
-		this.intermediateQueue = intermediateQueue;
-		this.normalQueue = normalQueue;
-		this.topQueue = topQueue;
-	}
-
-	/**
-	 * Sends a message to the DryRun queue.
-	 * 
-	 * @param payload
-	 *            The string message payload
-	 */
-	public void sendToDryRunQueue(String payload)
-	{
-		sendMessage(dryRunQueue, payload);
-	}
-
-	/*
-	 * TEMPORARILY DISABLED FOR DLQ PoC This queue is now acting as DLQ for other queues Hence the
-	 * producer for this queue is disabled /** Sends a message to the Intermediate queue.
-	 * 
-	 * @param payload The string message payload
-	 *
-	 * public void sendToIntermediateQueue(String payload) { sendMessage(intermediateQueue,
-	 * payload); }
-	 */
-
-	/**
-	 * Sends a message to the Normal queue.
-	 * 
-	 * @param payload
-	 *            The string message payload
-	 */
-	public void sendToNormalQueue(String payload)
-	{
-		sendMessage(normalQueue, payload);
-	}
-
-	/**
-	 * Sends a message to the Top priority queue.
-	 * 
-	 * @param payload
-	 *            The string message payload
-	 */
-	public void sendToTopQueue(String payload)
-	{
-		sendMessage(topQueue, payload);
-	}
-
-	/**
-	 * Private helper to handle the actual sending logic and logging.
-	 *
-	 * @param queueName
-	 *            The *actual* AWS queue name (e.g., "DEVTRUNK_CRM_GATEWAY_DRY_RUN")
-	 * @param payload
-	 *            The string message payload
-	 */
-	private void sendMessage(String queueName, String payload)
-	{
-		log.info("Sending message to queue [{}]: {}", queueName, payload);
-		try
-		{
-			sqsTemplate.send(queueName, payload);
-			log.info("Message sent successfully to queue [{}].", queueName);
-		}
-		catch (Exception e)
-		{
-			log.error("Failed to send message to queue [{}]: {}", queueName, e.getMessage(), e);
-			throw new RuntimeException("Failed to send SQS message to " + queueName, e);
-		}
-	}
-}
-
-
-package com.empower.epw.crm.gateway.sqs;
-
-import org.springframework.stereotype.Service;
-
-import lombok.CustomLog;
-
-@CustomLog
-@Service
-public class CrmProcessingService
-{
-
-	public void processMessage(String type, String message, String messageId)
-	{
-		log.info("Received from [{}] queue type, message [ID: {}]: {}", type,
-				messageId != null ? messageId : "NA", message);
-
-		try
-		{
-			// TODO: handle domain logic here
-			if ("FAIL_MESSAGE".equals(message))
-			{
-				throw new RuntimeException("Test failure message to trigger retry");
-			}
-			log.info("Message from queue type [{}] processed successfully.", type);
-		}
-		catch (Exception ex)
-		{
-			log.error("Error processing [{}] message: {}, {}", type, ex.getMessage(), ex);
-			throw ex; // triggers @Retryable
-		}
-	}
-
-	public void recoverFailedMessages(Exception e, String message, String messageId)
-	{
-		log.info("All retries failed for message [ID: {}]: {}, error: {}",
-				messageId != null ? messageId : "NA", message, e.getMessage());
-		// TODO: save failure
-	}
-}
-
-
-package com.empower.epw.crm.gateway.sqs;
-
-import java.util.concurrent.TimeUnit;
-
-import io.awspring.cloud.sqs.operations.SqsTemplate;
-
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.util.TestPropertyValues;
-import org.springframework.context.ApplicationContextInitializer;
-import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.test.annotation.DirtiesContext;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.testcontainers.containers.localstack.LocalStackContainer;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
-
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.sqs.SqsClient;
-
-import static org.awaitility.Awaitility.await;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-
-@SpringBootTest
-@Testcontainers
-@ActiveProfiles("test")
-@ContextConfiguration(initializers = CrmGatewayMessageListenerTest.Initializer.class)
-@TestPropertySource(properties = "crm.gateway.listener.enabled=true")
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
-class CrmGatewayMessageListenerTest
-{
-
-	private static final String DRY_RUN_QUEUE = "DEVTRUNK_CRM_GATEWAY_DRY_RUN";
-	private static final String INTERMEDIATE_QUEUE = "DEVTRUNK_CRM_GATEWAY_INTERMEDIATE";
-	private static final String NORMAL_QUEUE = "DEVTRUNK_CRM_GATEWAY_NORMAL";
-	private static final String TOP_QUEUE = "DEVTRUNK_CRM_GATEWAY_TOP";
-
-	@Autowired
-	private SqsTemplate sqsTemplate;
-
-	@MockitoBean
-	private CrmProcessingService processingService;
-
-	public static class Initializer
-			implements ApplicationContextInitializer<ConfigurableApplicationContext>
-	{
-
-		static final LocalStackContainer localstack = new LocalStackContainer(
-				DockerImageName.parse("localstack/localstack:3.0"))
-						.withServices(LocalStackContainer.Service.SQS);
-
-		@Override
-		public void initialize(ConfigurableApplicationContext applicationContext)
-		{
-			if (!localstack.isRunning())
-			{
-				localstack.start();
-			}
-
-			SqsClient sqsClient = SqsClient.builder()
-					.endpointOverride(
-							localstack.getEndpointOverride(LocalStackContainer.Service.SQS))
-					.region(Region.of(localstack.getRegion()))
-					.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials
-							.create(localstack.getAccessKey(), localstack.getSecretKey())))
-					.build();
-
-			for (String queueName : new String[]
-			{
-					DRY_RUN_QUEUE, INTERMEDIATE_QUEUE, NORMAL_QUEUE, TOP_QUEUE
-			})
-			{
-				sqsClient.createQueue(r -> r.queueName(queueName));
-			}
-
-			applicationContext.getBeanFactory()
-					.registerSingleton("sqsClientForTest", sqsClient);
-
-			TestPropertyValues
-					.of("spring.cloud.aws.region.static=" + localstack.getRegion(),
-							"spring.cloud.aws.credentials.access-key=" + localstack.getAccessKey(),
-							"spring.cloud.aws.credentials.secret-key=" + localstack.getSecretKey(),
-							"spring.cloud.aws.sqs.endpoint=" + localstack
-									.getEndpointOverride(LocalStackContainer.Service.SQS)
-									.toString(),
-							"crm.gateway.sqs.queue.dryrun=" + DRY_RUN_QUEUE,
-							"crm.gateway.sqs.queue.intermediate=" + INTERMEDIATE_QUEUE,
-							"crm.gateway.sqs.queue.normal=" + NORMAL_QUEUE,
-							"crm.gateway.sqs.queue.top=" + TOP_QUEUE)
-					.applyTo(applicationContext.getEnvironment());
-		}
-	}
-
-	@Test
-	void testMessageIsConsumedSuccessfully() throws Exception
-	{
-		String payload = "{\"event\":\"TestConsumer\",\"id\":123}";
-		sqsTemplate.send(DRY_RUN_QUEUE, payload);
-
-		await().atMost(5, TimeUnit.SECONDS)
-				.untilAsserted(() ->
-				{
-					verify(processingService, times(1)).processMessage(eq("DRY_RUN"), eq(payload),
-							anyString());
-					verify(processingService, times(0)).recoverFailedMessages(any(), any(), any());
-				});
-	}
-
-	@Test
-	void testMessageRetriesAndRecoversOnFailure()
-	{
-		String payload = "FAIL_MESSAGE";
-
-		doThrow(new RuntimeException("Processing Failure")).when(processingService)
-				.processMessage(eq("DRY_RUN"), eq(payload), anyString());
-
-		sqsTemplate.send(DRY_RUN_QUEUE, payload);
-		await().atMost(10, TimeUnit.SECONDS)
-				.untilAsserted(() ->
-				{
-					verify(processingService, times(3)).processMessage(eq("DRY_RUN"), eq(payload),
-							anyString());
-					verify(processingService, times(1))
-							.recoverFailedMessages(any(RuntimeException.class), eq(payload), any());
-				});
-	}
-
-	@Test
-	void testMessageSucceedsOnRetry()
-	{
-		String payload = "SUCCEEDS_ON_RETRY";
-
-		doThrow(new RuntimeException("Processing message after one retry")).doNothing()
-				.when(processingService)
-				.processMessage(eq("DRY_RUN"), eq(payload), anyString());
-
-		sqsTemplate.send(DRY_RUN_QUEUE, payload);
-
-		await().atMost(5, TimeUnit.SECONDS)
-				.untilAsserted(() ->
-				{
-					verify(processingService, times(2)).processMessage(eq("DRY_RUN"), eq(payload),
-							anyString());
-					verify(processingService, times(0)).recoverFailedMessages(any(), any(), any());
-				});
-	}
-}
+ # BEGIN ANSIBLE epw-crm-gateway - SQS Queues
+  SqsCrmGatewayDryRun:
+    Type: AWS::SQS::Queue
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Properties:
+      QueueName: !Join [ "_", [ !FindInMap [ StageMap, !Ref Stage, capName ], CRM_GATEWAY, DRY_RUN ] ]
+      Tags:
+        - { Key: "pc:silo", Value: pcap }
+        - { Key: "pc:app", Value: pcapeks }
+        - { Key: "pc:stage", Value: !Ref Stage }
+        - { Key: "pc:service", Value: "crm-gateway" }
+        # Datadog used tags
+        - { Key: "dd-enabled", Value: true }
+        - { Key: "dd-stage", Value: !Ref Stage }
+        - { Key: "kube_service", Value: "crm-gateway-service" }
+        - { Key: "queue_priority", Value: dry_run }
+        - { Key: "GitPath", Value: !Ref GitPath }
+        - { Key: "ManagedBy", Value: !Ref ManagedBy }
+  SqsCrmGatewayIntermediate:
+    Type: AWS::SQS::Queue
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Properties:
+      QueueName: !Join [ "_", [ !FindInMap [ StageMap, !Ref Stage, capName ], CRM_GATEWAY, INTERMEDIATE ] ]
+      Tags:
+        - { Key: "pc:silo", Value: pcap }
+        - { Key: "pc:app", Value: pcapeks }
+        - { Key: "pc:stage", Value: !Ref Stage }
+        - { Key: "pc:service", Value: "crm-gateway" }
+        # Datadog used tags
+        - { Key: "dd-enabled", Value: true }
+        - { Key: "dd-stage", Value: !Ref Stage }
+        - { Key: "kube_service", Value: "crm-gateway-service" }
+        - { Key: "queue_priority", Value: intermediate }
+        - { Key: "GitPath", Value: !Ref GitPath }
+        - { Key: "ManagedBy", Value: !Ref ManagedBy }
+  SqsCrmGatewayNormal:
+    Type: AWS::SQS::Queue
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Properties:
+      QueueName: !Join [ "_", [ !FindInMap [ StageMap, !Ref Stage, capName ], CRM_GATEWAY, NORMAL ] ]
+      Tags:
+        - { Key: "pc:silo", Value: pcap }
+        - { Key: "pc:app", Value: pcapeks }
+        - { Key: "pc:stage", Value: !Ref Stage }
+        - { Key: "pc:service", Value: "crm-gateway" }
+        # Datadog used tags
+        - { Key: "dd-enabled", Value: true }
+        - { Key: "dd-stage", Value: !Ref Stage }
+        - { Key: "kube_service", Value: "crm-gateway-service" }
+        - { Key: "queue_priority", Value: normal }
+        - { Key: "GitPath", Value: !Ref GitPath }
+        - { Key: "ManagedBy", Value: !Ref ManagedBy }
+  SqsCrmGatewayTop:
+    Type: AWS::SQS::Queue
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Properties:
+      QueueName: !Join [ "_", [ !FindInMap [ StageMap, !Ref Stage, capName ], CRM_GATEWAY, TOP ] ]
+      Tags:
+        - { Key: "pc:silo", Value: pcap }
+        - { Key: "pc:app", Value: pcapeks }
+        - { Key: "pc:stage", Value: !Ref Stage }
+        - { Key: "pc:service", Value: "crm-gateway" }
+        # Datadog used tags
+        - { Key: "dd-enabled", Value: true }
+        - { Key: "dd-stage", Value: !Ref Stage }
+        - { Key: "kube_service", Value: "crm-gateway-service" }
+        - { Key: "queue_priority", Value: top }
+        - { Key: "GitPath", Value: !Ref GitPath }
+        - { Key: "ManagedBy", Value: !Ref ManagedBy }
+  # END ANSIBLE epw-crm-gateway - SQS Queues
+
+
+
+
+so, the AWS method didn't work, i might have to raise an MR to create a DLQ for my queues, let's go back to the previous approach of creating a DLQ for a queue and work on this, for that, looking at the above, code can you tell me how to create a DLQ
+this above code is froma cloudformation repo using which new queues for my service was created in the first place.
