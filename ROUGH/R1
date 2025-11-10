@@ -1,6 +1,78 @@
-2025-11-10 08:21:24 AM [crmGatewaySqsThread-7] trace_id: span_id: INFO com.empower.epw.crm.gateway.sqs.CrmProcessingService - Received from [DRY_RUN] queue type, message [ID: 66d4009e-f274-4a55-a893-3bb08723b5c2]: FAIL_MESSAGE
-2025-11-10 08:21:24 AM [crmGatewaySqsThread-7] trace_id: span_id: WARN com.empower.epw.crm.gateway.sqs.config.CrmGatewaySqsConfig - Unexpected SQS processing error. ID: 66d4009e-f274-4a55-a893-3bb08723b5c2. Payload: FAIL_MESSAGE. Swallowing error: java.util.concurrent.CompletionException: io.awspring.cloud.sqs.listener.AsyncAdapterBlockingExecutionFailedException: Error executing action in BlockingMessageListenerAdapter, message will be deleted.
-2025-11-10 08:21:25 AM [crmGatewaySqsThread-8] trace_id: span_id: INFO com.empower.epw.crm.gateway.sqs.CrmProcessingService - Received from [DRY_RUN] queue type, message [ID: 0ddc91d4-3d97-4029-aa45-17a6f117774f]: FAIL_MESSAGE
-2025-11-10 08:21:25 AM [crmGatewaySqsThread-8] trace_id: span_id: WARN com.empower.epw.crm.gateway.sqs.config.CrmGatewaySqsConfig - Unexpected SQS processing error. ID: 0ddc91d4-3d97-4029-aa45-17a6f117774f. Payload: FAIL_MESSAGE. Swallowing error: java.util.concurrent.CompletionException: io.awspring.cloud.sqs.listener.AsyncAdapterBlockingExecutionFailedException: Error executing action in BlockingMessageListenerAdapter, message will be deleted.
-
-i see this in the container logs, but when i click on poll for messages in the DLQ, i don't see any messages
+2025-11-10 09:07:11 AM [crmGatewaySqsThread-9] trace_id: span_id: INFO com.empower.epw.crm.gateway.sqs.CrmProcessingService - Received from [DRY_RUN] queue type, message [ID: 556dec27-592c-4821-a4eb-8a25afc8d7f3]: FAIL_MESSAGE
+2025-11-10 09:07:11 AM [crmGatewaySqsThread-9] trace_id: span_id: ERROR com.empower.epw.crm.gateway.sqs.config.CrmGatewaySqsConfig - Failure message detected via exception: Test failure message to trigger DLQ, ID: 556dec27-592c-4821-a4eb-8a25afc8d7f3 Re-throwing to send to DLQ.
+2025-11-10 09:07:11 AM [crmGatewaySqsThread-9] trace_id: span_id: ERROR io.awspring.cloud.sqs.listener.sink.AbstractMessageProcessingPipelineSink - Error processing message 556dec27-592c-4821-a4eb-8a25afc8d7f3. java.util.concurrent.CompletionException: io.awspring.cloud.sqs.listener.AsyncAdapterBlockingExecutionFailedException: Error executing action in BlockingErrorHandlerAdapter
+at java.base/java.util.concurrent.CompletableFuture.encodeThrowable(CompletableFuture.java:332) ~[?:?]
+at java.base/java.util.concurrent.CompletableFuture.uniApplyNow(CompletableFuture.java:674) ~[?:?]
+at java.base/java.util.concurrent.CompletableFuture.uniApplyStage(CompletableFuture.java:662) ~[?:?]
+at java.base/java.util.concurrent.CompletableFuture.thenApply(CompletableFuture.java:2200) ~[?:?]
+at io.awspring.cloud.sqs.listener.pipeline.ErrorHandlerExecutionStage.handleError(ErrorHandlerExecutionStage.java:57) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.pipeline.ErrorHandlerExecutionStage.lambda$process$0(ErrorHandlerExecutionStage.java:51) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at java.base/java.util.concurrent.CompletableFuture.uniExceptionally(CompletableFuture.java:990) ~[?:?]
+at java.base/java.util.concurrent.CompletableFuture.uniExceptionallyStage(CompletableFuture.java:1008) ~[?:?]
+at java.base/java.util.concurrent.CompletableFuture.exceptionally(CompletableFuture.java:2396) ~[?:?]
+at io.awspring.cloud.sqs.CompletableFutures.exceptionallyCompose(CompletableFutures.java:57) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.pipeline.ErrorHandlerExecutionStage.process(ErrorHandlerExecutionStage.java:50) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.pipeline.MessageProcessingPipelineBuilder$FutureComposingMessagePipelineStage.process(MessageProcessingPipelineBuilder.java:104) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.pipeline.MessageProcessingPipelineBuilder$FutureComposingMessagePipelineStage.process(MessageProcessingPipelineBuilder.java:104) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.pipeline.MessageProcessingPipelineBuilder$FutureComposingMessagePipelineStage.process(MessageProcessingPipelineBuilder.java:104) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.pipeline.MessageProcessingPipelineBuilder$FutureComposingMessagePipelineStage.process(MessageProcessingPipelineBuilder.java:104) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.sink.AbstractMessageProcessingPipelineSink.lambda$execute$0(AbstractMessageProcessingPipelineSink.java:135) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at java.base/java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1768) ~[?:?]
+at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144) ~[?:?]
+at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642) ~[?:?]
+at java.base/java.lang.Thread.run(Thread.java:1583) [?:?]
+Caused by: io.awspring.cloud.sqs.listener.AsyncAdapterBlockingExecutionFailedException: Error executing action in BlockingErrorHandlerAdapter
+at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.wrapWithBlockingException(AsyncComponentAdapters.java:178) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.runInSameThread(AsyncComponentAdapters.java:140) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.execute(AsyncComponentAdapters.java:127) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$BlockingErrorHandlerAdapter.handle(AsyncComponentAdapters.java:282) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+... 16 more
+Caused by: io.awspring.cloud.sqs.listener.ListenerExecutionFailedException: io.awspring.cloud.sqs.listener.AsyncAdapterBlockingExecutionFailedException: Error executing action in BlockingMessageListenerAdapter
+at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$MicrometerObservationThreadLocalWrapper$ObservationAwareCloseableScope.onExecutionError(AsyncComponentAdapters.java:390) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.lambda$withConsumerThreadLocalScope$3(AsyncComponentAdapters.java:210) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.runInSameThread(AsyncComponentAdapters.java:136) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.execute(AsyncComponentAdapters.java:127) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$BlockingErrorHandlerAdapter.handle(AsyncComponentAdapters.java:282) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+... 16 more
+Caused by: io.awspring.cloud.sqs.listener.AsyncAdapterBlockingExecutionFailedException: Error executing action in BlockingMessageListenerAdapter
+at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.wrapWithBlockingException(AsyncComponentAdapters.java:178) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.runInSameThread(AsyncComponentAdapters.java:140) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.execute(AsyncComponentAdapters.java:127) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$BlockingMessageListenerAdapter.onMessage(AsyncComponentAdapters.java:262) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.pipeline.MessageListenerExecutionStage.process(MessageListenerExecutionStage.java:49) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.pipeline.MessageProcessingPipelineBuilder$ComposingMessagePipelineStage.lambda$process$0(MessageProcessingPipelineBuilder.java:80) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at java.base/java.util.concurrent.CompletableFuture.uniComposeStage(CompletableFuture.java:1187) ~[?:?]
+at java.base/java.util.concurrent.CompletableFuture.thenCompose(CompletableFuture.java:2341) ~[?:?]
+at io.awspring.cloud.sqs.listener.pipeline.MessageProcessingPipelineBuilder$ComposingMessagePipelineStage.process(MessageProcessingPipelineBuilder.java:80) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+... 9 more
+Caused by: io.awspring.cloud.sqs.listener.ListenerExecutionFailedException: Listener failed to process messages 556dec27-592c-4821-a4eb-8a25afc8d7f3
+at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$MicrometerObservationThreadLocalWrapper$ObservationAwareCloseableScope.onExecutionError(AsyncComponentAdapters.java:390) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.lambda$withConsumerThreadLocalScope$3(AsyncComponentAdapters.java:210) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.runInSameThread(AsyncComponentAdapters.java:136) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.execute(AsyncComponentAdapters.java:127) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$BlockingMessageListenerAdapter.onMessage(AsyncComponentAdapters.java:262) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.pipeline.MessageListenerExecutionStage.process(MessageListenerExecutionStage.java:49) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.pipeline.MessageProcessingPipelineBuilder$ComposingMessagePipelineStage.lambda$process$0(MessageProcessingPipelineBuilder.java:80) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at java.base/java.util.concurrent.CompletableFuture.uniComposeStage(CompletableFuture.java:1187) ~[?:?]
+at java.base/java.util.concurrent.CompletableFuture.thenCompose(CompletableFuture.java:2341) ~[?:?]
+at io.awspring.cloud.sqs.listener.pipeline.MessageProcessingPipelineBuilder$ComposingMessagePipelineStage.process(MessageProcessingPipelineBuilder.java:80) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+... 9 more
+Caused by: com.empower.epw.crm.gateway.sqs.MessageException: Test failure message to trigger DLQ
+at com.empower.epw.crm.gateway.sqs.CrmProcessingService.processMessage(CrmProcessingService.java:22) ~[app/:?]
+at com.empower.epw.crm.gateway.sqs.CrmGatewayMessageListener.handleDryRunMessage(CrmGatewayMessageListener.java:33) ~[app/:?]
+at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[?:?]
+at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[?:?]
+at org.springframework.messaging.handler.invocation.InvocableHandlerMethod.doInvoke(InvocableHandlerMethod.java:169) ~[spring-messaging-6.2.11.jar:6.2.11]
+at org.springframework.messaging.handler.invocation.InvocableHandlerMethod.invoke(InvocableHandlerMethod.java:119) ~[spring-messaging-6.2.11.jar:6.2.11]
+at io.awspring.cloud.sqs.listener.adapter.AbstractMethodInvokingListenerAdapter.invokeHandler(AbstractMethodInvokingListenerAdapter.java:56) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.adapter.MessagingMessageListenerAdapter.onMessage(MessagingMessageListenerAdapter.java:41) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.lambda$withConsumerThreadLocalScope$3(AsyncComponentAdapters.java:206) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.runInSameThread(AsyncComponentAdapters.java:136) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$AbstractThreadingComponentAdapter.execute(AsyncComponentAdapters.java:127) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.AsyncComponentAdapters$BlockingMessageListenerAdapter.onMessage(AsyncComponentAdapters.java:262) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.pipeline.MessageListenerExecutionStage.process(MessageListenerExecutionStage.java:49) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at io.awspring.cloud.sqs.listener.pipeline.MessageProcessingPipelineBuilder$ComposingMessagePipelineStage.lambda$process$0(MessageProcessingPipelineBuilder.java:80) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+at java.base/java.util.concurrent.CompletableFuture.uniComposeStage(CompletableFuture.java:1187) ~[?:?]
+at java.base/java.util.concurrent.CompletableFuture.thenCompose(CompletableFuture.java:2341) ~[?:?]
+at io.awspring.cloud.sqs.listener.pipeline.MessageProcessingPipelineBuilder$ComposingMessagePipelineStage.process(MessageProcessingPipelineBuilder.java:80) ~[spring-cloud-aws-sqs-3.4.0.jar:3.4.0]
+... 9 more
