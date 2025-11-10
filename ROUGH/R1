@@ -1,84 +1,99 @@
-package com.empower.epw.crm.gateway.sqs;
+package com.empower.epw.crm.gateway.sqs.config;
 
-import io.awspring.cloud.sqs.annotation.SqsListener;
+import java.time.Duration;
+import java.util.UUID;
+import java.util.concurrent.ThreadPoolExecutor;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.messaging.handler.annotation.Header;
-import org.springframework.retry.annotation.Backoff;
-import org.springframework.retry.annotation.Recover;
-import org.springframework.retry.annotation.Retryable;
-import org.springframework.stereotype.Component;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+
+import com.empower.epw.crm.gateway.sqs.CrmProcessingService;
+import io.awspring.cloud.sqs.listener.errorhandler.ErrorHandler;
 import lombok.CustomLog;
+import io.awspring.cloud.sqs.MessageExecutionThreadFactory;
+import io.awspring.cloud.sqs.config.SqsMessageListenerContainerFactory;
+import io.awspring.cloud.sqs.listener.QueueNotFoundStrategy;
+import io.awspring.cloud.sqs.listener.acknowledgement.handler.AcknowledgementMode;
+import software.amazon.awssdk.services.sqs.SqsAsyncClient;
 
 @CustomLog
-@Component
+@Configuration
 @ConditionalOnProperty(name = "crm.gateway.listener.enabled", havingValue = "true", matchIfMissing = false)
-public class CrmGatewayMessageListener
+public class CrmGatewaySqsConfig
 {
-	private final CrmProcessingService processingService;
+	@Value("${crm.gateway.sqs.visibilityTimeout:60}")
+	public Integer visibilityTimeout;
 
-	@Autowired
-	public CrmGatewayMessageListener(CrmProcessingService processingService)
+	@Value("${crm.gateway.sqs.minPoolSize:10}")
+	public Integer minPoolSize;
+
+	@Value("${crm.gateway.sqs.maxPoolSize:30}")
+	public Integer maxPoolSize;
+
+	@Value("${crm.gateway.sqs.queueCapacity:30}")
+	public Integer queueCapacity;
+
+	@Value("${crm.gateway.sqs.queueMaxAwaitTermination:30}")
+	public Integer queueMaxAwaitTermination;
+
+	@Value("{crm.gateway.sqs.retry.backoff.delay:60000}")
+	public Long backoffDelay;
+
+	@Value("{crm.gateway.sqs.retry.max.attempts:3}")
+	public Integer maxAttempts;
+
+	@Bean("awsTaskExecutor")
+	public ThreadPoolTaskExecutor awsTaskExecutor()
 	{
-		this.processingService = processingService;
+		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+		executor.setCorePoolSize(minPoolSize);
+		executor.setMaxPoolSize(maxPoolSize);
+		executor.setQueueCapacity(queueCapacity);
+		executor.setWaitForTasksToCompleteOnShutdown(true);
+		executor.setAwaitTerminationSeconds(queueMaxAwaitTermination);
+		executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+		executor.setThreadFactory(new MessageExecutionThreadFactory("crmGatewaySqsThread-"));
+		return executor;
 	}
 
-	@SqsListener("${crm.gateway.sqs.queue.dryrun:}")
-	@Retryable(value =
-	{
-			Exception.class
-	}, maxAttemptsExpression = "#{${crm.gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm.gateway.sqs.retry.backoff-delay:1000}}"))
-	public void handleDryRunMessage(String message,
-			@Header(name = "id", required = false) String messageId)
-	{
-		processingService.processMessage("DRY_RUN", message, messageId);
+	@Bean
+	public ErrorHandler<Object> customErrorHandler(CrmProcessingService processingService) {
+		return (org.springframework.messaging.Message<Object> message, Throwable throwable) -> {
+		UUID messageId = message.getHeaders().getId();
+		String messageIdString = (messageId != null) ? messageId.toString() : "unknown";
+
+		log.error("SQS message processing failed. ID: {}, Payload: {}. Re-throwing to allow SQS retry/DLQ.", messageIdString, message.getPayload(), throwable);
+
+		if (throwable instanceof RuntimeException){
+			throw (RuntimeException) throwable;
+		}
+		throw new RuntimeException("SQS processing failed", throwable);
+		};
 	}
 
-	/*
-	 * TEMPORARILY DISABLED FOR DLQ PoC This queue is now acting as DLQ for other queues Hence the
-	 * listener for this queue is disabled
-	 */
-	/*
-	 * @SqsListener("${crm.gateway.sqs.queue.intermediate:}")
-	 * 
-	 * @Retryable(value = { Exception.class }, maxAttemptsExpression =
-	 * "#{${crm.gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression =
-	 * "#{${crm.gateway.sqs.retry.backoff-delay:1000}}")) public void
-	 * handleIntermediateMessage(String message,
-	 * 
-	 * @Header(name = "id", required = false) String messageId) {
-	 * processingService.processMessage("INTERMEDIATE", message, messageId); }
-	 */
+	@Bean
+	SqsMessageListenerContainerFactory<Object> defaultSqsListenerContainerFactory(
+			SqsAsyncClient sqsAsyncClient)
+	{
 
-	@SqsListener("${crm.gateway.sqs.queue.normal:}")
-	@Retryable(value =
-	{
-			Exception.class
-	}, maxAttemptsExpression = "#{${crm.gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm.gateway.sqs.retry.backoff-delay:1000}}"))
-	public void handleNormalMessage(String message,
-			@Header(name = "id", required = false) String messageId)
-	{
-		processingService.processMessage("NORMAL", message, messageId);
-	}
+		log.info("Creating SQS Listener Container Factory with visibility timeout: {}",
+				visibilityTimeout);
 
-	@SqsListener("${crm.gateway.sqs.queue.top:}")
-	@Retryable(value =
-	{
-			Exception.class
-	}, maxAttemptsExpression = "#{${crm.gateway.sqs.retry.max-attempts:3}}", backoff = @Backoff(delayExpression = "#{${crm.gateway.sqs.retry.backoff-delay:1000}}"))
-	public void handleTopMessage(String message,
-			@Header(name = "id", required = false) String messageId)
-	{
-		processingService.processMessage("TOP", message, messageId);
-	}
-
-	@Recover
-	public void recoverFailedMessages(Exception e, String message, String messageId)
-	{
-		processingService.recoverFailedMessages(e, message, messageId);
+		return SqsMessageListenerContainerFactory.builder()
+				.sqsAsyncClient(sqsAsyncClient)
+				.configure(sqsContainerOptionsBuilder -> sqsContainerOptionsBuilder
+						.messageVisibility(Duration.ofSeconds(visibilityTimeout))
+						.queueNotFoundStrategy(QueueNotFoundStrategy.FAIL)
+						.pollTimeout(Duration.ofSeconds(20))
+						.maxMessagesPerPoll(10)
+						.componentsTaskExecutor(awsTaskExecutor())
+						.autoStartup(true)
+						.acknowledgementMode(AcknowledgementMode.ON_SUCCESS))
+				.build();
 	}
 }
 
-
-this is the current existing listener class
+now that the listener and the processing service is updated, how to update the config class?
