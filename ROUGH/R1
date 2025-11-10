@@ -1,80 +1,73 @@
- # BEGIN ANSIBLE epw-crm-gateway - SQS Queues
-  SqsCrmGatewayDryRun:
-    Type: AWS::SQS::Queue
-    UpdateReplacePolicy: Retain
-    DeletionPolicy: Retain
-    Properties:
-      QueueName: !Join [ "_", [ !FindInMap [ StageMap, !Ref Stage, capName ], CRM_GATEWAY, DRY_RUN ] ]
-      Tags:
-        - { Key: "pc:silo", Value: pcap }
-        - { Key: "pc:app", Value: pcapeks }
-        - { Key: "pc:stage", Value: !Ref Stage }
-        - { Key: "pc:service", Value: "crm-gateway" }
-        # Datadog used tags
-        - { Key: "dd-enabled", Value: true }
-        - { Key: "dd-stage", Value: !Ref Stage }
-        - { Key: "kube_service", Value: "crm-gateway-service" }
-        - { Key: "queue_priority", Value: dry_run }
-        - { Key: "GitPath", Value: !Ref GitPath }
-        - { Key: "ManagedBy", Value: !Ref ManagedBy }
-  SqsCrmGatewayIntermediate:
-    Type: AWS::SQS::Queue
-    UpdateReplacePolicy: Retain
-    DeletionPolicy: Retain
-    Properties:
-      QueueName: !Join [ "_", [ !FindInMap [ StageMap, !Ref Stage, capName ], CRM_GATEWAY, INTERMEDIATE ] ]
-      Tags:
-        - { Key: "pc:silo", Value: pcap }
-        - { Key: "pc:app", Value: pcapeks }
-        - { Key: "pc:stage", Value: !Ref Stage }
-        - { Key: "pc:service", Value: "crm-gateway" }
-        # Datadog used tags
-        - { Key: "dd-enabled", Value: true }
-        - { Key: "dd-stage", Value: !Ref Stage }
-        - { Key: "kube_service", Value: "crm-gateway-service" }
-        - { Key: "queue_priority", Value: intermediate }
-        - { Key: "GitPath", Value: !Ref GitPath }
-        - { Key: "ManagedBy", Value: !Ref ManagedBy }
-  SqsCrmGatewayNormal:
-    Type: AWS::SQS::Queue
-    UpdateReplacePolicy: Retain
-    DeletionPolicy: Retain
-    Properties:
-      QueueName: !Join [ "_", [ !FindInMap [ StageMap, !Ref Stage, capName ], CRM_GATEWAY, NORMAL ] ]
-      Tags:
-        - { Key: "pc:silo", Value: pcap }
-        - { Key: "pc:app", Value: pcapeks }
-        - { Key: "pc:stage", Value: !Ref Stage }
-        - { Key: "pc:service", Value: "crm-gateway" }
-        # Datadog used tags
-        - { Key: "dd-enabled", Value: true }
-        - { Key: "dd-stage", Value: !Ref Stage }
-        - { Key: "kube_service", Value: "crm-gateway-service" }
-        - { Key: "queue_priority", Value: normal }
-        - { Key: "GitPath", Value: !Ref GitPath }
-        - { Key: "ManagedBy", Value: !Ref ManagedBy }
-  SqsCrmGatewayTop:
-    Type: AWS::SQS::Queue
-    UpdateReplacePolicy: Retain
-    DeletionPolicy: Retain
-    Properties:
-      QueueName: !Join [ "_", [ !FindInMap [ StageMap, !Ref Stage, capName ], CRM_GATEWAY, TOP ] ]
-      Tags:
-        - { Key: "pc:silo", Value: pcap }
-        - { Key: "pc:app", Value: pcapeks }
-        - { Key: "pc:stage", Value: !Ref Stage }
-        - { Key: "pc:service", Value: "crm-gateway" }
-        # Datadog used tags
-        - { Key: "dd-enabled", Value: true }
-        - { Key: "dd-stage", Value: !Ref Stage }
-        - { Key: "kube_service", Value: "crm-gateway-service" }
-        - { Key: "queue_priority", Value: top }
-        - { Key: "GitPath", Value: !Ref GitPath }
-        - { Key: "ManagedBy", Value: !Ref ManagedBy }
-  # END ANSIBLE epw-crm-gateway - SQS Queues
+package com.empower.epw.crm.gateway.sqs.config;
 
+import java.time.Duration;
+import java.util.concurrent.ThreadPoolExecutor;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
+import lombok.CustomLog;
+import io.awspring.cloud.sqs.MessageExecutionThreadFactory;
+import io.awspring.cloud.sqs.config.SqsMessageListenerContainerFactory;
+import io.awspring.cloud.sqs.listener.QueueNotFoundStrategy;
+import io.awspring.cloud.sqs.listener.acknowledgement.handler.AcknowledgementMode;
+import software.amazon.awssdk.services.sqs.SqsAsyncClient;
 
-so, the AWS method didn't work, i might have to raise an MR to create a DLQ for my queues, let's go back to the previous approach of creating a DLQ for a queue and work on this, for that, looking at the above, code can you tell me how to create a DLQ
-this above code is froma cloudformation repo using which new queues for my service was created in the first place. should i create one DLQ for each queues or one DLQ for all 4 queues, for saftey let's do one DLQ for DRY_RUN for nwo
+@CustomLog
+@Configuration
+@ConditionalOnProperty(name = "crm.gateway.listener.enabled", havingValue = "true", matchIfMissing = false)
+public class CrmGatewaySqsConfig
+{
+	@Value("${crm.gateway.sqs.visibilityTimeout:60}")
+	public Integer visibilityTimeout;
+
+	@Value("${crm.gateway.sqs.minPoolSize:10}")
+	public Integer minPoolSize;
+
+	@Value("${crm.gateway.sqs.maxPoolSize:30}")
+	public Integer maxPoolSize;
+
+	@Value("${crm.gateway.sqs.queueCapacity:30}")
+	public Integer queueCapacity;
+
+	@Value("${crm.gateway.sqs.queueMaxAwaitTermination:30}")
+	public Integer queueMaxAwaitTermination;
+
+	@Bean("awsTaskExecutor")
+	public ThreadPoolTaskExecutor awsTaskExecutor()
+	{
+		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+		executor.setCorePoolSize(minPoolSize);
+		executor.setMaxPoolSize(maxPoolSize);
+		executor.setQueueCapacity(queueCapacity);
+		executor.setWaitForTasksToCompleteOnShutdown(true);
+		executor.setAwaitTerminationSeconds(queueMaxAwaitTermination);
+		executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+		executor.setThreadFactory(new MessageExecutionThreadFactory("crmGatewaySqsThread-"));
+		return executor;
+	}
+
+	@Bean
+	SqsMessageListenerContainerFactory<Object> defaultSqsListenerContainerFactory(
+			SqsAsyncClient sqsAsyncClient)
+	{
+
+		log.info("Creating SQS Listener Container Factory with visibility timeout: {}",
+				visibilityTimeout);
+
+		return SqsMessageListenerContainerFactory.builder()
+				.sqsAsyncClient(sqsAsyncClient)
+				.configure(sqsContainerOptionsBuilder -> sqsContainerOptionsBuilder
+						.messageVisibility(Duration.ofSeconds(visibilityTimeout))
+						.queueNotFoundStrategy(QueueNotFoundStrategy.FAIL)
+						.pollTimeout(Duration.ofSeconds(20))
+						.maxMessagesPerPoll(10)
+						.componentsTaskExecutor(awsTaskExecutor())
+						.autoStartup(true)
+						.acknowledgementMode(AcknowledgementMode.ON_SUCCESS))
+				.build();
+	}
+}
