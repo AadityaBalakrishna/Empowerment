@@ -1,11 +1,4 @@
-[PCAP\abalakrishna@a-2d96x7pbja7vd epw-crm-gateway]$ ./send-sqs.sh "https.pcsvc.dt.pcapqa.app/crm-gateway-mr-11" "normal" '{"id": 123, "test": "hello"}'
-Sending payload to: https.pcsvc.dt.pcapqa.app/crm-gateway-mr-11/api/sqs/send-normal
-Payload: {"id": 123, "test": "hello"}
----
-curl: (6) Could not resolve host: https.pcsvc.dt.pcapqa.app
+2025-11-12 03:31:29 AM [http-nio-8080-exec-4] trace_id: span_id: INFO com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducer - Sending message to queue [DEVTRUNK_CRM_GATEWAY_DRY_RUN]: FAIL_MESSAGE
+2025-11-12 03:31:29 AM [http-nio-8080-exec-4] trace_id: span_id: INFO com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducer - Message sent successfully to queue [DEVTRUNK_CRM_GATEWAY_DRY_RUN].
 
----
-Done.
-
-
-what is the issue?
+this "FAIL_MESSAGE" sent from the terminal shouldn't be processed right?
