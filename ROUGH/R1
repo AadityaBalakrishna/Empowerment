@@ -1,127 +1,60 @@
-package com.empower.epw.crm.gateway.sqs.config;
+package com.empower.epw.crm.gateway.sqs;
 
-import java.time.Duration;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.net.SocketTimeoutException;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.lang.NonNull;
-import org.springframework.messaging.Message;
-import org.springframework.messaging.MessageHeaders;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.stereotype.Service;
 
-import io.awspring.cloud.sqs.listener.errorhandler.ErrorHandler;
+import com.empower.epw.crm.gateway.sqs.utils.NonRetryableException;
+import com.empower.epw.crm.gateway.sqs.utils.RetryableException;
 import lombok.CustomLog;
-import io.awspring.cloud.sqs.MessageExecutionThreadFactory;
-import io.awspring.cloud.sqs.config.SqsMessageListenerContainerFactory;
-import io.awspring.cloud.sqs.listener.QueueNotFoundStrategy;
-import io.awspring.cloud.sqs.listener.acknowledgement.handler.AcknowledgementMode;
-import software.amazon.awssdk.services.sqs.SqsAsyncClient;
 
 @CustomLog
-@Configuration
-@ConditionalOnProperty(name = "crm.gateway.listener.enabled", havingValue = "true", matchIfMissing = false)
-public class CrmGatewaySqsConfig
+@Service
+public class CrmProcessingService
 {
-	@Value("${crm.gateway.sqs.visibilityTimeout:60}")
-	public Integer visibilityTimeout;
 
-	@Value("${crm.gateway.sqs.minPoolSize:10}")
-	public Integer minPoolSize;
-
-	@Value("${crm.gateway.sqs.maxPoolSize:30}")
-	public Integer maxPoolSize;
-
-	@Value("${crm.gateway.sqs.queueCapacity:30}")
-	public Integer queueCapacity;
-
-	@Value("${crm.gateway.sqs.queueMaxAwaitTermination:30}")
-	public Integer queueMaxAwaitTermination;
-
-	@Bean("awsTaskExecutor")
-	public ThreadPoolTaskExecutor awsTaskExecutor()
+	public void processMessage(String type, String message, String messageId)
 	{
-		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-		executor.setCorePoolSize(minPoolSize);
-		executor.setMaxPoolSize(maxPoolSize);
-		executor.setQueueCapacity(queueCapacity);
-		executor.setWaitForTasksToCompleteOnShutdown(true);
-		executor.setAwaitTerminationSeconds(queueMaxAwaitTermination);
-		executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
-		executor.setThreadFactory(new MessageExecutionThreadFactory("crmGatewaySqsThread-"));
-		return executor;
-	}
+		log.info("Received from [{}] queue type, message [ID: {}]: {}", type,
+				messageId != null ? messageId : "NA", message);
 
-	// TODO - Update the Error Handling as per business requirements
-	/**
-	 * This error handler now inspects the EXCEPTION TYPE to decide what to do. - MessageException:
-	 * Re-throws the error. This signals failure to SQS, which will eventually move the message to
-	 * the DLQ.
-	 */
-	@Bean
-	public ErrorHandler<Object> customErrorHandler()
-	{
-		return new ErrorHandler<Object>()
-		{
-			@Override
-			public void handle(@NonNull Message<Object> msg, @NonNull Throwable t)
-			{
-				MessageHeaders headers = msg.getHeaders();
-				UUID messageId = headers.getId();
-				String messageIdString = (messageId != null) ? messageId.toString() : "unknown";
-
-				int receiveCount = 1;
-				@SuppressWarnings("unchecked")
-				Map<String, String> attributes = headers.get("sqs_Attributes", Map.class);
-				if (attributes != null && attributes.containsKey("ApproximateReceiveCount"))
-				{
-					try
-					{
-						receiveCount = Integer.parseInt(attributes.get("ApproximateReceiveCount"));
-					}
-					catch (NumberFormatException e)
-					{
-						log.warn("Could not parse ApproximateReceiveCount", e);
-					}
-				}
-
-				log.error(
-						"SQS message processing failed (Receive Count: {}), Message ID: {}, Payload: {},  Re-throwing to allow SQS retry/DLQ. {}",
-						receiveCount, messageIdString, msg.getPayload(), t);
-
-				throw new RuntimeException("SQS processing failed, see cause", t);
+		// TODO - Update the Error Handling as per business requirements
+		try{
+			// Use this template to categorize the errors and determine which needs to be sent to DLQ
+			
+			//Use case 1: un-processable message
+			if(message != null && message.trim().contains("FAIL_MESSAGE")){
+				log.warn("FAIL_MESSAGE detected, will be logged");
+				throw new NonRetryableException("Designated failure message: "+ message);
 			}
-		};
-	}
-
-	@Bean
-	SqsMessageListenerContainerFactory<Object> defaultSqsListenerContainerFactory(
-			SqsAsyncClient sqsAsyncClient, ErrorHandler<Object> customErrorHandler)
-	{
-
-		log.info("Creating SQS Listener Container Factory with visibility timeout: {}",
-				visibilityTimeout);
-
-		return SqsMessageListenerContainerFactory.builder()
-				.sqsAsyncClient(sqsAsyncClient)
-				.errorHandler(customErrorHandler)
-				.configure(sqsContainerOptionsBuilder -> sqsContainerOptionsBuilder
-						.messageVisibility(Duration.ofSeconds(visibilityTimeout))
-						.queueNotFoundStrategy(QueueNotFoundStrategy.FAIL)
-						.pollTimeout(Duration.ofSeconds(20))
-						.maxMessagesPerPoll(10)
-						.componentsTaskExecutor(awsTaskExecutor())
-						.autoStartup(true)
-						.acknowledgementMode(AcknowledgementMode.ON_SUCCESS))
-				.build();
+			
+			//Use case 2: Transient errors like DB/network timeout
+			if(message != null && message.trim().contains("TRANSIENT_ERROR")){
+				log.warn("FAIL_MESSAGE detected, will be logged");
+				var transientError = new SocketTimeoutException("Simulated DB timeout");
+				throw new RetryableException(transientError);
+			}
+			
+			//Use case 3: code bug
+			if(message != null && message.trim().contains("CODE_BUG")){
+				throw new NullPointerException("Simulating Code failure");
+			}
+			
+			log.info("Message from queue type [{}] processed successfully.", type);
+		} catch (RetryableException re){
+			// Re-throw the RETRYABLE signal to be caught by the errorHandler
+			throw re;
+			
+		} catch (NonRetryableException nre){
+			// Re-throw the NON_RETRYABLE signal to be caught by the errorHandler
+			throw nre;
+			
+		} catch (Exception ex){
+			// Catch all other exceptions and wrap them as NON_RETRYABLE
+			log.error("An unexcepted error occurred.", ex);
+			throw new NonRetryableException("Unexpected processing error", ex);
+		}
 	}
 }
 
-
-this was my previous SQS config code, so help me correct this with the new concept, 
-
-and also i don't think we need 3 exception files, just 2 enough, let's remove MessageException right?
+i have updated the processing service like this, check and save
