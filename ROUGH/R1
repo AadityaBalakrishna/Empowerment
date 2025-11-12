@@ -1,8 +1,67 @@
-Here i see all messages going to DLQ - i mean all messages coming to handle error sending to DLQ.  
-if message throws null pointer or payload is invalid, why we need to do retry 
-it should be handled 
-only downstream failure ,we need to do retry 
+package com.empower.epw.crm.gateway.sqs.config;
 
+import java.time.Duration;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ThreadPoolExecutor;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.lang.NonNull;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.MessageHeaders;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+
+import io.awspring.cloud.sqs.listener.errorhandler.ErrorHandler;
+import lombok.CustomLog;
+import io.awspring.cloud.sqs.MessageExecutionThreadFactory;
+import io.awspring.cloud.sqs.config.SqsMessageListenerContainerFactory;
+import io.awspring.cloud.sqs.listener.QueueNotFoundStrategy;
+import io.awspring.cloud.sqs.listener.acknowledgement.handler.AcknowledgementMode;
+import software.amazon.awssdk.services.sqs.SqsAsyncClient;
+
+@CustomLog
+@Configuration
+@ConditionalOnProperty(name = "crm.gateway.listener.enabled", havingValue = "true", matchIfMissing = false)
+public class CrmGatewaySqsConfig
+{
+	@Value("${crm.gateway.sqs.visibilityTimeout:60}")
+	public Integer visibilityTimeout;
+
+	@Value("${crm.gateway.sqs.minPoolSize:10}")
+	public Integer minPoolSize;
+
+	@Value("${crm.gateway.sqs.maxPoolSize:30}")
+	public Integer maxPoolSize;
+
+	@Value("${crm.gateway.sqs.queueCapacity:30}")
+	public Integer queueCapacity;
+
+	@Value("${crm.gateway.sqs.queueMaxAwaitTermination:30}")
+	public Integer queueMaxAwaitTermination;
+
+	@Bean("awsTaskExecutor")
+	public ThreadPoolTaskExecutor awsTaskExecutor()
+	{
+		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+		executor.setCorePoolSize(minPoolSize);
+		executor.setMaxPoolSize(maxPoolSize);
+		executor.setQueueCapacity(queueCapacity);
+		executor.setWaitForTasksToCompleteOnShutdown(true);
+		executor.setAwaitTerminationSeconds(queueMaxAwaitTermination);
+		executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+		executor.setThreadFactory(new MessageExecutionThreadFactory("crmGatewaySqsThread-"));
+		return executor;
+	}
+
+	// TODO - Update the Error Handling as per business requirements
+	/**
+	 * This error handler now inspects the EXCEPTION TYPE to decide what to do. - MessageException:
+	 * Re-throws the error. This signals failure to SQS, which will eventually move the message to
+	 * the DLQ.
+	 */
 	@Bean
 	public ErrorHandler<Object> customErrorHandler()
 	{
@@ -38,3 +97,31 @@ only downstream failure ,we need to do retry
 			}
 		};
 	}
+
+	@Bean
+	SqsMessageListenerContainerFactory<Object> defaultSqsListenerContainerFactory(
+			SqsAsyncClient sqsAsyncClient, ErrorHandler<Object> customErrorHandler)
+	{
+
+		log.info("Creating SQS Listener Container Factory with visibility timeout: {}",
+				visibilityTimeout);
+
+		return SqsMessageListenerContainerFactory.builder()
+				.sqsAsyncClient(sqsAsyncClient)
+				.errorHandler(customErrorHandler)
+				.configure(sqsContainerOptionsBuilder -> sqsContainerOptionsBuilder
+						.messageVisibility(Duration.ofSeconds(visibilityTimeout))
+						.queueNotFoundStrategy(QueueNotFoundStrategy.FAIL)
+						.pollTimeout(Duration.ofSeconds(20))
+						.maxMessagesPerPoll(10)
+						.componentsTaskExecutor(awsTaskExecutor())
+						.autoStartup(true)
+						.acknowledgementMode(AcknowledgementMode.ON_SUCCESS))
+				.build();
+	}
+}
+
+
+this was my previous SQS config code, so help me correct this with the new concept, 
+
+and also i don't think we need 3 exception files, just 2 enough, let's remove MessageException right?
