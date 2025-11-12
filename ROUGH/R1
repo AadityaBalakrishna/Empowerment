@@ -1,38 +1,59 @@
-package com.empower.epw.crm.gateway.sqs;
-
-import org.springframework.stereotype.Service;
-
-import lombok.CustomLog;
-
-@CustomLog
-@Service
-public class CrmProcessingService
-{
-
-	public void processMessage(String type, String message, String messageId)
+//TODO - Update the Error Handling as per business requirements
+	/**
+	 * This error handler now inspects the EXCEPTION TYPE to decide what to do. - MessageException:
+	 * Re-throws the error. This signals failure to SQS, which will eventually move the message to
+	 * the DLQ.
+	 */
+	@Bean
+	public ErrorHandler<Object> customErrorHandler()
 	{
-		log.info("Received from [{}] queue type, message [ID: {}]: {}", type,
-				messageId != null ? messageId : "NA", message);
-
-		try
+		return new ErrorHandler<Object>()
 		{
-			// TODO: handle domain logic here
-			if ("FAIL_MESSAGE".equals(message))
+			@Override
+			public void handle(Message<Object> msg, Throwable t)
 			{
-				throw new MessageException("Test failure message to trigger DLQ");
-			}
-			log.info("Message from queue type [{}] processed successfully.", type);
-		}
-		catch (MessageException messageException)
-		{
-			throw messageException;
-		}
-		catch (Exception ex)
-		{
-			log.error("Error processing [{}] message: {}, {}", type, ex.getMessage(), ex);
-			throw new RuntimeException("Unexpected processing error", ex);
-		}
-	}
-}
+				MessageHeaders headers = msg.getHeaders();
+				UUID messageId = headers.getId();
+				String messageIdString = (messageId != null) ? messageId.toString() : "unknown";
+				boolean isMessageFail = false;
+				Throwable cause = t.getCause();
 
-you what are you saying? this is my service
+				while (cause != null)
+				{
+					if (cause instanceof MessageException)
+					{
+						isMessageFail = true;
+						break;
+					}
+					cause = cause.getCause();
+				}
+
+				if (isMessageFail)
+				{
+					log.error(
+							"Failure message detected via exception: {},  ID: {} Re-throwing to send to DLQ.",
+							cause.getMessage(), messageIdString);
+
+					// Re-throw the exception to signal failure (sends to DLQ)
+					if (t instanceof RuntimeException)
+					{
+						throw (RuntimeException) t;
+					}
+					throw new RuntimeException("SQS processing failed for fail message", t);
+
+				}
+				else
+				{
+					log.warn(
+							"Unexpected SQS processing error. ID: {}. Payload: {}. Swallowing error: {}, message will be deleted.",
+							messageIdString, msg.getPayload(), t);
+				}
+			}
+		};
+	}
+
+
+in this block of code, i received this review comment - " All exceptions we are re-throwing it including NullPointerException. We should throw exception which should be retry later . Please fix the code. "
+
+and also when does this comment, appear -  "Unexpected SQS processing error. ID: {}. Payload: {}. Swallowing error: {}, message will be deleted.",
+							messageIdString, msg.getPayload(), t" 
