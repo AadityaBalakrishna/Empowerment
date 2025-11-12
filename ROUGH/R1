@@ -1,4 +1,157 @@
-2025-11-12 03:31:29 AM [http-nio-8080-exec-4] trace_id: span_id: INFO com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducer - Sending message to queue [DEVTRUNK_CRM_GATEWAY_DRY_RUN]: FAIL_MESSAGE
-2025-11-12 03:31:29 AM [http-nio-8080-exec-4] trace_id: span_id: INFO com.empower.epw.crm.gateway.sqs.CrmGatewayMessageProducer - Message sent successfully to queue [DEVTRUNK_CRM_GATEWAY_DRY_RUN].
+with the new updates, do we need to change the old test that was working?
 
-this "FAIL_MESSAGE" sent from the terminal shouldn't be processed right?
+package com.empower.epw.crm.gateway.sqs;
+
+import java.util.concurrent.TimeUnit;
+
+import io.awspring.cloud.sqs.operations.SqsTemplate;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.util.TestPropertyValues;
+import org.springframework.context.ApplicationContextInitializer;
+import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.testcontainers.containers.localstack.LocalStackContainer;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
+
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.sqs.SqsClient;
+
+import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+
+@SpringBootTest
+@Testcontainers
+@ActiveProfiles("test")
+@ContextConfiguration(initializers = CrmGatewayMessageListenerTest.Initializer.class)
+@TestPropertySource(properties = "crm.gateway.listener.enabled=true")
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+class CrmGatewayMessageListenerTest
+{
+
+	private static final String DRY_RUN_QUEUE = "DEVTRUNK_CRM_GATEWAY_DRY_RUN";
+	private static final String INTERMEDIATE_QUEUE = "DEVTRUNK_CRM_GATEWAY_INTERMEDIATE";
+	private static final String NORMAL_QUEUE = "DEVTRUNK_CRM_GATEWAY_NORMAL";
+	private static final String TOP_QUEUE = "DEVTRUNK_CRM_GATEWAY_TOP";
+
+	@Autowired
+	private SqsTemplate sqsTemplate;
+
+	@MockitoBean
+	private CrmProcessingService processingService;
+
+	public static class Initializer
+			implements ApplicationContextInitializer<ConfigurableApplicationContext>
+	{
+
+		static final LocalStackContainer localstack = new LocalStackContainer(
+				DockerImageName.parse("localstack/localstack:3.0"))
+						.withServices(LocalStackContainer.Service.SQS);
+
+		@Override
+		public void initialize(ConfigurableApplicationContext applicationContext)
+		{
+			if (!localstack.isRunning())
+			{
+				localstack.start();
+			}
+
+			SqsClient sqsClient = SqsClient.builder()
+					.endpointOverride(
+							localstack.getEndpointOverride(LocalStackContainer.Service.SQS))
+					.region(Region.of(localstack.getRegion()))
+					.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials
+							.create(localstack.getAccessKey(), localstack.getSecretKey())))
+					.build();
+
+			for (String queueName : new String[]
+			{
+					DRY_RUN_QUEUE, INTERMEDIATE_QUEUE, NORMAL_QUEUE, TOP_QUEUE
+			})
+			{
+				sqsClient.createQueue(r -> r.queueName(queueName));
+			}
+
+			applicationContext.getBeanFactory()
+					.registerSingleton("sqsClientForTest", sqsClient);
+
+			TestPropertyValues
+					.of("spring.cloud.aws.region.static=" + localstack.getRegion(),
+							"spring.cloud.aws.credentials.access-key=" + localstack.getAccessKey(),
+							"spring.cloud.aws.credentials.secret-key=" + localstack.getSecretKey(),
+							"spring.cloud.aws.sqs.endpoint=" + localstack
+									.getEndpointOverride(LocalStackContainer.Service.SQS)
+									.toString(),
+							"crm.gateway.sqs.queue.dryrun=" + DRY_RUN_QUEUE,
+							"crm.gateway.sqs.queue.intermediate=" + INTERMEDIATE_QUEUE,
+							"crm.gateway.sqs.queue.normal=" + NORMAL_QUEUE,
+							"crm.gateway.sqs.queue.top=" + TOP_QUEUE)
+					.applyTo(applicationContext.getEnvironment());
+		}
+	}
+
+	@Test
+	void testMessageIsConsumedSuccessfully() throws Exception
+	{
+		String payload = "{\"event\":\"TestConsumer\",\"id\":123}";
+		sqsTemplate.send(DRY_RUN_QUEUE, payload);
+
+		await().atMost(5, TimeUnit.SECONDS)
+				.untilAsserted(() ->
+				{
+					verify(processingService, times(1)).processMessage(eq("DRY_RUN"), eq(payload),
+							anyString());
+				});
+	}
+
+	@Test
+	void testMessageRetriesAndRecoversOnFailure()
+	{
+		String payload = "FAIL_MESSAGE";
+
+		doThrow(new RuntimeException("Processing Failure")).when(processingService)
+				.processMessage(eq("DRY_RUN"), eq(payload), anyString());
+
+		sqsTemplate.send(DRY_RUN_QUEUE, payload);
+		await().atMost(5, TimeUnit.SECONDS)
+				.untilAsserted(() ->
+				{
+					verify(processingService, times(1)).processMessage(eq("DRY_RUN"), eq(payload),
+							anyString());
+				});
+	}
+
+	@Test
+	void testOtherExceptionsIsSwallowedAndNotRetried()
+	{
+		String payload = "OTHER_ERRORS";
+
+		doThrow(new NullPointerException("Other processing failures")).when(processingService)
+				.processMessage(eq("DRY_RUN"), eq(payload), anyString());
+
+		sqsTemplate.send(DRY_RUN_QUEUE, payload);
+
+		await().atMost(5, TimeUnit.SECONDS)
+				.untilAsserted(() ->
+				{
+					verify(processingService, times(1)).processMessage(eq("DRY_RUN"), eq(payload),
+							anyString());
+				});
+	}
+}
+
+my reviewer expressed the concern that it doesn't show that we are testing the message fail and retry 3 times
