@@ -1,39 +1,11 @@
-package com.empower.epw.crm.gateway.sqs;
+[PCAP\abalakrishna@a-2d96x7pbja7vd epw-crm-gateway]$ ./send-sqs.sh "https.pcsvc.dt.pcapqa.app/crm-gateway-mr-11" "normal" '{"id": 123, "test": "hello"}'
+Sending payload to: https.pcsvc.dt.pcapqa.app/crm-gateway-mr-11/api/sqs/send-normal
+Payload: {"id": 123, "test": "hello"}
+---
+curl: (6) Could not resolve host: https.pcsvc.dt.pcapqa.app
 
-import org.springframework.stereotype.Service;
-
-import lombok.CustomLog;
-
-@CustomLog
-@Service
-public class CrmProcessingService
-{
-
-	public void processMessage(String type, String message, String messageId)
-	{
-		log.info("Received from [{}] queue type, message [ID: {}]: {}", type,
-				messageId != null ? messageId : "NA", message);
-
-		try
-		{
-			// TODO: handle domain logic here
-			if ("FAIL_MESSAGE".equals(message))
-			{
-				throw new MessageException("Test failure message to trigger DLQ");
-			}
-			log.info("Message from queue type [{}] processed successfully.", type);
-		}
-		catch (MessageException messageException)
-		{
-			throw messageException;
-		}
-		catch (Exception ex)
-		{
-			log.error("Error processing [{}] message: {}, {}", type, ex.getMessage(), ex);
-			throw new RuntimeException("Unexpected processing error", ex);
-		}
-	}
-}
+---
+Done.
 
 
-how to remove it from this code, it - message exception
+what is the issue?
