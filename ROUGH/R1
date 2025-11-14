@@ -1,334 +1,81 @@
-SQS Integration & Error Handling Architecture
+help with this new task:
 
-1. Executive Summary
+code:
+package com.empower.epw.crm.gateway.jdbc;
+import java.util.List;
 
-This document outlines the SQS (Simple Queue Service) integration architecture. The primary goal is to provide a robust, production-ready framework for message processing that correctly handles all error scenarios, including transient system failures, un-processable messages, and code-level bugs.
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
 
-This architecture replaces application-level retries (e.g., Spring Retry) with an SQS-native, infrastructure-level retry strategy.
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-The core of this platform is a 2-category error-handling framework providing a clear contract for developers:
-
-Retryable Errors: Transient failures (e.g., DB timeouts) are wrapped in a CrmGatewayRetryableException. The platform retries these messages (using SQS's maxReceiveCount) and sends them to a Dead-Letter Queue (DLQ) after all retries fail.
-
-Non-Retryable Errors: Invalid data (e.g., FAIL_MESSAGE, invalid JSON) or code bugs (e.g., NullPointerException) are wrapped in a CrmGatewayNonRetryableException. The platform logs and deletes these messages, preventing retries and keeping the DLQ clean.
-
-This design ensures high reliability, prevents message loss for transient errors, and provides a clear, maintainable pattern.
-
-2. The Message Producer
-
-How it is Implemented
-
-A message producer (CrmGatewayMessageProducer) is available, exposed via a test-only REST controller. Its operation is controlled by an application property.
-
-What it Does
-
-The producer's function is to provide a mechanism for sending test messages to the configured SQS queues. It is intended for development and QA environments to trigger and test the listener components. This component can be disabled in production environments.
-
-3. The Message Listener
-
-How it is Implemented
-
-The message listener (CrmGatewayMessageListener) is the core consumer component. It uses the Spring Cloud AWS @SqsListener annotation to subscribe to one or more SQS queues.
-
-The entire listener component is flag-controlled by an application property:
-
-# application.properties
-# Set to true to enable the SQS listeners and start consuming messages
-crm.gateway.listener.enabled=true
-
-
-If this property is false or missing, the application will not connect to SQS, preventing message consumption.
-
-What it Does
-
-The listener functions as a simple message router and contains no business logic.
-
-It polls the SQS queue for new messages.
-
-It uses the custom defaultSqsListenerContainerFactory, linking it to the application thread pool and custom error handler.
-
-It passes the message payload and headers to the CrmProcessingService.
-
-It has no try-catch blocks. This design ensures any exception from the service propagates to the SQS framework for handling by the ErrorHandler.
-
-// CrmGatewayMessageListener.java
-
-@SqsListener(value = "${crm.gateway.sqs.queue.dryrun:}",
-             factory = "defaultSqsListenerContainerFactory") // <-- Uses the custom factory
-public void handleDryRunMessage(Message<String> message) // <-- Gets the full message
+@SpringBootTest(properties = "spring.cloud.config.enabled=false")
+@ActiveProfiles("test")
+public class EpwStarterJdbcApplicationTests
 {
-    // ... get payload and ID ...
-    
-    // Pass to the service. Any exception thrown here will
-    // bubble up to the ErrorHandler.
-    processingService.processMessage("DRY_RUN", payload, messageIdString);
-}
 
+    public static final String SP_SCHEMA = "spSchema";
 
-4. The Retry & DLQ Strategy
+    @Autowired
+    @Qualifier("spSchema")
+    private JdbcTemplate spSchemajdbcTemplate;
 
-This is the core of the platform framework.
+    @Test
+    void testRealJdbcTemplate()
+    {
+        // Ensure JdbcTemplate is not null
+        assertNotNull(spSchemajdbcTemplate);
 
-4.1. Why Spring Retry (@Retryable) is Not Used
+        // Example query to test the connection
+        String sql = "SELECT 1";
+        List<Integer> result = spSchemajdbcTemplate.queryForList(sql, Integer.class);
 
-Spring Retry (@Retryable/@Recover) was intentionally avoided as it is incompatible with an SQS DLQ strategy.
-
-The Problem: Spring Retry is application-level. It catches exceptions and retries internally. If all retries fail, the @Recover method is called.
-
-The @Recover method "handles" the error and finishes without throwing an exception.
-
-Because the listener method finishes successfully, SQS (with AcknowledgementMode.ON_SUCCESS) considers the message successfully processed and DELETES it.
-
-Result: A failed message would never reach the SQS DLQ and would be lost.
-
-4.2. The Implemented Solution: SQS-Native Retries & The DLQ
-
-The implemented solution leverages SQS's built-in retry mechanism. This is controlled by two key settings on the main SQS queue (not the DLQ):
-
-Maximum receives: (e.g., 3) This is the retry count.
-
-visibilityTimeout: (e.g., 60s) This is the retry delay.
-
-The application framework implements a customErrorHandler that correctly signals failure to SQS.
-
-4.3. The 2-Category Error Framework
-
-The platform provides two exception classes for developers to use. This is the "contract" for the framework.
-
-utils/CrmGatewayRetryableException.java
-
-What it is: A signal for a transient error.
-
-Examples: SocketTimeoutException, a 503 HTTP error from a downstream service, a database connection failure.
-
-Platform Action: The customErrorHandler RE-THROWS this exception.
-
-Result: SQS sees the failure, increments the Receive Count, and re-delivers the message after the visibilityTimeout. If this happens maxReceiveCount times, SQS moves the message to the DLQ.
-
-utils/CrmGatewayNonRetryableException.java
-
-What it is: A signal for a permanent error or code bug.
-
-Examples: FAIL_MESSAGE, invalid JSON/payload, a NullPointerException, IllegalArgumentException.
-
-Platform Action: The customErrorHandler LOGS and SWALLOWS this exception (it does not re-throw).
-
-Result: SQS sees the "success" (the error was "handled") and DELETES the message. It is never retried and never goes to the DLQ. This is critical for keeping the DLQ clean.
-
-5. Implementation Deep Dive
-
-This architecture is implemented in two key files:
-
-5.1. The "Developer Template" (CrmProcessingService.java)
-
-This file serves as a template for developers, showing how to use the framework. The developer is responsible for catching exceptions and wrapping them in the correct category. The catch (Exception ex) block is a mandatory "safety net" to handle all unexpected code bugs as NonRetryable.
-
-// CrmProcessingService.java
-@Service
-@CustomLog
-public class CrmProcessingService {
-    public void processMessage(String type, String message, String messageId) {
-        log.info("Received from [{}] queue type, message [ID: {}]: {}", type,
-                messageId != null ? messageId : "NA", message);
-
-        // TODO - Update the Error Handling as per business requirements
-        try {
-            // Use this template to categorize the errors and determine which needs to be sent to DLQ
-
-            // Use case 1: un-processable message
-            if (message != null && message.trim().contains("FAIL_MESSAGE")) {
-                log.warn("FAIL_MESSAGE detected, will be logged");
-                throw new CrmGatewayNonRetryableException("Designated failure message: " + message);
-            }
-
-            // Use case 2: Transient errors like DB/network timeout
-            if (message != null && message.trim().contains("TRANSIENT_ERROR")) {
-                log.warn("TRANSIENT_ERROR detected, will be retried");
-                var transientError = new SocketTimeoutException("Simulated DB timeout");
-                throw new CrmGatewayRetryableException(transientError);
-            }
-
-            // Use case 3: code bug
-            if (message != null && message.trim().contains("CODE_BUG")) {
-                throw new NullPointerException("Simulating Code failure");
-            }
-
-            log.info("Message from queue type [{}] processed successfully.", type);
-
-        } catch (CrmGatewayRetryableException re) {
-            // Re-throw the RETRYABLE signal to be caught by the errorHandler
-            throw re;
-        } catch (CrmGatewayNonRetryableException nre) {
-            // Re-throw the NON_RETRYABLE signal to be caught by the errorHandler
-            throw nre;
-        } catch (Exception ex) {
-            // SAFETY NET: Catch all other bugs (like the NPE) as NON_RETRYABLE
-            log.error("An unexcepted error occurred.", ex);
-            throw new CrmGatewayNonRetryableException("Unexpected processing error", ex);
-        }
+        // Verify the result
+        assertNotNull(result);
     }
 }
 
+properties added to application-test:
+epw.datasource.defaults.hikariConfiguration.dataSourceProperties.wrapperPlugins=
+epw.datasource.overrides.SP_SCHEMA.READ_ONLY.url=jdbc:mysql://127.0.0.1:3305/sp_schema
+epw.datasource.defaults.hikariConfiguration.dataSourceProperties.useAwsIam=false
 
-5.2. The "Platform Engine" (CrmGatewaySqsConfig.java)
+scaffold.test.secret=
+crm.gateway.application=
+epw.datasource.overrides.SP_SCHEMA.READ_ONLY.username=pcap_app_2
+epw.datasource.overrides.SP_SCHEMA.READ_ONLY.password=PersonalCapital2020
 
-This bean is the "Platform Engine" that enforces the error handling rules. It is clean and simple, as it just checks the exception type and acts.
+epw.datasource.overrides.SP_SCHEMA.READ_WRITE.url=jdbc:mysql://127.0.0.1:3305/sp_schema
+epw.datasource.overrides.SP_SCHEMA.READ_WRITE.username=pcap_app_2
+epw.datasource.overrides.SP_SCHEMA.READ_WRITE.password=PersonalCapital2020
 
-// CrmGatewaySqsConfig.java
-@Bean
-public ErrorHandler<Object> customErrorHandler() {
-    return new ErrorHandler<Object>() {
-        @Override
-        public void handle(@NonNull Message<Object> msg, @NonNull Throwable t) {
-            // ... get messageId ...
+epw.jpa.enabled=true
+epw.jpa.overrides.SP_SCHEMA.enabled=true
 
-            ErrorType errorType = findErrorType(t); // Helper finds the root cause
+epw.jpa.overrides.SP_SCHEMA.persistenceUnitName=sp_schema
+epw.jpa.overrides.SP_SCHEMA.READ_ONLY.username=pcap_app_2
+epw.jpa.overrides.SP_SCHEMA.READ_ONLY.password=PersonalCapital2020
 
-            if (errorType == ErrorType.RETRYABLE) {
-                // --- Use Case 1: TRANSIENT ERROR ---
-                log.error(
-                    "SQS message processing failed. This is a known, RETRYABLE error. Re-throwing to allow SQS retry/DLQ...", t
-                );
-                // Re-throw the exception to signal failure to SQS
-                throw new RuntimeException("SQS processing failed, see cause", t);
-            } else {
-                // --- Use Case 2: NON-RETRYABLE / BUG ---
-                log.warn(
-                    "SQS message processing failed. This is a NON-RETRYABLE error. Swallowing to delete message...", t
-                );
-                // By NOT re-throwing, the exception is "swallowed."
-                // SQS sees this as a "success" and DELETES the message.
-            }
-        }
-    };
-}
+epw.jpa.overrides.SP_SCHEMA.READ_WRITE.url=jdbc:mysql://127.0.0.1:3305/sp_schema
+epw.jpa.overrides.SP_SCHEMA.READ_WRITE.username=pcap_app_2
+epw.jpa.overrides.SP_SCHEMA.READ_WRITE.password=PersonalCapital2020
 
-private ErrorType findErrorType(Throwable t) {
-    Throwable current = t;
-    while (current != null) {
-        // Only if the developer *explicitly* throws this, we retry.
-        if (current instanceof CrmGatewayRetryableException) {
-            return ErrorType.RETRYABLE;
-        }
-        current = current.getCause();
-    }
-    // *Everything* else is treated as NON_RETRYABLE.
-    return ErrorType.NON_RETRYABLE;
-}
+epw.jpa.defaults.database=MYSQL
 
-@Bean
-SqsMessageListenerContainerFactory<Object> defaultSqsListenerContainerFactory(
-        SqsAsyncClient sqsAsyncClient, ErrorHandler<Object> customErrorHandler) {
-    // ...
-    return SqsMessageListenerContainerFactory.builder()
-            .sqsAsyncClient(sqsAsyncClient)
-            .errorHandler(customErrorHandler) // <-- Wires the handler
-            // ...
-            .configure(sqsContainerOptionsBuilder ->
-                sqsContainerOptionsBuilder
-                    // ...
-                    .acknowledgementMode(AcknowledgementMode.ON_SUCCESS) // <-- Critical
-            )
-            .build();
-}
+error injenkins:
+15:27:15  2025-11-14 01:57:15 AM [main] trace_id:  span_id:  INFO  org.springframework.boot.autoconfigure.logging.ConditionEvaluationReportLogger - 
+15:27:15  
+15:27:15  Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled. 
+15:27:15  2025-11-14 01:57:15 AM [main] trace_id:  span_id:  ERROR org.springframework.boot.SpringApplication - Application run failed com.zaxxer.hikari.pool.HikariPool$PoolInitializationException: Failed to initialize pool: Communications link failure
+15:27:15  
+15:27:15  The last packet sent successfully to the server was 0 milliseconds ago. The driver has not received any packets from the server.
 
+15:27:15  Caused by: software.aws.rds.jdbc.mysql.shading.com.mysql.cj.jdbc.exceptions.CommunicationsException: Communications link failure
+15:27:15  
+15:27:15  The last packet sent successfully to the server was 0 milliseconds ago. The driver has not received any packets from the server.
 
-6. POC Setup Requirements
-
-To run this entire POC, the following setup is required:
-
-6.1. AWS SQS Configuration
-
-Main Queue (e.g., DEVTRUNK_CRM_GATEWAY_DRY_RUN)
-
-visibilityTimeout: 60 seconds (This is the retry delay).
-
-Dead-Letter Queue (DLQ) (e.g., DEVTRUNK_CRM_GATEWAY_DLQ)
-
-No special configuration is needed, but its ARN is required.
-
-Redrive Policy (On the Main Queue)
-
-This is the most critical part. The Main Queue must be edited to have a Redrive Policy.
-
-Dead-letter queue enabled: true
-
-Dead-letter queue ARN: (ARN of the DLQ)
-
-Maximum receives: 3 (This is the retry count)
-
-6.2. IAM Permissions (For the Application)
-
-The application's IAM role requires the following permissions:
-
-sqs:ReceiveMessage (To get messages from the main queue)
-
-sqs:DeleteMessage (To delete successful messages)
-
-sqs:GetQueueAttributes (To get queue info)
-
-sqs:GetQueueUrl (To find the queue by name)
-
-sqs:SendMessage (For the producer to send messages)
-
-6.3. Application Configuration
-
-The application.properties (or config store) must provide:
-
-crm.gateway.listener.enabled=true
-
-All queue names (e.g., crm.gateway.sqs.queue.dryrun)
-
-The SQS endpoint URL (spring.cloud.aws.sqs.endpoint)
-
-All AWS credentials and region info.
-
-7. Configuration Deep Dive (CrmGatewaySqsConfig.java)
-
-This section explains the configuration properties defined in the CrmGatewaySqsConfig file. These properties are grouped into two categories: SQS behavior and application-level performance tuning.
-
-7.1. SQS Behavior Properties
-
-This property directly controls the interaction between the listener and the AWS SQS service.
-
-crm.gateway.sqs.visibilityTimeout: 60
-
-What it is: The duration (in seconds) that a message, once pulled by the listener, is made "invisible" to any other consumer.
-
-How it's Used: This is critical for the retry logic.
-
-On Failure (Retryable): When the ErrorHandler re-throws a CrmGatewayRetryableException, the message is not deleted. It remains invisible for these 60 seconds. After 60 seconds, it becomes visible again, and SQS re-delivers it for the next retry. This property effectively sets the retry delay.
-
-On Long Processing: If the business logic takes longer than this value (e.g., 70 seconds), SQS will assume the consumer died and make the message visible again. This will cause another listener thread (or app) to pick it up, resulting in duplicate processing.
-
-Rule: visibilityTimeout must be longer than the longest reasonable message processing time.
-
-7.2. Application Performance (Thread Pool) Properties
-
-These properties configure the ThreadPoolTaskExecutor bean named awsTaskExecutor. This is a Java thread pool inside the application that executes the business logic (CrmProcessingService). This pool allows the application to process many messages concurrently.
-
-The SQS listener will fetch a batch of messages (up to 10, from .maxMessagesPerPoll(10)) and submit them as individual jobs to this thread pool.
-
-crm.gateway.sqs.minPoolSize: 10
-
-What it is: The "Core Pool Size." This is the number of threads to keep active in the pool at all times, even when idle. This is the "always-on" workforce.
-
-Impact: The application can immediately process up to 10 messages concurrently without any delay.
-
-crm.gateway.sqs.maxPoolSize: 30
-
-What it is: The "Maximum Pool Size." This is the absolute maximum number of threads the pool can create to handle a surge in load.
-
-Impact: If 10 messages are being processed and another 10 arrive, the pool will create 10 new threads (up to a total of 30) to handle them. This means the application can process up to 30 messages at the exact same time.
-
-crm.gateway.sqs.queueCapacity: 30
-
-What it is: This is the size of the internal Java queue that sits in front of the thread pool. This is not the SQS queue.
-
-Impact: If all 30 of the maxPoolSize threads are busy, new messages (jobs) will be placed in this internal waiting line (which can hold 30 more jobs). This helps the application absorb brief spikes in load without failing.
-
-crm.gateway.sqs.queueMaxAwaitTermination: 30
-
-What it is: A graceful shutdown setting.
-
-Impact: When the Spring Boot application stops, it will tell this thread pool to shut down. The pool will then wait up to 30 seconds for any in-progress messages to finish their work before shutting down. This prevents data loss during a standard deployment.
+15:27:15  Caused by: java.net.ConnectException: Connection refused
