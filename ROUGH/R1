@@ -1,81 +1,53 @@
-help with this new task:
+As an AEXP Developer
+I need to define and create IAM roles/policies for DynamoDB and Redis access as per database security requirements, so that the crm-rest-service can securely connect to AWS-managed databases in future phases.
 
-code:
-package com.empower.epw.crm.gateway.jdbc;
-import java.util.List;
+Description:
 
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.ActiveProfiles;
+Define IAM roles for crm-rest-service (IRSA-based).
+Create minimal access policies for:
+DynamoDB read/write (as applicable)
+Redis (Elasticache) access (future-ready placeholder)
+Align roles with AEXP security & DevOps naming conventions.
+Store IAM definitions in Terraform/IaC module.
+Integrate IAM role attachment into service account in Helm chart.
+Document IAM policies and role attachment flow.
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+Acceptance Criteria:
 
-@SpringBootTest(properties = "spring.cloud.config.enabled=false")
-@ActiveProfiles("test")
-public class EpwStarterJdbcApplicationTests
+IAM role created via IaC and attached to crm-rest-service service account using IRSA.
+IAM policy contains only resource-specific ARNs — no wildcard permissions.
+Terraform plan shows compliant, least-privilege policy JSON.
+Role includes tags (Application=crm-rest-service, Environment=dev, etc.).
+CI/CD validates Terraform and IAM policy using Checkov or similar scanner (no critical findings).
+Role documented in /docs/security/iam-db-access.md with examples.
+Deployment verified — EKS pod assumes IAM role correctly.
+Logs confirm IRSA token mounted and assumed role credentials available.
+
+
+
+
+Validation Steps:
+
+IAM role provisioned in AWS and validated.
+Service account in EKS annotated with IAM role ARN.
+Documentation reviewed by security and DevOps.
+Terraform module merged and reusable for future DB stories.
+
+
+
+
+can you help me understand this task, and help me with example of codes i can find with the keywords for getting a reference on how to proceed with this task?
+
+all i found in the code base was this:
+
 {
-
-    public static final String SP_SCHEMA = "spSchema";
-
-    @Autowired
-    @Qualifier("spSchema")
-    private JdbcTemplate spSchemajdbcTemplate;
-
-    @Test
-    void testRealJdbcTemplate()
-    {
-        // Ensure JdbcTemplate is not null
-        assertNotNull(spSchemajdbcTemplate);
-
-        // Example query to test the connection
-        String sql = "SELECT 1";
-        List<Integer> result = spSchemajdbcTemplate.queryForList(sql, Integer.class);
-
-        // Verify the result
-        assertNotNull(result);
-    }
-}
-
-properties added to application-test:
-epw.datasource.defaults.hikariConfiguration.dataSourceProperties.wrapperPlugins=
-epw.datasource.overrides.SP_SCHEMA.READ_ONLY.url=jdbc:mysql://127.0.0.1:3305/sp_schema
-epw.datasource.defaults.hikariConfiguration.dataSourceProperties.useAwsIam=false
-
-scaffold.test.secret=
-crm.gateway.application=
-epw.datasource.overrides.SP_SCHEMA.READ_ONLY.username=pcap_app_2
-epw.datasource.overrides.SP_SCHEMA.READ_ONLY.password=PersonalCapital2020
-
-epw.datasource.overrides.SP_SCHEMA.READ_WRITE.url=jdbc:mysql://127.0.0.1:3305/sp_schema
-epw.datasource.overrides.SP_SCHEMA.READ_WRITE.username=pcap_app_2
-epw.datasource.overrides.SP_SCHEMA.READ_WRITE.password=PersonalCapital2020
-
-epw.jpa.enabled=true
-epw.jpa.overrides.SP_SCHEMA.enabled=true
-
-epw.jpa.overrides.SP_SCHEMA.persistenceUnitName=sp_schema
-epw.jpa.overrides.SP_SCHEMA.READ_ONLY.username=pcap_app_2
-epw.jpa.overrides.SP_SCHEMA.READ_ONLY.password=PersonalCapital2020
-
-epw.jpa.overrides.SP_SCHEMA.READ_WRITE.url=jdbc:mysql://127.0.0.1:3305/sp_schema
-epw.jpa.overrides.SP_SCHEMA.READ_WRITE.username=pcap_app_2
-epw.jpa.overrides.SP_SCHEMA.READ_WRITE.password=PersonalCapital2020
-
-epw.jpa.defaults.database=MYSQL
-
-error injenkins:
-15:27:15  2025-11-14 01:57:15 AM [main] trace_id:  span_id:  INFO  org.springframework.boot.autoconfigure.logging.ConditionEvaluationReportLogger - 
-15:27:15  
-15:27:15  Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled. 
-15:27:15  2025-11-14 01:57:15 AM [main] trace_id:  span_id:  ERROR org.springframework.boot.SpringApplication - Application run failed com.zaxxer.hikari.pool.HikariPool$PoolInitializationException: Failed to initialize pool: Communications link failure
-15:27:15  
-15:27:15  The last packet sent successfully to the server was 0 milliseconds ago. The driver has not received any packets from the server.
-
-15:27:15  Caused by: software.aws.rds.jdbc.mysql.shading.com.mysql.cj.jdbc.exceptions.CommunicationsException: Communications link failure
-15:27:15  
-15:27:15  The last packet sent successfully to the server was 0 milliseconds ago. The driver has not received any packets from the server.
-
-15:27:15  Caused by: java.net.ConnectException: Connection refused
+        "Action" : [
+          "dynamodb:GetItem",
+          "dynamodb:GetRecords",
+          "dynamodb:GetShardIterator",
+          "dynamodb:Query",
+          "dynamodb:Scan"
+        ],
+        "Resource" : "arn:aws:dynamodb:us-west-2:179355710817:table/vpc_devstaging_aggregation_event*",
+        "Effect" : "Allow"
+      },
