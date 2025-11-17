@@ -1,18 +1,17 @@
 in SpsCirrusContactMetadataRepository.java
 
-@PersistenceContext(unitName = "sp_schema") 
-
+	@Transactional(readOnly = true)
+	@Query("SELECT * FROM SpsCirrusContactMetadataEntity m where m.metadataId in (:metadataId)")
+	List<SpsCirrusContactMetadata> findExistingUsersByMetadataId(
+            @Param("metadataId") UUID metadataId);
 
 reviews:
 review 1:
-Spring Data wires the EntityManager itself; @PersistenceContext is used in concrete classes, not interfaces.
-Please remove this
-
-review 2:
-SELECT hash_value returns an integer, but the method returns List.
-ORDER BY ... and LIMIT 1 → and is invalid; LIMIT isn’t JPQL.
-Instead native query can be used :
-@Query(value = "SELECT hash_value FROM sp_schema.sps_cirrus_contact_metadata WHERE user_account_guid = :userAccountGuid ORDER BY updated_date DESC LIMIT 1",
-nativeQuery = true)
-Integer findLatestHashByUserAccountGuid(@Param("userAccountGuid") UUID userAccountGuid);
+SELECT * is not valid JPQL.
+SpsCirrusContactMetadataEntity is not your entity name; your entity is SpsCirrusContactMetadata.
+IN (:metadataId) expects a collection, but you pass a single UUID.
+Also , instead of this , use  a derived method : List findByMetadataIdIn(Collection metadataIds);
+OR
+@Query("select m from SpsCirrusContactMetadata m where m.metadataId in :metadataIds")
+List findExistingUsersByMetadataId(@Param("metadataIds") Collection metadataIds);
 
