@@ -15,3 +15,10 @@ OR
 @Query("select m from SpsCirrusContactMetadata m where m.metadataId in :metadataIds")
 List findExistingUsersByMetadataId(@Param("metadataIds") Collection metadataIds);
 
+// --- THIS METHOD IS NOW FIXED BASED ON REVIEWS ---
+	@Transactional(readOnly = true)
+	@Query("select m from SpsCirrusContactMetadata m where m.metadataId in :metadataIds")
+	List<SpsCirrusContactMetadata> findExistingUsersByMetadataId(
+S    	@Param("metadataIds") Collection<UUID> metadataIds);
+	// --- END OF FIX ---
+
