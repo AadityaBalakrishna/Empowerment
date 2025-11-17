@@ -1,25 +1,22 @@
 in SpsCirrusContactMetadataRepository.java
 
-@Modifying
 	@Transactional(readOnly = true)
-	@Query("UPDATE sp_schema.sps_cirrus_contact_metadata registration_status = :status WHERE user_account_guid = :userAccountGuid AND persona_id = :personaId")
-	int setStatus(@Param("userAccountGuid") UUID userAccountGuid, @Param("personaId") UUID personaId,
-                  @Param("status") String registrationStatus);
+	@Query("SELECT hash_value FROM sp_schema.sps_cirrus_contact_metadata WHERE user_account_guid = :userAccountGuid ORDER BY updated_date DESC and LIMIT 1")
+	List<SpsCirrusContactMetadata> findLastestHashByUserAccountGuid(
+			@Param("userAccountGuid") UUID userAccountGuid);
 
 
 reviews:
-review 1 ---> You cannot have @Transactional(readOnly = true) on method that is also annotated with Modifying. Please delete (readOnly = true)
+review 1:
+selecting only hash_value but returning whole entity. This will cause runtime issue.
+JPQL don't support LIMIT
+Fix typo also : Lastest
 
 review 2:
-JPQL update must use the entity name, not the table.
-You forgot the keyword SET.
-readOnly = true on a modifying query is contradictory.
-Status should be your enum, not String.
-@Modifying(clearAutomatically = true, flushAutomatically = true)
-@Transactional
-@Query("update SpsCirrusContactMetadata m set m.registrationStatus = :status " +
-"where m.userAccountGuid = :userAccountGuid and m.personaId = :personaId")
-int setStatus(@Param("userAccountGuid") UUID userAccountGuid,
-@Param("personaId") UUID personaId,
-@Param("status") RegistrationStatus registrationStatus);
+SELECT hash_value returns an integer, but the method returns List.
+ORDER BY ... and LIMIT 1 → and is invalid; LIMIT isn’t JPQL.
+Instead native query can be used :
+@Query(value = "SELECT hash_value FROM sp_schema.sps_cirrus_contact_metadata WHERE user_account_guid = :userAccountGuid ORDER BY updated_date DESC LIMIT 1",
+nativeQuery = true)
+Integer findLatestHashByUserAccountGuid(@Param("userAccountGuid") UUID userAccountGuid);
 
