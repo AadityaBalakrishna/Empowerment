@@ -1,24 +1,13 @@
 in SpsCirrusContactMetadataRepository.java
 
 	@Transactional(readOnly = true)
-	@Query("SELECT * FROM SpsCirrusContactMetadataEntity m where m.metadataId in (:metadataId)")
-	List<SpsCirrusContactMetadata> findExistingUsersByMetadataId(
-            @Param("metadataId") UUID metadataId);
+	@Query("SELECT * FROM sp_schema.sps_cirrus_contact_metadata WHERE user_account_guid = :userAccountId AND persona_id = :personaId")
+	List<SpsCirrusContactMetadata> findByUserAccountIdPersonaId(
+            @Param("userAccountGuid") UUID userAccountGuid, @Param("personaId") UUID personaId);
 
 reviews:
 review 1:
-SELECT * is not valid JPQL.
-SpsCirrusContactMetadataEntity is not your entity name; your entity is SpsCirrusContactMetadata.
-IN (:metadataId) expects a collection, but you pass a single UUID.
-Also , instead of this , use  a derived method : List findByMetadataIdIn(Collection metadataIds);
-OR
-@Query("select m from SpsCirrusContactMetadata m where m.metadataId in :metadataIds")
-List findExistingUsersByMetadataId(@Param("metadataIds") Collection metadataIds);
-
-// --- THIS METHOD IS NOW FIXED BASED ON REVIEWS ---
-	@Transactional(readOnly = true)
-	@Query("select m from SpsCirrusContactMetadata m where m.metadataId in :metadataIds")
-	List<SpsCirrusContactMetadata> findExistingUsersByMetadataId(
-S    	@Param("metadataIds") Collection<UUID> metadataIds);
-	// --- END OF FIX ---
+SELECT * and table name ⇒ that’s SQL, not JPQL.
+Parameter names don’t match (:userAccountId vs @Param("useAccountGuid")).
+Method name says UserAccountId but param annotation says useAccountGuid (typo).
 
