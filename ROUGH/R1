@@ -1,11 +1,13 @@
 in SpsCirrusContactMetadataRepository.java
 
-	@Modifying
-	@Transactional
-	@Query("UPDATE sp_schema.sps_cirrus_contact_metadata SET retry_count = retry_count + 1  WHERE metadata_id = :metadataId")
-	int incrementRetry(@Param("metadataId") UUID metadataId);
+	// getEntriesByStatus(registrationStatus)
+	@Transactional(readOnly = true)
+	@Query("SELECT * FROM sp_schema.sps_cirrus_contact_metadata WHERE registration_status = :status")
+	List<SpsCirrusContactMetadata> getEntriesByStatus(
+            @Param("status") String registrationStatus);
 
 reviews:
-when using JPL , table name should be entity name
-@Query("update SpsCirrusContactMetadata m set m.retryCount = m.retryCount + 1 where m.metadataId = :metadataId")
+SELECT * + table ⇒ SQL, not JPQL.
+You should use the enum type for the parameter.
+Instead use : List findAllByRegistrationStatus(RegistrationStatus status);
 
