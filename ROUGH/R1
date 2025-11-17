@@ -1,16 +1,12 @@
 in SpsCirrusContactMetadataRepository.java
 
-	@Transactional(readOnly = true)
-	@Query("SELECT hash_value FROM sp_schema.sps_cirrus_contact_metadata WHERE user_account_guid = :userAccountGuid ORDER BY updated_date DESC and LIMIT 1")
-	List<SpsCirrusContactMetadata> findLastestHashByUserAccountGuid(
-			@Param("userAccountGuid") UUID userAccountGuid);
+@PersistenceContext(unitName = "sp_schema") 
 
 
 reviews:
 review 1:
-selecting only hash_value but returning whole entity. This will cause runtime issue.
-JPQL don't support LIMIT
-Fix typo also : Lastest
+Spring Data wires the EntityManager itself; @PersistenceContext is used in concrete classes, not interfaces.
+Please remove this
 
 review 2:
 SELECT hash_value returns an integer, but the method returns List.
