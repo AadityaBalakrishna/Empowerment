@@ -1,13 +1,238 @@
-in SpsCirrusContactMetadataRepository.java
+now with all the new updates: let's resolve the reviews in the test:
 
-	// getEntriesByStatus(registrationStatus)
-	@Transactional(readOnly = true)
-	@Query("SELECT * FROM sp_schema.sps_cirrus_contact_metadata WHERE registration_status = :status")
-	List<SpsCirrusContactMetadata> getEntriesByStatus(
-            @Param("status") String registrationStatus);
+package com.personalcapital.salesforce.sps;
 
-reviews:
-SELECT * + table ⇒ SQL, not JPQL.
-You should use the enum type for the parameter.
-Instead use : List findAllByRegistrationStatus(RegistrationStatus status);
+import com.personalcapital.salesforce.sps.entity.SpsCirrusContactMetadata;
+import com.personalcapital.salesforce.sps.repository.SpsCirrusContactMetadataRepository;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
 
+import java.util.UUID;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.*;
+
+
+class SpsCirrusContactMetadataRepositoryTest {
+
+	@Mock
+	private SpsCirrusContactMetadataRepository repository;
+
+	@Test
+	void findByMetadataId_returnsEntity() {
+		assertThrows(NullPointerException.class, () -> {
+			// Code expected to throw NPE
+			UUID id = UUID.randomUUID();
+			SpsCirrusContactMetadata entity = new SpsCirrusContactMetadata();
+			SpsCirrusContactMetadata result = repository.findByMetadataId(id);
+			Assertions.assertNotNull(result);
+			assertSame(entity, result);
+			verify(repository, times(1)).findByMetadataId(id);
+			verifyNoMoreInteractions(repository);
+		});
+	}
+
+	@Test
+	void setStatus_returnsUpdatedCount() {
+		assertThrows(NullPointerException.class, () -> {
+			UUID userAccountId = UUID.randomUUID();
+			UUID personaId = UUID.randomUUID();
+			String status = "APPROVED";
+
+			when(repository.setStatus(userAccountId, personaId, status)).thenReturn(1);
+
+			int updated = repository.setStatus(userAccountId, personaId, status);
+
+			assertEquals(1, updated);
+			verify(repository, times(1)).setStatus(userAccountId, personaId, status);
+			verifyNoMoreInteractions(repository);
+		});
+	}
+
+	@Test
+	void incrementRetry_returnsUpdatedCount() {
+		assertThrows(NullPointerException.class, () -> {
+			UUID metadataId = UUID.randomUUID();
+			when(repository.incrementRetry(metadataId)).thenReturn(1);
+
+			int updated = repository.incrementRetry(metadataId);
+
+			assertEquals(1, updated);
+			verify(repository, times(1)).incrementRetry(metadataId);
+			verifyNoMoreInteractions(repository);
+		});
+	}
+
+	@Test
+	void methodArguments_arePassedThrough() {
+		assertThrows(NullPointerException.class, () -> {
+			// Optional: capture arguments to ensure pass-through correctness
+			UUID userAccountId = UUID.randomUUID();
+			UUID personaId = UUID.randomUUID();
+			String status = "FAILED";
+
+			when(repository.setStatus(any(), any(), any())).thenReturn(2);
+
+			repository.setStatus(userAccountId, personaId, status);
+
+			ArgumentCaptor<UUID> userCap = ArgumentCaptor.forClass(UUID.class);
+			ArgumentCaptor<UUID> personaCap = ArgumentCaptor.forClass(UUID.class);
+			ArgumentCaptor<String> statusCap = ArgumentCaptor.forClass(String.class);
+
+			verify(repository).setStatus(userCap.capture(), personaCap.capture(), statusCap.capture());
+			assertEquals(userAccountId, userCap.getValue());
+			assertEquals(personaId, personaCap.getValue());
+			assertEquals(status, statusCap.getValue());
+			verifyNoMoreInteractions(repository);
+		});
+	}
+}
+
+
+
+review:
+, You cannot mock the class under test.
+This is a meaningless assertion that appears copy pasted into every test. Why would findByMetadataId throw an NPE ?
+ All your test cases are passing throwing NPE. Please add IT test instead of Unit Test.
+
+refer:
+/**
+ * Test class for EmployerRepository
+ */
+package com.personalcapital.data.repository.employer;
+
+import org.junit.jupiter.api.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
+import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.personalcapital.employer.Employer;
+
+/**
+ * @author npenugonda
+ */
+// @Ignore
+@Rollback
+@Transactional(value = "spTran")
+@SpringJUnitConfig(locations = "classpath:persistenceApplicationContext.xml")
+
+public class EmployerRepositoryTest
+{
+	@Autowired
+	private EmployerRepository employerRepository;
+
+	@BeforeEach
+	public void setUp() throws Exception
+	{
+		Employer emp = new Employer();
+		emp.setEin("123");
+		emp.setName("TestEmp");
+		emp.setZipcode("94085");
+		emp.setVendorEmployerId("1111");
+		employerRepository.save(emp);
+
+		Employer emp1 = new Employer();
+		emp1.setEin("456");
+		emp1.setName("TestEmp1");
+		emp1.setZipcode("94086");
+		emp1.setVendorEmployerId("2222");
+		employerRepository.save(emp1);
+	}
+
+	@AfterEach
+	public void tearDown() throws Exception
+	{
+	}
+
+	@Test
+	@Disabled
+	public void testFindAll()
+	{
+		Iterable<Employer> emp = employerRepository.findAll();
+		Assertions.assertNotNull(emp.iterator()
+				.next());
+		Employer empTest = emp.iterator()
+				.next();
+		Assertions.assertTrue(empTest.getEin()
+				.equals("123"));
+		Assertions.assertTrue(empTest.getName()
+				.equals("TestEmp"));
+		Assertions.assertTrue(empTest.getZipcode()
+				.equals("94085"));
+	}
+
+	@Test
+	public void testFindEmployerByEin()
+	{
+		Employer employer = employerRepository.findEmployerByEin("123");
+		Assertions.assertNotNull(employer);
+		Assertions.assertNotNull(employer.getName());
+	}
+
+	@Test
+	public void testFindEmployerByEinAndName()
+	{
+		Employer emp = employerRepository.findEmployerByEinAndName("123", "TestEmp");
+		Assertions.assertNotNull(emp);
+		Assertions.assertNotNull(emp.getId());
+	}
+
+	@Test
+	public void testUpsertEmployerRepository()
+	{
+		int val = employerRepository.upsertEmployer("123", "TestEmp", "95087");
+		Assertions.assertTrue(val >= 0);
+	}
+
+	@Test
+	public void testFindEmployerByEinAndNameAndSponsor()
+	{
+		Employer emp = employerRepository.findEmployerByEinAndNameAndVendorEmployeeId("123",
+				"TestEmp", "1111");
+		Assertions.assertNotNull(emp);
+		Assertions.assertNotNull(emp.getId());
+	}
+
+	public void testInsertEmployerRepositoryWithVendorEmployerId()
+	{
+		employerRepository.insertEmployer("789", "TestEmp2", "95088", "3333");
+		Employer employer = employerRepository.findEmployerByEinAndName("789", "TestEmp2");
+		Assertions.assertEquals("3333", employer.getVendorEmployerId());
+		Assertions.assertEquals("95088", employer.getZipcode());
+	}
+
+	@Test
+	public void testUpdateEmployerRepositoryWithVendorEmployerId()
+	{
+		Employer employer = employerRepository.findEmployerByEinAndNameAndVendorEmployeeId("456",
+				"TestEmp1", "2222");
+		employer.setEin("654");
+		employer.setName("TestEmp3");
+		employer.setZipcode("68049");
+		employer.setVendorEmployerId("4444");
+		employerRepository.updateEmployer(employer.getEin(), employer.getName(),
+				employer.getZipcode(), employer.getVendorEmployerId(), employer.getId());
+		Employer employerFromDB = employerRepository.findEmployerByEinAndNameAndVendorEmployeeId(
+				employer.getEin(), employer.getName(), employer.getVendorEmployerId());
+		Assertions.assertEquals(employer.getName(), employerFromDB.getName());
+		Assertions.assertEquals(employer.getEin(), employerFromDB.getEin());
+		Assertions.assertEquals(employer.getVendorEmployerId(),
+				employerFromDB.getVendorEmployerId());
+		Assertions.assertEquals(employer.getZipcode(), employerFromDB.getZipcode());
+	}
+
+	@Test
+	public void findEmployerByVendorEmployerId()
+	{
+		Employer employer = employerRepository.findEmployerByVendorEmployerId("1111");
+		Assertions.assertNotNull(employer);
+		Assertions.assertNotNull(employer.getName());
+	}
+
+}
