@@ -1,30 +1,4 @@
-persistenceApplicationContext.xml:
+<jpa:repositories base-package="com.personalcapital.salesforce.sps.repository" />
 
-<?xml version="1.0" encoding="UTF-8"?>
-<beans default-lazy-init="true" xmlns="http://www.springframework.org/schema/beans"
-	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	   xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd"
-	   xmlns:context="http://www.springframework.org/schema/context">
-
-	<import resource="file:${TEST_CONFIG_HOME}/spring/sp-base-test.xml" />
-
-	<import resource="classpath:pcap-data-agent.xml" />
-	<import resource="classpath:pcap-dao.xml" />
-	<import resource="classpath:account-api-client.xml" />
-
-
-	<bean id="redissonConfiguration" class="com.personalcapital.cache.config.RedissonConfiguration">
-		<property name="enabled" value="true" />
-	</bean>
-	<!-- To make sure cryptEngine is not mocked for this test context -->
-	<import resource="classpath*:sp-security.xml"/>
-	<bean id="applicationContextProvider" class="com.personalcapital.context.ApplicationContextProvider" />
-
-	<bean id="tagDao" class="com.personalcapital.user.data.impl.TagDaoImpl"/>
-	<bean id="userDao" class="com.safepage.user.data.impl.UserDaoImpl" />
-	<bean id="userTagDao" class="com.personalcapital.user.data.impl.UserTagDaoImpl" />
-	<context:component-scan base-package="com.empower.epw.repository, com.empower.epw.config" />
-</beans>
-
-
-this is 
+Caused by: org.springframework.beans.factory.xml.XmlBeanDefinitionStoreException: Line 14 in XML document from class path resource [persistenceApplicationContext.xml] is invalid
+Caused by: org.xml.sax.SAXParseException; lineNumber: 14; columnNumber: 83; cvc-complex-type.2.4.c: The matching wildcard is strict, but no declaration can be found for element 'jpa:repositories'.
