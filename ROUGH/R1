@@ -1,126 +1,4 @@
-org.springframework.beans.factory.NoSuchBeanDefinitionException: No bean named 'transactionManager' available: No matching TransactionManager bean found for qualifier 'transactionManager' - neither qualifier match nor bean name match!
-
-for this test in jenkins:
-package com.personalcapital.salesforce.sps;
-
-import com.personalcapital.salesforce.sps.entity.SpsCirrusContactMetadata;
-import com.personalcapital.salesforce.sps.enums.RegistrationStatus;
-import com.personalcapital.salesforce.sps.enums.UserSpsPlanType;
-import com.personalcapital.salesforce.sps.repository.SpsCirrusContactMetadataRepository;
-import org.junit.jupiter.api.*;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
-
-@Rollback
-@Transactional(value = "spTran")
-@SpringJUnitConfig(locations = "classpath:persistenceApplicationContext.xml")
-class SpsCirrusContactMetadataRepositoryTest {
-
-	@Autowired
-	private SpsCirrusContactMetadataRepository repository;
-
-	private UUID testMetadataId;
-	private UUID testUserAccountGuid;
-	private UUID testPersonaId;
-
-	@BeforeEach
-	void setUp() {
-		repository.deleteAll();
-
-		testMetadataId = UUID.randomUUID();
-		testUserAccountGuid = UUID.randomUUID();
-		testPersonaId = UUID.randomUUID();
-
-		SpsCirrusContactMetadata entity = new SpsCirrusContactMetadata(
-				testMetadataId,
-				testUserAccountGuid,
-				testPersonaId,
-				UserSpsPlanType.CONFORMING,
-				RegistrationStatus.PENDING);
-
-		entity.setRetryCount(0);
-
-		repository.save(entity);
-	}
-
-	@Test
-	void testFindByMetadataId() {
-		SpsCirrusContactMetadata result = repository.findByMetadataId(testMetadataId);
-
-		assertNotNull(result);
-		assertEquals(testMetadataId, result.getMetadataId());
-		assertEquals(testUserAccountGuid, result.getUserAccountGuid());
-	}
-
-	@Test
-	void testSetStatus() {
-		int updatedCount = repository.setStatus(testUserAccountGuid, testPersonaId, RegistrationStatus.COMPLETED);
-
-		assertEquals(1, updatedCount);
-
-		SpsCirrusContactMetadata updatedEntity = repository.findByMetadataId(testMetadataId);
-		assertNotNull(updatedEntity);
-		assertEquals(RegistrationStatus.COMPLETED, updatedEntity.getRegistrationStatus());
-	}
-
-	@Test
-	void testIncrementRetry() {
-		int updatedCount = repository.incrementRetry(testMetadataId);
-
-		assertEquals(1, updatedCount);
-
-		SpsCirrusContactMetadata updatedEntity = repository.findByMetadataId(testMetadataId);
-		assertNotNull(updatedEntity);
-		assertEquals(1, updatedEntity.getRetryCount());
-	}
-
-	@Test
-	void testFindExistingUsersByMetadataId() {
-		List<SpsCirrusContactMetadata> results = repository.findExistingUsersByMetadataId(
-				Collections.singletonList(testMetadataId));
-
-		assertNotNull(results);
-		assertEquals(1, results.size());
-		assertEquals(testMetadataId, results.get(0).getMetadataId());
-	}
-
-	@Test
-	void testFindByUserAccountGuidAndPersonaId() {
-		List<SpsCirrusContactMetadata> results = repository.findByUserAccountGuidAndPersonaId(
-				testUserAccountGuid, testPersonaId);
-
-		assertNotNull(results);
-		assertEquals(1, results.size());
-		assertEquals(testMetadataId, results.get(0).getMetadataId());
-	}
-
-	@Test
-	void findLatestHashByUserAccountGuid_returnsHash() {
-		Integer hash = repository.findLatestHashByUserAccountGuid(testUserAccountGuid);
-		assertNull(hash);
-	}
-
-	@Test
-	void findAllByRegistrationStatus_returnsList() {
-		List<SpsCirrusContactMetadata> results = repository.findAllByRegistrationStatus(
-				RegistrationStatus.PENDING);
-
-		assertNotNull(results);
-		assertEquals(1, results.size());
-		assertEquals(RegistrationStatus.PENDING, results.get(0).getRegistrationStatus());
-	}
-}
-
-
-repository class:
+give me an integration test for :
 package com.personalcapital.salesforce.sps.repository;
 
 import com.personalcapital.salesforce.sps.enums.RegistrationStatus;
@@ -179,31 +57,145 @@ public interface SpsCirrusContactMetadataRepository
 }
 
 
-xml file:
-<?xml version="1.0" encoding="UTF-8"?>
-<beans default-lazy-init="true" xmlns="http://www.springframework.org/schema/beans"
-	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	   xmlns:jpa="http://www.springframework.org/schema/data/jpa"
-	   xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd http://www.springframework.org/schema/data/jpa http://www.springframework.org/schema/data/jpa/spring-jpa.xsd"
-	   xmlns:context="http://www.springframework.org/schema/context">
+reference of the IT of an existing working case:
+/**
+ * Test class for EmployerRepository
+ */
+package com.personalcapital.data.repository.employer;
 
-	<import resource="file:${TEST_CONFIG_HOME}/spring/sp-base-test.xml" />
+import org.junit.jupiter.api.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
+import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.transaction.annotation.Transactional;
 
-	<import resource="classpath:pcap-data-agent.xml" />
-	<import resource="classpath:pcap-dao.xml" />
-	<import resource="classpath:account-api-client.xml" />
+import com.personalcapital.employer.Employer;
 
-	<jpa:repositories base-package="com.personalcapital.salesforce.sps.repository" />
+/**
+ * @author npenugonda
+ */
+// @Ignore
+@Rollback
+@Transactional(value = "spTran")
+@SpringJUnitConfig(locations = "classpath:persistenceApplicationContext.xml")
 
-	<bean id="redissonConfiguration" class="com.personalcapital.cache.config.RedissonConfiguration">
-		<property name="enabled" value="true" />
-	</bean>
-	<!-- To make sure cryptEngine is not mocked for this test context -->
-	<import resource="classpath*:sp-security.xml"/>
-	<bean id="applicationContextProvider" class="com.personalcapital.context.ApplicationContextProvider" />
+public class EmployerRepositoryTest
+{
+	@Autowired
+	private EmployerRepository employerRepository;
 
-	<bean id="tagDao" class="com.personalcapital.user.data.impl.TagDaoImpl"/>
-	<bean id="userDao" class="com.safepage.user.data.impl.UserDaoImpl" />
-	<bean id="userTagDao" class="com.personalcapital.user.data.impl.UserTagDaoImpl" />
-	<context:component-scan base-package="com.empower.epw.repository, com.empower.epw.config" />
-</beans>
+	@BeforeEach
+	public void setUp() throws Exception
+	{
+		Employer emp = new Employer();
+		emp.setEin("123");
+		emp.setName("TestEmp");
+		emp.setZipcode("94085");
+		emp.setVendorEmployerId("1111");
+		employerRepository.save(emp);
+
+		Employer emp1 = new Employer();
+		emp1.setEin("456");
+		emp1.setName("TestEmp1");
+		emp1.setZipcode("94086");
+		emp1.setVendorEmployerId("2222");
+		employerRepository.save(emp1);
+	}
+
+	@AfterEach
+	public void tearDown() throws Exception
+	{
+	}
+
+	@Test
+	@Disabled
+	public void testFindAll()
+	{
+		Iterable<Employer> emp = employerRepository.findAll();
+		Assertions.assertNotNull(emp.iterator()
+				.next());
+		Employer empTest = emp.iterator()
+				.next();
+		Assertions.assertTrue(empTest.getEin()
+				.equals("123"));
+		Assertions.assertTrue(empTest.getName()
+				.equals("TestEmp"));
+		Assertions.assertTrue(empTest.getZipcode()
+				.equals("94085"));
+	}
+
+	@Test
+	public void testFindEmployerByEin()
+	{
+		Employer employer = employerRepository.findEmployerByEin("123");
+		Assertions.assertNotNull(employer);
+		Assertions.assertNotNull(employer.getName());
+	}
+
+	@Test
+	public void testFindEmployerByEinAndName()
+	{
+		Employer emp = employerRepository.findEmployerByEinAndName("123", "TestEmp");
+		Assertions.assertNotNull(emp);
+		Assertions.assertNotNull(emp.getId());
+	}
+
+	@Test
+	public void testUpsertEmployerRepository()
+	{
+		int val = employerRepository.upsertEmployer("123", "TestEmp", "95087");
+		Assertions.assertTrue(val >= 0);
+	}
+
+	@Test
+	public void testFindEmployerByEinAndNameAndSponsor()
+	{
+		Employer emp = employerRepository.findEmployerByEinAndNameAndVendorEmployeeId("123",
+				"TestEmp", "1111");
+		Assertions.assertNotNull(emp);
+		Assertions.assertNotNull(emp.getId());
+	}
+
+	public void testInsertEmployerRepositoryWithVendorEmployerId()
+	{
+		employerRepository.insertEmployer("789", "TestEmp2", "95088", "3333");
+		Employer employer = employerRepository.findEmployerByEinAndName("789", "TestEmp2");
+		Assertions.assertEquals("3333", employer.getVendorEmployerId());
+		Assertions.assertEquals("95088", employer.getZipcode());
+	}
+
+	@Test
+	public void testUpdateEmployerRepositoryWithVendorEmployerId()
+	{
+		Employer employer = employerRepository.findEmployerByEinAndNameAndVendorEmployeeId("456",
+				"TestEmp1", "2222");
+		employer.setEin("654");
+		employer.setName("TestEmp3");
+		employer.setZipcode("68049");
+		employer.setVendorEmployerId("4444");
+		employerRepository.updateEmployer(employer.getEin(), employer.getName(),
+				employer.getZipcode(), employer.getVendorEmployerId(), employer.getId());
+		Employer employerFromDB = employerRepository.findEmployerByEinAndNameAndVendorEmployeeId(
+				employer.getEin(), employer.getName(), employer.getVendorEmployerId());
+		Assertions.assertEquals(employer.getName(), employerFromDB.getName());
+		Assertions.assertEquals(employer.getEin(), employerFromDB.getEin());
+		Assertions.assertEquals(employer.getVendorEmployerId(),
+				employerFromDB.getVendorEmployerId());
+		Assertions.assertEquals(employer.getZipcode(), employerFromDB.getZipcode());
+	}
+
+	@Test
+	public void findEmployerByVendorEmployerId()
+	{
+		Employer employer = employerRepository.findEmployerByVendorEmployerId("1111");
+		Assertions.assertNotNull(employer);
+		Assertions.assertNotNull(employer.getName());
+	}
+
+}
+
+
+do not use springboottest
+
+
