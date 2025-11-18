@@ -1,20 +1,21 @@
-multiple errors:
+<?xml version="1.0" encoding="UTF-8"?>
+<beans default-lazy-init="true" 
+       xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:jpa="http://www.springframework.org/schema/data/jpa"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/data/jpa https://www.springframework.org/schema/data/jpa/spring-jpa.xsd">
 
-23:44:12  [ERROR] Errors: 
-23:44:12  [ERROR] com.empower.epw.userportfolio.service.UserPortfolioUserAccountMapServiceTest.deleteByUserAccountGuid_whenValidId_deleteEntity
-23:44:12  [ERROR]   Run 1: UserPortfolioUserAccountMapServiceTest.deleteByUserAccountGuid_whenValidId_deleteEntity » Mockito Unable to initialize @Spy annotated field 'updateUserAccountHelper'.
-23:44:12  Please ensure that the type 'UpdateUserAccountHelper' has a no-arg constructor.
-23:44:12  [ERROR]   Run 2: UserPortfolioUserAccountMapServiceTest.deleteByUserAccountGuid_whenValidId_deleteEntity » Mockito Unable to initialize @Spy annotated field 'updateUserAccountHelper'.
-23:44:12  Please ensure that the type 'UpdateUserAccountHelper' has a no-arg constructor.
-23:44:12  [ERROR]   Run 3: UserPortfolioUserAccountMapServiceTest.deleteByUserAccountGuid_whenValidId_deleteEntity » Mockito Unable to initialize @Spy annotated field 'updateUserAccountHelper'.
-23:44:12  Please ensure that the type 'UpdateUserAccountHelper' has a no-arg constructor.
+    <!-- Import the standard legacy configuration file (persistenceApplicationContext.xml) -->
+    <import resource="classpath:persistenceApplicationContext.xml" />
 
-23:44:12  
-23:44:12  [ERROR]   Run 2: SecurityInfoDaoCacheJacksonSerializerTest>SpringExtension.postProcessTestInstance:159 » Mockito 
-23:44:12  Cannot instantiate @InjectMocks field named 'securityInfoDao'! Cause: the type 'SecurityInfoDao' is an interface.
-23:44:12  You haven't provided the instance at field declaration so I tried to construct the instance.
-23:44:12  Examples of correct usage of @InjectMocks:
-23:44:12     @InjectMocks Service service = new Service();
-23:44:12     @InjectMocks Service service;
-23:44:12     //and... don't forget about some @Mocks for injection :)
-23:44:12  
+    <!-- 
+      ISOLATION: We use 'include-filter' to ensure ONLY the SpsCirrusContactMetadataRepository 
+      interface is recognized and instantiated as a Spring bean. This prevents context
+      contamination that breaks other tests relying on Mockito mocks/spies.
+    -->
+    <jpa:repositories base-package="com.personalcapital.salesforce.sps.repository" 
+                      transaction-manager-ref="spTran">
+        <jpa:include-filter type="assignable" expression="com.personalcapital.salesforce.sps.repository.SpsCirrusContactMetadataRepository" />
+    </jpa:repositories>
+
+</beans>
