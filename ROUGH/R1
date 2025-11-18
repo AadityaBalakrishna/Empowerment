@@ -1,244 +1,3 @@
-now with all the new updates: let's resolve the reviews in the test:
-
-package com.personalcapital.salesforce.sps;
-
-import com.personalcapital.salesforce.sps.entity.SpsCirrusContactMetadata;
-import com.personalcapital.salesforce.sps.repository.SpsCirrusContactMetadataRepository;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
-
-import java.util.UUID;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.*;
-
-
-class SpsCirrusContactMetadataRepositoryTest {
-
-	@Mock
-	private SpsCirrusContactMetadataRepository repository;
-
-	@Test
-	void findByMetadataId_returnsEntity() {
-		assertThrows(NullPointerException.class, () -> {
-			// Code expected to throw NPE
-			UUID id = UUID.randomUUID();
-			SpsCirrusContactMetadata entity = new SpsCirrusContactMetadata();
-			SpsCirrusContactMetadata result = repository.findByMetadataId(id);
-			Assertions.assertNotNull(result);
-			assertSame(entity, result);
-			verify(repository, times(1)).findByMetadataId(id);
-			verifyNoMoreInteractions(repository);
-		});
-	}
-
-	@Test
-	void setStatus_returnsUpdatedCount() {
-		assertThrows(NullPointerException.class, () -> {
-			UUID userAccountId = UUID.randomUUID();
-			UUID personaId = UUID.randomUUID();
-			String status = "APPROVED";
-
-			when(repository.setStatus(userAccountId, personaId, status)).thenReturn(1);
-
-			int updated = repository.setStatus(userAccountId, personaId, status);
-
-			assertEquals(1, updated);
-			verify(repository, times(1)).setStatus(userAccountId, personaId, status);
-			verifyNoMoreInteractions(repository);
-		});
-	}
-
-	@Test
-	void incrementRetry_returnsUpdatedCount() {
-		assertThrows(NullPointerException.class, () -> {
-			UUID metadataId = UUID.randomUUID();
-			when(repository.incrementRetry(metadataId)).thenReturn(1);
-
-			int updated = repository.incrementRetry(metadataId);
-
-			assertEquals(1, updated);
-			verify(repository, times(1)).incrementRetry(metadataId);
-			verifyNoMoreInteractions(repository);
-		});
-	}
-
-	@Test
-	void methodArguments_arePassedThrough() {
-		assertThrows(NullPointerException.class, () -> {
-			// Optional: capture arguments to ensure pass-through correctness
-			UUID userAccountId = UUID.randomUUID();
-			UUID personaId = UUID.randomUUID();
-			String status = "FAILED";
-
-			when(repository.setStatus(any(), any(), any())).thenReturn(2);
-
-			repository.setStatus(userAccountId, personaId, status);
-
-			ArgumentCaptor<UUID> userCap = ArgumentCaptor.forClass(UUID.class);
-			ArgumentCaptor<UUID> personaCap = ArgumentCaptor.forClass(UUID.class);
-			ArgumentCaptor<String> statusCap = ArgumentCaptor.forClass(String.class);
-
-			verify(repository).setStatus(userCap.capture(), personaCap.capture(), statusCap.capture());
-			assertEquals(userAccountId, userCap.getValue());
-			assertEquals(personaId, personaCap.getValue());
-			assertEquals(status, statusCap.getValue());
-			verifyNoMoreInteractions(repository);
-		});
-	}
-}
-
-
-
-review:
-, You cannot mock the class under test.
-This is a meaningless assertion that appears copy pasted into every test. Why would findByMetadataId throw an NPE ?
- All your test cases are passing throwing NPE. Please add IT test instead of Unit Test.
-
-refer:
-/**
- * Test class for EmployerRepository
- */
-package com.personalcapital.data.repository.employer;
-
-import org.junit.jupiter.api.*;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
-import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
-import org.springframework.transaction.annotation.Transactional;
-
-import com.personalcapital.employer.Employer;
-
-/**
- * @author npenugonda
- */
-// @Ignore
-@Rollback
-@Transactional(value = "spTran")
-@SpringJUnitConfig(locations = "classpath:persistenceApplicationContext.xml")
-
-public class EmployerRepositoryTest
-{
-	@Autowired
-	private EmployerRepository employerRepository;
-
-	@BeforeEach
-	public void setUp() throws Exception
-	{
-		Employer emp = new Employer();
-		emp.setEin("123");
-		emp.setName("TestEmp");
-		emp.setZipcode("94085");
-		emp.setVendorEmployerId("1111");
-		employerRepository.save(emp);
-
-		Employer emp1 = new Employer();
-		emp1.setEin("456");
-		emp1.setName("TestEmp1");
-		emp1.setZipcode("94086");
-		emp1.setVendorEmployerId("2222");
-		employerRepository.save(emp1);
-	}
-
-	@AfterEach
-	public void tearDown() throws Exception
-	{
-	}
-
-	@Test
-	@Disabled
-	public void testFindAll()
-	{
-		Iterable<Employer> emp = employerRepository.findAll();
-		Assertions.assertNotNull(emp.iterator()
-				.next());
-		Employer empTest = emp.iterator()
-				.next();
-		Assertions.assertTrue(empTest.getEin()
-				.equals("123"));
-		Assertions.assertTrue(empTest.getName()
-				.equals("TestEmp"));
-		Assertions.assertTrue(empTest.getZipcode()
-				.equals("94085"));
-	}
-
-	@Test
-	public void testFindEmployerByEin()
-	{
-		Employer employer = employerRepository.findEmployerByEin("123");
-		Assertions.assertNotNull(employer);
-		Assertions.assertNotNull(employer.getName());
-	}
-
-	@Test
-	public void testFindEmployerByEinAndName()
-	{
-		Employer emp = employerRepository.findEmployerByEinAndName("123", "TestEmp");
-		Assertions.assertNotNull(emp);
-		Assertions.assertNotNull(emp.getId());
-	}
-
-	@Test
-	public void testUpsertEmployerRepository()
-	{
-		int val = employerRepository.upsertEmployer("123", "TestEmp", "95087");
-		Assertions.assertTrue(val >= 0);
-	}
-
-	@Test
-	public void testFindEmployerByEinAndNameAndSponsor()
-	{
-		Employer emp = employerRepository.findEmployerByEinAndNameAndVendorEmployeeId("123",
-				"TestEmp", "1111");
-		Assertions.assertNotNull(emp);
-		Assertions.assertNotNull(emp.getId());
-	}
-
-	public void testInsertEmployerRepositoryWithVendorEmployerId()
-	{
-		employerRepository.insertEmployer("789", "TestEmp2", "95088", "3333");
-		Employer employer = employerRepository.findEmployerByEinAndName("789", "TestEmp2");
-		Assertions.assertEquals("3333", employer.getVendorEmployerId());
-		Assertions.assertEquals("95088", employer.getZipcode());
-	}
-
-	@Test
-	public void testUpdateEmployerRepositoryWithVendorEmployerId()
-	{
-		Employer employer = employerRepository.findEmployerByEinAndNameAndVendorEmployeeId("456",
-				"TestEmp1", "2222");
-		employer.setEin("654");
-		employer.setName("TestEmp3");
-		employer.setZipcode("68049");
-		employer.setVendorEmployerId("4444");
-		employerRepository.updateEmployer(employer.getEin(), employer.getName(),
-				employer.getZipcode(), employer.getVendorEmployerId(), employer.getId());
-		Employer employerFromDB = employerRepository.findEmployerByEinAndNameAndVendorEmployeeId(
-				employer.getEin(), employer.getName(), employer.getVendorEmployerId());
-		Assertions.assertEquals(employer.getName(), employerFromDB.getName());
-		Assertions.assertEquals(employer.getEin(), employerFromDB.getEin());
-		Assertions.assertEquals(employer.getVendorEmployerId(),
-				employerFromDB.getVendorEmployerId());
-		Assertions.assertEquals(employer.getZipcode(), employerFromDB.getZipcode());
-	}
-
-	@Test
-	public void findEmployerByVendorEmployerId()
-	{
-		Employer employer = employerRepository.findEmployerByVendorEmployerId("1111");
-		Assertions.assertNotNull(employer);
-		Assertions.assertNotNull(employer.getName());
-	}
-
-}
-
-
-
 package com.personalcapital.salesforce.sps;
 
 import com.personalcapital.salesforce.sps.entity.SpsCirrusContactMetadata;
@@ -248,7 +7,9 @@ import com.personalcapital.salesforce.sps.repository.SpsCirrusContactMetadataRep
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
 import java.util.List;
@@ -256,33 +17,22 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * Integration Test for SpsCirrusContactMetadataRepository.
- *
- * @DataJpaTest does the following:
- * 1. Configures an in-memory database (like H2).
- * 2. Loads the Spring Data JPA context.
- * 3. Autowires our Repository.
- * 4. Makes all tests @Transactional and rolls them back by default, so tests don't
- * interfere with each other.
- */
-@DataJpaTest
+@Rollback
+@Transactional(value = "spTran")
+@SpringJUnitConfig(locations = "classpath:persistenceApplicationContext.xml")
 class SpsCirrusContactMetadataRepositoryTest {
 
-    @Autowired // We autowire the REAL repository, we do not mock it.
+    @Autowired
     private SpsCirrusContactMetadataRepository repository;
 
     private UUID testMetadataId;
     private UUID testUserAccountGuid;
     private UUID testPersonaId;
 
-    // Set up real data in the test database before each test
     @BeforeEach
     void setUp() {
-        // Clear any old data
         repository.deleteAll();
 
-        // Create and save a test entity
         testMetadataId = UUID.randomUUID();
         testUserAccountGuid = UUID.randomUUID();
         testPersonaId = UUID.randomUUID();
@@ -293,18 +43,16 @@ class SpsCirrusContactMetadataRepositoryTest {
                 testPersonaId,
                 UserSpsPlanType.CONFORMING,
                 RegistrationStatus.PENDING);
-        // Set other fields as needed for different tests
-        entity.setRetryCount(0); // Explicitly set initial state
+        
+        entity.setRetryCount(0);
 
         repository.save(entity);
     }
 
     @Test
     void findByMetadataId_returnsEntity() {
-        // Act
         SpsCirrusContactMetadata result = repository.findByMetadataId(testMetadataId);
 
-        // Assert
         assertNotNull(result);
         assertEquals(testMetadataId, result.getMetadataId());
         assertEquals(testUserAccountGuid, result.getUserAccountGuid());
@@ -312,17 +60,13 @@ class SpsCirrusContactMetadataRepositoryTest {
 
     @Test
     void setStatus_returnsUpdatedCount() {
-        // Act
-        // We use the correct enum type, as fixed in the repository
         int updatedCount = repository.setStatus(
                 testUserAccountGuid,
                 testPersonaId,
                 RegistrationStatus.COMPLETED);
 
-        // Assert
         assertEquals(1, updatedCount);
 
-        // Verify the change was persisted
         SpsCirrusContactMetadata updatedEntity = repository.findByMetadataId(testMetadataId);
         assertNotNull(updatedEntity);
         assertEquals(RegistrationStatus.COMPLETED, updatedEntity.getRegistrationStatus());
@@ -330,27 +74,20 @@ class SpsCirrusContactMetadataRepositoryTest {
 
     @Test
     void incrementRetry_returnsUpdatedCount() {
-        // Act
         int updatedCount = repository.incrementRetry(testMetadataId);
 
-        // Assert
         assertEquals(1, updatedCount);
 
-        // Verify
         SpsCirrusContactMetadata updatedEntity = repository.findByMetadataId(testMetadataId);
         assertNotNull(updatedEntity);
         assertEquals(1, updatedEntity.getRetryCount());
     }
 
-    // --- Tests for the other repository methods we fixed ---
-
     @Test
     void findExistingUsersByMetadataId_returnsEntity() {
-        // Act
         List<SpsCirrusContactMetadata> results = repository.findExistingUsersByMetadataId(
                 Collections.singletonList(testMetadataId));
 
-        // Assert
         assertNotNull(results);
         assertEquals(1, results.size());
         assertEquals(testMetadataId, results.get(0).getMetadataId());
@@ -358,12 +95,10 @@ class SpsCirrusContactMetadataRepositoryTest {
 
     @Test
     void findByUserAccountGuidAndPersonaId_returnsEntity() {
-        // Act
         List<SpsCirrusContactMetadata> results = repository.findByUserAccountGuidAndPersonaId(
                 testUserAccountGuid,
                 testPersonaId);
 
-        // Assert
         assertNotNull(results);
         assertEquals(1, results.size());
         assertEquals(testMetadataId, results.get(0).getMetadataId());
@@ -371,24 +106,15 @@ class SpsCirrusContactMetadataRepositoryTest {
 
     @Test
     void findLatestHashByUserAccountGuid_returnsHash() {
-        // Act
         Integer hash = repository.findLatestHashByUserAccountGuid(testUserAccountGuid);
-
-        // Assert
-        // Note: We never set hashValue in setup, so it should be null.
-        // Let's update setup for a better test.
-        // For now, we'll just check if the query runs.
-        // A better test would save an entity with a hash and assert it.
-        assertNull(hash); // Or assertNotNull(hash) if you save one in setup
+        assertNull(hash);
     }
 
     @Test
     void findAllByRegistrationStatus_returnsList() {
-        // Act
         List<SpsCirrusContactMetadata> results = repository.findAllByRegistrationStatus(
                 RegistrationStatus.PENDING);
 
-        // Assert
         assertNotNull(results);
         assertEquals(1, results.size());
         assertEquals(RegistrationStatus.PENDING, results.get(0).getRegistrationStatus());
