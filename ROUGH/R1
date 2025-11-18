@@ -184,4 +184,5 @@ public enum RegistrationStatus
 }
 
 
-do not use springboot test
+reference test of something that is already working:
+
