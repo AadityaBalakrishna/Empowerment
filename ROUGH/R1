@@ -2,20 +2,30 @@
 <beans default-lazy-init="true" 
        xmlns="http://www.springframework.org/schema/beans"
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-       xmlns:jpa="http://www.springframework.org/schema/data/jpa"
-       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/data/jpa https://www.springframework.org/schema/data/jpa/spring-jpa.xsd">
-
-    <!-- Import the standard legacy configuration file (persistenceApplicationContext.xml) -->
-    <import resource="classpath:persistenceApplicationContext.xml" />
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
 
     <!-- 
-      ISOLATION: We use 'include-filter' to ensure ONLY the SpsCirrusContactMetadataRepository 
-      interface is recognized and instantiated as a Spring bean. This prevents context
-      contamination that breaks other tests relying on Mockito mocks/spies.
+      Manual Definition: This explicitly defines the repository bean using the 
+      Spring Data JPA FactoryBean. This avoids the problematic <jpa:repositories> 
+      tag and ensures maximum isolation and compatibility. 
+      It must be named after the interface (camelCase) for @Autowired to work.
     -->
-    <jpa:repositories base-package="com.personalcapital.salesforce.sps.repository" 
-                      transaction-manager-ref="spTran">
-        <jpa:include-filter type="assignable" expression="com.personalcapital.salesforce.sps.repository.SpsCirrusContactMetadataRepository" />
-    </jpa:repositories>
+    <bean id="spsCirrusContactMetadataRepository"
+          class="org.springframework.data.jpa.repository.support.JpaRepositoryFactoryBean">
+        
+        <!-- The interface that should be proxied by Spring Data JPA -->
+        <property name="repositoryInterface" 
+                  value="com.personalcapital.salesforce.sps.repository.SpsCirrusContactMetadataRepository" />
+        
+        <!-- Reference to the EntityManagerFactory provided by the imported context -->
+        <property name="entityManagerFactory" ref="entityManagerFactory" />
+        
+        <!-- Reference to the Transaction Manager used in your test (@Transactional(value="spTran")) -->
+        <property name="transactionManager" ref="spTran" />
+    </bean>
+
+    <!-- Import the standard legacy configuration file (persistenceApplicationContext.xml) 
+         This must be done to get the necessary DataSource, EntityManagerFactory, and transaction managers. -->
+    <import resource="classpath:persistenceApplicationContext.xml" />
 
 </beans>
