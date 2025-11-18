@@ -1,4 +1,209 @@
-<jpa:repositories base-package="com.personalcapital.salesforce.sps.repository" />
+org.springframework.beans.factory.NoSuchBeanDefinitionException: No bean named 'transactionManager' available: No matching TransactionManager bean found for qualifier 'transactionManager' - neither qualifier match nor bean name match!
 
-Caused by: org.springframework.beans.factory.xml.XmlBeanDefinitionStoreException: Line 14 in XML document from class path resource [persistenceApplicationContext.xml] is invalid
-Caused by: org.xml.sax.SAXParseException; lineNumber: 14; columnNumber: 83; cvc-complex-type.2.4.c: The matching wildcard is strict, but no declaration can be found for element 'jpa:repositories'.
+for this test in jenkins:
+package com.personalcapital.salesforce.sps;
+
+import com.personalcapital.salesforce.sps.entity.SpsCirrusContactMetadata;
+import com.personalcapital.salesforce.sps.enums.RegistrationStatus;
+import com.personalcapital.salesforce.sps.enums.UserSpsPlanType;
+import com.personalcapital.salesforce.sps.repository.SpsCirrusContactMetadataRepository;
+import org.junit.jupiter.api.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+@Rollback
+@Transactional(value = "spTran")
+@SpringJUnitConfig(locations = "classpath:persistenceApplicationContext.xml")
+class SpsCirrusContactMetadataRepositoryTest {
+
+	@Autowired
+	private SpsCirrusContactMetadataRepository repository;
+
+	private UUID testMetadataId;
+	private UUID testUserAccountGuid;
+	private UUID testPersonaId;
+
+	@BeforeEach
+	void setUp() {
+		repository.deleteAll();
+
+		testMetadataId = UUID.randomUUID();
+		testUserAccountGuid = UUID.randomUUID();
+		testPersonaId = UUID.randomUUID();
+
+		SpsCirrusContactMetadata entity = new SpsCirrusContactMetadata(
+				testMetadataId,
+				testUserAccountGuid,
+				testPersonaId,
+				UserSpsPlanType.CONFORMING,
+				RegistrationStatus.PENDING);
+
+		entity.setRetryCount(0);
+
+		repository.save(entity);
+	}
+
+	@Test
+	void testFindByMetadataId() {
+		SpsCirrusContactMetadata result = repository.findByMetadataId(testMetadataId);
+
+		assertNotNull(result);
+		assertEquals(testMetadataId, result.getMetadataId());
+		assertEquals(testUserAccountGuid, result.getUserAccountGuid());
+	}
+
+	@Test
+	void testSetStatus() {
+		int updatedCount = repository.setStatus(testUserAccountGuid, testPersonaId, RegistrationStatus.COMPLETED);
+
+		assertEquals(1, updatedCount);
+
+		SpsCirrusContactMetadata updatedEntity = repository.findByMetadataId(testMetadataId);
+		assertNotNull(updatedEntity);
+		assertEquals(RegistrationStatus.COMPLETED, updatedEntity.getRegistrationStatus());
+	}
+
+	@Test
+	void testIncrementRetry() {
+		int updatedCount = repository.incrementRetry(testMetadataId);
+
+		assertEquals(1, updatedCount);
+
+		SpsCirrusContactMetadata updatedEntity = repository.findByMetadataId(testMetadataId);
+		assertNotNull(updatedEntity);
+		assertEquals(1, updatedEntity.getRetryCount());
+	}
+
+	@Test
+	void testFindExistingUsersByMetadataId() {
+		List<SpsCirrusContactMetadata> results = repository.findExistingUsersByMetadataId(
+				Collections.singletonList(testMetadataId));
+
+		assertNotNull(results);
+		assertEquals(1, results.size());
+		assertEquals(testMetadataId, results.get(0).getMetadataId());
+	}
+
+	@Test
+	void testFindByUserAccountGuidAndPersonaId() {
+		List<SpsCirrusContactMetadata> results = repository.findByUserAccountGuidAndPersonaId(
+				testUserAccountGuid, testPersonaId);
+
+		assertNotNull(results);
+		assertEquals(1, results.size());
+		assertEquals(testMetadataId, results.get(0).getMetadataId());
+	}
+
+	@Test
+	void findLatestHashByUserAccountGuid_returnsHash() {
+		Integer hash = repository.findLatestHashByUserAccountGuid(testUserAccountGuid);
+		assertNull(hash);
+	}
+
+	@Test
+	void findAllByRegistrationStatus_returnsList() {
+		List<SpsCirrusContactMetadata> results = repository.findAllByRegistrationStatus(
+				RegistrationStatus.PENDING);
+
+		assertNotNull(results);
+		assertEquals(1, results.size());
+		assertEquals(RegistrationStatus.PENDING, results.get(0).getRegistrationStatus());
+	}
+}
+
+
+repository class:
+package com.personalcapital.salesforce.sps.repository;
+
+import com.personalcapital.salesforce.sps.enums.RegistrationStatus;
+import com.personalcapital.salesforce.sps.entity.SpsCirrusContactMetadata;
+
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.UUID;
+
+@Repository
+public interface SpsCirrusContactMetadataRepository
+		extends JpaRepository<SpsCirrusContactMetadata, UUID>
+{
+	@Transactional(readOnly = true)
+	SpsCirrusContactMetadata findByMetadataId(UUID metadataId);
+
+	@Transactional(readOnly = true)
+	Slice<SpsCirrusContactMetadata> findByRegistrationStatus(
+            RegistrationStatus registrationStatus, Pageable pageable);
+
+	@Transactional(readOnly = true)
+	@Query("select m from SpsCirrusContactMetadata m where m.metadataId in :metadataIds")
+	List<SpsCirrusContactMetadata> findExistingUsersByMetadataId(@Param("metadataIds") Collection<UUID> metadataIds);
+
+	@Transactional(readOnly = true)
+	List<SpsCirrusContactMetadata> findByUserAccountGuidAndPersonaId(UUID userAccountGuid, UUID personaId);
+
+	@Transactional(readOnly = true)
+	@Query(value = "SELECT hash_value FROM sp_schema.sps_cirrus_contact_metadata WHERE user_account_guid = :userAccountGuid ORDER BY updated_date DESC LIMIT 1",
+			nativeQuery = true)
+	Integer findLatestHashByUserAccountGuid(@Param("userAccountGuid") UUID userAccountGuid);
+
+	@Modifying(clearAutomatically = true, flushAutomatically = true)
+	@Transactional
+	@Query("update SpsCirrusContactMetadata m set m.registrationStatus = :status " + "where m.userAccountGuid = :userAccountGuid and m.personaId = :personaId")
+	int setStatus(@Param("userAccountGuid") UUID userAccountGuid, @Param("personaId") UUID personaId,
+                  @Param("status") RegistrationStatus registrationStatus);
+
+	@Modifying
+	@Transactional
+	@Query("update SpsCirrusContactMetadata m set m.retryCount = m.retryCount + 1 where m.metadataId = :metadataId")
+	int incrementRetry(@Param("metadataId") UUID metadataId);
+
+	// getEntriesByStatus(registrationStatus)
+	@Transactional(readOnly = true)
+	List<SpsCirrusContactMetadata> findAllByRegistrationStatus(RegistrationStatus status);
+}
+
+
+xml file:
+<?xml version="1.0" encoding="UTF-8"?>
+<beans default-lazy-init="true" xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xmlns:jpa="http://www.springframework.org/schema/data/jpa"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd http://www.springframework.org/schema/data/jpa http://www.springframework.org/schema/data/jpa/spring-jpa.xsd"
+	   xmlns:context="http://www.springframework.org/schema/context">
+
+	<import resource="file:${TEST_CONFIG_HOME}/spring/sp-base-test.xml" />
+
+	<import resource="classpath:pcap-data-agent.xml" />
+	<import resource="classpath:pcap-dao.xml" />
+	<import resource="classpath:account-api-client.xml" />
+
+	<jpa:repositories base-package="com.personalcapital.salesforce.sps.repository" />
+
+	<bean id="redissonConfiguration" class="com.personalcapital.cache.config.RedissonConfiguration">
+		<property name="enabled" value="true" />
+	</bean>
+	<!-- To make sure cryptEngine is not mocked for this test context -->
+	<import resource="classpath*:sp-security.xml"/>
+	<bean id="applicationContextProvider" class="com.personalcapital.context.ApplicationContextProvider" />
+
+	<bean id="tagDao" class="com.personalcapital.user.data.impl.TagDaoImpl"/>
+	<bean id="userDao" class="com.safepage.user.data.impl.UserDaoImpl" />
+	<bean id="userTagDao" class="com.personalcapital.user.data.impl.UserTagDaoImpl" />
+	<context:component-scan base-package="com.empower.epw.repository, com.empower.epw.config" />
+</beans>
