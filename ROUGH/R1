@@ -1,12 +1,20 @@
-In jenkins this test that we wrote is passing - SpsCirrusContactMetadataRepositoryTest
+multiple errors:
 
-but other tests are failing - 
-22:20:32  [ERROR] com.safepage.invest.data.impl.SecurityInfoDaoCacheJacksonSerializerTest.getSecurityInfoBySourceAssetId_SecurityId -- Time elapsed: 0 s <<< ERROR!
-22:20:32  org.mockito.exceptions.base.MockitoException: 
-22:20:32  
-22:20:32  Cannot instantiate @InjectMocks field named 'securityInfoDao'! Cause: the type 'SecurityInfoDao' is an interface.
-22:20:32  You haven't provided the instance at field declaration so I tried to construct the instance.
-22:20:32  Examples of correct usage of @InjectMocks:
-22:20:32     @InjectMocks Service service = new Service();
-22:20:32     @InjectMocks Service service;
-22:20:32     //and... don't forget about some @Mocks for injection :)
+23:44:12  [ERROR] Errors: 
+23:44:12  [ERROR] com.empower.epw.userportfolio.service.UserPortfolioUserAccountMapServiceTest.deleteByUserAccountGuid_whenValidId_deleteEntity
+23:44:12  [ERROR]   Run 1: UserPortfolioUserAccountMapServiceTest.deleteByUserAccountGuid_whenValidId_deleteEntity » Mockito Unable to initialize @Spy annotated field 'updateUserAccountHelper'.
+23:44:12  Please ensure that the type 'UpdateUserAccountHelper' has a no-arg constructor.
+23:44:12  [ERROR]   Run 2: UserPortfolioUserAccountMapServiceTest.deleteByUserAccountGuid_whenValidId_deleteEntity » Mockito Unable to initialize @Spy annotated field 'updateUserAccountHelper'.
+23:44:12  Please ensure that the type 'UpdateUserAccountHelper' has a no-arg constructor.
+23:44:12  [ERROR]   Run 3: UserPortfolioUserAccountMapServiceTest.deleteByUserAccountGuid_whenValidId_deleteEntity » Mockito Unable to initialize @Spy annotated field 'updateUserAccountHelper'.
+23:44:12  Please ensure that the type 'UpdateUserAccountHelper' has a no-arg constructor.
+
+23:44:12  
+23:44:12  [ERROR]   Run 2: SecurityInfoDaoCacheJacksonSerializerTest>SpringExtension.postProcessTestInstance:159 » Mockito 
+23:44:12  Cannot instantiate @InjectMocks field named 'securityInfoDao'! Cause: the type 'SecurityInfoDao' is an interface.
+23:44:12  You haven't provided the instance at field declaration so I tried to construct the instance.
+23:44:12  Examples of correct usage of @InjectMocks:
+23:44:12     @InjectMocks Service service = new Service();
+23:44:12     @InjectMocks Service service;
+23:44:12     //and... don't forget about some @Mocks for injection :)
+23:44:12  
