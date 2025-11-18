@@ -1,9 +1,12 @@
-21:53:38  [ERROR] com.personalcapital.salesforce.sps.SpsCirrusContactMetadataRepositoryTest.testFindByRegistrationStatusWithPagination
-21:53:38  [ERROR]   Run 1: SpsCirrusContactMetadataRepositoryTest.testFindByRegistrationStatusWithPagination:86 » DataIntegrityViolation could not execute batch [Column 'persona_id' cannot be null] [insert into sp_schema.sps_cirrus_contact_metadata (data_source,hash_value,persona_details_json,persona_id,registration_status,retry_count,user_account_guid,user_sps_plan_type,metadata_id) values (?,?,?,?,?,?,?,?,?)]; SQL [insert into sp_schema.sps_cirrus_contact_metadata (data_source,hash_value,persona_details_json,persona_id,registration_status,retry_count,user_account_guid,user_sps_plan_type,metadata_id) values (?,?,?,?,?,?,?,?,?)]; constraint [null]
-21:53:38  [ERROR]   Run 2: SpsCirrusContactMetadataRepositoryTest.testFindByRegistrationStatusWithPagination:86 » DataIntegrityViolation could not execute batch [Column 'persona_id' cannot be null] [insert into sp_schema.sps_cirrus_contact_metadata (data_source,hash_value,persona_details_json,persona_id,registration_status,retry_count,user_account_guid,user_sps_plan_type,metadata_id) values (?,?,?,?,?,?,?,?,?)]; SQL [insert into sp_schema.sps_cirrus_contact_metadata (data_source,hash_value,persona_details_json,persona_id,registration_status,retry_count,user_account_guid,user_sps_plan_type,metadata_id) values (?,?,?,?,?,?,?,?,?)]; constraint [null]
-21:53:38  [ERROR]   Run 3: SpsCirrusContactMetadataRepositoryTest.testFindByRegistrationStatusWithPagination:86 » DataIntegrityViolation could not execute batch [Column 'persona_id' cannot be null] [insert into sp_schema.sps_cirrus_contact_metadata (data_source,hash_value,persona_details_json,persona_id,registration_status,retry_count,user_account_guid,user_sps_plan_type,metadata_id) values (?,?,?,?,?,?,?,?,?)]; SQL [insert into sp_schema.sps_cirrus_contact_metadata (data_source,hash_value,persona_details_json,persona_id,registration_status,retry_count,user_account_guid,user_sps_plan_type,metadata_id) values (?,?,?,?,?,?,?,?,?)]; constraint [null]
-21:53:38  [INFO] 
-21:53:38  [ERROR] com.personalcapital.salesforce.sps.SpsCirrusContactMetadataRepositoryTest.testFindLatestHashByUserAccountGuid
-21:53:38  [ERROR]   Run 1: SpsCirrusContactMetadataRepositoryTest.testFindLatestHashByUserAccountGuid:130 » ConstraintViolation could not execute batch [Column 'persona_id' cannot be null] [insert into sp_schema.sps_cirrus_contact_metadata (data_source,hash_value,persona_details_json,persona_id,registration_status,retry_count,user_account_guid,user_sps_plan_type,metadata_id) values (?,?,?,?,?,?,?,?,?)]
-21:53:38  [ERROR]   Run 2: SpsCirrusContactMetadataRepositoryTest.testFindLatestHashByUserAccountGuid:130 » ConstraintViolation could not execute batch [Column 'persona_id' cannot be null] [insert into sp_schema.sps_cirrus_contact_metadata (data_source,hash_value,persona_details_json,persona_id,registration_status,retry_count,user_account_guid,user_sps_plan_type,metadata_id) values (?,?,?,?,?,?,?,?,?)]
-21:53:38  [ERROR]   Run 3: SpsCirrusContactMetadataRepositoryTest.testFindLatestHashByUserAccountGuid:130 » ConstraintViolation could not execute batch [Column 'persona_id' cannot be null] [insert into sp_schema.sps_cirrus_contact_metadata (data_source,hash_value,persona_details_json,persona_id,registration_status,retry_count,user_account_guid,user_sps_plan_type,metadata_id) values (?,?,?,?,?,?,?,?,?)]
+In jenkins this test that we wrote is passing - SpsCirrusContactMetadataRepositoryTest
+
+but other tests are failing - 
+22:20:32  [ERROR] com.safepage.invest.data.impl.SecurityInfoDaoCacheJacksonSerializerTest.getSecurityInfoBySourceAssetId_SecurityId -- Time elapsed: 0 s <<< ERROR!
+22:20:32  org.mockito.exceptions.base.MockitoException: 
+22:20:32  
+22:20:32  Cannot instantiate @InjectMocks field named 'securityInfoDao'! Cause: the type 'SecurityInfoDao' is an interface.
+22:20:32  You haven't provided the instance at field declaration so I tried to construct the instance.
+22:20:32  Examples of correct usage of @InjectMocks:
+22:20:32     @InjectMocks Service service = new Service();
+22:20:32     @InjectMocks Service service;
+22:20:32     //and... don't forget about some @Mocks for injection :)
