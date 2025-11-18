@@ -185,4 +185,167 @@ public enum RegistrationStatus
 
 
 reference test of something that is already working:
+/**
+ * Test class for EmployerRepository
+ */
+package com.personalcapital.data.repository.employer;
+
+import org.junit.jupiter.api.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
+import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.personalcapital.employer.Employer;
+
+/**
+ * @author npenugonda
+ */
+// @Ignore
+@Rollback
+@Transactional(value = "spTran")
+@SpringJUnitConfig(locations = "classpath:persistenceApplicationContext.xml")
+
+public class EmployerRepositoryTest
+{
+	@Autowired
+	private EmployerRepository employerRepository;
+
+	@BeforeEach
+	public void setUp() throws Exception
+	{
+		Employer emp = new Employer();
+		emp.setEin("123");
+		emp.setName("TestEmp");
+		emp.setZipcode("94085");
+		emp.setVendorEmployerId("1111");
+		employerRepository.save(emp);
+
+		Employer emp1 = new Employer();
+		emp1.setEin("456");
+		emp1.setName("TestEmp1");
+		emp1.setZipcode("94086");
+		emp1.setVendorEmployerId("2222");
+		employerRepository.save(emp1);
+	}
+
+	@AfterEach
+	public void tearDown() throws Exception
+	{
+	}
+
+	@Test
+	@Disabled
+	public void testFindAll()
+	{
+		Iterable<Employer> emp = employerRepository.findAll();
+		Assertions.assertNotNull(emp.iterator()
+				.next());
+		Employer empTest = emp.iterator()
+				.next();
+		Assertions.assertTrue(empTest.getEin()
+				.equals("123"));
+		Assertions.assertTrue(empTest.getName()
+				.equals("TestEmp"));
+		Assertions.assertTrue(empTest.getZipcode()
+				.equals("94085"));
+	}
+
+	@Test
+	public void testFindEmployerByEin()
+	{
+		Employer employer = employerRepository.findEmployerByEin("123");
+		Assertions.assertNotNull(employer);
+		Assertions.assertNotNull(employer.getName());
+	}
+
+	@Test
+	public void testFindEmployerByEinAndName()
+	{
+		Employer emp = employerRepository.findEmployerByEinAndName("123", "TestEmp");
+		Assertions.assertNotNull(emp);
+		Assertions.assertNotNull(emp.getId());
+	}
+
+	@Test
+	public void testUpsertEmployerRepository()
+	{
+		int val = employerRepository.upsertEmployer("123", "TestEmp", "95087");
+		Assertions.assertTrue(val >= 0);
+	}
+
+	@Test
+	public void testFindEmployerByEinAndNameAndSponsor()
+	{
+		Employer emp = employerRepository.findEmployerByEinAndNameAndVendorEmployeeId("123",
+				"TestEmp", "1111");
+		Assertions.assertNotNull(emp);
+		Assertions.assertNotNull(emp.getId());
+	}
+
+	public void testInsertEmployerRepositoryWithVendorEmployerId()
+	{
+		employerRepository.insertEmployer("789", "TestEmp2", "95088", "3333");
+		Employer employer = employerRepository.findEmployerByEinAndName("789", "TestEmp2");
+		Assertions.assertEquals("3333", employer.getVendorEmployerId());
+		Assertions.assertEquals("95088", employer.getZipcode());
+	}
+
+	@Test
+	public void testUpdateEmployerRepositoryWithVendorEmployerId()
+	{
+		Employer employer = employerRepository.findEmployerByEinAndNameAndVendorEmployeeId("456",
+				"TestEmp1", "2222");
+		employer.setEin("654");
+		employer.setName("TestEmp3");
+		employer.setZipcode("68049");
+		employer.setVendorEmployerId("4444");
+		employerRepository.updateEmployer(employer.getEin(), employer.getName(),
+				employer.getZipcode(), employer.getVendorEmployerId(), employer.getId());
+		Employer employerFromDB = employerRepository.findEmployerByEinAndNameAndVendorEmployeeId(
+				employer.getEin(), employer.getName(), employer.getVendorEmployerId());
+		Assertions.assertEquals(employer.getName(), employerFromDB.getName());
+		Assertions.assertEquals(employer.getEin(), employerFromDB.getEin());
+		Assertions.assertEquals(employer.getVendorEmployerId(),
+				employerFromDB.getVendorEmployerId());
+		Assertions.assertEquals(employer.getZipcode(), employerFromDB.getZipcode());
+	}
+
+	@Test
+	public void findEmployerByVendorEmployerId()
+	{
+		Employer employer = employerRepository.findEmployerByVendorEmployerId("1111");
+		Assertions.assertNotNull(employer);
+		Assertions.assertNotNull(employer.getName());
+	}
+
+}
+
+persistenceApplicationContext.xml:
+<?xml version="1.0" encoding="UTF-8"?>
+<beans default-lazy-init="true" xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd"
+	   xmlns:context="http://www.springframework.org/schema/context">
+
+	<import resource="file:${TEST_CONFIG_HOME}/spring/sp-base-test.xml" />
+
+	<import resource="classpath:pcap-data-agent.xml" />
+	<import resource="classpath:pcap-dao.xml" />
+	<import resource="classpath:account-api-client.xml" />
+
+
+	<bean id="redissonConfiguration" class="com.personalcapital.cache.config.RedissonConfiguration">
+		<property name="enabled" value="true" />
+	</bean>
+	<!-- To make sure cryptEngine is not mocked for this test context -->
+	<import resource="classpath*:sp-security.xml"/>
+	<bean id="applicationContextProvider" class="com.personalcapital.context.ApplicationContextProvider" />
+
+	<bean id="tagDao" class="com.personalcapital.user.data.impl.TagDaoImpl"/>
+	<bean id="userDao" class="com.safepage.user.data.impl.UserDaoImpl" />
+	<bean id="userTagDao" class="com.personalcapital.user.data.impl.UserTagDaoImpl" />
+	<context:component-scan base-package="com.empower.epw.repository, com.empower.epw.config" />
+</beans>
 
