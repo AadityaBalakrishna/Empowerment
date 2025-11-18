@@ -57,145 +57,131 @@ public interface SpsCirrusContactMetadataRepository
 }
 
 
-reference of the IT of an existing working case:
-/**
- * Test class for EmployerRepository
- */
-package com.personalcapital.data.repository.employer;
+entity:
+package com.personalcapital.salesforce.sps.entity;
 
-import org.junit.jupiter.api.*;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
-import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
-import org.springframework.transaction.annotation.Transactional;
+import com.personalcapital.data.repository.BaseEntity;
+import com.personalcapital.salesforce.sps.enums.DataSource;
+import com.personalcapital.salesforce.sps.enums.DataSourceConverter;
+import com.personalcapital.salesforce.sps.enums.RegistrationStatus;
+import com.personalcapital.salesforce.sps.enums.UserSpsPlanType;
+import jakarta.persistence.*;
+import lombok.*;
+import org.hibernate.annotations.GenericGenerator;
 
-import com.personalcapital.employer.Employer;
+import java.util.Date;
+import java.util.UUID;
 
-/**
- * @author npenugonda
- */
-// @Ignore
-@Rollback
-@Transactional(value = "spTran")
-@SpringJUnitConfig(locations = "classpath:persistenceApplicationContext.xml")
-
-public class EmployerRepositoryTest
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode(callSuper = true)
+@Entity
+@Table(name = "sps_cirrus_contact_metadata", catalog = "sp_schema")
+public class SpsCirrusContactMetadata extends BaseEntity
 {
-	@Autowired
-	private EmployerRepository employerRepository;
+	@Id
+	@GeneratedValue(generator = "uuid2")
+	@GenericGenerator(name = "uuid2", strategy = "org.hibernate.id.UUIDGenerator")
+	@Column(name = "metadata_id", columnDefinition = "BINARY(16)")
+	private UUID metadataId;
 
-	@BeforeEach
-	public void setUp() throws Exception
+	@Column(name = "user_account_guid", columnDefinition = "BINARY(16)")
+	private UUID userAccountGuid;
+
+	@Column(name = "persona_id", columnDefinition = "BINARY(16)")
+	private UUID personaId;
+
+	@Column(name = "hash_value")
+	private Integer hashValue;
+
+	@Column(name = "persona_details_json", columnDefinition = "JSON")
+	private String personaAltIds;
+
+	@Convert(converter = DataSourceConverter.class)
+	@Column(name = "data_source", columnDefinition = "ENUM('ACCOUNT','C&H')")
+	private DataSource dataSource;
+
+	@Column(name = "user_sps_plan_type") // enum1
+	@Enumerated(EnumType.STRING)
+	private UserSpsPlanType userSpsPlanType;
+
+	@Column(name = "registration_status")
+	@Enumerated(EnumType.STRING)
+	private RegistrationStatus registrationStatus;
+
+	@Column(name = "retry_count")
+	private int retryCount;
+
+	@Column(name = "created_date")
+	private Date createdDate;
+
+	@Column(name = "updated_date")
+	private Date updatedDate;
+
+	public SpsCirrusContactMetadata(UUID metadataId, UUID userAccountGuid, UUID personaId,
+									UserSpsPlanType userSpsPlanType, RegistrationStatus registrationStatus)
 	{
-		Employer emp = new Employer();
-		emp.setEin("123");
-		emp.setName("TestEmp");
-		emp.setZipcode("94085");
-		emp.setVendorEmployerId("1111");
-		employerRepository.save(emp);
-
-		Employer emp1 = new Employer();
-		emp1.setEin("456");
-		emp1.setName("TestEmp1");
-		emp1.setZipcode("94086");
-		emp1.setVendorEmployerId("2222");
-		employerRepository.save(emp1);
+		this.metadataId = metadataId;
+		this.userAccountGuid = userAccountGuid;
+		this.personaId = personaId;
+		this.userSpsPlanType = userSpsPlanType;
+		this.registrationStatus = registrationStatus;
 	}
+}
 
-	@AfterEach
-	public void tearDown() throws Exception
-	{
+enums:
+package com.personalcapital.salesforce.sps.enums;
+
+public enum DataSource
+{
+	ACCOUNT("ACCOUNT"),C_AND_H("C&H");
+
+	private final String dbValue;
+	DataSource(String dbValue) { this.dbValue = dbValue; }
+	public String getDbValue() { return dbValue; }
+
+	public static DataSource fromDb(String v) {
+		if (v == null) return null;
+		return switch (v) {
+			case "ACCOUNT" -> ACCOUNT;
+			case "C&H" -> C_AND_H;
+			default -> throw new IllegalArgumentException("Unknown data_source: " + v);
+		};
 	}
+}
 
-	@Test
-	@Disabled
-	public void testFindAll()
-	{
-		Iterable<Employer> emp = employerRepository.findAll();
-		Assertions.assertNotNull(emp.iterator()
-				.next());
-		Employer empTest = emp.iterator()
-				.next();
-		Assertions.assertTrue(empTest.getEin()
-				.equals("123"));
-		Assertions.assertTrue(empTest.getName()
-				.equals("TestEmp"));
-		Assertions.assertTrue(empTest.getZipcode()
-				.equals("94085"));
-	}
+package com.personalcapital.salesforce.sps.enums;
 
-	@Test
-	public void testFindEmployerByEin()
-	{
-		Employer employer = employerRepository.findEmployerByEin("123");
-		Assertions.assertNotNull(employer);
-		Assertions.assertNotNull(employer.getName());
-	}
+import jakarta.persistence.AttributeConverter;
+import jakarta.persistence.Converter;
 
-	@Test
-	public void testFindEmployerByEinAndName()
-	{
-		Employer emp = employerRepository.findEmployerByEinAndName("123", "TestEmp");
-		Assertions.assertNotNull(emp);
-		Assertions.assertNotNull(emp.getId());
-	}
+@Converter(autoApply = false)
+public class DataSourceConverter implements AttributeConverter<DataSource, String> {
+    @Override
+    public String convertToDatabaseColumn(DataSource attribute) {
+        return attribute == null ? null : attribute.getDbValue();
+    }
 
-	@Test
-	public void testUpsertEmployerRepository()
-	{
-		int val = employerRepository.upsertEmployer("123", "TestEmp", "95087");
-		Assertions.assertTrue(val >= 0);
-	}
+    @Override
+    public DataSource convertToEntityAttribute(String dbData) {
+        return DataSource.fromDb(dbData);
+    }
+}
 
-	@Test
-	public void testFindEmployerByEinAndNameAndSponsor()
-	{
-		Employer emp = employerRepository.findEmployerByEinAndNameAndVendorEmployeeId("123",
-				"TestEmp", "1111");
-		Assertions.assertNotNull(emp);
-		Assertions.assertNotNull(emp.getId());
-	}
+package com.personalcapital.salesforce.sps.enums;
 
-	public void testInsertEmployerRepositoryWithVendorEmployerId()
-	{
-		employerRepository.insertEmployer("789", "TestEmp2", "95088", "3333");
-		Employer employer = employerRepository.findEmployerByEinAndName("789", "TestEmp2");
-		Assertions.assertEquals("3333", employer.getVendorEmployerId());
-		Assertions.assertEquals("95088", employer.getZipcode());
-	}
+public enum UserSpsPlanType
+{
+	CONFORMING, NON_CONFORMING
+}
 
-	@Test
-	public void testUpdateEmployerRepositoryWithVendorEmployerId()
-	{
-		Employer employer = employerRepository.findEmployerByEinAndNameAndVendorEmployeeId("456",
-				"TestEmp1", "2222");
-		employer.setEin("654");
-		employer.setName("TestEmp3");
-		employer.setZipcode("68049");
-		employer.setVendorEmployerId("4444");
-		employerRepository.updateEmployer(employer.getEin(), employer.getName(),
-				employer.getZipcode(), employer.getVendorEmployerId(), employer.getId());
-		Employer employerFromDB = employerRepository.findEmployerByEinAndNameAndVendorEmployeeId(
-				employer.getEin(), employer.getName(), employer.getVendorEmployerId());
-		Assertions.assertEquals(employer.getName(), employerFromDB.getName());
-		Assertions.assertEquals(employer.getEin(), employerFromDB.getEin());
-		Assertions.assertEquals(employer.getVendorEmployerId(),
-				employerFromDB.getVendorEmployerId());
-		Assertions.assertEquals(employer.getZipcode(), employerFromDB.getZipcode());
-	}
+package com.personalcapital.salesforce.sps.enums;
 
-	@Test
-	public void findEmployerByVendorEmployerId()
-	{
-		Employer employer = employerRepository.findEmployerByVendorEmployerId("1111");
-		Assertions.assertNotNull(employer);
-		Assertions.assertNotNull(employer.getName());
-	}
-
+public enum RegistrationStatus
+{
+	COMPLETED, EXPIRED, FAILED, PENDING
 }
 
 
-do not use springboottest
-
-
+do not use springboot test
