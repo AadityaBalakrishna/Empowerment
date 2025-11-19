@@ -1,10 +1,57 @@
-UserPortfolioUserAccountMapServiceTest.persist_whenValidEntity_persistEntity » Mockito Unable to initialize @Spy annotated field 'updateUserAccountHelper'.
-Please ensure that the type 'UpdateUserAccountHelper' has a no-arg constructor.
+is this all that is required?
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:aop="http://www.springframework.org/schema/aop" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:tx="http://www.springframework.org/schema/tx" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:util="http://www.springframework.org/schema/util"
+	xsi:schemaLocation="
+	http://www.springframework.org/schema/beans
+	http://www.springframework.org/schema/beans/spring-beans.xsd
+	http://www.springframework.org/schema/aop
+	http://www.springframework.org/schema/aop/spring-aop.xsd
+	http://www.springframework.org/schema/context
+	http://www.springframework.org/schema/context/spring-context.xsd
+	http://www.springframework.org/schema/tx
+	http://www.springframework.org/schema/tx/spring-tx.xsd
+	http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd">
 
-com.safepage.invest.data.impl.SecurityInfoDaoCacheJacksonSerializerTest.deleteSecurityInfo
-[ERROR]   Run 1: SecurityInfoDaoCacheJacksonSerializerTest>SpringExtension.postProcessTestInstance:159 » Mockito 
-Cannot instantiate @InjectMocks field named 'securityInfoDao'! Cause: the type 'SecurityInfoDao' is an interface.
-You haven't provided the instance at field declaration so I tried to construct the instance.
-Examples of correct usage of @InjectMocks: @InjectMocks Service service = new Service();
- @InjectMocks Service service;
- //and... don't forget about some @Mocks for injection :)
+	<context:annotation-config />
+	<aop:aspectj-autoproxy />
+
+	<!-- Needed for sp_schema master persistence unit, data source defined in @sp-security.xml -->
+	<bean id="persistenceUnitManager"
+		class="org.springframework.orm.jpa.persistenceunit.DefaultPersistenceUnitManager">
+		<property name="persistenceXmlLocations">
+			<list>
+				<value>classpath*:META-INF/persistence.xml</value>
+			</list>
+		</property>
+		<property name="dataSourceLookup">
+			<bean
+				class="org.springframework.jdbc.datasource.lookup.BeanFactoryDataSourceLookup" />
+		</property>
+	</bean>
+	<bean id="entityManagerFactory" name="entityManagerFactory"
+		class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+		<property name="persistenceUnitManager" ref="persistenceUnitManager" />
+		<property name="persistenceUnitName" value="sp_schema" />
+		<property name="dataSource" ref="dataSource" />
+		<property name="jpaVendorAdapter" ref="jpaVendorAdapter" />
+		<property name="jpaDialect" ref="jpaDialect" />
+	</bean>
+	<bean
+		class="org.springframework.orm.jpa.support.PersistenceAnnotationBeanPostProcessor">
+		<property name="defaultPersistenceUnitName" value="sp_schema" />
+	</bean>
+	<bean id="spTransactionManager" name="spTransactionManager"
+		class="org.springframework.orm.jpa.JpaTransactionManager">
+		<property name="entityManagerFactory" ref="entityManagerFactory" />
+		<qualifier value="spTran" />
+		<property name="jpaDialect" ref="jpaDialect" />
+	</bean>
+	<tx:annotation-driven transaction-manager="entityManagerFactory" />
+	<bean id="spJdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+		<constructor-arg ref="dataSource" />
+	</bean>
+</beans>
+
