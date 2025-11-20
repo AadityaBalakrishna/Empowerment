@@ -1,38 +1,112 @@
-the two tests and the errors are:
+current configuration of spsCirrusApplicationContext.xml -- my tests are passing, keep the name
+<?xml version="1.0" encoding="UTF-8"?>
+<beans default-lazy-init="true" xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xmlns:jpa="http://www.springframework.org/schema/data/jpa"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd   http://www.springframework.org/schema/data/jpa http://www.springframework.org/schema/data/jpa/spring-jpa.xsd http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd"
+	   xmlns:context="http://www.springframework.org/schema/context">
 
-1) UserPortfolioUserAccountMapServiceTest.persist_whenValidEntity_persistEntity » Mockito Unable to initialize @Spy annotated field 'updateUserAccountHelper'.
-17:25:45  Please ensure that the type 'UpdateUserAccountHelper' has a no-arg constructor.
+	<import resource="file:${TEST_CONFIG_HOME}/spring/sp-base-test.xml" />
+	<import resource="classpath:pcap-data-agent.xml" />
+	<import resource="classpath:pcap-dao.xml" />
+	<import resource="classpath:account-api-client.xml" />
+	<import resource="classpath*:sp-security.xml"/>
+	<bean id="applicationContextProvider" class="com.personalcapital.context.ApplicationContextProvider" />
+	<bean id="redissonConfiguration" class="com.personalcapital.cache.config.RedissonConfiguration">
+		<property name="enabled" value="true" />
+	</bean>
 
-2)  com.safepage.invest.data.impl.SecurityInfoDaoCacheJacksonSerializerTest.deleteSecurityInfo
-Run 1: SecurityInfoDaoCacheJacksonSerializerTest>SpringExtension.postProcessTestInstance:159 » Mockito 
-17:25:45  Cannot instantiate @InjectMocks field named 'securityInfoDao'! Cause: the type 'SecurityInfoDao' is an interface.
-17:25:45  You haven't provided the instance at field declaration so I tried to construct the instance.
-17:25:45  Examples of correct usage of @InjectMocks:
-17:25:45     @InjectMocks Service service = new Service();
-17:25:45     @InjectMocks Service service;
-17:25:45     //and... don't forget about some @Mocks for injection :)
+	<jpa:repositories base-package="com.personalcapital.salesforce.sps.repository" transaction-manager-ref="spTran"/>
+</beans>
 
 
-when i searched for the tests i found this:
-1) 	public class UserPortfolioUserAccountMapServiceTest extends BaseDaoTest
+1)	<import resource="file:${TEST_CONFIG_HOME}/spring/sp-base-test.xml" />
+<?xml version="1.0" encoding="UTF-8"?>
+<beans default-lazy-init="true" xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans
+	http://www.springframework.org/schema/beans/spring-beans.xsd http://www.mockito.org/spring/mockito http://www.mockito.org/spring/mockito.xsd"
+	   xmlns:mockito="http://www.mockito.org/spring/mockito">
 
-@Spy
-@Autowired
-private UpdateUserAccountHelper updateUserAccountHelper;
+	<mockito:mock id="spExecutor" class="com.safepage.thread.SafePageExecutor"/>
+	<mockito:mock id="cryptEngine" class="com.safepage.security.CryptEngine" />
 
-2) SecurityInfoDaoCacheJacksonSerializerTest:
-@TestPropertySource(properties =
-{
-		"codec.redis.serializer={\"default\":\"JACKSON\",\"serializer\":{}}",
-})
-public class SecurityInfoDaoCacheJacksonSerializerTest
-		extends AbstractSecurityInfoDaoCacheSerializerTest
-{
-}
+	<import resource="file:${TEST_CONFIG_HOME}/spring/sp-config-test.xml"/>
+	<!-- Does not include read only connection -->
+	<import resource="file:${TEST_CONFIG_HOME}/spring/sp-data-test.xml"/>
+	<import resource="classpath:pcap-cache-bean.xml" />
+	
+	<import resource="classpath:sp-core-user-data.xml" />
+	<import resource="classpath:sp-core-site-data.xml" />
+	<import resource="file:${TEST_CONFIG_HOME}/spring/sp-data-security-test.xml" />
+	
+	<bean name="serverConfigurer" class="com.personalcapital.config.ServerConfigurer">
+		<property name="tenant" value="${server.tenant}" />
+		<property name="baseURL" value="${server.baseURL}" />
+		<property name="cmsServerURL" value="${server.cmsServerURL}" />
+		<property name="adminBaseURL" value="${server.adminBaseURL}" />
+		<property name="referralURL" value="${server.referralURL}" />
+		<property name="clientReferralURL" value="${server.clientReferralURL}" />
+		<property name="systemSalt" value="${pcap.systemSalt}" />
+		<property name="googleCaptchaSiteKey" value="${google.recaptcha.SiteKey}" />
+        <property name="mixpanelToken" value="${mixpanel.token}" />
+		<property name="staticURL" value="${server.staticURL}" />
+	</bean>
+</beans>
 
-AbstractSecurityInfoDaoCacheSerializerTest :
-	@InjectMocks
-	@Autowired
-	SecurityInfoDao securityInfoDao;
 
-it has both the imports
+2)	<import resource="classpath:pcap-data-agent.xml" />
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans
+			http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+	<!-- for advisor app -->
+	<bean id="ssoGroupRoleTypeDao" class="com.personalcapital.role.data.impl.SsoGroupRoleTypeDaoImpl" />
+	<bean id="roleTypeDao" class="com.personalcapital.role.data.impl.RoleTypeDaoImpl" />
+    <bean id="agentRoleHelper" class="com.safepage.data.util.AgentRoleHelper" />
+
+</beans>
+
+3)	<import resource="classpath:pcap-dao.xml" />
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+			http://www.springframework.org/schema/beans
+			http://www.springframework.org/schema/beans/spring-beans.xsd
+			http://www.springframework.org/schema/aop
+			http://www.springframework.org/schema/aop/spring-aop.xsd">
+	<bean id="yodleeOrganizationDao" class="com.personalcapital.sync.dao.impl.YodleeOrganizationDaoImpl" />
+	<bean id="organizationOverrideDao" class="com.personalcapital.sync.dao.impl.OrganizationOverrideDaoImpl" />
+	<bean id="siteOverrideDao" class="com.personalcapital.sync.dao.impl.SiteOverrideDaoImpl" />
+	<bean id="productOverrideDao" class="com.personalcapital.sync.dao.impl.ProductOverrideDaoImpl" />
+	<bean id="yodleeSiteContentServiceDao" class="com.personalcapital.sync.dao.impl.YodleeSiteContentServiceDaoImpl" />
+	<bean id="yodleeSiteContentServiceStgDao" class="com.personalcapital.sync.dao.impl.YodleeSiteContentServiceStgDaoImpl" />
+	<bean id="yodleeContentServiceStgDao" class="com.personalcapital.sync.dao.impl.YodleeContentServiceStgDaoImpl" />
+	<aop:aspectj-autoproxy />
+</beans>
+
+4)	<import resource="classpath:account-api-client.xml" />
+5) 	<import resource="classpath*:sp-security.xml"/>
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+			http://www.springframework.org/schema/beans/spring-beans.xsd
+			http://www.springframework.org/schema/aop
+			http://www.springframework.org/schema/aop/spring-aop.xsd
+            http://www.springframework.org/schema/context
+            http://www.springframework.org/schema/context/spring-context.xsd">
+
+    <aop:aspectj-autoproxy/>
+    <context:annotation-config/>
+
+    <context:component-scan base-package="com.empower.epw.persistence.config.spschema"/>
+    <context:component-scan base-package="com.empower.epw.persistence.config.security"/>
+
+</beans>
