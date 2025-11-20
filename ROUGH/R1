@@ -11,3 +11,28 @@ Run 1: SecurityInfoDaoCacheJacksonSerializerTest>SpringExtension.postProcessTest
 17:25:45     @InjectMocks Service service = new Service();
 17:25:45     @InjectMocks Service service;
 17:25:45     //and... don't forget about some @Mocks for injection :)
+
+
+when i searched for the tests i found this:
+1) 	public class UserPortfolioUserAccountMapServiceTest extends BaseDaoTest
+
+@Spy
+@Autowired
+private UpdateUserAccountHelper updateUserAccountHelper;
+
+2) SecurityInfoDaoCacheJacksonSerializerTest:
+@TestPropertySource(properties =
+{
+		"codec.redis.serializer={\"default\":\"JACKSON\",\"serializer\":{}}",
+})
+public class SecurityInfoDaoCacheJacksonSerializerTest
+		extends AbstractSecurityInfoDaoCacheSerializerTest
+{
+}
+
+AbstractSecurityInfoDaoCacheSerializerTest :
+	@InjectMocks
+	@Autowired
+	SecurityInfoDao securityInfoDao;
+
+it has both the imports
