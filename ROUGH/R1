@@ -1,57 +1,72 @@
-is this all that is required?
-<?xml version="1.0" encoding="UTF-8"?>
-<beans xmlns="http://www.springframework.org/schema/beans"
-	xmlns:aop="http://www.springframework.org/schema/aop" xmlns:context="http://www.springframework.org/schema/context"
-	xmlns:tx="http://www.springframework.org/schema/tx" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xmlns:util="http://www.springframework.org/schema/util"
-	xsi:schemaLocation="
-	http://www.springframework.org/schema/beans
-	http://www.springframework.org/schema/beans/spring-beans.xsd
-	http://www.springframework.org/schema/aop
-	http://www.springframework.org/schema/aop/spring-aop.xsd
-	http://www.springframework.org/schema/context
-	http://www.springframework.org/schema/context/spring-context.xsd
-	http://www.springframework.org/schema/tx
-	http://www.springframework.org/schema/tx/spring-tx.xsd
-	http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd">
+can you help me with a review comment for thus code:
 
-	<context:annotation-config />
-	<aop:aspectj-autoproxy />
+package com.personalcapital.salesforce.sps.repository;
 
-	<!-- Needed for sp_schema master persistence unit, data source defined in @sp-security.xml -->
-	<bean id="persistenceUnitManager"
-		class="org.springframework.orm.jpa.persistenceunit.DefaultPersistenceUnitManager">
-		<property name="persistenceXmlLocations">
-			<list>
-				<value>classpath*:META-INF/persistence.xml</value>
-			</list>
-		</property>
-		<property name="dataSourceLookup">
-			<bean
-				class="org.springframework.jdbc.datasource.lookup.BeanFactoryDataSourceLookup" />
-		</property>
-	</bean>
-	<bean id="entityManagerFactory" name="entityManagerFactory"
-		class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
-		<property name="persistenceUnitManager" ref="persistenceUnitManager" />
-		<property name="persistenceUnitName" value="sp_schema" />
-		<property name="dataSource" ref="dataSource" />
-		<property name="jpaVendorAdapter" ref="jpaVendorAdapter" />
-		<property name="jpaDialect" ref="jpaDialect" />
-	</bean>
-	<bean
-		class="org.springframework.orm.jpa.support.PersistenceAnnotationBeanPostProcessor">
-		<property name="defaultPersistenceUnitName" value="sp_schema" />
-	</bean>
-	<bean id="spTransactionManager" name="spTransactionManager"
-		class="org.springframework.orm.jpa.JpaTransactionManager">
-		<property name="entityManagerFactory" ref="entityManagerFactory" />
-		<qualifier value="spTran" />
-		<property name="jpaDialect" ref="jpaDialect" />
-	</bean>
-	<tx:annotation-driven transaction-manager="entityManagerFactory" />
-	<bean id="spJdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
-		<constructor-arg ref="dataSource" />
-	</bean>
-</beans>
+import com.personalcapital.salesforce.sps.enums.RegistrationStatus;
+import com.personalcapital.salesforce.sps.entity.SpsCirrusContactMetadata;
 
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.UUID;
+
+@Repository
+public interface SpsCirrusContactMetadataRepository
+		extends JpaRepository<SpsCirrusContactMetadata, UUID>
+{
+	@Transactional(readOnly = true)
+	SpsCirrusContactMetadata findByMetadataId(UUID metadataId);
+
+	@Transactional(readOnly = true)
+	Slice<SpsCirrusContactMetadata> findByRegistrationStatus(
+            RegistrationStatus registrationStatus, Pageable pageable);
+
+	@Transactional(readOnly = true)
+	@Query("select m from SpsCirrusContactMetadata m where m.metadataId in :metadataIds")
+	List<SpsCirrusContactMetadata> findExistingUsersByMetadataId(@Param("metadataIds") Collection<UUID> metadataIds);
+
+	@Transactional(readOnly = true)
+	List<SpsCirrusContactMetadata> findByUserAccountGuidAndPersonaId(UUID userAccountGuid, UUID personaId);
+
+	@Transactional(readOnly = true)
+	@Query(value = "SELECT hash_value FROM sp_schema.sps_cirrus_contact_metadata WHERE user_account_guid = :userAccountGuid ORDER BY updated_date DESC LIMIT 1",
+			nativeQuery = true)
+	Integer findLatestHashByUserAccountGuid(@Param("userAccountGuid") UUID userAccountGuid);
+
+	@Modifying(clearAutomatically = true, flushAutomatically = true)
+	@Transactional
+	@Query("update SpsCirrusContactMetadata m set m.registrationStatus = :status " + "where m.userAccountGuid = :userAccountGuid and m.personaId = :personaId")
+	int setStatus(@Param("userAccountGuid") UUID userAccountGuid, @Param("personaId") UUID personaId,
+                  @Param("status") RegistrationStatus registrationStatus);
+
+	@Modifying
+	@Transactional
+	@Query("update SpsCirrusContactMetadata m set m.retryCount = m.retryCount + 1 where m.metadataId = :metadataId")
+	int incrementRetry(@Param("metadataId") UUID metadataId);
+
+	// getEntriesByStatus(registrationStatus)
+	@Transactional(readOnly = true)
+	List<SpsCirrusContactMetadata> findAllByRegistrationStatus(RegistrationStatus status);
+}
+
+
+
+reveiw comment given to me:
+I suppose
+When UUID is passed to the method , it will not match with the table
+As in table we are storing it as Binary 16
+So my recommendation would be :
+@Query(value = """ SELECT hash_value FROM sp_schema.sps_cirrus_contact_metadata WHERE user_account_guid = UUID_TO_BIN(:#{#userAccountGuid.toString()}) ORDER BY updated_date DESC, metadata_id DESC LIMIT 1 """, nativeQuery = true) Optional findLatestHashByUserAccountGuid(@Param("userAccountGuid") UUID userAccountGuid);
+Same goes for any method in that repositoy which is accepting UUID.
+This problem because you are writing as native query.
+If you need JPQL  , then
+@Transactional(readOnly = true) @Query(""" SELECT m.hashValue FROM SpsCirrusContactMetadata m WHERE m.userAccountGuid = :userAccountGuid ORDER BY m.updatedDate DESC, m.metadataId DESC """) Optional <Integer> findLatestHashByUserAccountGuid(@Param("userAccountGuid") UUID userAccountGuid);
+Check for the syntax ffor above query as im unable to paste the special characters in the comment.
