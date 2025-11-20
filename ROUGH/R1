@@ -1,3 +1,4 @@
+final test class:
 package com.personalcapital.salesforce.sps;
 
 import com.personalcapital.salesforce.sps.entity.SpsCirrusContactMetadata;
@@ -80,19 +81,15 @@ public class SpsCirrusContactMetadataRepositoryTest {
 	public void testFindLatestHashByUserAccountGuid() {
 		UUID specificUser = UUID.randomUUID();
 
-		SpsCirrusContactMetadata oldRecord = new SpsCirrusContactMetadata();
-		oldRecord.setUserAccountGuid(specificUser);
-		oldRecord.setPersonaId(UUID.randomUUID());
-		oldRecord.setHashValue(100);
-		oldRecord.setUpdatedDate(new Date(System.currentTimeMillis() - 10000));
-		repository.save(oldRecord);
+		repository.deleteAll();
 
-		SpsCirrusContactMetadata newRecord = new SpsCirrusContactMetadata();
-		newRecord.setUserAccountGuid(specificUser);
-		newRecord.setPersonaId(UUID.randomUUID());
-		newRecord.setHashValue(200);
-		newRecord.setUpdatedDate(new Date()); // Now
-		repository.save(newRecord);
+		// Insert only one record for the specific user
+		SpsCirrusContactMetadata record = new SpsCirrusContactMetadata();
+		record.setUserAccountGuid(specificUser);
+		record.setPersonaId(UUID.randomUUID());
+		record.setHashValue(200);
+		record.setUpdatedDate(new Date());
+		repository.save(record);
 
 		entityManager.flush();
 
@@ -193,42 +190,25 @@ public class SpsCirrusContactMetadataRepositoryTest {
 	}
 }
 
-error
-16:36:39  [INFO] Running com.personalcapital.salesforce.sps.SpsCirrusContactMetadataRepositoryTest
-16:36:39  [ERROR] Tests run: 1, Failures: 0, Errors: 1, Skipped: 0, Time elapsed: 0.012 s <<< FAILURE! -- in com.personalcapital.salesforce.sps.SpsCirrusContactMetadataRepositoryTest
-16:36:39  [ERROR] com.personalcapital.salesforce.sps.SpsCirrusContactMetadataRepositoryTest.testFindLatestHashByUserAccountGuid -- Time elapsed: 0.010 s <<< ERROR!
-16:36:39  org.springframework.dao.IncorrectResultSizeDataAccessException: Query did not return a unique result: 2 results were returned
-16:36:39  	at org.springframework.orm.jpa.vendor.HibernateJpaDialect.convertHibernateAccessException(HibernateJpaDialect.java:305)
-16:36:39  	at org.springframework.orm.jpa.vendor.HibernateJpaDialect.convertHibernateAccessException(HibernateJpaDialect.java:256)
-16:36:39  	at org.springframework.orm.jpa.vendor.HibernateJpaDialect.translateExceptionIfPossible(HibernateJpaDialect.java:244)
-16:36:39  	at org.springframework.dao.support.ChainedPersistenceExceptionTranslator.translateExceptionIfPossible(ChainedPersistenceExceptionTranslator.java:61)
-16:36:39  	at org.springframework.dao.support.DataAccessUtils.translateIfNecessary(DataAccessUtils.java:343)
-16:36:39  	at org.springframework.dao.support.PersistenceExceptionTranslationInterceptor.invoke(PersistenceExceptionTranslationInterceptor.java:160)
-16:36:39  	at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)
-16:36:39  	at org.springframework.data.jpa.repository.support.CrudMethodMetadataPostProcessor$CrudMethodMetadataPopulatingMethodInterceptor.invoke(CrudMethodMetadataPostProcessor.java:136)
-16:36:39  	at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)
-16:36:39  	at org.springframework.aop.framework.JdkDynamicAopProxy.invoke(JdkDynamicAopProxy.java:223)
-16:36:39  	at jdk.proxy2/jdk.proxy2.$Proxy294.findLatestHashByUserAccountGuid(Unknown Source)
-16:36:39  	at com.personalcapital.salesforce.sps.SpsCirrusContactMetadataRepositoryTest.testFindLatestHashByUserAccountGuid(SpsCirrusContactMetadataRepositoryTest.java:99)
-16:36:39  	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-16:36:39  	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-16:36:39  	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-16:36:39  Caused by: org.hibernate.NonUniqueResultException: Query did not return a unique result: 2 results were returned
-16:36:39  	at org.hibernate.query.spi.AbstractSelectionQuery.uniqueElement(AbstractSelectionQuery.java:291)
-16:36:39  	at org.hibernate.query.spi.AbstractSelectionQuery.getSingleResult(AbstractSelectionQuery.java:274)
-16:36:39  	at org.springframework.data.jpa.repository.query.JpaQueryExecution$SingleEntityExecution.doExecute(JpaQueryExecution.java:226)
-16:36:39  	at org.springframework.data.jpa.repository.query.JpaQueryExecution.execute(JpaQueryExecution.java:95)
-16:36:39  	at org.springframework.data.jpa.repository.query.AbstractJpaQuery.doExecute(AbstractJpaQuery.java:160)
-16:36:39  	at org.springframework.data.jpa.repository.query.AbstractJpaQuery.execute(AbstractJpaQuery.java:148)
-16:36:39  	at org.springframework.data.repository.core.support.RepositoryMethodInvoker.doInvoke(RepositoryMethodInvoker.java:170)
-16:36:39  	at org.springframework.data.repository.core.support.RepositoryMethodInvoker.invoke(RepositoryMethodInvoker.java:158)
-16:36:39  	at org.springframework.data.repository.core.support.QueryExecutorMethodInterceptor.doInvoke(QueryExecutorMethodInterceptor.java:170)
-16:36:39  	at org.springframework.data.repository.core.support.QueryExecutorMethodInterceptor.invoke(QueryExecutorMethodInterceptor.java:149)
-16:36:39  	at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)
-16:36:39  	at org.springframework.data.projection.DefaultMethodInvokingMethodInterceptor.invoke(DefaultMethodInvokingMethodInterceptor.java:69)
-16:36:39  	at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)
-16:36:39  	at org.springframework.transaction.interceptor.TransactionAspectSupport.invokeWithinTransaction(TransactionAspectSupport.java:380)
-16:36:39  	at org.springframework.transaction.interceptor.TransactionInterceptor.invoke(TransactionInterceptor.java:119)
-16:36:39  	at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)
-16:36:39  	at org.springframework.dao.support.PersistenceExceptionTranslationInterceptor.invoke(PersistenceExceptionTranslationInterceptor.java:138)
-16:36:39  	... 9 more
+spsCirrusApplicationContext.xml :
+<?xml version="1.0" encoding="UTF-8"?>
+<beans default-lazy-init="true" xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xmlns:jpa="http://www.springframework.org/schema/data/jpa"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd   http://www.springframework.org/schema/data/jpa http://www.springframework.org/schema/data/jpa/spring-jpa.xsd http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd"
+	   xmlns:context="http://www.springframework.org/schema/context">
+
+	<import resource="file:${TEST_CONFIG_HOME}/spring/sp-base-test.xml" />
+	<import resource="classpath:pcap-data-agent.xml" />
+	<import resource="classpath:pcap-dao.xml" />
+	<import resource="classpath:account-api-client.xml" />
+	<import resource="classpath*:sp-security.xml"/>
+	<bean id="applicationContextProvider" class="com.personalcapital.context.ApplicationContextProvider" />
+	<bean id="redissonConfiguration" class="com.personalcapital.cache.config.RedissonConfiguration">
+		<property name="enabled" value="true" />
+	</bean>
+
+	<context:component-scan base-package="com.empower.epw.repository, com.empower.epw.config" />
+
+	<jpa:repositories base-package="com.personalcapital.salesforce.sps.repository" transaction-manager-ref="spTran"/>
+</beans>
