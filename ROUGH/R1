@@ -66,4 +66,50 @@ but now, i am getting tihs error:
 so this means, in the sp-core-site-data.xml file there is a - 
 	<bean id="securityInfoDao" class="com.safepage.invest.data.impl.SecurityInfoDaoImpl" />
 
+
+<?xml version="1.0" encoding="UTF-8"?>
+<beans default-lazy-init="true" xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xmlns:jpa="http://www.springframework.org/schema/data/jpa"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd   http://www.springframework.org/schema/data/jpa http://www.springframework.org/schema/data/jpa/spring-jpa.xsd http://www.mockito.org/spring/mockito http://www.mockito.org/spring/mockito.xsd"
+	   xmlns:mockito="http://www.mockito.org/spring/mockito">
+
+<!--	<import resource="file:${TEST_CONFIG_HOME}/spring/sp-base-test.xml" />-->
+	<import resource="file:${TEST_CONFIG_HOME}/spring/sp-config-test.xml"/>
+	<import resource="file:${TEST_CONFIG_HOME}/spring/sp-data-test.xml"/>
+	<import resource="classpath:pcap-cache-bean.xml" />
+
+	<import resource="classpath:sp-core-user-data.xml" />
+<!--	<import resource="classpath:sp-core-site-data.xml" />-->
+	<mockito:mock id="securityInfoDao" class="com.safepage.invest.data.impl.SecurityInfoDaoImpl" />
+	<bean id="securityInfoOverrideDao" class="com.safepage.invest.data.impl.SecurityInfoOverrideDaoImpl" />
+	<bean id="geoIpLocationDao" class="com.personalcapital.geoip.data.impl.GeoIpLocationDaoImpl" />
+	<bean id="deliveringFirmDao" class="com.safepage.site.data.impl.DeliveringFirmDaoImpl" />
+	<bean id="deliveringFirmSiteMapDao" class="com.safepage.site.data.impl.DeliveringFirmSiteMapDaoImpl" />
+	<import resource="file:${TEST_CONFIG_HOME}/spring/sp-data-security-test.xml" />
+
+	<bean name="serverConfigurer" class="com.personalcapital.config.ServerConfigurer">
+		<property name="tenant" value="${server.tenant}" />
+		<property name="baseURL" value="${server.baseURL}" />
+		<property name="cmsServerURL" value="${server.cmsServerURL}" />
+		<property name="adminBaseURL" value="${server.adminBaseURL}" />
+		<property name="referralURL" value="${server.referralURL}" />
+		<property name="clientReferralURL" value="${server.clientReferralURL}" />
+		<property name="systemSalt" value="${pcap.systemSalt}" />
+		<property name="googleCaptchaSiteKey" value="${google.recaptcha.SiteKey}" />
+		<property name="mixpanelToken" value="${mixpanel.token}" />
+		<property name="staticURL" value="${server.staticURL}" />
+	</bean>
+
+	<import resource="classpath:account-api-client.xml" />
+	<import resource="classpath*:sp-security.xml"/>
+	<bean id="applicationContextProvider" class="com.personalcapital.context.ApplicationContextProvider" />
+	<bean id="redissonConfiguration" class="com.personalcapital.cache.config.RedissonConfiguration">
+		<property name="enabled" value="true" />
+	</bean>
+
+	<jpa:repositories base-package="com.personalcapital.salesforce.sps.repository" transaction-manager-ref="spTran"/>
+</beans>
+
+
 do i need to import this as it is? or should i mock it? isn't this the one causing the error so far? i am lost please guide
