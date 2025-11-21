@@ -1,115 +1,296 @@
-the two tests and the errors are:
+These are all the contents of the xml files used to run my test - SpsCirrusContactMetadataRepositoryTest, which refers the xml file - spsCirrusApplicationContext.xml, spsCirrusApplicationContext has 4 imports, (1), (2), (3), and (4), these might have any additional imports , i have mentined them as 1a or 2b etc
+please go through all the beans loaded for the SpsCirrusContactMetadataRepositoryTest and create one complete document with all these imports first, later identify the repeated beans and remove them, becasue it's among these that the context loading is contaminated and i am facing an issue with other test
 
-1) UserPortfolioUserAccountMapServiceTest.persist_whenValidEntity_persistEntity » Mockito Unable to initialize @Spy annotated field 'updateUserAccountHelper'.
-17:25:45  Please ensure that the type 'UpdateUserAccountHelper' has a no-arg constructor.
-
-2)  com.safepage.invest.data.impl.SecurityInfoDaoCacheJacksonSerializerTest.deleteSecurityInfo
-Run 1: SecurityInfoDaoCacheJacksonSerializerTest>SpringExtension.postProcessTestInstance:159 » Mockito 
-17:25:45  Cannot instantiate @InjectMocks field named 'securityInfoDao'! Cause: the type 'SecurityInfoDao' is an interface.
-17:25:45  You haven't provided the instance at field declaration so I tried to construct the instance.
-17:25:45  Examples of correct usage of @InjectMocks:
-17:25:45     @InjectMocks Service service = new Service();
-17:25:45     @InjectMocks Service service;
-17:25:45     //and... don't forget about some @Mocks for injection :)
-
-
-sI was facing the above error, when my test was passing by using an existing xml configuration, so, for this, what i did so far is, take out all the imports and started filtering it out one by one, 
-this is what i was able to complile so far for my spsCirrusApplicationContext.xml based on the jenkins error like, beans not found
-
+MOTHERLOAD - spsCirrusApplicationContext
 <?xml version="1.0" encoding="UTF-8"?>
 <beans default-lazy-init="true" xmlns="http://www.springframework.org/schema/beans"
 	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	   xmlns:jpa="http://www.springframework.org/schema/data/jpa"
-	   xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd   http://www.springframework.org/schema/data/jpa http://www.springframework.org/schema/data/jpa/spring-jpa.xsd http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd"
-	   xmlns:context="http://www.springframework.org/schema/context">
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd   http://www.springframework.org/schema/data/jpa http://www.springframework.org/schema/data/jpa/spring-jpa.xsd">
 
-<!--	<import resource="file:${TEST_CONFIG_HOME}/spring/sp-base-test.xml" />-->
 	<import resource="file:${TEST_CONFIG_HOME}/spring/sp-config-test.xml"/>
 	<import resource="file:${TEST_CONFIG_HOME}/spring/sp-data-test.xml"/>
-	<import resource="classpath:pcap-cache-bean.xml" />
-
-	<import resource="classpath:sp-core-user-data.xml" />
-<!--	<import resource="classpath:sp-core-site-data.xml" />-->
-	<bean id="geoIpLocationDao" class="com.personalcapital.geoip.data.impl.GeoIpLocationDaoImpl" />
-	<bean id="deliveringFirmDao" class="com.safepage.site.data.impl.DeliveringFirmDaoImpl" />
-	<bean id="deliveringFirmSiteMapDao" class="com.safepage.site.data.impl.DeliveringFirmSiteMapDaoImpl" />
 	<import resource="file:${TEST_CONFIG_HOME}/spring/sp-data-security-test.xml" />
-
-	<bean name="serverConfigurer" class="com.personalcapital.config.ServerConfigurer">
-		<property name="tenant" value="${server.tenant}" />
-		<property name="baseURL" value="${server.baseURL}" />
-		<property name="cmsServerURL" value="${server.cmsServerURL}" />
-		<property name="adminBaseURL" value="${server.adminBaseURL}" />
-		<property name="referralURL" value="${server.referralURL}" />
-		<property name="clientReferralURL" value="${server.clientReferralURL}" />
-		<property name="systemSalt" value="${pcap.systemSalt}" />
-		<property name="googleCaptchaSiteKey" value="${google.recaptcha.SiteKey}" />
-		<property name="mixpanelToken" value="${mixpanel.token}" />
-		<property name="staticURL" value="${server.staticURL}" />
-	</bean>
-
-	<import resource="classpath:account-api-client.xml" />
 	<import resource="classpath*:sp-security.xml"/>
+
+	<jpa:repositories base-package="com.personalcapital.salesforce.sps.repository" transaction-manager-ref="spTran"/>
 	<bean id="applicationContextProvider" class="com.personalcapital.context.ApplicationContextProvider" />
 	<bean id="redissonConfiguration" class="com.personalcapital.cache.config.RedissonConfiguration">
 		<property name="enabled" value="true" />
 	</bean>
-
-	<jpa:repositories base-package="com.personalcapital.salesforce.sps.repository" transaction-manager-ref="spTran"/>
 </beans>
 
 
-but now, i am getting tihs error:
-[INFO] Running com.personalcapital.salesforce.sps.SpsCirrusContactMetadataRepositoryTest
-23:43:25  2025-11-20 10:13:25,264 WARN main [org.springframework.context.support.GenericApplicationContext] [] [] [] [] - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'securityInfoUtils': Unsatisfied dependency expressed through field 'securityInfoDao': No qualifying bean of type 'com.safepage.invest.data.SecurityInfoDao' available: expected at least 1 bean which qualifies as autowire candidate. Dependency annotations: ++++++++++++++(required=true)}
+1) <import resource="file:${TEST_CONFIG_HOME}/spring/sp-config-test.xml"/>
+<?xml version="1.0" encoding="UTF-8"?>
+<beans default-lazy-init="true"
+	xmlns="http://www.springframework.org/schema/beans" xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+			http://www.springframework.org/schema/beans
+			http://www.springframework.org/schema/beans/spring-beans.xsd
+			http://www.springframework.org/schema/aop
+			http://www.springframework.org/schema/aop/spring-aop.xsd
+			http://www.springframework.org/schema/context
+			http://www.springframework.org/schema/context/spring-context.xsd">
 
-so this means, in the sp-core-site-data.xml file there is a - 
-	<bean id="securityInfoDao" class="com.safepage.invest.data.impl.SecurityInfoDaoImpl" />
+	<context:annotation-config />
+	<aop:aspectj-autoproxy />
 
+	<context:property-placeholder
+		location="file:${TEST_CONFIG_HOME}/spring/application-test.properties"
+		ignore-resource-not-found="false" ignore-unresolvable="true" order="1" />
+
+	<context:property-placeholder
+		location="file:${TEST_CONFIG_HOME}/spring/application-test-local-override.properties"
+		ignore-resource-not-found="true" ignore-unresolvable="true" order="0" />
+
+	<context:property-placeholder
+		location="file:${TEST_CONFIG_HOME}/spring/pcap-mvc-test.properties"
+		ignore-resource-not-found="true" ignore-unresolvable="true" order="0" />
+
+	<context:property-placeholder
+		location="config/pcap-mvc-test.properties"
+		ignore-resource-not-found="true" ignore-unresolvable="true" order="0" />
+
+ 	<bean id="safepageConfigurer" class="com.personalcapital.config.SafePageConfigurer">
+		<!-- Disabled until Devops push all devtrunk properties to SSM Parameter Store -->
+		<property name="ssmEnabled" value="true" />
+		<property name="ignoreUnresolvablePlaceholders" value="true" />
+		<property name="order" value="2" />
+	</bean>
+ </beans>
+
+2)	<import resource="file:${TEST_CONFIG_HOME}/spring/sp-data-test.xml"/>
+<?xml version="1.0" encoding="UTF-8"?>
+<beans default-lazy-init="true" xmlns="http://www.springframework.org/schema/beans"
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+	http://www.springframework.org/schema/beans
+	http://www.springframework.org/schema/beans/spring-beans.xsd
+	http://www.springframework.org/schema/aop
+	http://www.springframework.org/schema/aop/spring-aop.xsd
+	http://www.springframework.org/schema/context
+	http://www.springframework.org/schema/context/spring-context.xsd">
+
+	<context:annotation-config />
+	<aop:aspectj-autoproxy />
+
+	<bean id="jpaVendorAdapter"
+		class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
+		<property name="database" value="MYSQL" />
+		<property name="showSql" value="false" />
+		<property name="databasePlatform" value="org.hibernate.dialect.MySQLDialect" />
+	</bean>
+	<bean id="jpaDialect" class="org.springframework.orm.jpa.vendor.HibernateJpaDialect">
+	</bean>
+
+	<import resource="file:${TEST_CONFIG_HOME}/spring/sp-security-test.xml" />
+	<import resource="classpath:sp-data-common.xml" />
+
+	<bean id="loadTimeWeaver" class="org.springframework.instrument.classloading.InstrumentationLoadTimeWeaver" />
+	<import resource="classpath:pcap-cache-config-redis.xml" />
+</beans>
+
+2a)<import resource="file:${TEST_CONFIG_HOME}/spring/sp-security-test.xml" />
+<?xml version="1.0" encoding="UTF-8"?>
+<beans default-lazy-init="true" xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:aop="http://www.springframework.org/schema/aop"
+	   xmlns:tx="http://www.springframework.org/schema/tx"
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xmlns:mockito="http://www.mockito.org/spring/mockito"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans
+			http://www.springframework.org/schema/beans/spring-beans.xsd
+			http://www.springframework.org/schema/aop
+			http://www.springframework.org/schema/aop/spring-aop.xsd
+			http://www.springframework.org/schema/tx
+			http://www.springframework.org/schema/tx/spring-tx.xsd http://www.mockito.org/spring/mockito http://www.mockito.org/spring/mockito.xsd">
+
+	<aop:aspectj-autoproxy />
+	<bean id="dataSource" name="dataSource" class="com.zaxxer.hikari.HikariDataSource"
+		destroy-method="close">
+		<constructor-arg index="0" ref="hikariDataSourceSpSchemaConfig" />
+	</bean>
+	<bean id="hikariDataSourceSpSchemaConfig" class="com.zaxxer.hikari.HikariConfig">
+		<constructor-arg index="0" value="${TEST_CONFIG_HOME}/hikaricp.configurationFile" />
+		<property name="jdbcUrl" value="${db.jdbcUrl}" />
+		<property name="username" value="${db.username}" />
+		<property name="password" value="${db.password}" />
+		<property name="driverClassName" value="software.aws.rds.jdbc.mysql.Driver" />
+		<property name="dataSourceProperties">
+			<props>
+				<prop key="sendFractionalSecondsForTime" >false</prop>
+				<prop key="sendFractionalSeconds" >false</prop>
+			</props>
+		</property>
+	</bean>
+
+    <tx:annotation-driven proxy-target-class="true" transaction-manager="transactionManager" />
+
+	  <bean id="spSecuritytransactionManager"
+        class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource" /> 
+    </bean>
+    
+	<bean id="spSecurityJdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+		<constructor-arg ref="dataSource" />
+	</bean>
+
+	<bean id="keySeedDataService" class="com.safepage.security.service.impl.KeySeedDataServiceImpl" />
+	<bean id="keySeedDao" class="com.safepage.security.data.impl.KeySeedDaoImpl" />
+	<mockito:mock id="spExecutor" class="com.safepage.thread.SafePageExecutor"/>
+	<bean id="cryptEngine" class="com.safepage.security.CryptEngine" />
+	<bean id="keyManager" class="com.safepage.security.KeyManager" scope="singleton" />
+	<import resource="file:${TEST_CONFIG_HOME}/spring/sp-security-keystorage-test.xml" />
+	<bean id="awsKmsClient" class="com.amazonaws.services.kms.AWSKMSClientBuilder" factory-method="defaultClient" />
+	<bean id="epwKmsService" class="com.empower.epw.aws.v1.kms.EpwKmsServiceImpl">
+		<constructor-arg ref="awsKmsClient"/>
+	</bean>
+</beans>
+
+2c) <import resource="classpath:sp-data-common.xml" />
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:aop="http://www.springframework.org/schema/aop" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:tx="http://www.springframework.org/schema/tx" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+	http://www.springframework.org/schema/beans
+	http://www.springframework.org/schema/beans/spring-beans.xsd
+	http://www.springframework.org/schema/aop
+	http://www.springframework.org/schema/aop/spring-aop.xsd
+	http://www.springframework.org/schema/context
+	http://www.springframework.org/schema/context/spring-context.xsd
+	http://www.springframework.org/schema/tx
+	http://www.springframework.org/schema/tx/spring-tx.xsd">
+
+	<context:annotation-config />
+	<aop:aspectj-autoproxy />
+	<bean id="entityManagerFactory" name="entityManagerFactory"
+		class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+		<property name="dataSource" ref="dataSource" />
+		<property name="persistenceUnitName" value="sp_schema" />
+		<property name="jpaVendorAdapter" ref="jpaVendorAdapterBean" />
+		<property name="jpaDialect" ref="jpaDialect" />
+	</bean>
+	<bean
+		class="org.springframework.orm.jpa.support.PersistenceAnnotationBeanPostProcessor">
+		<property name="defaultPersistenceUnitName" value="sp_schema" />
+	</bean>
+	<bean id="jpaVendorAdapterBean"
+		class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
+		<property name="database" value="MYSQL" />
+		<property name="showSql" value="false" />
+		<property name="databasePlatform" value="org.hibernate.dialect.MySQLDialect" />
+	</bean>
+	<bean id="jpaVendorAdapter"
+		  class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
+		<property name="database" value="MYSQL" />
+		<property name="showSql" value="false" />
+		<property name="databasePlatform" value="org.hibernate.dialect.MySQLDialect" />
+	</bean>
+	<bean id="jpaDialect" class="org.springframework.orm.jpa.vendor.HibernateJpaDialect">
+	</bean>
+	<bean id="spTransactionManager" name="spTransactionManager" class="org.springframework.orm.jpa.JpaTransactionManager">
+		<property name="entityManagerFactory" ref="entityManagerFactory" />
+		<qualifier value="spTran" />
+		<property name="jpaDialect" ref="jpaDialect" />
+	</bean>
+	<tx:annotation-driven transaction-manager="entityManagerFactory" />
+	<bean id="spJdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+		<constructor-arg ref="dataSource" />
+	</bean>
+</beans>
+
+3) 	<import resource="file:${TEST_CONFIG_HOME}/spring/sp-data-security-test.xml" />
 
 <?xml version="1.0" encoding="UTF-8"?>
 <beans default-lazy-init="true" xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:aop="http://www.springframework.org/schema/aop"
+	   xmlns:context="http://www.springframework.org/schema/context"
+	   xmlns:tx="http://www.springframework.org/schema/tx"
 	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	   xmlns:jpa="http://www.springframework.org/schema/data/jpa"
-	   xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd   http://www.springframework.org/schema/data/jpa http://www.springframework.org/schema/data/jpa/spring-jpa.xsd http://www.mockito.org/spring/mockito http://www.mockito.org/spring/mockito.xsd"
-	   xmlns:mockito="http://www.mockito.org/spring/mockito">
+	   xmlns:mockito="http://www.mockito.org/spring/mockito"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans
+			http://www.springframework.org/schema/beans/spring-beans.xsd
+			http://www.springframework.org/schema/aop
+			http://www.springframework.org/schema/aop/spring-aop.xsd
+			http://www.springframework.org/schema/tx
+    		http://www.springframework.org/schema/tx/spring-tx.xsd
+    		http://www.mockito.org/spring/mockito
+    		http://www.mockito.org/spring/mockito.xsd">
 
-<!--	<import resource="file:${TEST_CONFIG_HOME}/spring/sp-base-test.xml" />-->
-	<import resource="file:${TEST_CONFIG_HOME}/spring/sp-config-test.xml"/>
-	<import resource="file:${TEST_CONFIG_HOME}/spring/sp-data-test.xml"/>
-	<import resource="classpath:pcap-cache-bean.xml" />
+	<bean id="tokenDao" class="com.safepage.security.data.impl.TokenDaoImpl" />
+	<aop:aspectj-autoproxy />
 
-	<import resource="classpath:sp-core-user-data.xml" />
-<!--	<import resource="classpath:sp-core-site-data.xml" />-->
-	<mockito:mock id="securityInfoDao" class="com.safepage.invest.data.impl.SecurityInfoDaoImpl" />
-	<bean id="securityInfoOverrideDao" class="com.safepage.invest.data.impl.SecurityInfoOverrideDaoImpl" />
-	<bean id="geoIpLocationDao" class="com.personalcapital.geoip.data.impl.GeoIpLocationDaoImpl" />
-	<bean id="deliveringFirmDao" class="com.safepage.site.data.impl.DeliveringFirmDaoImpl" />
-	<bean id="deliveringFirmSiteMapDao" class="com.safepage.site.data.impl.DeliveringFirmSiteMapDaoImpl" />
-	<import resource="file:${TEST_CONFIG_HOME}/spring/sp-data-security-test.xml" />
-
-	<bean name="serverConfigurer" class="com.personalcapital.config.ServerConfigurer">
-		<property name="tenant" value="${server.tenant}" />
-		<property name="baseURL" value="${server.baseURL}" />
-		<property name="cmsServerURL" value="${server.cmsServerURL}" />
-		<property name="adminBaseURL" value="${server.adminBaseURL}" />
-		<property name="referralURL" value="${server.referralURL}" />
-		<property name="clientReferralURL" value="${server.clientReferralURL}" />
-		<property name="systemSalt" value="${pcap.systemSalt}" />
-		<property name="googleCaptchaSiteKey" value="${google.recaptcha.SiteKey}" />
-		<property name="mixpanelToken" value="${mixpanel.token}" />
-		<property name="staticURL" value="${server.staticURL}" />
+	<bean id="dataSource" name="dataSource" class="com.zaxxer.hikari.HikariDataSource"
+		destroy-method="close">
+		<constructor-arg index="0" ref="hikariDataSourceConfig" />
+	</bean>
+	<bean id="hikariDataSourceConfig" class="com.zaxxer.hikari.HikariConfig">
+		<constructor-arg index="0" value="${TEST_CONFIG_HOME}/hikaricp.configurationFile" />
+		<property name="jdbcUrl" value="${db.jdbcUrl}" />
+		<property name="username" value="${db.username}" />
+		<property name="password" value="${db.password}" />
+		<property name="driverClassName" value="software.aws.rds.jdbc.mysql.Driver" />
+		<property name="dataSourceProperties">
+			<props>
+				<prop key="sendFractionalSecondsForTime" >false</prop>
+				<prop key="sendFractionalSeconds" >false</prop>
+			</props>
+		</property>
 	</bean>
 
-	<import resource="classpath:account-api-client.xml" />
-	<import resource="classpath*:sp-security.xml"/>
-	<bean id="applicationContextProvider" class="com.personalcapital.context.ApplicationContextProvider" />
-	<bean id="redissonConfiguration" class="com.personalcapital.cache.config.RedissonConfiguration">
-		<property name="enabled" value="true" />
+    <tx:annotation-driven proxy-target-class="true" transaction-manager="transactionManager" />
+
+	  <bean id="spSecuritytransactionManager"
+        class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource" /> 
+    </bean>
+	<bean id="spSecurityJdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+		<constructor-arg ref="dataSource" />
 	</bean>
 
-	<jpa:repositories base-package="com.personalcapital.salesforce.sps.repository" transaction-manager-ref="spTran"/>
+	<bean id="keySeedDataService" class="com.safepage.security.service.impl.KeySeedDataServiceImpl" />
+	<bean id="keySeedDao" class="com.safepage.security.data.impl.KeySeedDaoImpl" />
+	<mockito:mock id="spExecutor" class="com.safepage.thread.SafePageExecutor"/>
+	<bean id="cryptEngine" class="com.safepage.security.CryptEngine" />
+	<bean id="keyManager" class="com.safepage.security.KeyManager" scope="singleton" />
+	<import resource="file:${TEST_CONFIG_HOME}/spring/sp-security-keystorage-test.xml" />
 </beans>
 
+3a) <import resource="file:${TEST_CONFIG_HOME}/spring/sp-security-keystorage-test.xml" />
+<?xml version="1.0" encoding="UTF-8"?>
+<beans default-lazy-init="true" xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans
+			http://www.springframework.org/schema/beans/spring-beans.xsd">
 
-do i need to import this as it is? or should i mock it? isn't this the one causing the error so far? i am lost please guide
+	<bean id="awsKmsClient" class="com.amazonaws.services.kms.AWSKMSClientBuilder" factory-method="defaultClient" />
+	<bean id="epwKmsService" class="com.empower.epw.aws.v1.kms.EpwKmsServiceImpl">
+		<constructor-arg ref="awsKmsClient"/>
+	</bean>
+</beans>
+
+4)	<import resource="classpath*:sp-security.xml"/>
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+			http://www.springframework.org/schema/beans/spring-beans.xsd
+			http://www.springframework.org/schema/aop
+			http://www.springframework.org/schema/aop/spring-aop.xsd
+            http://www.springframework.org/schema/context
+            http://www.springframework.org/schema/context/spring-context.xsd">
+
+    <aop:aspectj-autoproxy/>
+    <context:annotation-config/>
+
+    <context:component-scan base-package="com.empower.epw.persistence.config.spschema"/>
+    <context:component-scan base-package="com.empower.epw.persistence.config.security"/>
+
+</beans>
