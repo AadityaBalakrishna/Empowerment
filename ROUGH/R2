@@ -1,77 +1,126 @@
-[2025-11-24T18:40:27.121Z] 2025-11-24 10:40:26,889 DEBUG main [org.springframework.test.context.cache] [] [] [] [] - Spring test ApplicationContext cache statistics: [DefaultContextCache@6d3163a6 size = 4, maxSize = 32, parentContextCount = 0, hitCount = 2568, missCount = 4, failureCount = 0]
-[2025-11-24T18:40:27.121Z] ====== BEAN SOURCE REPORT ======
-[2025-11-24T18:40:27.121Z] Bean: applicationContextProvider                         | Source: class path resource [spsCirrusApplicationContext.xml]
-[2025-11-24T18:40:27.121Z] Bean: awsKmsClient                                       | Source: URL [file:/home/jenkins/agent/workspace/uild_common_pcap-server_MR-29302/pcap/spring/sp-security-keystorage-test.xml]
-[2025-11-24T18:40:27.121Z] Bean: cacheJVMConfiguration                              | Source: class path resource [pcap-cache-config-caffeine.xml]
-[2025-11-24T18:40:27.121Z] Bean: cacheJVMSecurityInfo                               | Source: class path resource [com/personalcapital/cache/config/CacheJVMConfiguration.class]
-[2025-11-24T18:40:27.121Z] Bean: cacheManager                                       | Source: class path resource [pcap-cache-config-caffeine.xml]
-[2025-11-24T18:40:27.121Z] Bean: cachePushAdvice                                    | Source: class path resource [pcap-cache-config-redis.xml]
-[2025-11-24T18:40:27.121Z] Bean: cryptEngine                                        | Source: URL [file:/home/jenkins/agent/workspace/uild_common_pcap-server_MR-29302/pcap/spring/sp-data-security-test.xml]
-[2025-11-24T18:40:27.121Z] Bean: data-jpa.repository-aot-processor#0                | Source: Auto-generated/Internal
-[2025-11-24T18:40:27.121Z] Bean: dataSource                                         | Source: URL [file:/home/jenkins/agent/workspace/uild_common_pcap-server_MR-29302/pcap/spring/sp-data-security-test.xml]
-[2025-11-24T18:40:27.121Z] Bean: dataSourceLookup                                   | Source: com.empower.epw.persistence.config.spschema.SpSchemaDataSourceConfig
-[2025-11-24T18:40:27.121Z] Bean: dateRangeCacheAdvice                               | Source: class path resource [pcap-cache-config-redis.xml]
-[2025-11-24T18:40:27.121Z] Bean: dateRangeCacheRedisHashMapUtils                    | Source: class path resource [pcap-cache-config-redis.xml]
-[2025-11-24T18:40:27.121Z] Bean: dateRangeCacheRedisSortedSetHelper                 | Source: class path resource [pcap-cache-config-redis.xml]
-[2025-11-24T18:40:27.121Z] Bean: emBeanDefinitionRegistrarPostProcessor             | Source: Auto-generated/Internal
-[2025-11-24T18:40:27.121Z] Bean: entityManagerFactory                               | Source: class path resource [sp-data-common.xml]
-[2025-11-24T18:40:27.121Z] Bean: epwKmsService                                      | Source: URL [file:/home/jenkins/agent/workspace/uild_common_pcap-server_MR-29302/pcap/spring/sp-security-keystorage-test.xml]
-[2025-11-24T18:40:27.121Z] Bean: hikariDataSourceConfig                             | Source: URL [file:/home/jenkins/agent/workspace/uild_common_pcap-server_MR-29302/pcap/spring/sp-data-security-test.xml]
-[2025-11-24T18:40:27.121Z] Bean: hikariDataSourceSpSchemaConfig                     | Source: URL [file:/home/jenkins/agent/workspace/uild_common_pcap-server_MR-29302/pcap/spring/sp-security-test.xml]
-[2025-11-24T18:40:27.121Z] Bean: jpa.SpsCirrusContactMetadataRepository.fragments#0 | Source: Auto-generated/Internal
-[2025-11-24T18:40:27.121Z] Bean: jpa.named-queries#0                                | Source: Auto-generated/Internal
-[2025-11-24T18:40:27.121Z] Bean: jpaContext                                         | Source: Auto-generated/Internal
-[2025-11-24T18:40:27.121Z] Bean: jpaDialect                                         | Source: class path resource [sp-data-common.xml]
-[2025-11-24T18:40:27.121Z] Bean: jpaMappingContext                                  | Source: Auto-generated/Internal
-[2025-11-24T18:40:27.121Z] Bean: jpaSharedEM_AWC_entityManagerFactory               | Source: Auto-generated/Internal
-[2025-11-24T18:40:27.121Z] Bean: jpaSharedEM_entityManagerFactory                   | Source: Auto-generated/Internal
-[2025-11-24T18:40:27.121Z] Bean: jpaVendorAdapter                                   | Source: class path resource [sp-data-common.xml]
-[2025-11-24T18:40:27.121Z] Bean: jpaVendorAdapterBean                               | Source: class path resource [sp-data-common.xml]
-[2025-11-24T18:40:27.121Z] Bean: keyManager                                         | Source: URL [file:/home/jenkins/agent/workspace/uild_common_pcap-server_MR-29302/pcap/spring/sp-data-security-test.xml]
-[2025-11-24T18:40:27.121Z] Bean: keySeedDao                                         | Source: URL [file:/home/jenkins/agent/workspace/uild_common_pcap-server_MR-29302/pcap/spring/sp-data-security-test.xml]
-[2025-11-24T18:40:27.121Z] Bean: keySeedDataService                                 | Source: URL [file:/home/jenkins/agent/workspace/uild_common_pcap-server_MR-29302/pcap/spring/sp-data-security-test.xml]
-[2025-11-24T18:40:27.121Z] Bean: keyService                                         | Source: com.empower.epw.persistence.config.security.SpSecurityDataSourceConfig
-[2025-11-24T18:40:27.121Z] Bean: loadTimeWeaver                                     | Source: URL [file:/home/jenkins/agent/workspace/uild_common_pcap-server_MR-29302/pcap/spring/sp-data-test.xml]
-[2025-11-24T18:40:27.121Z] Bean: org.springframework.aop.config.internalAutoProxyCreator | Source: Auto-generated/Internal
-[2025-11-24T18:40:27.121Z] Bean: org.springframework.context.annotation.internalAutowiredAnnotationProcessor | Source: Auto-generated/Internal
-[2025-11-24T18:40:27.121Z] Bean: org.springframework.context.annotation.internalCommonAnnotationProcessor | Source: Auto-generated/Internal
-[2025-11-24T18:40:27.121Z] Bean: org.springframework.context.annotation.internalConfigurationAnnotationProcessor | Source: Auto-generated/Internal
-[2025-11-24T18:40:27.121Z] Bean: org.springframework.context.annotation.internalPersistenceAnnotationProcessor | Source: Auto-generated/Internal
-[2025-11-24T18:40:27.121Z] Bean: org.springframework.context.event.internalEventListenerFactory | Source: Auto-generated/Internal
-[2025-11-24T18:40:27.121Z] Bean: org.springframework.context.event.internalEventListenerProcessor | Source: Auto-generated/Internal
-[2025-11-24T18:40:27.121Z] Bean: org.springframework.context.support.PropertySourcesPlaceholderConfigurer#0 | Source: Auto-generated/Internal
-[2025-11-24T18:40:27.121Z] Bean: org.springframework.context.support.PropertySourcesPlaceholderConfigurer#1 | Source: Auto-generated/Internal
-[2025-11-24T18:40:27.121Z] Bean: org.springframework.context.support.PropertySourcesPlaceholderConfigurer#2 | Source: Auto-generated/Internal
-[2025-11-24T18:40:27.121Z] Bean: org.springframework.context.support.PropertySourcesPlaceholderConfigurer#3 | Source: Auto-generated/Internal
-[2025-11-24T18:40:27.121Z] Bean: org.springframework.data.jpa.repository.config.JpaRepositoryConfigExtension#0 | Source: Auto-generated/Internal
-[2025-11-24T18:40:27.121Z] Bean: org.springframework.data.jpa.repository.support.JpaEvaluationContextExtension | Source: Auto-generated/Internal
-[2025-11-24T18:40:27.121Z] Bean: org.springframework.data.jpa.util.JpaMetamodelCacheCleanup | Source: Auto-generated/Internal
-[2025-11-24T18:40:27.121Z] Bean: org.springframework.orm.jpa.support.PersistenceAnnotationBeanPostProcessor#0 | Source: class path resource [sp-data-common.xml]
-[2025-11-24T18:40:27.121Z] Bean: org.springframework.test.context.support.internalDynamicPropertyRegistrarBeanInitializer | Source: Auto-generated/Internal
-[2025-11-24T18:40:27.121Z] Bean: org.springframework.transaction.annotation.AnnotationTransactionAttributeSource#0 | Source: Auto-generated/Internal
-[2025-11-24T18:40:27.121Z] Bean: org.springframework.transaction.config.internalTransactionAdvisor | Source: Auto-generated/Internal
-[2025-11-24T18:40:27.121Z] Bean: org.springframework.transaction.config.internalTransactionalEventListenerFactory | Source: Auto-generated/Internal
-[2025-11-24T18:40:27.121Z] Bean: org.springframework.transaction.interceptor.TransactionInterceptor#0 | Source: Auto-generated/Internal
-[2025-11-24T18:40:27.121Z] Bean: redisCacheExpires                                  | Source: class path resource [com/personalcapital/cache/config/RedissonConfiguration.class]
-[2025-11-24T18:40:27.121Z] Bean: redisCacheManager                                  | Source: class path resource [com/personalcapital/cache/config/RedissonConfiguration.class]
-[2025-11-24T18:40:27.121Z] Bean: redisCacheManagerHa                                | Source: class path resource [com/personalcapital/cache/config/RedissonConfiguration.class]
-[2025-11-24T18:40:27.122Z] Bean: redisson                                           | Source: class path resource [com/personalcapital/cache/config/RedissonConfiguration.class]
-[2025-11-24T18:40:27.122Z] Bean: redissonConfiguration                              | Source: class path resource [spsCirrusApplicationContext.xml]
-[2025-11-24T18:40:27.122Z] Bean: redissonHa                                         | Source: class path resource [com/personalcapital/cache/config/RedissonConfiguration.class]
-[2025-11-24T18:40:27.122Z] Bean: safepageConfigurer                                 | Source: URL [file:/home/jenkins/agent/workspace/uild_common_pcap-server_MR-29302/pcap/spring/sp-config-test.xml]
-[2025-11-24T18:40:27.122Z] Bean: simpleCacheManager                                 | Source: class path resource [pcap-cache-config-concurrentmap.xml]
-[2025-11-24T18:40:27.122Z] Bean: spExecutor                                         | Source: Auto-generated/Internal
-[2025-11-24T18:40:27.122Z] Bean: spJdbcTemplate                                     | Source: class path resource [sp-data-common.xml]
-[2025-11-24T18:40:27.122Z] Bean: spSchemaDataSourceConfig                           | Source: file [/home/jenkins/agent/workspace/uild_common_pcap-server_MR-29302/sp-data/target/classes/com/empower/epw/persistence/config/spschema/SpSchemaDataSourceConfig.class]
-[2025-11-24T18:40:27.122Z] Bean: spSchemaReaderDataSourceProperties                 | Source: file [/home/jenkins/agent/workspace/uild_common_pcap-server_MR-29302/sp-data/target/classes/com/empower/epw/persistence/config/spschema/SpSchemaReaderDataSourceProperties.class]
-[2025-11-24T18:40:27.122Z] Bean: spSchemaWriterDataSourceProperties                 | Source: file [/home/jenkins/agent/workspace/uild_common_pcap-server_MR-29302/sp-data/target/classes/com/empower/epw/persistence/config/spschema/SpSchemaWriterDataSourceProperties.class]
-[2025-11-24T18:40:27.122Z] Bean: spSecurityDataSourceConfig                         | Source: file [/home/jenkins/agent/workspace/uild_common_pcap-server_MR-29302/sp-data/target/classes/com/empower/epw/persistence/config/security/SpSecurityDataSourceConfig.class]
-[2025-11-24T18:40:27.122Z] Bean: spSecurityJdbcTemplate                             | Source: URL [file:/home/jenkins/agent/workspace/uild_common_pcap-server_MR-29302/pcap/spring/sp-data-security-test.xml]
-[2025-11-24T18:40:27.122Z] Bean: spSecuritytransactionManager                       | Source: URL [file:/home/jenkins/agent/workspace/uild_common_pcap-server_MR-29302/pcap/spring/sp-data-security-test.xml]
-[2025-11-24T18:40:27.122Z] Bean: spTransactionManager                               | Source: class path resource [sp-data-common.xml]
-[2025-11-24T18:40:27.122Z] Bean: spsCirrusContactMetadataRepository                 | Source: com.personalcapital.salesforce.sps.repository.SpsCirrusContactMetadataRepository defined in 
-[2025-11-24T18:40:27.122Z] Bean: tokenDao                                           | Source: URL [file:/home/jenkins/agent/workspace/uild_common_pcap-server_MR-29302/pcap/spring/sp-data-security-test.xml]
+<?xml version="1.0" encoding="UTF-8"?>
+<beans default-lazy-init="true" xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xmlns:jpa="http://www.springframework.org/schema/data/jpa"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd   http://www.springframework.org/schema/data/jpa http://www.springframework.org/schema/data/jpa/spring-jpa.xsd http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd http://www.springframework.org/schema/aop https://www.springframework.org/schema/aop/spring-aop.xsd http://www.mockito.org/spring/mockito http://www.mockito.org/spring/mockito.xsd http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd"
+	   xmlns:context="http://www.springframework.org/schema/context"
+	   xmlns:aop="http://www.springframework.org/schema/aop" xmlns:mockito="http://www.mockito.org/spring/mockito"
+	   xmlns:tx="http://www.springframework.org/schema/tx">
+
+	<context:annotation-config />
+	<aop:aspectj-autoproxy />
+
+	<context:property-placeholder
+			location="file:${TEST_CONFIG_HOME}/spring/application-test.properties"
+			ignore-resource-not-found="false" ignore-unresolvable="true" order="1" />
+
+	<context:property-placeholder
+			location="file:${TEST_CONFIG_HOME}/spring/application-test-local-override.properties"
+			ignore-resource-not-found="true" ignore-unresolvable="true" order="0" />
+
+	<context:property-placeholder
+			location="file:${TEST_CONFIG_HOME}/spring/pcap-mvc-test.properties"
+			ignore-resource-not-found="true" ignore-unresolvable="true" order="0" />
+
+	<context:property-placeholder
+			location="config/pcap-mvc-test.properties"
+			ignore-resource-not-found="true" ignore-unresolvable="true" order="0" />
+
+	<tx:annotation-driven proxy-target-class="true" transaction-manager="transactionManager" />
+	<context:component-scan base-package="com.empower.epw.persistence.config.spschema"/>
+	<context:component-scan base-package="com.empower.epw.persistence.config.security"/>
+
+	<jpa:repositories base-package="com.personalcapital.salesforce.sps.repository" transaction-manager-ref="spTran"/>
+
+	<bean class="org.springframework.orm.jpa.support.PersistenceAnnotationBeanPostProcessor">
+		<property name="defaultPersistenceUnitName" value="sp_schema" />
+	</bean>
+
+	<bean id="jpaDialect" class="org.springframework.orm.jpa.vendor.HibernateJpaDialect">
+	</bean>
+
+	<bean id="entityManagerFactory" name="entityManagerFactory"
+		  class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+		<property name="dataSource" ref="dataSource" />
+		<property name="persistenceUnitName" value="sp_schema" />
+		<property name="jpaVendorAdapter" ref="jpaVendorAdapterBean" />
+		<property name="jpaDialect" ref="jpaDialect" />
+	</bean>
+
+	<bean id="jpaVendorAdapterBean"
+		  class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
+		<property name="database" value="MYSQL" />
+		<property name="showSql" value="false" />
+		<property name="databasePlatform" value="org.hibernate.dialect.MySQLDialect" />
+	</bean>
+
+	<bean id="spTransactionManager" name="spTransactionManager" class="org.springframework.orm.jpa.JpaTransactionManager">
+		<property name="entityManagerFactory" ref="entityManagerFactory" />
+		<qualifier value="spTran" />
+		<property name="jpaDialect" ref="jpaDialect" />
+	</bean>
+
+	<tx:annotation-driven transaction-manager="entityManagerFactory" />
+	<bean id="spJdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+		<constructor-arg ref="dataSource" />
+	</bean>
+
+	<bean id="safepageConfigurer" class="com.personalcapital.config.SafePageConfigurer">
+		<property name="ssmEnabled" value="true" />
+		<property name="ignoreUnresolvablePlaceholders" value="true" />
+		<property name="order" value="1" />
+	</bean>
+
+	<bean name="serverConfigurer" class="com.personalcapital.config.ServerConfigurer">
+		<property name="systemSalt" value="${pcap.systemSalt}" />
+		<property name="googleCaptchaSiteKey" value="${google.recaptcha.SiteKey}" />
+		<property name="mixpanelToken" value="${mixpanel.token}" />
+		<property name="staticURL" value="${server.staticURL}" />
+	</bean>
+
+	<bean id="dataSource" name="dataSource" class="com.zaxxer.hikari.HikariDataSource"
+		  destroy-method="close">
+		<constructor-arg index="0" ref="hikariDataSourceConfig" />
+	</bean>
+
+	<bean id="hikariDataSourceConfig" class="com.zaxxer.hikari.HikariConfig">
+		<constructor-arg index="0" value="${TEST_CONFIG_HOME}/hikaricp.configurationFile" />
+		<property name="jdbcUrl" value="${db.jdbcUrl}" />
+		<property name="username" value="${db.username}" />
+		<property name="password" value="${db.password}" />
+		<property name="driverClassName" value="software.aws.rds.jdbc.mysql.Driver" />
+		<property name="dataSourceProperties">
+			<props>
+				<prop key="sendFractionalSecondsForTime" >false</prop>
+				<prop key="sendFractionalSeconds" >false</prop>
+			</props>
+		</property>
+	</bean>
+
+	<bean id="spSecuritytransactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="dataSource" />
+	</bean>
+
+	<bean id="spSecurityJdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+		<constructor-arg ref="dataSource" />
+	</bean>
+
+	<bean id="keySeedDataService" class="com.safepage.security.service.impl.KeySeedDataServiceImpl" />
+	<bean id="applicationContextProvider" class="com.personalcapital.context.ApplicationContextProvider" />
+	<mockito:mock id="spExecutor" class="com.safepage.thread.SafePageExecutor"/>
+	<bean id="loadTimeWeaver" class="org.springframework.instrument.classloading.InstrumentationLoadTimeWeaver" />
+	<bean id="tokenDao" class="com.safepage.security.data.impl.TokenDaoImpl" />
+	<bean id="keySeedDao" class="com.safepage.security.data.impl.KeySeedDaoImpl" />
+	<bean id="cryptEngine" class="com.safepage.security.CryptEngine" />
+	<bean id="keyManager" class="com.safepage.security.KeyManager" scope="singleton" />
+	<bean id="awsKmsClient" class="com.amazonaws.services.kms.AWSKMSClientBuilder" factory-method="defaultClient" />
+	<bean id="epwKmsService" class="com.empower.epw.aws.v1.kms.EpwKmsServiceImpl">
+		<constructor-arg ref="awsKmsClient"/>
+	</bean>
+	<bean id="redissonConfiguration" class="com.personalcapital.cache.config.RedissonConfiguration">
+		<property name="enabled" value="true" />
+	</bean>
+</beans>
 
 
-okay say i got this, but are they even used? i don't think all this is required, right?
-
+out of this list of beans, tell what i need
