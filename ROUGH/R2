@@ -1,31 +1,133 @@
-This is a new task and before jumping into the coding, i want to be able to understand each and every concept
+this is the failing test:
 
- I want to implement and test a proof-of-concept for AWS SQS/EventBridge integration so that the CRM Event Hub can publish and consume platform events through AWS-managed queues in a reliable and observable manner.
-Description:
+package com.empower.epw.userportfolio.service;
 
-Create AWS SQS queue and EventBridge rule to capture mock CRM platform events.
-Configure EKS service IAM roles and policies for send/receive permissions.
-Implement a simple SQS producer and consumer module within crm-ihub-app for event routing validation.
-Validate dead-letter queue (DLQ) behavior and message retention policies.
-Establish observability hooks (Datadog logs, metrics) for SQS operations.
-Update Helm values to include environment variables and AWS ARNs.
-Acceptance Criteria:
+import com.empower.account.service.UserAccountProcessService;
+import com.empower.epw.userportfolio.service.aspect.UpdateUserAccountProcessor;
+import com.empower.epw.userportfolio.service.helper.UpdateUserAccountHelper;
+import com.personalcapital.platform.persistence.common.utils.UuidUtils;
+import com.personalcapital.user.data.UserHouseholdPortfolio;
+import com.personalcapital.user.data.UserHouseholdPortfolioDao;
+import com.personalcapital.user.data.UserPortfolioUserAccountMap;
+import com.personalcapital.user.data.UserPortfolioUserAccountMapDao;
+import com.personalcapital.user.data.impl.UserHouseholdPortfolioImpl;
+import com.personalcapital.user.data.impl.UserPortfolioUserAccountMapImpl;
+import com.safepage.exception.SafePageException;
+import com.safepage.user.data.BaseDaoTest;
+import com.safepage.user.data.User;
+import com.safepage.user.data.UserAccount;
+import com.safepage.user.data.impl.UserImpl;
 
-crm-ihub-app successfully sends messages to AWS SQS queue using IAM permissions.
-EventBridge rule correctly routes mock platform events to SQS target.
-Consumer reads and acknowledges messages without duplication.
-DLQ behavior verified through intentional processing failure.
-Datadog/Splunk logs show successful message flow and error traces.
-Helm/Kustomize deployment includes tested config for all environments (dev/qa/stage).
-Dependencies:
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
-AWS SQS and EventBridge infrastructure readiness.
-DevOps support for IAM policy and role mapping.
-AWS Config Store entries for service.
-Shared epw-crm-core library for JSON schema mapping (if applicable).
-Validation Steps:
+import org.apache.commons.lang3.RandomUtils;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.MockitoAnnotations;
+import org.mockito.Spy;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.util.ReflectionTestUtils;
 
-Local simulation using AWS CLI and SDK mock testing for send/receive.
-Integration test in EKS (dev) with real EventBridge and SQS resources.
-Automated pipeline test verifying message publish, receive, and DLQ routing.
-Monitoring validation via Datadog dashboards and Splunk queries.
+import java.util.List;
+import java.util.UUID;
+
+import jakarta.persistence.NoResultException;
+
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.not;
+import static org.hamcrest.CoreMatchers.nullValue;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.mockito.Mockito.when;
+
+public class UserPortfolioUserAccountMapServiceTest extends BaseDaoTest
+{
+
+	@Autowired
+	private UserPortfolioUserAccountMapService userPortfolioUserAccountMapService;
+
+	@Autowired
+	private UserPortfolioUserAccountMapDao userPortfolioUserAccountMapDao;
+
+	@Autowired
+	private UserHouseholdPortfolioDao userHouseholdPortfolioDao;
+
+	@Spy
+	@Autowired
+	private UpdateUserAccountHelper updateUserAccountHelper;
+
+	@Autowired
+	private UpdateUserAccountProcessor updateUserAccountProcessor;
+
+	@Mock
+	private UserAccountProcessService userAccountProcessService;
+
+	private UserAccount userAccount;
+
+	@BeforeEach
+	public void setUpUserAccount() throws SafePageException
+	{
+		MockitoAnnotations.openMocks(this);
+		ReflectionTestUtils.setField(updateUserAccountProcessor, "updateUserAccountHelper",
+				updateUserAccountHelper);
+		ReflectionTestUtils.setField(updateUserAccountHelper, "userAccountProcessService",
+				userAccountProcessService);
+
+		this.testUser = initializeUserOrCreateNew("user" + System.currentTimeMillis());
+
+		userAccount = mock(UserAccount.class);
+		long userAccountId = RandomUtils.nextLong(1, 10000);
+		when(userAccount.getId()).thenReturn(userAccountId);
+		UUID userAccountGuid = UUID.randomUUID();
+		when(userAccount.getUserAccountGuid()).thenReturn(userAccountGuid);
+		when(userAccount.getUser()).thenReturn(testUser);
+		when(userAccount.getUserId()).thenReturn(testUser.getId());
+		when(userAccount.isOnUs()).thenReturn(false);
+		when(userAccount.getYodleeAccountId()).thenReturn("yodleeaccount");
+		when(userAccount.getName()).thenReturn(testName);
+		when(userAccountProcessService.getUserAccounts(testUser.getId()))
+				.thenReturn(List.of(userAccount));
+		when(userAccountProcessService.getUserAccount(testUser.getId(), userAccount.getId()))
+				.thenReturn(userAccount);
+	}
+
+	@Test
+	public void persist_whenValidEntity_persistEntity() throws Exception
+	{
+		UserPortfolioUserAccountMap userPortfolioUserAccountMap = persistUserPortfolioUserAccountMap();
+		assertNotNull(userPortfolioUserAccountMap.getUserAccount());
+		assertThat(userPortfolioUserAccountMap.getUserAccount()).isEqualTo(userAccount);
+		assertNotNull(userPortfolioUserAccountMap.getUserAccount()
+				.getUser());
+		assertThat(userPortfolioUserAccountMap.getUserAccount()
+				.getUser()).isEqualTo(testUser);
+		verify(updateUserAccountHelper, Mockito.times(1)).update(userPortfolioUserAccountMap);
+	}
+
+	@Test
+	public void findByUserAccountId_whenValidId_returnEntity() throws Exception
+	{
+		UserPortfolioUserAccountMap userPortfolioUserAccountMap = persistUserPortfolioUserAccountMap();
+
+		UserPortfolioUserAccountMap actualUserPortfolioUserAccountMap = userPortfolioUserAccountMapService
+				.findByUserAccountId(userPortfolioUserAccountMap.getUserAccountId());
+		verify(updateUserAccountHelper, Mockito.times(2)).update(actualUserPortfolioUserAccountMap);
+		assertThat(actualUserPortfolioUserAccountMap, is(not(nullValue())));
+		assertThat(actualUserPortfolioUserAccountMap.getUserAccount(), is(userAccount));
+		assertThat(actualUserPortfolioUserAccountMap.getUserAccount()
+				.getUser(), is(testUser));
+		assertThat(actualUserPortfolioUserAccountMap.getUserAccount()
+				.getUser(), is(not(nullValue())));
+		assertThat(actualUserPortfolioUserAccountMap.getUserAccountId(), is(userAccount.getId()));
+		assertEquals(actualUserPortfolioUserAccountMap.getUserPortfolioGuid(),
+				userPortfolioUserAccountMap.getUserPortfolioGuid());
+		assertNotNull(actualUserPortfolioUserAccountMap.getUserPortfolioUserAccountMapGuid());
+	}
+}
+
+error - Mockito Unable to initialize @Spy annotated field 'updateUserAccountHelper'.
