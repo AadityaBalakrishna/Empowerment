@@ -1,126 +1,70 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <beans default-lazy-init="true" xmlns="http://www.springframework.org/schema/beans"
-	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	   xmlns:jpa="http://www.springframework.org/schema/data/jpa"
-	   xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd   http://www.springframework.org/schema/data/jpa http://www.springframework.org/schema/data/jpa/spring-jpa.xsd http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd http://www.springframework.org/schema/aop https://www.springframework.org/schema/aop/spring-aop.xsd http://www.mockito.org/spring/mockito http://www.mockito.org/spring/mockito.xsd http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd"
-	   xmlns:context="http://www.springframework.org/schema/context"
-	   xmlns:aop="http://www.springframework.org/schema/aop" xmlns:mockito="http://www.mockito.org/spring/mockito"
-	   xmlns:tx="http://www.springframework.org/schema/tx">
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:jpa="http://www.springframework.org/schema/data/jpa"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/data/jpa http://www.springframework.org/schema/data/jpa/spring-jpa.xsd
+       http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd
+       http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd">
 
-	<context:annotation-config />
-	<aop:aspectj-autoproxy />
+    <context:property-placeholder
+            location="file:${TEST_CONFIG_HOME}/spring/application-test.properties"
+            ignore-resource-not-found="false" ignore-unresolvable="true" order="1" />
+    <context:property-placeholder
+            location="file:${TEST_CONFIG_HOME}/spring/application-test-local-override.properties"
+            ignore-resource-not-found="true" ignore-unresolvable="true" order="0" />
+    <bean id="safepageConfigurer" class="com.personalcapital.config.SafePageConfigurer">
+        <property name="ssmEnabled" value="false" /> <property name="ignoreUnresolvablePlaceholders" value="true" />
+    </bean>
 
-	<context:property-placeholder
-			location="file:${TEST_CONFIG_HOME}/spring/application-test.properties"
-			ignore-resource-not-found="false" ignore-unresolvable="true" order="1" />
+    <jpa:repositories base-package="com.personalcapital.salesforce.sps.repository" transaction-manager-ref="spTran"/>
 
-	<context:property-placeholder
-			location="file:${TEST_CONFIG_HOME}/spring/application-test-local-override.properties"
-			ignore-resource-not-found="true" ignore-unresolvable="true" order="0" />
+    <bean id="dataSource" name="dataSource" class="com.zaxxer.hikari.HikariDataSource" destroy-method="close">
+        <constructor-arg index="0" ref="hikariDataSourceConfig" />
+    </bean>
 
-	<context:property-placeholder
-			location="file:${TEST_CONFIG_HOME}/spring/pcap-mvc-test.properties"
-			ignore-resource-not-found="true" ignore-unresolvable="true" order="0" />
+    <bean id="hikariDataSourceConfig" class="com.zaxxer.hikari.HikariConfig">
+        <constructor-arg index="0" value="${TEST_CONFIG_HOME}/hikaricp.configurationFile" />
+        <property name="jdbcUrl" value="${db.jdbcUrl}" />
+        <property name="username" value="${db.username}" />
+        <property name="password" value="${db.password}" />
+        <property name="driverClassName" value="software.aws.rds.jdbc.mysql.Driver" />
+        <property name="dataSourceProperties">
+            <props>
+                <prop key="sendFractionalSecondsForTime" >false</prop>
+                <prop key="sendFractionalSeconds" >false</prop>
+            </props>
+        </property>
+    </bean>
 
-	<context:property-placeholder
-			location="config/pcap-mvc-test.properties"
-			ignore-resource-not-found="true" ignore-unresolvable="true" order="0" />
+    <bean id="jpaDialect" class="org.springframework.orm.jpa.vendor.HibernateJpaDialect"/>
 
-	<tx:annotation-driven proxy-target-class="true" transaction-manager="transactionManager" />
-	<context:component-scan base-package="com.empower.epw.persistence.config.spschema"/>
-	<context:component-scan base-package="com.empower.epw.persistence.config.security"/>
+    <bean id="jpaVendorAdapterBean" class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
+        <property name="database" value="MYSQL" />
+        <property name="showSql" value="true" /> <property name="databasePlatform" value="org.hibernate.dialect.MySQLDialect" />
+    </bean>
 
-	<jpa:repositories base-package="com.personalcapital.salesforce.sps.repository" transaction-manager-ref="spTran"/>
+    <bean id="entityManagerFactory" name="entityManagerFactory"
+          class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+        <property name="dataSource" ref="dataSource" />
+        <property name="persistenceUnitName" value="sp_schema" />
+        <property name="jpaVendorAdapter" ref="jpaVendorAdapterBean" />
+        <property name="jpaDialect" ref="jpaDialect" />
+        <property name="packagesToScan" value="com.personalcapital.salesforce.sps.entity" />
+    </bean>
 
-	<bean class="org.springframework.orm.jpa.support.PersistenceAnnotationBeanPostProcessor">
-		<property name="defaultPersistenceUnitName" value="sp_schema" />
-	</bean>
+    <bean class="org.springframework.orm.jpa.support.PersistenceAnnotationBeanPostProcessor"/>
 
-	<bean id="jpaDialect" class="org.springframework.orm.jpa.vendor.HibernateJpaDialect">
-	</bean>
+    <bean id="spTransactionManager" name="spTransactionManager" class="org.springframework.orm.jpa.JpaTransactionManager">
+        <property name="entityManagerFactory" ref="entityManagerFactory" />
+        <qualifier value="spTran" />
+        <property name="jpaDialect" ref="jpaDialect" />
+    </bean>
 
-	<bean id="entityManagerFactory" name="entityManagerFactory"
-		  class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
-		<property name="dataSource" ref="dataSource" />
-		<property name="persistenceUnitName" value="sp_schema" />
-		<property name="jpaVendorAdapter" ref="jpaVendorAdapterBean" />
-		<property name="jpaDialect" ref="jpaDialect" />
-	</bean>
+    <tx:annotation-driven transaction-manager="spTransactionManager" />
 
-	<bean id="jpaVendorAdapterBean"
-		  class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
-		<property name="database" value="MYSQL" />
-		<property name="showSql" value="false" />
-		<property name="databasePlatform" value="org.hibernate.dialect.MySQLDialect" />
-	</bean>
+    <bean id="applicationContextProvider" class="com.personalcapital.context.ApplicationContextProvider" />
 
-	<bean id="spTransactionManager" name="spTransactionManager" class="org.springframework.orm.jpa.JpaTransactionManager">
-		<property name="entityManagerFactory" ref="entityManagerFactory" />
-		<qualifier value="spTran" />
-		<property name="jpaDialect" ref="jpaDialect" />
-	</bean>
-
-	<tx:annotation-driven transaction-manager="entityManagerFactory" />
-	<bean id="spJdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
-		<constructor-arg ref="dataSource" />
-	</bean>
-
-	<bean id="safepageConfigurer" class="com.personalcapital.config.SafePageConfigurer">
-		<property name="ssmEnabled" value="true" />
-		<property name="ignoreUnresolvablePlaceholders" value="true" />
-		<property name="order" value="1" />
-	</bean>
-
-	<bean name="serverConfigurer" class="com.personalcapital.config.ServerConfigurer">
-		<property name="systemSalt" value="${pcap.systemSalt}" />
-		<property name="googleCaptchaSiteKey" value="${google.recaptcha.SiteKey}" />
-		<property name="mixpanelToken" value="${mixpanel.token}" />
-		<property name="staticURL" value="${server.staticURL}" />
-	</bean>
-
-	<bean id="dataSource" name="dataSource" class="com.zaxxer.hikari.HikariDataSource"
-		  destroy-method="close">
-		<constructor-arg index="0" ref="hikariDataSourceConfig" />
-	</bean>
-
-	<bean id="hikariDataSourceConfig" class="com.zaxxer.hikari.HikariConfig">
-		<constructor-arg index="0" value="${TEST_CONFIG_HOME}/hikaricp.configurationFile" />
-		<property name="jdbcUrl" value="${db.jdbcUrl}" />
-		<property name="username" value="${db.username}" />
-		<property name="password" value="${db.password}" />
-		<property name="driverClassName" value="software.aws.rds.jdbc.mysql.Driver" />
-		<property name="dataSourceProperties">
-			<props>
-				<prop key="sendFractionalSecondsForTime" >false</prop>
-				<prop key="sendFractionalSeconds" >false</prop>
-			</props>
-		</property>
-	</bean>
-
-	<bean id="spSecuritytransactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
-		<property name="dataSource" ref="dataSource" />
-	</bean>
-
-	<bean id="spSecurityJdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
-		<constructor-arg ref="dataSource" />
-	</bean>
-
-	<bean id="keySeedDataService" class="com.safepage.security.service.impl.KeySeedDataServiceImpl" />
-	<bean id="applicationContextProvider" class="com.personalcapital.context.ApplicationContextProvider" />
-	<mockito:mock id="spExecutor" class="com.safepage.thread.SafePageExecutor"/>
-	<bean id="loadTimeWeaver" class="org.springframework.instrument.classloading.InstrumentationLoadTimeWeaver" />
-	<bean id="tokenDao" class="com.safepage.security.data.impl.TokenDaoImpl" />
-	<bean id="keySeedDao" class="com.safepage.security.data.impl.KeySeedDaoImpl" />
-	<bean id="cryptEngine" class="com.safepage.security.CryptEngine" />
-	<bean id="keyManager" class="com.safepage.security.KeyManager" scope="singleton" />
-	<bean id="awsKmsClient" class="com.amazonaws.services.kms.AWSKMSClientBuilder" factory-method="defaultClient" />
-	<bean id="epwKmsService" class="com.empower.epw.aws.v1.kms.EpwKmsServiceImpl">
-		<constructor-arg ref="awsKmsClient"/>
-	</bean>
-	<bean id="redissonConfiguration" class="com.personalcapital.cache.config.RedissonConfiguration">
-		<property name="enabled" value="true" />
-	</bean>
 </beans>
-
-
-out of this list of beans, tell what i need
