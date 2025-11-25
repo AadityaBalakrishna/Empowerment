@@ -1,239 +1,87 @@
-test -
+package com.personalcapital.salesforce.sps.repository;
 
-package com.personalcapital.salesforce.sps;
-
-import com.personalcapital.salesforce.sps.entity.SpsCirrusContactMetadata;
-import com.personalcapital.salesforce.sps.enums.DataInputSource;
 import com.personalcapital.salesforce.sps.enums.RegistrationStatus;
-import com.personalcapital.salesforce.sps.enums.UserSpsPlanType;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
+import com.personalcapital.salesforce.sps.entity.SpsCirrusContactMetadata;
+
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.personalcapital.salesforce.sps.repository.SpsCirrusContactMetadataRepository;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
-import java.util.Arrays;
-import java.util.Date;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-@Rollback
-@Transactional(value = "spTran")
-@SpringJUnitConfig(locations = "classpath:spsCirrusApplicationContext.xml")
-public class SpsCirrusContactMetadataRepositoryTest {
+@Repository
+public interface SpsCirrusContactMetadataRepository
+		extends JpaRepository<SpsCirrusContactMetadata, UUID>
+{
+	@Transactional(readOnly = true)
+	Optional<SpsCirrusContactMetadata> findByMetadataId(UUID metadataId);
 
-	@Autowired
-	private SpsCirrusContactMetadataRepository repository;
+	@Transactional(readOnly = true)
+	Slice<SpsCirrusContactMetadata> findByRegistrationStatus(
+            RegistrationStatus registrationStatus, Pageable pageable);
 
-	@PersistenceContext
-	private EntityManager entityManager;
+	@Transactional(readOnly = true)
+	@Query("select m from SpsCirrusContactMetadata m where m.metadataId in :metadataIds")
+	List<SpsCirrusContactMetadata> findExistingUsersByMetadataId(@Param("metadataIds") Collection<UUID> metadataIds);
 
-	private SpsCirrusContactMetadata entity1;
-	private SpsCirrusContactMetadata entity2;
+	@Transactional(readOnly = true)
+	List<SpsCirrusContactMetadata> findByUserAccountGuidAndPersonaId(UUID userAccountGuid, UUID personaId);
 
-	private final UUID userGuid1 = UUID.randomUUID();
-	private final UUID userGuid2 = UUID.randomUUID();
-	private final UUID personaId1 = UUID.randomUUID();
+	@Transactional(readOnly = true)
+	Optional<SpsCirrusContactMetadata> findTopByUserAccountGuidOrderByUpdatedDateDescMetadataIdDesc(UUID userAccountGuid);
 
-	@BeforeEach
-	public void setUp() {
-		entityManager.clear();
-
-		entity1 = new SpsCirrusContactMetadata();
-		entity1.setUserAccountGuid(userGuid1);
-		entity1.setPersonaId(personaId1);
-		entity1.setUserSpsPlanType(UserSpsPlanType.CONFORMING);
-		entity1.setRegistrationStatus(RegistrationStatus.PENDING);
-		entity1.setDataInputSource(DataInputSource.ACCOUNT);
-		entity1.setRetryCount(0);
-		entity1.setUpdatedDate(new Date());
-		repository.save(entity1);
-
-		entity2 = new SpsCirrusContactMetadata();
-		entity2.setUserAccountGuid(userGuid2);
-		entity2.setPersonaId(UUID.randomUUID());
-		entity2.setUserSpsPlanType(UserSpsPlanType.NON_CONFORMING);
-		entity2.setRegistrationStatus(RegistrationStatus.COMPLETED);
-		entity2.setDataInputSource(DataInputSource.C_AND_H);
-		entity2.setRetryCount(2);
-		entity2.setUpdatedDate(new Date());
-		repository.save(entity2);
-
-		entityManager.flush();
-		entityManager.clear();
+	default Optional<Integer> findLatestHashByUserAccountGuid(UUID userAccountGuid) {
+		return findTopByUserAccountGuidOrderByUpdatedDateDescMetadataIdDesc(userAccountGuid)
+				.map(SpsCirrusContactMetadata::getHashValue);
 	}
 
-	@Test
-	public void testFindByMetadataId() {
-		UUID id = entity1.getMetadataId();
-		Assertions.assertNotNull(id, "Metadata ID should be generated upon save");
+	@Modifying(clearAutomatically = true, flushAutomatically = true)
+	@Transactional
+	@Query("update SpsCirrusContactMetadata m set m.registrationStatus = :status " + "where m.userAccountGuid = :userAccountGuid and m.personaId = :personaId")
+	int setStatus(@Param("userAccountGuid") UUID userAccountGuid, @Param("personaId") UUID personaId,
+                  @Param("status") RegistrationStatus registrationStatus);
 
-		Optional<SpsCirrusContactMetadata> found = repository.findByMetadataId(id);
-		Assertions.assertTrue(found.isPresent(), "Entity should be found by it's metadata ID");
-		Assertions.assertEquals(userGuid1, found.get().getUserAccountGuid(), "UserAccountGuid should match");
-	}
+	@Modifying
+	@Transactional
+	@Query("update SpsCirrusContactMetadata m set m.retryCount = m.retryCount + 1 where m.metadataId = :metadataId")
+	int incrementRetry(@Param("metadataId") UUID metadataId);
 
-	@Test
-	public void testFindLatestHashByUserAccountGuid() {
-		UUID specificUser = UUID.randomUUID();
-
-		repository.deleteAll();
-
-		// Insert only one record for the specific user
-		SpsCirrusContactMetadata record = new SpsCirrusContactMetadata();
-		record.setUserAccountGuid(specificUser);
-		record.setPersonaId(UUID.randomUUID());
-		record.setHashValue(200);
-		record.setUpdatedDate(new Date());
-		repository.save(record);
-
-		entityManager.flush();
-		entityManager.clear();
-
-		Optional<Integer> latestHash = repository.findLatestHashByUserAccountGuid(specificUser);
-
-		Assertions.assertTrue(latestHash.isPresent(), "Latest hash value should be found");
-		Assertions.assertEquals(200, latestHash.get(), "Should return the hash value from the most recently updated record");
-	}
-
-	@Test
-	public void testFindLatestHashByUserAccountGuid_MultipleRecords() throws InterruptedException {
-		UUID specificUser = UUID.randomUUID();
-
-		repository.deleteAll();
-
-		// Insert multiple records for the same userAccountGuid
-		SpsCirrusContactMetadata record1 = new SpsCirrusContactMetadata();
-		record1.setUserAccountGuid(specificUser);
-		record1.setPersonaId(UUID.randomUUID());
-		record1.setHashValue(100);
-		repository.save(record1);
-
-		// Introduce a delay to ensure distinct timestamps
-		Thread.sleep(1100);
-
-		SpsCirrusContactMetadata record2 = new SpsCirrusContactMetadata();
-		record2.setUserAccountGuid(specificUser);
-		record2.setPersonaId(UUID.randomUUID());
-		record2.setHashValue(200);
-		repository.save(record2);
-
-		entityManager.flush();
-		entityManager.clear();
-
-		// Call the method under test
-		Optional<Integer> latestHash = repository.findLatestHashByUserAccountGuid(specificUser);
-
-		// Verify the result
-		Assertions.assertTrue(latestHash.isPresent(), "Latest hash value should be found");
-		Assertions.assertEquals(200, latestHash.get(), "Should return the hash value from the most recently updated record");
-	}
-
-	@Test
-	public void testSetStatus() {
-		Assertions.assertEquals(RegistrationStatus.PENDING, entity1.getRegistrationStatus(), "Initial status should be PENDING");
-
-		int rowsUpdated = repository.setStatus(userGuid1, personaId1, RegistrationStatus.FAILED);
-
-		Assertions.assertEquals(1, rowsUpdated, "One row should be updated");
-
-		Optional<SpsCirrusContactMetadata> updatedEntity = repository.findByMetadataId(entity1.getMetadataId());
-		Assertions.assertTrue(updatedEntity.isPresent(), "Updated entity should be found");
-		Assertions.assertEquals(RegistrationStatus.FAILED, updatedEntity.get().getRegistrationStatus(), "The registration status should be updated to FAILED");
-	}
-
-	@Test
-	public void testIncrementRetry() {
-		int initialRetry = entity1.getRetryCount();
-
-		int rowsUpdated = repository.incrementRetry(entity1.getMetadataId());
-		Assertions.assertEquals(1, rowsUpdated, "One row should be updated");
-
-		entityManager.clear();
-
-		Optional<SpsCirrusContactMetadata> updatedEntity = repository.findByMetadataId(entity1.getMetadataId());
-		Assertions.assertTrue(updatedEntity.isPresent(), "Updated entity should be present.");
-		Assertions.assertEquals(initialRetry + 1, updatedEntity.get().getRetryCount(), "Retry count should be incremented by 1.");
-	}
-
-	@Test
-	public void testFindAllByRegistrationStatus_ShouldReturnCompletedEntities() {
-		List<SpsCirrusContactMetadata> completed = repository.findAllByRegistrationStatus(RegistrationStatus.COMPLETED);
-
-		Assertions.assertFalse(completed.isEmpty(), "The list of COMPLETED status should not be empty");
-		Assertions.assertTrue(completed.stream()
-						.anyMatch(e -> e.getMetadataId().equals(entity2.getMetadataId())),
-				"userAccountGuid with COMPLETED status " + userGuid2 + " and metadataId " + entity2.getMetadataId() + " should be in the results."
-		);
-	}
-
-	@Test
-	public void testFindByRegistrationStatusWithPagination() {
-		createExtraEntity(RegistrationStatus.PENDING);
-		createExtraEntity(RegistrationStatus.PENDING);
-
-		Slice<SpsCirrusContactMetadata> slice = repository.findByRegistrationStatus(
-				RegistrationStatus.PENDING, PageRequest.of(0, 2)
-		);
-
-		Assertions.assertFalse(slice.isEmpty(), "Pending records should not be empty");
-		Assertions.assertEquals(2, slice.getSize(), "Slice size should match the page size");
-		Assertions.assertTrue(slice.getContent().stream()
-						.allMatch(e -> e.getRegistrationStatus() == RegistrationStatus.PENDING),
-				"All records in the slice should have the PENDING registration status"
-		);
-	}
-
-	@Test
-	public void testFindExistingUsersByMetadataId() {
-		List<UUID> metadataIds = Arrays.asList(entity1.getMetadataId(), entity2.getMetadataId());
-
-		List<SpsCirrusContactMetadata> results = repository.findExistingUsersByMetadataId(metadataIds);
-
-		Assertions.assertEquals(2, results.size(), "Should return two entities");
-		Assertions.assertTrue(results.stream()
-						.anyMatch(e -> e.getMetadataId().equals(entity1.getMetadataId())),
-				"User with userAccountGuid " + userGuid1 + " and personaId " + personaId1 + " should be in the results"
-		);
-		Assertions.assertTrue(results.stream()
-						.anyMatch(e -> e.getMetadataId().equals(entity2.getMetadataId())),
-				"User with userAccountGuid " + userGuid2 + " should be in the results"
-		);
-	}
-
-	@Test
-	public void testFindByUserAccountGuidAndPersonaId() {
-		List<SpsCirrusContactMetadata> results = repository.findByUserAccountGuidAndPersonaId(
-				userGuid1, personaId1
-		);
-
-		Assertions.assertFalse(results.isEmpty(), "Results should not be empty");
-		Assertions.assertEquals(1, results.size(), "Should return one entity");
-		Assertions.assertEquals(entity1.getMetadataId(), results.get(0).getMetadataId(),
-				"Returned entity should match the expected metadataId"
-		);
-	}
-
-	private void createExtraEntity(RegistrationStatus status) {
-		SpsCirrusContactMetadata e = new SpsCirrusContactMetadata();
-		e.setUserAccountGuid(UUID.randomUUID());
-		e.setPersonaId(UUID.randomUUID());
-		e.setRegistrationStatus(status);
-		repository.save(e);
-	}
+	// getEntriesByStatus(registrationStatus)
+	@Transactional(readOnly = true)
+	List<SpsCirrusContactMetadata> findAllByRegistrationStatus(RegistrationStatus status);
 }
 
-review comment :
-1) most of these tests r reading data from cache. to read fresh from DB the object shud be detached from session, and to be read again.
-2) in "testSetStatus" test case- while in table def, initial status default value is null, how it gets PENDING as initial status?
-3) in setup : "repository.deleteAll() to set up? if it is rollback one, clear will happen at the end, y delete at beginning? or clear only test injected  keys." --> i have resolved this, but is it correct
 
-check if all the test cases have the right and clear test description through the assertion statements and review the test class fully
+need to address two review comments:
+1) see whether this creates findById() automatically , that might create error for developer using it, then entity might need.
+@AttributeOverride(name="id", column=@Column(name="metadata_id"))
+
+for this:
+	@Transactional(readOnly = true)
+	Optional<SpsCirrusContactMetadata> findByMetadataId(UUID metadataId);
+
+suggestion:
+"we could use default method like: 
+ 
+default Optional<SpsCirrusContactMetadata> findByMetadataId(UUID metadataId) {
+    return findById(metadataId);
+}
+
+OR
+ 
+A wrapper utility class : ContactMetadataService
+which will have
+ 
+public Optional<SpsCirrusContactMetadata> findByMetadataId(UUID metadataId) {
+        return repository.findById(metadataId);
+    }"
+
+another review comment for the same - "orif u want a more convenient wrapper use findByMetadataId(id) { findById(id); }"
