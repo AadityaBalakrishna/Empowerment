@@ -1,70 +1,44 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<beans default-lazy-init="true" xmlns="http://www.springframework.org/schema/beans"
-       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-       xmlns:jpa="http://www.springframework.org/schema/data/jpa"
-       xmlns:context="http://www.springframework.org/schema/context"
-       xmlns:tx="http://www.springframework.org/schema/tx"
-       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
-       http://www.springframework.org/schema/data/jpa http://www.springframework.org/schema/data/jpa/spring-jpa.xsd
-       http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd
-       http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd">
+Concern - "this wont give a single value if multiple entries are there"
+@Transactional(readOnly = true)
+@Query("SELECT m.hashValue FROM SpsCirrusContactMetadata m WHERE m.userAccountGuid = :userAccountGuid ORDER BY m.updatedDate DESC, m.metadataId DESC")
+Optional<Integer> findLatestHashByUserAccountGuid(@Param("userAccountGuid") UUID userAccountGuid);
 
-    <context:property-placeholder
-            location="file:${TEST_CONFIG_HOME}/spring/application-test.properties"
-            ignore-resource-not-found="false" ignore-unresolvable="true" order="1" />
-    <context:property-placeholder
-            location="file:${TEST_CONFIG_HOME}/spring/application-test-local-override.properties"
-            ignore-resource-not-found="true" ignore-unresolvable="true" order="0" />
-    <bean id="safepageConfigurer" class="com.personalcapital.config.SafePageConfigurer">
-        <property name="ssmEnabled" value="false" /> <property name="ignoreUnresolvablePlaceholders" value="true" />
-    </bean>
+testclass to test it:
+	public void testFindLatestHashByUserAccountGuid_MultipleRecords() {
+		UUID specificUser = UUID.randomUUID();
 
-    <jpa:repositories base-package="com.personalcapital.salesforce.sps.repository" transaction-manager-ref="spTran"/>
+		repository.deleteAll();
 
-    <bean id="dataSource" name="dataSource" class="com.zaxxer.hikari.HikariDataSource" destroy-method="close">
-        <constructor-arg index="0" ref="hikariDataSourceConfig" />
-    </bean>
+		// Insert multiple records for the same userAccountGuid
+		SpsCirrusContactMetadata record1 = new SpsCirrusContactMetadata();
+		record1.setUserAccountGuid(specificUser);
+		record1.setPersonaId(UUID.randomUUID());
+		record1.setHashValue(100);
+		record1.setUpdatedDate(new Date(System.currentTimeMillis() - 10000)); // 10 seconds ago
+		repository.save(record1);
 
-    <bean id="hikariDataSourceConfig" class="com.zaxxer.hikari.HikariConfig">
-        <constructor-arg index="0" value="${TEST_CONFIG_HOME}/hikaricp.configurationFile" />
-        <property name="jdbcUrl" value="${db.jdbcUrl}" />
-        <property name="username" value="${db.username}" />
-        <property name="password" value="${db.password}" />
-        <property name="driverClassName" value="software.aws.rds.jdbc.mysql.Driver" />
-        <property name="dataSourceProperties">
-            <props>
-                <prop key="sendFractionalSecondsForTime" >false</prop>
-                <prop key="sendFractionalSeconds" >false</prop>
-            </props>
-        </property>
-    </bean>
+		SpsCirrusContactMetadata record2 = new SpsCirrusContactMetadata();
+		record2.setUserAccountGuid(specificUser);
+		record2.setPersonaId(UUID.randomUUID());
+		record2.setHashValue(200);
+		record2.setUpdatedDate(new Date(System.currentTimeMillis())); // Most recent
+		repository.save(record2);
 
-    <bean id="jpaDialect" class="org.springframework.orm.jpa.vendor.HibernateJpaDialect"/>
+		entityManager.flush();
+		entityManager.clear();
 
-    <bean id="jpaVendorAdapterBean" class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
-        <property name="database" value="MYSQL" />
-        <property name="showSql" value="true" /> <property name="databasePlatform" value="org.hibernate.dialect.MySQLDialect" />
-    </bean>
+		// Call the method under test
+		Optional<Integer> latestHash = repository.findLatestHashByUserAccountGuid(specificUser);
 
-    <bean id="entityManagerFactory" name="entityManagerFactory"
-          class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
-        <property name="dataSource" ref="dataSource" />
-        <property name="persistenceUnitName" value="sp_schema" />
-        <property name="jpaVendorAdapter" ref="jpaVendorAdapterBean" />
-        <property name="jpaDialect" ref="jpaDialect" />
-        <property name="packagesToScan" value="com.personalcapital.salesforce.sps.entity" />
-    </bean>
+		// Verify the result
+		Assertions.assertTrue(latestHash.isPresent(), "Latest hash should be found");
+		Assertions.assertEquals(200, latestHash.get(), "Should return the hash from the most recently updated record");
+	}
 
-    <bean class="org.springframework.orm.jpa.support.PersistenceAnnotationBeanPostProcessor"/>
+test error to confirm the concern:
+SpsCirrusContactMetadataRepositoryTest.testFindLatestHashByUserAccountGuid_MultipleRecords:130 » IncorrectResultSizeDataAccess Query did not return a unique result: 2 results were returned
 
-    <bean id="spTransactionManager" name="spTransactionManager" class="org.springframework.orm.jpa.JpaTransactionManager">
-        <property name="entityManagerFactory" ref="entityManagerFactory" />
-        <qualifier value="spTran" />
-        <property name="jpaDialect" ref="jpaDialect" />
-    </bean>
-
-    <tx:annotation-driven transaction-manager="spTransactionManager" />
-
-    <bean id="applicationContextProvider" class="com.personalcapital.context.ApplicationContextProvider" />
-
-</beans>
+suggestion:
+Use this derived method : @Transactional(readOnly = true)
+findTopHashValueByUserAccountGuidOrderByUpdatedDateDesc(UUID userAccountGuid);
+And wrap this in a default method  with name : findLatestHashByUserAccountGuid
