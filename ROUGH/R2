@@ -1,9 +1,15 @@
-Concern - "this wont give a single value if multiple entries are there"
-@Transactional(readOnly = true)
-@Query("SELECT m.hashValue FROM SpsCirrusContactMetadata m WHERE m.userAccountGuid = :userAccountGuid ORDER BY m.updatedDate DESC, m.metadataId DESC")
-Optional<Integer> findLatestHashByUserAccountGuid(@Param("userAccountGuid") UUID userAccountGuid);
+	Method:
 
-testclass to test it:
+	@Transactional(readOnly = true)
+	Optional<SpsCirrusContactMetadata> findTopByUserAccountGuidOrderByUpdatedDateDescMetadataIdDesc(UUID userAccountGuid);
+
+	default Optional<Integer> findLatestHashByUserAccountGuid(UUID userAccountGuid) {
+		return findTopByUserAccountGuidOrderByUpdatedDateDescMetadataIdDesc(userAccountGuid)
+				.map(SpsCirrusContactMetadata::getHashValue);
+	}
+
+test class:
+	@Test
 	public void testFindLatestHashByUserAccountGuid_MultipleRecords() {
 		UUID specificUser = UUID.randomUUID();
 
@@ -35,25 +41,8 @@ testclass to test it:
 		Assertions.assertEquals(200, latestHash.get(), "Should return the hash from the most recently updated record");
 	}
 
-test error to confirm the concern:
-SpsCirrusContactMetadataRepositoryTest.testFindLatestHashByUserAccountGuid_MultipleRecords:130 » IncorrectResultSizeDataAccess Query did not return a unique result: 2 results were returned
-
-suggestion:
-Use this derived method : @Transactional(readOnly = true)
-findTopHashValueByUserAccountGuidOrderByUpdatedDateDesc(UUID userAccountGuid);
-And wrap this in a default method  with name : findLatestHashByUserAccountGuid
-
-
-
-
-which is more effective?
-1) Optional<Integer> findTopHashValueByUserAccountGuidOrderByUpdatedDateDescMetadataIdDesc(UUID userAccountGuid); 
-default Optional<Integer> findLatestHashByUserAccountGuid(UUID userAccountGuid) {
-        return findTopHashValueByUserAccountGuidOrderByUpdatedDateDescMetadataIdDesc(userAccountGuid);
-    }
-
-2) Optional<SpsCirrusContactMetadata> findTopByUserAccountGuidOrderByUpdatedDateDescMetadataIdDesc(UUID userAccountGuid);
-default Optional<Integer> findLatestHashByUserAccountGuid(UUID userAccountGuid) {
-    return findTopByUserAccountGuidOrderByUpdatedDateDescMetadataIdDesc(userAccountGuid)
-           .map(SpsCirrusContactMetadata::getHashValue);
-}
+error:
+16:36:55  [INFO] Running com.personalcapital.salesforce.sps.SpsCirrusContactMetadataRepositoryTest
+16:36:57  [ERROR] Tests run: 9, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 1.409 s <<< FAILURE! -- in com.personalcapital.salesforce.sps.SpsCirrusContactMetadataRepositoryTest
+16:36:57  [ERROR] com.personalcapital.salesforce.sps.SpsCirrusContactMetadataRepositoryTest.testFindLatestHashByUserAccountGuid_MultipleRecords -- Time elapsed: 0.045 s <<< FAILURE!
+16:36:57  org.opentest4j.AssertionFailedError: Should return the hash from the most recently updated record ==> expected: <200> but was: <100>
