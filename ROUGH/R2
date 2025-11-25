@@ -42,3 +42,18 @@ suggestion:
 Use this derived method : @Transactional(readOnly = true)
 findTopHashValueByUserAccountGuidOrderByUpdatedDateDesc(UUID userAccountGuid);
 And wrap this in a default method  with name : findLatestHashByUserAccountGuid
+
+
+
+
+which is more effective?
+1) Optional<Integer> findTopHashValueByUserAccountGuidOrderByUpdatedDateDescMetadataIdDesc(UUID userAccountGuid); 
+default Optional<Integer> findLatestHashByUserAccountGuid(UUID userAccountGuid) {
+        return findTopHashValueByUserAccountGuidOrderByUpdatedDateDescMetadataIdDesc(userAccountGuid);
+    }
+
+2) Optional<SpsCirrusContactMetadata> findTopByUserAccountGuidOrderByUpdatedDateDescMetadataIdDesc(UUID userAccountGuid);
+default Optional<Integer> findLatestHashByUserAccountGuid(UUID userAccountGuid) {
+    return findTopByUserAccountGuidOrderByUpdatedDateDescMetadataIdDesc(userAccountGuid)
+           .map(SpsCirrusContactMetadata::getHashValue);
+}
