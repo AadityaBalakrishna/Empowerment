@@ -1,124 +1,21 @@
-package com.personalcapital.salesforce.sps.entity;
+<build>
+<pluginManagement>
+<plugins>
+<plugin> spotbug 
+</plugin>
+</plugins>
+</pluginManagement>
+</build>
 
-import com.personalcapital.data.repository.BaseEntity;
-import com.personalcapital.salesforce.sps.enums.DataInputSource;
-import com.personalcapital.salesforce.sps.enums.DataSourceConverter;
-import com.personalcapital.salesforce.sps.enums.RegistrationStatus;
-import com.personalcapital.salesforce.sps.enums.UserSpsPlanType;
-import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.annotations.GenericGenerator;
+will this setup run the spotbugs check? i see that in the jenkins like this:
 
-import java.util.Date;
-import java.util.UUID;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@EqualsAndHashCode(callSuper = true)
-@Entity
-@Table(name = "sps_cirrus_contact_metadata", catalog = "sp_schema")
-public class SpsCirrusContactMetadata extends BaseEntity
-{
-	@Id
-	@GeneratedValue(generator = "uuid2")
-	@GenericGenerator(name = "uuid2", strategy = "org.hibernate.id.UUIDGenerator")
-	@Column(name = "metadata_id", columnDefinition = "BINARY(16)")
-	private UUID metadataId;
-
-	@Column(name = "user_account_guid", columnDefinition = "BINARY(16)")
-	private UUID userAccountGuid;
-
-	@Column(name = "persona_id", columnDefinition = "BINARY(16)")
-	private UUID personaId;
-
-	@Column(name = "hash_value")
-	private Integer hashValue;
-
-	@Column(name = "persona_details_json", columnDefinition = "JSON")
-	private String personaAltIds;
-
-	@Convert(converter = DataSourceConverter.class)
-	@Column(name = "data_source", columnDefinition = "ENUM('ACCOUNT','C&H')")
-	private DataInputSource dataInputSource;
-
-	@Column(name = "user_sps_plan_type") // enum1
-	@Enumerated(EnumType.STRING)
-	private UserSpsPlanType userSpsPlanType;
-
-	@Column(name = "registration_status")
-	@Enumerated(EnumType.STRING)
-	private RegistrationStatus registrationStatus;
-
-	@Column(name = "retry_count")
-	private int retryCount;
-
-	@Column(name = "created_date")
-	private Date createdDate;
-
-	@Column(name = "updated_date")
-	private Date updatedDate;
-
-	public SpsCirrusContactMetadata(UUID metadataId, UUID userAccountGuid, UUID personaId,
-									UserSpsPlanType userSpsPlanType, RegistrationStatus registrationStatus)
-	{
-		this.metadataId = metadataId;
-		this.userAccountGuid = userAccountGuid;
-		this.personaId = personaId;
-		this.userSpsPlanType = userSpsPlanType;
-		this.registrationStatus = registrationStatus;
-	}
-}
-
-package com.personalcapital.salesforce.sps.enums;
-
-public enum DataInputSource
-{
-	ACCOUNT("ACCOUNT"),C_AND_H("C&H");
-
-	private final String dbValue;
-	DataInputSource(String dbValue) { this.dbValue = dbValue; }
-	public String getDbValue() { return dbValue; }
-
-	public static DataInputSource fromDb(String v) {
-		if (v == null) return null;
-		return switch (v) {
-			case "ACCOUNT" -> ACCOUNT;
-			case "C&H" -> C_AND_H;
-			default -> throw new IllegalArgumentException("Unknown data_source: " + v);
-		};
-	}
-}
-
-
-package com.personalcapital.salesforce.sps.enums;
-
-import jakarta.persistence.AttributeConverter;
-import jakarta.persistence.Converter;
-
-@Converter(autoApply = false)
-public class DataSourceConverter implements AttributeConverter<DataInputSource, String> {
-    @Override
-    public String convertToDatabaseColumn(DataInputSource attribute) {
-        return attribute == null ? null : attribute.getDbValue();
-    }
-
-    @Override
-    public DataInputSource convertToEntityAttribute(String dbData) {
-        return DataInputSource.fromDb(dbData);
-    }
-}
-
-package com.personalcapital.salesforce.sps.enums;
-
-public enum RegistrationStatus
-{
-	COMPLETED, EXPIRED, FAILED, PENDING
-}
-
-package com.personalcapital.salesforce.sps.enums;
-
-public enum UserSpsPlanType
-{
-	CONFORMING, NON_CONFORMING
-}
+16:29:56  [INFO] >>> spotbugs:4.8.6.4:check (default-cli) > :spotbugs @ crm-batch-jobs >>>
+16:29:56  [INFO] 
+16:29:56  [INFO] --- spotbugs:4.8.6.4:spotbugs (spotbugs) @ crm-batch-jobs ---
+16:29:56  [INFO] Fork Value is true
+16:30:00  [INFO] Done SpotBugs Analysis....
+16:30:00  [INFO] 
+16:30:00  [INFO] <<< spotbugs:4.8.6.4:check (default-cli) < :spotbugs @ crm-batch-jobs <<<
+16:30:00  [INFO] 
+16:30:00  [INFO] 
+16:30:00  [INFO] --- spotbugs:4.8.6.4:check (default-cli) @ crm-batch-jobs ---
