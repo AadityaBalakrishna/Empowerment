@@ -1,1 +1,204 @@
-ss
+Task: Test WorkflowChainBuilder class chain building logic 
+
+Classes Under Test: 
+1) com.empower.crm.core.engine.chain.WorkflowChainBuilder :
+package com.empower.crm.core.engine.chain;
+
+import com.empower.crm.core.engine.factory.WorkflowStepProcessorFactory;
+import com.empower.crm.core.engine.processor.WorkflowStepProcessor;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Builder for creating chains of workflow step handlers.
+ * Implements Builder pattern for chain construction.
+ */
+@Component
+public class WorkflowChainBuilder {
+
+    private final WorkflowStepProcessorFactory processorFactory;
+
+    public WorkflowChainBuilder(WorkflowStepProcessorFactory processorFactory) {
+        this.processorFactory = processorFactory;
+    }
+
+    /**
+     * Build a chain of handlers for a list of step configurations.
+     *
+     * @param stepType The type of steps (e.g., "validation", "compose")
+     * @param stepConfigs List of step configurations
+     * @return The first handler in the chain, or null if no steps
+     */
+    public WorkflowStepHandler buildChain(String stepType, List<Map<String, Object>> stepConfigs) {
+        if (stepConfigs == null || stepConfigs.isEmpty()) {
+            return null;
+        }
+
+        WorkflowStepProcessor processor = processorFactory.getProcessor(stepType);
+
+        WorkflowStepHandler firstHandler = null;
+        WorkflowStepHandler previousHandler = null;
+
+        for (Map<String, Object> stepConfig : stepConfigs) {
+            WorkflowStepHandler handler = new WorkflowStepHandler(processor, stepConfig);
+
+            if (firstHandler == null) {
+                firstHandler = handler;
+            }
+
+            if (previousHandler != null) {
+                previousHandler.setNext(handler);
+            }
+
+            previousHandler = handler;
+        }
+
+        return firstHandler;
+    }
+}
+
+2) com.empower.crm.core.engine.chain.WorkflowStepHandler 
+package com.empower.crm.core.engine.chain;
+
+import com.empower.crm.core.engine.context.WorkflowContext;
+import com.empower.crm.core.engine.processor.WorkflowStepProcessor;
+
+import java.util.Map;
+
+/**
+ * Chain of Responsibility pattern implementation for workflow step execution.
+ * Each handler in the chain processes a workflow step.
+ */
+public class WorkflowStepHandler {
+
+    private final WorkflowStepProcessor processor;
+    private final Map<String, Object> stepConfig;
+    private WorkflowStepHandler nextHandler;
+
+    public WorkflowStepHandler(WorkflowStepProcessor processor, Map<String, Object> stepConfig) {
+        this.processor = processor;
+        this.stepConfig = stepConfig;
+    }
+
+    /**
+     * Set the next handler in the chain.
+     *
+     * @param nextHandler The next handler
+     * @return This handler for method chaining
+     */
+    public WorkflowStepHandler setNext(WorkflowStepHandler nextHandler) {
+        this.nextHandler = nextHandler;
+        return this;
+    }
+
+    /**
+     * Handle the workflow step and pass to next handler if exists.
+     *
+     * @param context The current workflow context
+     * @return The updated workflow context
+     * @throws Exception if step processing fails
+     */
+    public WorkflowContext handle(WorkflowContext context) throws Exception {
+        // Process current step
+        WorkflowContext updatedContext = processor.process(stepConfig, context);
+
+        // Pass to next handler if exists
+        if (nextHandler != null) {
+            return nextHandler.handle(updatedContext);
+        }
+
+        return updatedContext;
+    }
+}
+
+3) com.empower.crm.core.engine.factory.WorkflowStepProcessorFactory :
+package com.empower.crm.core.engine.factory;
+
+import com.empower.crm.core.engine.processor.WorkflowStepProcessor;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+/**
+ * Abstract Factory pattern implementation for creating workflow step processors.
+ * Manages the registry of all available step processors.
+ */
+@Component
+public class WorkflowStepProcessorFactory {
+
+    private final Map<String, WorkflowStepProcessor> processorRegistry;
+
+    /**
+     * Constructor that auto-discovers all WorkflowStepProcessor beans.
+     *
+     * @param processors List of all available step processors injected by Spring
+     */
+    public WorkflowStepProcessorFactory(List<WorkflowStepProcessor> processors) {
+        this.processorRegistry = processors.stream()
+                .collect(Collectors.toMap(
+                        WorkflowStepProcessor::getStepType,
+                        Function.identity()
+                ));
+    }
+
+    /**
+     * Get a processor for the specified step type.
+     *
+     * @param stepType The type of step (e.g., "validation", "compose", "transform")
+     * @return The appropriate processor
+     * @throws IllegalArgumentException if no processor found for the step type
+     */
+    public WorkflowStepProcessor getProcessor(String stepType) {
+        WorkflowStepProcessor processor = processorRegistry.get(stepType);
+
+        if (processor == null) {
+            throw new IllegalArgumentException("No processor found for step type: " + stepType);
+        }
+
+        return processor;
+    }
+
+    /**
+     * Check if a processor exists for the given step type.
+     *
+     * @param stepType The step type to check
+     * @return true if a processor exists, false otherwise
+     */
+    public boolean hasProcessor(String stepType) {
+        return processorRegistry.containsKey(stepType);
+    }
+}
+
+
+Short Description: Unit test WorkflowChainBuilder class buildChain() method with mocked ApplicationContext. 
+
+Detailed Description: Test WorkflowChainBuilder class buildChain() method by mocking Spring ApplicationContext to return test handler beans. Verify method constructs handler chains correctly with proper ordering and error handling. 
+
+Scope: 
+
+In Scope: 
+Testing buildChain() method with mocked ApplicationContext 
+Testing chain construction logic for all phases 
+Testing bean retrieval from context with correct names 
+Testing handler linking and ordering 
+Testing exception handling for missing beans 
+Testing empty phase configuration handling 
+  
+Out of Scope: 
+Actual Spring bean resolution 
+Handler execution logic 
+Workflow execution 
+Bean lifecycle management 
+
+Test Points: 
+
+Test buildChain() retrieves beans from context with correct bean names 
+Test buildChain() creates chain with handlers in correct phase order 
+Test buildChain() links handler.setNext() correctly 
+Test buildChain() throws BeanNotFoundException for missing/invalid bean names 
+Test buildChain() handles empty/null phase configurations appropriately 
