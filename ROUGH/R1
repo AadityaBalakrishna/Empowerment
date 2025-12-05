@@ -202,3 +202,261 @@ Test buildChain() creates chain with handlers in correct phase order
 Test buildChain() links handler.setNext() correctly 
 Test buildChain() throws BeanNotFoundException for missing/invalid bean names 
 Test buildChain() handles empty/null phase configurations appropriately 
+
+
+
+4) package com.empower.crm.core.engine.processor;
+
+import com.empower.crm.core.engine.context.WorkflowContext;
+
+import java.util.Map;
+
+/**
+ * Base interface for workflow step processors using Strategy pattern. Each step type (validation,
+ * compose, transform, etc.) implements this interface.
+ */
+public interface WorkflowStepProcessor
+{
+
+	/**
+	 * Process a workflow step and update the context.
+	 *
+	 * @param stepConfig
+	 *            The configuration for this step
+	 * @param context
+	 *            The current workflow context
+	 * @return Updated workflow context after processing
+	 * @throws Exception
+	 *             if step processing fails
+	 */
+	WorkflowContext process(Map<String, Object> stepConfig, WorkflowContext context)
+			throws Exception;
+
+	/**
+	 * Get the type of step this processor handles.
+	 *
+	 * @return The step type (e.g., "validation", "compose", "transform")
+	 */
+	String getStepType();
+}
+
+5) package com.empower.crm.core.engine.context;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+
+/**
+ * Immutable context for workflow execution using Builder pattern. Contains all data needed during
+ * workflow processing.
+ */
+public final class WorkflowContext
+{
+
+	private final Map<String, Object> payload;
+	private final Map<String, Object> headers;
+	private final Map<String, Object> vars;
+	private final Map<String, Object> sources;
+	private final Map<String, Object> transform;
+	private final String workflowName;
+
+	private WorkflowContext(Builder builder)
+	{
+		this.payload = Map.copyOf(builder.payload);
+		this.headers = Map.copyOf(builder.headers);
+		this.vars = new HashMap<>(builder.vars);
+		this.sources = new HashMap<>(builder.sources);
+		this.transform = new HashMap<>(builder.transform);
+		this.workflowName = builder.workflowName;
+	}
+
+	public Map<String, Object> getPayload()
+	{
+		return payload;
+	}
+
+	public Map<String, Object> getHeaders()
+	{
+		return headers;
+	}
+
+	public Map<String, Object> getVars()
+	{
+		return vars;
+	}
+
+	public Map<String, Object> getSources()
+	{
+		return sources;
+	}
+
+	public Map<String, Object> getTransform()
+	{
+		return transform;
+	}
+
+	public String getWorkflowName()
+	{
+		return workflowName;
+	}
+
+	public Optional<Object> getPayloadValue(String key)
+	{
+		return Optional.ofNullable(payload.get(key));
+	}
+
+	public Optional<Object> getHeaderValue(String key)
+	{
+		return Optional.ofNullable(headers.get(key));
+	}
+
+	public Optional<Object> getVariable(String key)
+	{
+		return Optional.ofNullable(vars.get(key));
+	}
+
+	public Optional<Object> getSource(String key)
+	{
+		return Optional.ofNullable(sources.get(key));
+	}
+
+	public Map<String, Object> toMap()
+	{
+		Map<String, Object> contextMap = new HashMap<>();
+		contextMap.put("payload", payload);
+		contextMap.put("headers", headers);
+		contextMap.put("vars", vars);
+		contextMap.put("sources", sources);
+		contextMap.put("transform", transform);
+		return contextMap;
+	}
+
+	/**
+	 * Create a new WorkflowContext with additional variables merged in. Maintains immutability by
+	 * creating a new instance.
+	 */
+	public WorkflowContext withVars(Map<String, Object> newVars)
+	{
+		Map<String, Object> mergedVars = new HashMap<>(this.vars);
+		mergedVars.putAll(newVars);
+
+		return builder().workflowName(this.workflowName)
+				.payload(this.payload)
+				.headers(this.headers)
+				.vars(mergedVars)
+				.sources(this.sources)
+				.transform(this.transform)
+				.build();
+	}
+
+	/**
+	 * Create a new WorkflowContext with additional sources merged in. Maintains immutability by
+	 * creating a new instance.
+	 */
+	public WorkflowContext withSources(Map<String, Object> newSources)
+	{
+		Map<String, Object> mergedSources = new HashMap<>(this.sources);
+		mergedSources.putAll(newSources);
+
+		return builder().workflowName(this.workflowName)
+				.payload(this.payload)
+				.headers(this.headers)
+				.vars(this.vars)
+				.sources(mergedSources)
+				.transform(this.transform)
+				.build();
+	}
+
+	/**
+	 * Create a new WorkflowContext with additional transforms merged in. Maintains immutability by
+	 * creating a new instance.
+	 */
+	public WorkflowContext withTransform(Map<String, Object> newTransform)
+	{
+		Map<String, Object> mergedTransform = new HashMap<>(this.transform);
+		mergedTransform.putAll(newTransform);
+
+		return builder().workflowName(this.workflowName)
+				.payload(this.payload)
+				.headers(this.headers)
+				.vars(this.vars)
+				.sources(this.sources)
+				.transform(mergedTransform)
+				.build();
+	}
+
+	public static Builder builder()
+	{
+		return new Builder();
+	}
+
+	public static class Builder
+	{
+		private Map<String, Object> payload = new HashMap<>();
+		private Map<String, Object> headers = new HashMap<>();
+		private Map<String, Object> vars = new HashMap<>();
+		private Map<String, Object> sources = new HashMap<>();
+		private Map<String, Object> transform = new HashMap<>();
+		private String workflowName;
+
+		public Builder payload(Map<String, Object> payload)
+		{
+			this.payload = payload != null ? payload : new HashMap<>();
+			return this;
+		}
+
+		public Builder headers(Map<String, Object> headers)
+		{
+			this.headers = headers != null ? headers : new HashMap<>();
+			return this;
+		}
+
+		public Builder workflowName(String workflowName)
+		{
+			this.workflowName = workflowName;
+			return this;
+		}
+
+		public Builder vars(Map<String, Object> vars)
+		{
+			this.vars = vars != null ? new HashMap<>(vars) : new HashMap<>();
+			return this;
+		}
+
+		public Builder sources(Map<String, Object> sources)
+		{
+			this.sources = sources != null ? new HashMap<>(sources) : new HashMap<>();
+			return this;
+		}
+
+		public Builder transform(Map<String, Object> transform)
+		{
+			this.transform = transform != null ? new HashMap<>(transform) : new HashMap<>();
+			return this;
+		}
+
+		public Builder addVariable(String key, Object value)
+		{
+			this.vars.put(key, value);
+			return this;
+		}
+
+		public Builder addSource(String key, Object value)
+		{
+			this.sources.put(key, value);
+			return this;
+		}
+
+		public Builder addTransform(String key, Object value)
+		{
+			this.transform.put(key, value);
+			return this;
+		}
+
+		public WorkflowContext build()
+		{
+			return new WorkflowContext(this);
+		}
+	}
+}
+
