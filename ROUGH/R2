@@ -1,1 +1,55 @@
-ss
+/**
+     * TEST POINT: Boundary Condition
+     * Test buildChain() with exactly one step to ensure loop handles single-item lists
+     * without attempting to link a non-existent second handler.
+     */
+    @Test
+    @DisplayName("buildChain should create a single independent handler for single-item list")
+    void testBuildChain_SingleStep() {
+        // Arrange
+        String stepType = "email";
+        List<Map<String, Object>> stepConfigs = Collections.singletonList(Map.of("id", "single"));
+
+        when(processorFactory.getProcessor(stepType)).thenReturn(workflowStepProcessor);
+
+        // Act
+        WorkflowStepHandler result = workflowChainBuilder.buildChain(stepType, stepConfigs);
+
+        // Assert
+        assertNotNull(result);
+        Map<String, Object> config = (Map<String, Object>) ReflectionTestUtils.getField(result, "stepConfig");
+        assertEquals("single", config.get("id"));
+        
+        // Verify nextHandler is null
+        Object nextHandler = ReflectionTestUtils.getField(result, "nextHandler");
+        assertNull(nextHandler, "Single step handler should not have a next handler");
+    }
+
+    /**
+     * TEST POINT: Robustness
+     * Test buildChain() when the input list contains a null element.
+     * The builder should ideally create a handler with null config (pass-through) or handle it gracefully.
+     */
+    @Test
+    @DisplayName("buildChain should handle null elements within configuration list")
+    void testBuildChain_ListWithNulls() {
+        // Arrange
+        String stepType = "validation";
+        // List with one valid config and one null config
+        List<Map<String, Object>> stepConfigs = Arrays.asList(Map.of("id", "1"), null);
+
+        when(processorFactory.getProcessor(stepType)).thenReturn(workflowStepProcessor);
+
+        // Act
+        WorkflowStepHandler firstHandler = workflowChainBuilder.buildChain(stepType, stepConfigs);
+
+        // Assert
+        assertNotNull(firstHandler);
+        
+        // Verify second handler was created even with null config
+        WorkflowStepHandler secondHandler = (WorkflowStepHandler) ReflectionTestUtils.getField(firstHandler, "nextHandler");
+        assertNotNull(secondHandler, "Should create handler for null config entry");
+        
+        Map<String, Object> secondConfig = (Map<String, Object>) ReflectionTestUtils.getField(secondHandler, "stepConfig");
+        assertNull(secondConfig, "Second handler should have null configuration");
+    }
