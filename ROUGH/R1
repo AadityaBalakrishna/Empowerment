@@ -3,7 +3,6 @@ package com.empower.crm.core.engine.chain;
 import com.empower.crm.core.engine.factory.WorkflowStepProcessorFactory;
 import com.empower.crm.core.engine.processor.WorkflowStepProcessor;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -17,135 +16,258 @@ import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for WorkflowChainBuilder.
- * * Scope:
- * - Tests chain construction logic.
- * - Tests bean retrieval via Factory (Mocked Context).
- * - Tests handler linking and ordering.
- * - Tests exception handling for missing beans.
  */
 @ExtendWith(MockitoExtension.class)
-class WorkflowChainBuilderTest {
+class WorkflowChainBuilderTest
+{
 
-    @Mock
-    private WorkflowStepProcessorFactory processorFactory;
+	@Mock
+	private WorkflowStepProcessorFactory processorFactory;
 
-    @Mock
-    private WorkflowStepProcessor workflowStepProcessor;
+	@Mock
+	private WorkflowStepProcessor workflowStepProcessor;
 
-    private WorkflowChainBuilder workflowChainBuilder;
+	private WorkflowChainBuilder workflowChainBuilder;
 
-    @BeforeEach
-    void setUp() {
-        // Initialize builder with the mocked factory (Acting as the Context)
-        workflowChainBuilder = new WorkflowChainBuilder(processorFactory);
-    }
+	@BeforeEach
+	void setUp()
+	{
+		workflowChainBuilder = new WorkflowChainBuilder(processorFactory);
+	}
 
-    /**
-     * Test Point: Test buildChain() retrieves beans from context with correct bean names
-     * Test Point: Test buildChain() creates chain with handlers in correct phase order
-     * Test Point: Test buildChain() links handler.setNext() correctly
-     */
-    @Test
-    @DisplayName("buildChain should construct a linked chain of handlers in the correct order")
-    void testBuildChain_ConstructsCorrectChain() {
-        // Arrange
-        String stepType = "validation";
-        
-        // Create 3 distinct configurations to verify order
-        Map<String, Object> config1 = Map.of("stepId", "1", "action", "verify_email");
-        Map<String, Object> config2 = Map.of("stepId", "2", "action", "verify_phone");
-        Map<String, Object> config3 = Map.of("stepId", "3", "action", "verify_address");
-        
-        List<Map<String, Object>> stepConfigs = Arrays.asList(config1, config2, config3);
+	/**
+	 * Test Points covered: 1. Test buildChain() retrieves beans from context with correct bean
+	 * names 2. Test buildChain() creates chain with handlers in correct phase order 3. Test
+	 * buildChain() links handler.setNext() correctly
+	 */
+	@Test
+	void testBuildChain_ConstructsCorrectChain()
+	{
+		String stepType = "validation";
 
-        // Mock the factory to return a processor when asked for "validation"
-        when(processorFactory.getProcessor(stepType)).thenReturn(workflowStepProcessor);
+		// Create 3 distinct configurations to verify order
+		Map<String, Object> config1 = Map.of("stepId", "1", "action", "verify_email");
+		Map<String, Object> config2 = Map.of("stepId", "2", "action", "verify_phone");
+		Map<String, Object> config3 = Map.of("stepId", "3", "action", "verify_address");
 
-        // Act
-        WorkflowStepHandler firstHandler = workflowChainBuilder.buildChain(stepType, stepConfigs);
+		List<Map<String, Object>> stepConfigs = Arrays.asList(config1, config2, config3);
 
-        // Assert 1: Verify factory was called with correct name (Bean Retrieval)
-        verify(processorFactory, times(1)).getProcessor(stepType);
+		// Mock the factory to return a processor when asked for "validation"
+		when(processorFactory.getProcessor(stepType)).thenReturn(workflowStepProcessor);
 
-        // Assert 2: Verify First Handler exists and has correct config
-        assertNotNull(firstHandler, "The returned handler chain should not be null");
-        Map<String, Object> actualConfig1 = (Map<String, Object>) ReflectionTestUtils.getField(firstHandler, "stepConfig");
-        assertEquals(config1, actualConfig1, "First handler should contain the first configuration map");
+		WorkflowStepHandler firstHandler = workflowChainBuilder.buildChain(stepType, stepConfigs);
 
-        // Assert 3: Verify Linkage to Second Handler
-        WorkflowStepHandler secondHandler = (WorkflowStepHandler) ReflectionTestUtils.getField(firstHandler, "nextHandler");
-        assertNotNull(secondHandler, "First handler should be linked to a second handler");
-        Map<String, Object> actualConfig2 = (Map<String, Object>) ReflectionTestUtils.getField(secondHandler, "stepConfig");
-        assertEquals(config2, actualConfig2, "Second handler should contain the second configuration map");
+		// Verify factory was called with the correct name (Bean Retrieval)
+		verify(processorFactory, times(1)).getProcessor(stepType);
 
-        // Assert 4: Verify Linkage to Third Handler
-        WorkflowStepHandler thirdHandler = (WorkflowStepHandler) ReflectionTestUtils.getField(secondHandler, "nextHandler");
-        assertNotNull(thirdHandler, "Second handler should be linked to a third handler");
-        Map<String, Object> actualConfig3 = (Map<String, Object>) ReflectionTestUtils.getField(thirdHandler, "stepConfig");
-        assertEquals(config3, actualConfig3, "Third handler should contain the third configuration map");
+		// Verify First Handler exists and has correct config
+		assertNotNull(firstHandler, "The first handler in the chain should not be null");
+		Map<String, Object> actualConfig1 = (Map<String, Object>) ReflectionTestUtils
+				.getField(firstHandler, "stepConfig");
+		assertEquals(config1, actualConfig1,
+				"First handler should contain the first configuration map");
 
-        // Assert 5: Verify End of Chain
-        WorkflowStepHandler fourthHandler = (WorkflowStepHandler) ReflectionTestUtils.getField(thirdHandler, "nextHandler");
-        assertNull(fourthHandler, "The last handler's nextHandler should be null");
-    }
+		// Verify Linkage to Second Handler
+		WorkflowStepHandler secondHandler = (WorkflowStepHandler) ReflectionTestUtils
+				.getField(firstHandler, "nextHandler");
+		assertNotNull(secondHandler, "First handler should be linked to a second handler");
+		Map<String, Object> actualConfig2 = (Map<String, Object>) ReflectionTestUtils
+				.getField(secondHandler, "stepConfig");
+		assertEquals(config2, actualConfig2,
+				"Second handler should contain the second configuration map");
 
-    /**
-     * Test Point: Test buildChain() handles empty phase configurations appropriately
-     */
-    @Test
-    @DisplayName("buildChain should return null when configuration list is empty")
-    void testBuildChain_WithEmptyConfig() {
-        // Arrange
-        String stepType = "transform";
-        List<Map<String, Object>> emptyConfigs = Collections.emptyList();
+		// Verify Linkage to Third Handler
+		WorkflowStepHandler thirdHandler = (WorkflowStepHandler) ReflectionTestUtils
+				.getField(secondHandler, "nextHandler");
+		assertNotNull(thirdHandler, "The second handler should link to the third handler");
+		Map<String, Object> actualConfig3 = (Map<String, Object>) ReflectionTestUtils
+				.getField(thirdHandler, "stepConfig");
+		assertEquals(config3, actualConfig3,
+				"The third handler should have the correct configuration");
 
-        // Act
-        WorkflowStepHandler result = workflowChainBuilder.buildChain(stepType, emptyConfigs);
+		// Verify End of Chain
+		WorkflowStepHandler fourthHandler = (WorkflowStepHandler) ReflectionTestUtils
+				.getField(thirdHandler, "nextHandler");
+		assertNull(fourthHandler, "The third handler should not link to any further handlers");
+	}
 
-        // Assert
-        assertNull(result, "Result should be null for empty configuration list");
-        // Verify factory is NOT called (optimization check)
-        verifyNoInteractions(processorFactory);
-    }
+	/**
+	 * Test Point: Test buildChain() handles empty phase configurations appropriately
+	 */
+	@Test
+	void testBuildChain_WithEmptyConfig()
+	{
+		String stepType = "transform";
+		List<Map<String, Object>> emptyConfigs = Collections.emptyList();
 
-    /**
-     * Test Point: Test buildChain() handles null phase configurations appropriately
-     */
-    @Test
-    @DisplayName("buildChain should return null when configuration list is null")
-    void testBuildChain_WithNullConfig() {
-        // Arrange
-        String stepType = "transform";
+		WorkflowStepHandler result = workflowChainBuilder.buildChain(stepType, emptyConfigs);
 
-        // Act
-        WorkflowStepHandler result = workflowChainBuilder.buildChain(stepType, null);
+		assertNull(result, "The result should be null when the configuration list is empty");
+		verifyNoInteractions(processorFactory);
+	}
 
-        // Assert
-        assertNull(result, "Result should be null for null configuration list");
-        verifyNoInteractions(processorFactory);
-    }
+	/**
+	 * Test Point: Test buildChain() handles null phase configurations appropriately
+	 */
+	@Test
+	void testBuildChain_WithNullConfig()
+	{
+		String stepType = "transform";
 
-    /**
-     * Test Point: Test buildChain() throws Exception for missing/invalid bean names.
-     * Note: Testing for IllegalArgumentException as defined in the provided Factory class.
-     */
-    @Test
-    @DisplayName("buildChain should throw exception when processor bean is not found")
-    void testBuildChain_ThrowsException_WhenBeanNotFound() {
-        // Arrange
-        String invalidStepType = "unknown_process";
-        List<Map<String, Object>> stepConfigs = Collections.singletonList(Map.of("key", "val"));
+		WorkflowStepHandler result = workflowChainBuilder.buildChain(stepType, null);
 
-        // Simulate Factory throwing exception when bean name is unknown
-        when(processorFactory.getProcessor(invalidStepType))
-            .thenThrow(new IllegalArgumentException("No processor found for step type: " + invalidStepType));
+		assertNull(result, "The result should be null when the configuration list is null");
+		verifyNoInteractions(processorFactory);
+	}
 
-        // Act & Assert
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
-            workflowChainBuilder.buildChain(invalidStepType, stepConfigs);
-        });
+	/**
+	 * Test Point: Test buildChain() throws Exception for missing/invalid bean names. Note: Testing
+	 * for IllegalArgumentException as defined in the provided Factory class.
+	 */
+	@Test
+	void testBuildChain_ThrowsException_WhenBeanNotFound()
+	{
+		String invalidStepType = "unknown_process";
+		List<Map<String, Object>> stepConfigs = Collections.singletonList(Map.of("key", "val"));
 
-        assertEquals("No processor found for step type: unknown_process", exception.getMessage());
-        verify(processorFactory).getProcessor(invalidStepType);
-    }
+		// Simulate Factory throwing exception when bean name is unknown
+		when(processorFactory.getProcessor(invalidStepType)).thenThrow(new IllegalArgumentException(
+				"No processor found for step type: " + invalidStepType));
+
+		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+				() -> workflowChainBuilder.buildChain(invalidStepType, stepConfigs));
+
+		assertEquals("No processor found for step type: unknown_process", exception.getMessage(),
+				"The exception message should indicate the missing processor for the invalid step type");
+		verify(processorFactory).getProcessor(invalidStepType);
+	}
+
+	/**
+	 * TEST POINT: Boundary Condition Test buildChain() with exactly one step to ensure loop handles
+	 * single-item lists without attempting to link a non-existent second handler.
+	 */
+	@Test
+	void testBuildChain_SingleStep()
+	{
+		String stepType = "email";
+		Map<String, Object> expectedConfig = Map.of("id", "single");
+		List<Map<String, Object>> stepConfigs = Collections.singletonList(expectedConfig);
+
+		when(processorFactory.getProcessor(stepType)).thenReturn(workflowStepProcessor);
+
+		WorkflowStepHandler result = workflowChainBuilder.buildChain(stepType, stepConfigs);
+
+		assertNotNull(result, "The result should not be null for a single-step configuration");
+
+		// Verify the handler has the correct configuration
+		Map<String, Object> actualConfig = (Map<String, Object>) ReflectionTestUtils
+				.getField(result, "stepConfig");
+		assertNotNull(actualConfig, "The handler's configuration should not be null");
+		assertEquals(expectedConfig, actualConfig,
+				"The handler should have the correct configuration");
+
+		// Verify nextHandler is null
+		Object nextHandler = ReflectionTestUtils.getField(result, "nextHandler");
+		assertNull(nextHandler, "Single step handler should not have a next handler");
+	}
+
+	/**
+	 * TEST POINT: Robustness Test buildChain() when the input list contains a null element.
+	 */
+	@Test
+	void testBuildChain_ListWithNulls()
+	{
+
+		String stepType = "validation";
+		// List with one valid config and one null config
+		List<Map<String, Object>> stepConfigs = Arrays.asList(Map.of("id", "1"), null);
+
+		when(processorFactory.getProcessor(stepType)).thenReturn(workflowStepProcessor);
+
+		WorkflowStepHandler firstHandler = workflowChainBuilder.buildChain(stepType, stepConfigs);
+
+		assertNotNull(firstHandler,
+				"The first handler should not be null even if the list contains null");
+
+		// Verify second handler was created even with null config
+		WorkflowStepHandler secondHandler = (WorkflowStepHandler) ReflectionTestUtils
+				.getField(firstHandler, "nextHandler");
+		assertNotNull(secondHandler,
+				"The second handler should be created even for a null configuration");
+
+		Map<String, Object> secondConfig = (Map<String, Object>) ReflectionTestUtils
+				.getField(secondHandler, "stepConfig");
+		assertNull(secondConfig, "The second handler should have a null configuration");
+	}
+
+	@Test
+	void testBuildChain_NullStepType()
+	{
+		String stepType = null;
+		List<Map<String, Object>> stepConfigs = Collections.singletonList(Map.of("id", "1"));
+
+		when(processorFactory.getProcessor(stepType)).thenThrow(
+				new IllegalArgumentException("No processor found for step type: " + stepType));
+		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+				() -> workflowChainBuilder.buildChain(stepType, stepConfigs));
+		assertEquals("No processor found for step type: null", exception.getMessage(),
+				"The exception message should indicate the missing processor for the null step type");
+	}
+
+	@Test
+	void testBuildChain_SingleConfigWithNullValues()
+	{
+		String stepType = "validation";
+		Map<String, Object> configWithNullValues = new HashMap<>();
+		configWithNullValues.put("key", null); // Allows null values
+		List<Map<String, Object>> stepConfigs = Collections.singletonList(configWithNullValues);
+
+		when(processorFactory.getProcessor(stepType)).thenReturn(workflowStepProcessor);
+
+		WorkflowStepHandler result = workflowChainBuilder.buildChain(stepType, stepConfigs);
+
+		assertNotNull(result,
+				"The handler should not be null even if the config contains null values");
+		Map<String, Object> actualConfig = (Map<String, Object>) ReflectionTestUtils
+				.getField(result, "stepConfig");
+		assertEquals(configWithNullValues, actualConfig,
+				"The handler should retain the null values in the config");
+	}
+
+	@Test
+	void testBuildChain_MultipleChainsWithDifferentStepTypes()
+	{
+		String stepType1 = "validation";
+		String stepType2 = "transformation";
+
+		List<Map<String, Object>> stepConfigs1 = Collections.singletonList(Map.of("id", "1"));
+		List<Map<String, Object>> stepConfigs2 = Collections.singletonList(Map.of("id", "2"));
+
+		when(processorFactory.getProcessor(stepType1)).thenReturn(workflowStepProcessor);
+		when(processorFactory.getProcessor(stepType2)).thenReturn(workflowStepProcessor);
+
+		WorkflowStepHandler chain1 = workflowChainBuilder.buildChain(stepType1, stepConfigs1);
+		WorkflowStepHandler chain2 = workflowChainBuilder.buildChain(stepType2, stepConfigs2);
+
+		assertNotNull(chain1, "The first chain should not be null");
+		assertNotNull(chain2, "The second chain should not be null");
+
+		Map<String, Object> config1 = (Map<String, Object>) ReflectionTestUtils.getField(chain1,
+				"stepConfig");
+		Map<String, Object> config2 = (Map<String, Object>) ReflectionTestUtils.getField(chain2,
+				"stepConfig");
+
+		assertEquals(stepConfigs1.get(0), config1,
+				"The first chain should have the correct configuration");
+		assertEquals(stepConfigs2.get(0), config2,
+				"The second chain should have the correct configuration");
+	}
 }
+
+
+can you verify if these review comments are addressed:
+in testBuildChain_SingleStep()- only verifies the handler exists but does not verify the handler has the correct config
+Add context specific message to all asserts  to make test failures easy to troubleshoot
+Please add test null step type.
+Single config with null values. Test what happens when a config map contains null values.
+Test verifying that calling buildChain multiple times with different step types works correctly and does not interfere with previous chains.
