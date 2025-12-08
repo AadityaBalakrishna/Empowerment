@@ -1,55 +1,87 @@
-/**
-     * TEST POINT: Boundary Condition
-     * Test buildChain() with exactly one step to ensure loop handles single-item lists
-     * without attempting to link a non-existent second handler.
-     */
-    @Test
-    @DisplayName("buildChain should create a single independent handler for single-item list")
-    void testBuildChain_SingleStep() {
-        // Arrange
-        String stepType = "email";
-        List<Map<String, Object>> stepConfigs = Collections.singletonList(Map.of("id", "single"));
+Please verify if the test - WorkflowChainBuilderTest follow this - Java Testing Guidelines Addendum , if not make the necessary changes please
 
-        when(processorFactory.getProcessor(stepType)).thenReturn(workflowStepProcessor);
 
-        // Act
-        WorkflowStepHandler result = workflowChainBuilder.buildChain(stepType, stepConfigs);
+3. Code Coverage Requirement  - Ensure unit tests achieve at least 80% coverage or higher.  [Mine is class - 100%, method - 80%, Line - 83%, branch - 83%]
 
-        // Assert
-        assertNotNull(result);
-        Map<String, Object> config = (Map<String, Object>) ReflectionTestUtils.getField(result, "stepConfig");
-        assertEquals("single", config.get("id"));
-        
-        // Verify nextHandler is null
-        Object nextHandler = ReflectionTestUtils.getField(result, "nextHandler");
-        assertNull(nextHandler, "Single step handler should not have a next handler");
-    }
+5. Test Naming Standards 
+Use @DisplayName annotations in Given–When–Then format.s 
 
-    /**
-     * TEST POINT: Robustness
-     * Test buildChain() when the input list contains a null element.
-     * The builder should ideally create a handler with null config (pass-through) or handle it gracefully.
-     */
-    @Test
-    @DisplayName("buildChain should handle null elements within configuration list")
-    void testBuildChain_ListWithNulls() {
-        // Arrange
-        String stepType = "validation";
-        // List with one valid config and one null config
-        List<Map<String, Object>> stepConfigs = Arrays.asList(Map.of("id", "1"), null);
+Example: 
+Given missing details, When validation runs, Then validation should fail. 
+@DisplayName("Given missing details, When validation runs, Then validation should fail") 
 
-        when(processorFactory.getProcessor(stepType)).thenReturn(workflowStepProcessor);
+5. Meaningful Assertion Messages 
+Assertions must include clear, descriptive messages. 
 
-        // Act
-        WorkflowStepHandler firstHandler = workflowChainBuilder.buildChain(stepType, stepConfigs);
+Example: 
+Expected validation to fail for missing detail. 
+assertEquals(false, result, ">Comment: Expected validation to fail for missing detail>"); 
 
-        // Assert
-        assertNotNull(firstHandler);
-        
-        // Verify second handler was created even with null config
-        WorkflowStepHandler secondHandler = (WorkflowStepHandler) ReflectionTestUtils.getField(firstHandler, "nextHandler");
-        assertNotNull(secondHandler, "Should create handler for null config entry");
-        
-        Map<String, Object> secondConfig = (Map<String, Object>) ReflectionTestUtils.getField(secondHandler, "stepConfig");
-        assertNull(secondConfig, "Second handler should have null configuration");
-    }
+6. Mock External Dependencies Properly 
+Use Mockito for external calls, repositories, or services. Avoid hitting real external systems. 
+
+7. Follow the AAA Pattern (Arrange-Act-Assert) 
+Each test should follow Arrange, Act, Assert for clarity. 
+
+AAA Pattern Example 
+
+Scenario: 
+We want to test a Validator class that checks whether an input string is not empty. 
+Code Under Test 
+public class Validator { 
+    public boolean isValid(String input) { 
+        return input != null && !input.trim().isEmpty(); 
+    } 
+} 
+
+Shape 
+
+✅ JUnit Test Using AAA Pattern 
+
+class ValidatorTest { 
+    @Test 
+    @DisplayName("Given empty string, When validation runs, Then validation should fail") 
+    void shouldFailValidationWhenInputIsEmpty() { 
+        // Arrange 
+        Validator validator = new Validator(); 
+        String input = ""; 
+
+        // Act 
+        boolean result = validator.isValid(input); 
+
+        // Assert 
+        assertFalse(result, ">Comment: Expected validation to fail for empty input>"); 
+    } 
+} 
+
+Shape 
+
+🔍 Breakdown of AAA Pattern 
+
+1. Arrange 
+Prepare your objects, inputs, mocks, or test data. 
+Validator validator = new Validator(); 
+String input = ""; 
+
+2. Act 
+Execute the method being tested. 
+boolean result = validator.isValid(input); 
+
+3. Assert 
+Verify the outcome. 
+assertFalse(result, ">Comment: Expected validation to fail for empty input>"); 
+
+8. Validate Negative and Edge Cases 
+Include null inputs, empty collections, boundary values, and invalid scenarios. 
+
+9. Use Test Data Builders 
+Improves reusability and reduces clutter in test setup. 
+
+10. Keep Unit Tests Independent 
+Each test should run in isolation with no shared mutable state. 
+
+11. Clean Up Resources 
+Use @AfterEach / @AfterAll to close resources or mocks when needed. 
+
+12. Use Meaningful Test Method Names 
+Example: shouldFailValidationWhenDetailsAreMissing() 
