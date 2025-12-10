@@ -1,46 +1,103 @@
-Does the test - WorkflowChainBuilderTest cover everything required for this task:
+as per the code review, i have been suggested to add these codes too to the test class:
 
-Task: Test WorkflowChainBuilder class chain building logic 
 
-  
+	@Test
+	@DisplayName("Given processor throws exception, When buildChain is called, Then it should propagate the exception")
+	void testBuildChain_ProcessorThrowsException() throws Exception {
+		// Arrange
+		String stepType = "validation";
+		Map<String, Object> config = Map.of("stepId", "1", "action", "verify_email");
+		List<Map<String, Object>> stepConfigs = Collections.singletonList(config);
 
-Classes Under Test: 
+		when(processorFactory.getProcessor(stepType)).thenReturn(workflowStepProcessor);
+		doThrow(new RuntimeException("Processor error")).when(workflowStepProcessor).process(eq(config), any());
 
-com.empower.crm.core.engine.chain.WorkflowChainBuilder 
-com.empower.crm.core.engine.chain.WorkflowStepHandler 
-com.empower.crm.core.engine.factory.WorkflowStepProcessorFactory 
-  
+		// Act & Assert
+		RuntimeException exception = assertThrows(RuntimeException.class,
+				() -> workflowChainBuilder.buildChain(stepType, stepConfigs));
 
-Short Description: Unit test WorkflowChainBuilder class buildChain() method with mocked ApplicationContext. 
+		assertEquals("Processor error", exception.getMessage(),
+				"The exception message should match the processor's error message");
+	}
 
-  
+	@Test
+	@DisplayName("Given duplicate step configurations, When buildChain is called, Then it should create handlers for each configuration")
+	void testBuildChain_DuplicateStepConfigurations() {
+		// Arrange
+		String stepType = "validation";
+		Map<String, Object> config = Map.of("stepId", "1", "action", "verify_email");
+		List<Map<String, Object>> stepConfigs = Arrays.asList(config, config);
 
-Detailed Description: Test WorkflowChainBuilder class buildChain() method by mocking Spring ApplicationContext to return test handler beans. Verify method constructs handler chains correctly with proper ordering and error handling. 
+		when(processorFactory.getProcessor(stepType)).thenReturn(workflowStepProcessor);
 
-  
+		// Act
+		WorkflowStepHandler firstHandler = workflowChainBuilder.buildChain(stepType, stepConfigs);
 
-Scope: 
+		// Assert
+		assertNotNull(firstHandler, "The first handler should not be null");
 
-In Scope: 
-Testing buildChain() method with mocked ApplicationContext 
-Testing chain construction logic for all phases 
-Testing bean retrieval from context with correct names 
-Testing handler linking and ordering 
-Testing exception handling for missing beans 
-Testing empty phase configuration handling 
-  
+		WorkflowStepHandler secondHandler = (WorkflowStepHandler) ReflectionTestUtils
+				.getField(firstHandler, "nextHandler");
+		assertNotNull(secondHandler, "The second handler should not be null");
 
-Out of Scope: 
-Actual Spring bean resolution 
-Handler execution logic 
-Workflow execution 
-Bean lifecycle management 
-  
+		Map<String, Object> firstConfig = (Map<String, Object>) ReflectionTestUtils.getField(firstHandler, "stepConfig");
+		Map<String, Object> secondConfig = (Map<String, Object>) ReflectionTestUtils.getField(secondHandler, "stepConfig");
 
-Test Points: 
+		assertEquals(config, firstConfig, "The first handler should have the correct configuration");
+		assertEquals(config, secondConfig, "The second handler should have the correct configuration");
+	}
 
-Test buildChain() retrieves beans from context with correct bean names 
-Test buildChain() creates chain with handlers in correct phase order 
-Test buildChain() links handler.setNext() correctly 
-Test buildChain() throws BeanNotFoundException for missing/invalid bean names 
-Test buildChain() handles empty/null phase configurations appropriately 
+	@Test
+	@DisplayName("Given multiple threads, When buildChain is called concurrently, Then it should create independent chains")
+	void testBuildChain_Concurrency() throws InterruptedException {
+		// Arrange
+		String stepType = "validation";
+		Map<String, Object> config = Map.of("stepId", "1", "action", "verify_email");
+		List<Map<String, Object>> stepConfigs = Collections.singletonList(config);
+
+		when(processorFactory.getProcessor(stepType)).thenReturn(workflowStepProcessor);
+
+		// Act
+		Runnable task = () -> {
+			WorkflowStepHandler handler = workflowChainBuilder.buildChain(stepType, stepConfigs);
+			assertNotNull(handler, "Handler should not be null in concurrent execution");
+		};
+
+		Thread thread1 = new Thread(task);
+		Thread thread2 = new Thread(task);
+
+		thread1.start();
+		thread2.start();
+
+		thread1.join();
+		thread2.join();
+
+		// Assert
+		verify(processorFactory, times(2)).getProcessor(stepType);
+	}
+
+	@Test
+	@DisplayName("Given valid configurations, When buildChain is called, Then it should not create circular references")
+	void testBuildChain_NoCircularReferences() {
+		// Arrange
+		String stepType = "validation";
+		Map<String, Object> config1 = Map.of("stepId", "1", "action", "verify_email");
+		Map<String, Object> config2 = Map.of("stepId", "2", "action", "verify_phone");
+		List<Map<String, Object>> stepConfigs = Arrays.asList(config1, config2);
+
+		when(processorFactory.getProcessor(stepType)).thenReturn(workflowStepProcessor);
+
+		// Act
+		WorkflowStepHandler firstHandler = workflowChainBuilder.buildChain(stepType, stepConfigs);
+
+		// Assert
+		WorkflowStepHandler secondHandler = (WorkflowStepHandler) ReflectionTestUtils.getField(firstHandler, "nextHandler");
+		WorkflowStepHandler thirdHandler = (WorkflowStepHandler) ReflectionTestUtils.getField(secondHandler, "nextHandler");
+
+		assertNotNull(firstHandler, "The first handler should not be null");
+		assertNotNull(secondHandler, "The second handler should not be null");
+		assertNull(thirdHandler, "The chain should not have circular references");
+	}
+
+can you verify if these test cases are correct, all are passing except - testBuildChain_ProcessorThrowsException, which is failing with the error:
+org.opentest4j.AssertionFailedError: Expected java.lang.RuntimeException to be thrown, but nothing was thrown.
