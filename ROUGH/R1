@@ -1,103 +1,59 @@
-as per the code review, i have been suggested to add these codes too to the test class:
+package com.empower.epw.crm.gateway.web.controller;
 
+import lombok.CustomLog;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-	@Test
-	@DisplayName("Given processor throws exception, When buildChain is called, Then it should propagate the exception")
-	void testBuildChain_ProcessorThrowsException() throws Exception {
-		// Arrange
-		String stepType = "validation";
-		Map<String, Object> config = Map.of("stepId", "1", "action", "verify_email");
-		List<Map<String, Object>> stepConfigs = Collections.singletonList(config);
+@CustomLog
+@RestController
+@RequestMapping(value = "/api/gateway")
+class SsmController
+{
+	@Value("${scaffold.test.secret}")
+	private String scaffoldTestSecret;
 
-		when(processorFactory.getProcessor(stepType)).thenReturn(workflowStepProcessor);
-		doThrow(new RuntimeException("Processor error")).when(workflowStepProcessor).process(eq(config), any());
+	@Value("${crm.gateway.application}")
+	private String crmGatewayApplication;
 
-		// Act & Assert
-		RuntimeException exception = assertThrows(RuntimeException.class,
-				() -> workflowChainBuilder.buildChain(stepType, stepConfigs));
-
-		assertEquals("Processor error", exception.getMessage(),
-				"The exception message should match the processor's error message");
+	@GetMapping(value = "/ssm")
+	String transform()
+	{
+		log.info("Transform 'scaffold.test.secret' ssm value: " + scaffoldTestSecret);
+		return scaffoldTestSecret;
 	}
 
-	@Test
-	@DisplayName("Given duplicate step configurations, When buildChain is called, Then it should create handlers for each configuration")
-	void testBuildChain_DuplicateStepConfigurations() {
-		// Arrange
-		String stepType = "validation";
-		Map<String, Object> config = Map.of("stepId", "1", "action", "verify_email");
-		List<Map<String, Object>> stepConfigs = Arrays.asList(config, config);
-
-		when(processorFactory.getProcessor(stepType)).thenReturn(workflowStepProcessor);
-
-		// Act
-		WorkflowStepHandler firstHandler = workflowChainBuilder.buildChain(stepType, stepConfigs);
-
-		// Assert
-		assertNotNull(firstHandler, "The first handler should not be null");
-
-		WorkflowStepHandler secondHandler = (WorkflowStepHandler) ReflectionTestUtils
-				.getField(firstHandler, "nextHandler");
-		assertNotNull(secondHandler, "The second handler should not be null");
-
-		Map<String, Object> firstConfig = (Map<String, Object>) ReflectionTestUtils.getField(firstHandler, "stepConfig");
-		Map<String, Object> secondConfig = (Map<String, Object>) ReflectionTestUtils.getField(secondHandler, "stepConfig");
-
-		assertEquals(config, firstConfig, "The first handler should have the correct configuration");
-		assertEquals(config, secondConfig, "The second handler should have the correct configuration");
+	@GetMapping(value = "/cfg")
+	String getScaffoldTestKey()
+	{
+		log.info("Transform 'crm.gateway.application' cfg value: " + crmGatewayApplication);
+		return crmGatewayApplication;
 	}
+}
 
-	@Test
-	@DisplayName("Given multiple threads, When buildChain is called concurrently, Then it should create independent chains")
-	void testBuildChain_Concurrency() throws InterruptedException {
-		// Arrange
-		String stepType = "validation";
-		Map<String, Object> config = Map.of("stepId", "1", "action", "verify_email");
-		List<Map<String, Object>> stepConfigs = Collections.singletonList(config);
+and this is from the service_schema.yaml:
+  /api/gateway/ssm:
+    get:
+      tags:
+      - ssm-controller
+      operationId: transform
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: string
 
-		when(processorFactory.getProcessor(stepType)).thenReturn(workflowStepProcessor);
 
-		// Act
-		Runnable task = () -> {
-			WorkflowStepHandler handler = workflowChainBuilder.buildChain(stepType, stepConfigs);
-			assertNotNull(handler, "Handler should not be null in concurrent execution");
-		};
+say i change,  /api/gateway/ssm: to  /api/gateway/ssm-test: in the service schema, 
 
-		Thread thread1 = new Thread(task);
-		Thread thread2 = new Thread(task);
+in SsmControllerApi.java, for transform() it becomes
+--> return apiClient.invokeAPI("/api/gateway/ssm-test-town", HttpMethod.GET,
 
-		thread1.start();
-		thread2.start();
+but this won't refer to the 
+@GetMapping(value = "/ssm")
+	String transform() in SsmController, 
 
-		thread1.join();
-		thread2.join();
-
-		// Assert
-		verify(processorFactory, times(2)).getProcessor(stepType);
-	}
-
-	@Test
-	@DisplayName("Given valid configurations, When buildChain is called, Then it should not create circular references")
-	void testBuildChain_NoCircularReferences() {
-		// Arrange
-		String stepType = "validation";
-		Map<String, Object> config1 = Map.of("stepId", "1", "action", "verify_email");
-		Map<String, Object> config2 = Map.of("stepId", "2", "action", "verify_phone");
-		List<Map<String, Object>> stepConfigs = Arrays.asList(config1, config2);
-
-		when(processorFactory.getProcessor(stepType)).thenReturn(workflowStepProcessor);
-
-		// Act
-		WorkflowStepHandler firstHandler = workflowChainBuilder.buildChain(stepType, stepConfigs);
-
-		// Assert
-		WorkflowStepHandler secondHandler = (WorkflowStepHandler) ReflectionTestUtils.getField(firstHandler, "nextHandler");
-		WorkflowStepHandler thirdHandler = (WorkflowStepHandler) ReflectionTestUtils.getField(secondHandler, "nextHandler");
-
-		assertNotNull(firstHandler, "The first handler should not be null");
-		assertNotNull(secondHandler, "The second handler should not be null");
-		assertNull(thirdHandler, "The chain should not have circular references");
-	}
-
-can you verify if these test cases are correct, all are passing except - testBuildChain_ProcessorThrowsException, which is failing with the error:
-org.opentest4j.AssertionFailedError: Expected java.lang.RuntimeException to be thrown, but nothing was thrown.
+Help me with a solution where, the SsmControllerApi doesn't get updated with the new api endpoint during the mvn clean install, it should throw an error during the build preventing the update
